@@ -53,3 +53,4 @@ alembic/versions/*.pyc
 # Temp
 tmp/
 temp/
+backend/.venv/
