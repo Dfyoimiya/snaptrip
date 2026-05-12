@@ -44,20 +44,20 @@ class IntentParser(BaseAgent):
             return await asyncio.wait_for(
                 self._parse_via_llm(context), timeout=INTENT_TIMEOUT_S
             )
-        except TimeoutError:
+        except (TimeoutError, Exception):
             return await self._parse_via_keywords(context)
 
     async def _parse_via_llm(self, context: AgentContext) -> AgentResult:
-        from jinja2 import Template
-        with open("app/agents/prompts/intent.j2") as f:
-            tpl = Template(f.read())
-
-        prompt = tpl.render(
-            user_input=context.user_input,
-            current_time=datetime.now().isoformat(),
-        )
-
         try:
+            from jinja2 import Template
+            with open("app/agents/prompts/intent.j2") as f:
+                tpl = Template(f.read())
+
+            prompt = tpl.render(
+                user_input=context.user_input,
+                current_time=datetime.now().isoformat(),
+            )
+
             import httpx
             async with httpx.AsyncClient(timeout=INTENT_TIMEOUT_S) as client:
                 resp = await client.post(
