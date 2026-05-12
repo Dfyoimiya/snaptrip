@@ -1,0 +1,48 @@
+@import 'tailwindcss';
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    @apply bg-[#121212] text-zinc-300 antialiased;
+    font-family: 'DM Sans', system-ui, sans-serif;
+  }
+}
+
+@keyframes breathe-glow {
+  0%,
+  100% {
+    opacity: 0.45;
+    filter: drop-shadow(0 0 6px rgb(34 211 238 / 0.45));
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 14px rgb(34 211 238 / 0.95));
+  }
+}
+
+@keyframes bar-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes node-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
