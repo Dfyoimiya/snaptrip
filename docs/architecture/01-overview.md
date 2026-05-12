@@ -13,30 +13,40 @@
 ## 系统分层
 
 ```
-┌─────────────────────────────────────────┐
-│             用户交互层 (React)             │
-│  三栏布局：地图 | Agent 大脑 | 计划卡片      │
-└────────────────┬────────────────────────┘
-                 │ REST / WebSocket (SSE)
-┌────────────────▼────────────────────────┐
-│           API 网关层 (FastAPI)            │
-│  路由注册 + 依赖注入 + 统一响应 + CORS     │
-└────────────────┬────────────────────────┘
-                 │ ACP / HTTP
-┌────────────────▼────────────────────────┐
-│          Agent 执行层 (Hermes Hub)        │
-│                                          │
-│  Intent → Context → Retrieval 并行       │
-│     ↓                                     │
-│  Planning → Execution → Notify           │
-│     ↓ (失败)                              │
-│  Fallback Agent (局部重规划)              │
-└────────────────┬────────────────────────┘
+┌─────────────────────────────────────────────┐
+│             接入层 (React)                    │
+│  三栏布局：地图 | Agent 大脑 | 计划卡片        │
+└────────────────┬────────────────────────────┘
+                 │ REST / SSE
+┌────────────────▼────────────────────────────┐
+│           API 网关层 (FastAPI)                │
+└────────────────┬────────────────────────────┘
+                 │
+┌────────────────▼────────────────────────────┐
+│            编排层 (Master Controller)         │
+│  State Registry (7状态FSM)                    │
+│  Policy Engine (策略裁决表)                    │
+│  Checkpoint Manager (Slot检查点)              │
+│                                              │
+│  9 Agent:                                    │
+│  Intent → Context → Memory → Retrieval →     │
+│  Planning → Consensus → Execution →          │
+│  Fallback → Notify                           │
+└────────────────┬────────────────────────────┘
                  │ Tool Call
-┌────────────────▼────────────────────────┐
-│         Mock API 层 (FastAPI 8001)        │
-│  POI 搜索 | 排队查询 | 订座/订票 | 下单   │
-└─────────────────────────────────────────┘
+┌────────────────▼────────────────────────────┐
+│            执行层 (Tool DAG)                  │
+│  L0: search_poi | get_user_profile           │
+│  L1: check_queue | check_availability        │
+│      check_child_facility | calculate_route  │
+│  L2: book_table | book_ticket | order        │
+│  L3: notify                                  │
+└────────────────┬────────────────────────────┘
+                 │ HTTP
+┌────────────────▼────────────────────────────┐
+│         Mock API 层 (FastAPI 8001)            │
+│  POI 搜索 | 排队查询 | 订座/订票 | 下单        │
+└─────────────────────────────────────────────┘
 ```
 
 ## 组件交互时序
@@ -49,39 +59,58 @@
                           ▼
                       FastAPI Gateway
                           │
-                    dispatch_plan() ──▶ Agent Hub
-                          │
                           ▼
-                    ┌─────────────┐
-                    │ Intent Agent │  (解析意图，输出结构化意图对象)
-                    └──────┬──────┘
-                           ▼
-                    ┌───────────────┐
-                    │ Context Agent  │  (加载用户画像、偏好向量)
-                    └──────┬────────┘
-                           ▼
-                    ┌─────────────────┐
-                    │ Retrieval Agent  │  (并行 POI 搜索 + 排队查询)
-                    └──────┬──────────┘
-                           ▼
-                    ┌──────────────────┐
-                    │ Planning Agent    │  (两阶段：硬约束 + 软约束)
-                    └──────┬───────────┘
-                           ▼  [SSE: planning 事件]
-                    ┌──────────────────┐
-                    │ Execution Agent   │  (Tool DAG + Saga)
-                    │  ├─ check_queue   │
-                    │  ├─ book_table    │
-                    │  └─ order         │
-                    └──────┬───────────┘
-                           ▼ (成功)  [SSE: execution 事件]
-                    ┌──────────────┐
-                    │ Notify Agent  │  (生成分享卡片 URL)
-                    └──────┬───────┘
-                           ▼  [SSE: notify 事件]
-                    Frontend ◀── SSE Stream
+                    Master Controller
                           │
-                    render PlanCard
+          ┌───────────────┼───────────────┐
+          ▼               ▼               ▼
+    State Registry   Policy Engine   Checkpoint Mgr
+          │               │               │
+          ▼               ▼               │
+    ┌─────────────┐       │               │
+    │ Intent      │──►  DRAFTING          │
+    │ Parser      │                       │
+    └──────┬──────┘                       │
+           ▼                              │
+    ┌───────────────┐                     │
+    │ Context Loader│──►  DRAFTING        │
+    └──────┬────────┘                     │
+           ▼                              │
+    ┌───────────────┐                     │
+    │ Memory Manager│──►  DRAFTING→PLANNING│
+    └──────┬────────┘                     │
+           ▼                              │
+    ┌─────────────────┐                   │
+    │ Retrieval Engine │──► PLANNING      │
+    └──────┬──────────┘                   │
+           ▼                              │
+    ┌──────────────────┐                  │
+    │ Planning Engine   │──► CONFIRMING   │
+    │ Phase1 CSP+Shadow │                  │
+    │ Phase2 LLM        │                  │
+    └──────┬───────────┘                  │
+           ▼                              │
+    ┌──────────────────┐                  │
+    │ Consensus Resolver│──► EXECUTING    │
+    │ (auto_confirm)    │                  │
+    └──────┬───────────┘                  │
+           ▼                              │
+    ┌──────────────────┐                  │
+    │ Execution Engine  │──► DONE/FAILED  │
+    │ Tool DAG 分层并行 │                  │
+    └──────┬───────────┘                  │
+           │ (失败)                        │
+           ▼                              │
+    ┌──────────────────┐──► CONFIRMING(重入)│
+    │ Fallback Engine   │                  │
+    │ Shadow+Ripple     │                  │
+    └──────┬───────────┘                  │
+           ▼                              │
+    ┌──────────────┐                      │
+    │ Notify Engine│──► DONE              │
+    └──────────────┘                      │
+                                          │
+    Frontend ◀── SSE Stream (10 events)   │
 ```
 
 ## 关键技术决策
@@ -129,10 +158,12 @@
 ## 数据流
 
 1. **用户请求** → Plan API 接收原始文本
-2. **意图解析** → 输出结构化意图对象（人数、时间、预算、偏好标签）
-3. **POI 检索** → 调用 Mock API 获取候选 POI 池（≤50 个）
-4. **硬约束过滤** → 纯代码：按营业时间/地理/容量/预算过滤（→ ≤10 个）
-5. **软约束排序** → LLM：按偏好标签排序并分配时隙
-6. **预订执行** → DAG 编排：先查排队，再根据依赖并行/串行预订
-7. **异常处理** → 若预订失败，Fallback Agent 替换失败节点并重排
-8. **结果返回** → SSE 流式推送到前端，前端逐步渲染计划卡片
+2. **意图解析** → Intent Parser 输出结构化意图（人数、时间、预算、偏好）
+3. **上下文加载** → Context Loader 加载用户画像 + Memory Manager 增强记忆向量
+4. **POI 检索** → Retrieval Engine 并行 3 路检索获取候选池（≤50）
+5. **硬约束过滤** → Planning Phase 1（纯代码 CSP）+ 同步预计算 Shadow Candidates
+6. **软约束排序** → Planning Phase 2（LLM）排序并分配时隙
+7. **共识确认** → Consensus Resolver 处理确认（单用户 auto_confirm）
+8. **预订执行** → Execution Engine Tool DAG 4 层分层并行执行
+9. **异常容错** → Fallback Engine 激活 Shadow Candidate + 涟漪重排
+10. **结果输出** → Notify Engine 生成分享卡片，SSE 全链路推送

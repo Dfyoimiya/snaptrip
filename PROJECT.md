@@ -33,13 +33,16 @@
 ↓ REST / WebSocket (SSE)
 API 网关层 (FastAPI)
 ↓ ACP / HTTP
-Agent 执行层 (Hermes Hub)
-├─ Intent Agent (意图解析)
-├─ Context Agent (用户画像加载)
-├─ Retrieval Agent (POI 检索)
-├─ Planning Agent (时空规划)
-├─ Execution Agent (预订/下单)
-└─ Notify Agent (分享通知)
+Agent 执行层 (Master Controller)
+├─ Intent Parser (意图解析)
+├─ Context Loader (用户画像加载)
+├─ Memory Manager (记忆增强与向量读写)
+├─ Retrieval Engine (并行 POI 检索)
+├─ Planning Engine (两阶段时空规划)
+├─ Consensus Resolver (群体共识解析)
+├─ Execution Engine (Tool DAG 编排执行)
+├─ Fallback Engine (容错与局部重规划)
+└─ Notify Engine (分享卡片生成)
 ↓ Tool Call
 Mock API 层 (FastAPI 独立服务)
 ├─ POI 搜索
