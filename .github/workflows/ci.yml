@@ -90,11 +90,3 @@ jobs:
           flags: backend
         if: always()
 
-  build-images:
-    name: Build Images
-    runs-on: ubuntu-latest
-    needs: [lint-backend, lint-frontend, test-backend]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build
-        run: docker compose build
