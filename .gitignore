@@ -33,6 +33,7 @@ frontend/.vite/
 
 # Docker
 .docker/
+docker-compose.override.yml
 
 # OS
 .DS_Store
