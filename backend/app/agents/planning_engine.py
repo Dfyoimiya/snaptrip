@@ -87,7 +87,7 @@ class PlanningEngine(BaseAgent):
                                 start: datetime, end: datetime) -> List[POI]:
         try:
             from jinja2 import Template
-            with open("backend/app/agents/prompts/planning.j2") as f:
+            with open("app/agents/prompts/planning.j2") as f:
                 tpl = Template(f.read())
 
             from app.agents.retrieval_engine import haversine
@@ -117,7 +117,7 @@ class PlanningEngine(BaseAgent):
                 content = data["choices"][0]["message"]["content"]
                 parsed = json.loads(content.strip().removeprefix("```json").removesuffix("```"))
         except Exception:
-            return self._phase2_fallback_sort(candidates)
+            return self._phase2_fallback_sort(candidates, intent)
 
         poi_map = {p.id: p for p in candidates}
         result = []

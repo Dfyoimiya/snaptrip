@@ -49,7 +49,7 @@ class IntentParser(BaseAgent):
 
     async def _parse_via_llm(self, context: AgentContext) -> AgentResult:
         from jinja2 import Template
-        with open("backend/app/agents/prompts/intent.j2") as f:
+        with open("app/agents/prompts/intent.j2") as f:
             tpl = Template(f.read())
 
         prompt = tpl.render(

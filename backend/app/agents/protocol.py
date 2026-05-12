@@ -24,7 +24,7 @@ class AgentContext(BaseModel):
 
 class AgentResult(BaseModel):
     """Agent 执行结果"""
-    agent_name: str
+    agent_name: str = ""
     status: str = "success"
     data: Dict[str, Any] = Field(default_factory=dict)
     error: Optional[str] = None
