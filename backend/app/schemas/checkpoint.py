@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 class LockedSlot(BaseModel):
     slot_index: int
+    confirmed_by: list[str] = Field(default_factory=list)
     confirmed_at: datetime | None = None
     booking_id: str | None = None
 

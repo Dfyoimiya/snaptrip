@@ -74,6 +74,12 @@ class FallbackEngine(BaseAgent):
     def _find_alternative(self, draft: PlanDraft, slot_index: int) -> POI | None:
         from app.data.seed_pois import SEED_POIS
         original = draft.slots[slot_index]
+
+        if original.shadow_id:
+            shadow = next((p for p in SEED_POIS if p.id == original.shadow_id), None)
+            if shadow:
+                return POI(**shadow.model_dump())
+
         candidates = [p for p in SEED_POIS
                       if p.type == original.poi.type and p.id != original.poi.id]
         return random.choice(candidates) if candidates else None

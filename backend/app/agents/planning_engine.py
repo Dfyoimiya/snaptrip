@@ -144,15 +144,24 @@ class PlanningEngine(BaseAgent):
         cur = start
         action_map = {"restaurant": "book_table", "cafe": "arrive",
                       "attraction": "arrive", "activity": "book_ticket"}
+
+        shadow_pool = [p for p in pois]
         for i, poi in enumerate(pois[:cnt]):
             move = random.randint(10, 25) if i > 0 else 0
             cur += timedelta(minutes=move)
             slot_end = cur + timedelta(minutes=min(dur, 90))
+
+            shadow_id = None
+            shadows = [p for p in shadow_pool if p.type == poi.type and p.id != poi.id]
+            if shadows:
+                shadow_id = random.choice(shadows).id
+
             slots.append(PlanSlot(
                 sequence=i, poi=poi,
                 time_range=TimeRange(start=cur, end=slot_end),
                 action=action_map.get(poi.type, "arrive"),
                 estimated_cost=poi.avg_price, move_time_min=move, confidence=0.7,
+                shadow_id=shadow_id,
             ))
             cur = slot_end
             if cur >= end:

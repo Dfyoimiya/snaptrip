@@ -1,9 +1,18 @@
-"""Execution Engine — Tool DAG 编排器入口（委托给 tool_dag）"""
+"""Execution Engine — Tool DAG 编排入口：依赖感知 + 分层超时 + Gateway 集成"""
 
 from __future__ import annotations
 
+import asyncio
+import json
+import random
+import time
+from collections import defaultdict
+from typing import Any
+
 from app.agents.protocol import AgentContext, AgentResult, BaseAgent
-from app.schemas.plan import ExecutionResult, PlanDraft
+from app.core.constants import EXEC_TIMEOUT_TOTAL_S
+from app.schemas.plan import ExecutionResult, FailedSlot, PlanDraft, SlotExecutionResult
+from app.schemas.tool import TOOL_REGISTRY, ToolResult
 
 
 class ExecutionEngine(BaseAgent):
@@ -14,8 +23,10 @@ class ExecutionEngine(BaseAgent):
         if not draft:
             return AgentResult(status="failed", error="No plan draft found")
 
-        result = await self._execute_dag(draft)
-
+        result = await asyncio.wait_for(
+            self._execute_dag(draft, context),
+            timeout=EXEC_TIMEOUT_TOTAL_S,
+        )
         return AgentResult(data={"execution": result.model_dump()})
 
     def _extract_draft(self, context: AgentContext) -> PlanDraft | None:
@@ -24,35 +35,43 @@ class ExecutionEngine(BaseAgent):
                 return PlanDraft(**h.data["draft"])
         return None
 
-    async def _execute_dag(self, draft: PlanDraft) -> ExecutionResult:
-        import asyncio
-        from collections import defaultdict
-
-        from app.schemas.tool import TOOL_REGISTRY, ToolResult
-
+    async def _execute_dag(self, draft: PlanDraft, context: AgentContext) -> ExecutionResult:
         slots = draft.slots
-        layers: dict[int, list] = defaultdict(list)
+        layers: dict[int, list[tuple[int, str, Any]]] = defaultdict(list)
+        failed_tools: set[str] = set()
 
         for i, slot in enumerate(slots):
             tool = slot.action if slot.action in TOOL_REGISTRY else "search_poi"
             if tool not in TOOL_REGISTRY:
                 continue
             meta = TOOL_REGISTRY[tool]
-            layers[meta.layer].append((i, slot, tool, meta))
+            layers[meta.layer].append((i, tool, meta))
 
         results: dict[int, list[ToolResult]] = {}
         confirmed: dict[int, str] = {}
-        failed_slots = []
-        timings = {}
+        failed_slots: list[FailedSlot] = []
+        timings: dict[int, int] = {}
         total_ms = 0
 
         for layer_idx in sorted(layers.keys()):
-            import time
             t0 = time.perf_counter()
             tasks = []
-            for i, slot, tool, meta in layers[layer_idx]:
-                tasks.append(self._call_mock_tool(i, slot, tool, meta))
-            layer_results = await asyncio.gather(*tasks, return_exceptions=True)
+            for slot_i, tool, meta in layers[layer_idx]:
+                deps_ok = all(d not in failed_tools for d in meta.dependencies)
+                if not deps_ok:
+                    failed_slots.append(FailedSlot(
+                        slot_index=slot_i, tool_name=tool,
+                        error_code="SKIPPED",
+                        error_message="Upstream dependency failed",
+                        poi_id=str(slot_i),
+                    ))
+                    continue
+                tasks.append(self._call_tool_with_timeout(slot_i, tool, meta))
+
+            try:
+                layer_results: list = await asyncio.gather(*tasks, return_exceptions=True)
+            except Exception:
+                layer_results = []
 
             for r in layer_results:
                 if isinstance(r, BaseException):
@@ -62,7 +81,7 @@ class ExecutionEngine(BaseAgent):
                 if r.success and r.data and "booking_id" in (r.data or {}):
                     confirmed[r.slot_index] = r.data["booking_id"]
                 elif not r.success:
-                    from app.schemas.plan import FailedSlot
+                    failed_tools.add(r.tool_name)
                     failed_slots.append(FailedSlot(
                         slot_index=r.slot_index, tool_name=r.tool_name,
                         error_code=r.error_code or "UNKNOWN",
@@ -70,16 +89,19 @@ class ExecutionEngine(BaseAgent):
                         poi_id=str(r.slot_index),
                     ))
 
+                self._log_tool_call(r, draft.plan_id, layer_idx)
+
             timings[layer_idx] = int((time.perf_counter() - t0) * 1000)
             total_ms += timings[layer_idx]
 
-        status = "full_success" if not failed_slots else ("partial_success" if confirmed else "full_failure")
+        status = "full_success"
+        if failed_slots:
+            status = "partial_success" if confirmed else "full_failure"
 
-        from app.schemas.plan import SlotExecutionResult
-        slot_results = {}
+        slot_result_map: dict[int, SlotExecutionResult] = {}
         for _layer_idx, items in results.items():
             for r in items:
-                slot_results[r.slot_index] = SlotExecutionResult(
+                slot_result_map[r.slot_index] = SlotExecutionResult(
                     slot_index=r.slot_index, tool_name=r.tool_name,
                     status="success" if r.success else "failed",
                     booking_id=r.data.get("booking_id") if r.data else None,
@@ -89,26 +111,52 @@ class ExecutionEngine(BaseAgent):
 
         return ExecutionResult(
             plan_id=draft.plan_id, status=status,
-            slot_results=slot_results, confirmed_bookings=confirmed,
+            slot_results=slot_result_map, confirmed_bookings=confirmed,
             failed_slots=failed_slots, layer_timings=timings,
             total_elapsed_ms=total_ms,
         )
 
-    async def _call_mock_tool(self, slot_index: int, slot, tool: str, meta):
-        import asyncio
-        import random
+    async def _call_tool_with_timeout(self, slot_index: int, tool: str,
+                                       meta) -> ToolResult:
+        try:
+            return await asyncio.wait_for(
+                self._call_mock_tool(slot_index, tool, meta),
+                timeout=meta.timeout_ms / 1000.0,
+            )
+        except TimeoutError:
+            return ToolResult(
+                success=False, tool_name=tool,
+                node_id=f"{tool}_{slot_index}",
+                slot_index=slot_index, error_code="TIMEOUT",
+                error_message=f"{tool} timed out",
+                elapsed_ms=meta.timeout_ms,
+            )
 
-        from app.schemas.tool import ToolResult
-        await asyncio.sleep(random.uniform(0.05, 0.2))
+    async def _call_mock_tool(self, slot_index: int, tool: str, meta) -> ToolResult:
+        delay = random.uniform(0.02, 0.15)
+        await asyncio.sleep(delay)
         if random.random() < meta.failure_rate_mock:
             return ToolResult(
                 success=False, tool_name=tool, node_id=f"{tool}_{slot_index}",
                 slot_index=slot_index, error_code="BOOKING_FULL",
-                error_message="该时段已满", elapsed_ms=random.randint(50, 200),
+                error_message="该时段已满", elapsed_ms=int(delay * 1000),
             )
         return ToolResult(
             success=True, tool_name=tool, node_id=f"{tool}_{slot_index}",
             slot_index=slot_index,
-            data={"booking_id": f"bk_{slot_index}_{random.randint(1000,9999)}"},
-            elapsed_ms=random.randint(50, 200),
+            data={"booking_id": f"bk_{slot_index}_{random.randint(1000, 9999)}"},
+            elapsed_ms=int(delay * 1000),
         )
+
+    def _log_tool_call(self, r: ToolResult, plan_id: str, layer: int):
+        log = json.dumps({
+            "event": "tool_execution",
+            "plan_id": plan_id,
+            "layer": layer,
+            "tool_name": r.tool_name,
+            "slot_index": r.slot_index,
+            "status": "success" if r.success else "failed",
+            "error_code": r.error_code,
+            "elapsed_ms": r.elapsed_ms,
+        }, ensure_ascii=False)
+        print(log)

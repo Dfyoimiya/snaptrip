@@ -1,8 +1,9 @@
-"""Tool DAG 编排器 — 拓扑排序 + 分层并行执行 + 轻量熔断"""
+"""Tool DAG 编排器 — 拓扑排序 + 分层并行执行 + 轻量熔断 + 结构化日志"""
 
 from __future__ import annotations
 
 import asyncio
+import json
 import random
 import time
 from collections import defaultdict
@@ -32,10 +33,12 @@ def build_execution_layers(slots: list[PlanSlot]) -> dict[int, list[ToolInvocati
 
 
 class ToolDAGScheduler:
-    """Tool DAG 分层并行调度器"""
+    """Tool DAG 分层并行调度器 + 轻量熔断"""
 
     def __init__(self):
         self.failure_counts: dict[str, int] = defaultdict(int)
+        self.circuit_open: set[str] = set()
+        self._failure_threshold = 5
 
     async def execute(self, draft: PlanDraft) -> dict[str, Any]:
         layers = build_execution_layers(draft.slots)
@@ -49,7 +52,7 @@ class ToolDAGScheduler:
         for layer_idx in sorted(layers.keys()):
             t0 = time.perf_counter()
             invocations = layers[layer_idx]
-            tasks = [self._call_tool(inv) for inv in invocations]
+            tasks = [self._call_tool_with_breaker(inv) for inv in invocations]
             gathered = await asyncio.gather(*tasks, return_exceptions=True)
 
             for r in gathered:
@@ -60,8 +63,12 @@ class ToolDAGScheduler:
                 if r.success and r.data and "booking_id" in (r.data or {}):
                     confirmed[r.slot_index] = r.data["booking_id"]
                 elif not r.success:
-                    failed.append({"slot_index": r.slot_index, "tool_name": r.tool_name,
-                                   "error_code": r.error_code, "error_message": r.error_message})
+                    failed.append({
+                        "slot_index": r.slot_index, "tool_name": r.tool_name,
+                        "error_code": r.error_code, "error_message": r.error_message,
+                    })
+
+                self._log_tool_execution(r, draft.plan_id, layer_idx)
 
             layer_timings[layer_idx] = int((time.perf_counter() - t0) * 1000)
             total_ms += layer_timings[layer_idx]
@@ -79,12 +86,22 @@ class ToolDAGScheduler:
             "total_elapsed_ms": total_ms,
         }
 
-    async def _call_tool(self, inv: ToolInvocation) -> ToolResult:
+    async def _call_tool_with_breaker(self, inv: ToolInvocation) -> ToolResult:
+        if inv.tool_name in self.circuit_open:
+            return ToolResult(
+                success=False, tool_name=inv.tool_name, node_id=inv.node_id,
+                slot_index=inv.slot_index, error_code="CIRCUIT_OPEN",
+                error_message="Circuit breaker open", elapsed_ms=0,
+            )
+
         meta = TOOL_REGISTRY.get(inv.tool_name)
         delay = random.uniform(0.02, 0.15)
         await asyncio.sleep(delay)
 
         if meta and random.random() < meta.failure_rate_mock:
+            self.failure_counts[inv.tool_name] += 1
+            if self.failure_counts[inv.tool_name] >= self._failure_threshold:
+                self.circuit_open.add(inv.tool_name)
             return ToolResult(
                 success=False, tool_name=inv.tool_name, node_id=inv.node_id,
                 slot_index=inv.slot_index, error_code="BOOKING_FULL",
@@ -92,9 +109,24 @@ class ToolDAGScheduler:
                 elapsed_ms=int(delay * 1000),
             )
 
+        self.failure_counts[inv.tool_name] = 0
         return ToolResult(
             success=True, tool_name=inv.tool_name, node_id=inv.node_id,
             slot_index=inv.slot_index,
             data={"booking_id": f"bk_{inv.slot_index}_{random.randint(1000, 9999)}"},
             elapsed_ms=int(delay * 1000),
         )
+
+    def _log_tool_execution(self, r: ToolResult, plan_id: str, layer: int):
+        log = json.dumps({
+            "event": "tool_execution",
+            "plan_id": plan_id,
+            "layer": layer,
+            "tool_name": r.tool_name,
+            "slot_index": r.slot_index,
+            "status": "success" if r.success else "failed",
+            "error_code": r.error_code,
+            "elapsed_ms": r.elapsed_ms,
+            "cached": r.cached,
+        }, ensure_ascii=False)
+        print(log)
