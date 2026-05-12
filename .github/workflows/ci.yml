@@ -19,7 +19,7 @@ jobs:
       - uses: astral-sh/setup-uv@v3
       - name: Install deps
         working-directory: backend
-        run: uv sync
+        run: uv sync --extra dev
       - name: ruff
         working-directory: backend
         run: uv run ruff check app/
