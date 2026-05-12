@@ -1,9 +1,9 @@
 """核心常量 —— 状态枚举 + 策略参数"""
 
-from enum import Enum
+from enum import StrEnum
 
 
-class PlanStatus(str, Enum):
+class PlanStatus(StrEnum):
     IDLE = "idle"
     DRAFTING = "drafting"
     PLANNING = "planning"
@@ -13,28 +13,28 @@ class PlanStatus(str, Enum):
     FAILED = "failed"
 
 
-class SceneType(str, Enum):
+class SceneType(StrEnum):
     FAMILY = "family"
     FRIENDS = "friends"
     SOLO = "solo"
     DATE = "date"
 
 
-class POIType(str, Enum):
+class POIType(StrEnum):
     RESTAURANT = "restaurant"
     CAFE = "cafe"
     ATTRACTION = "attraction"
     ACTIVITY = "activity"
 
 
-class ToolAction(str, Enum):
+class ToolAction(StrEnum):
     ARRIVE = "arrive"
     BOOK_TABLE = "book_table"
     BOOK_TICKET = "book_ticket"
     ORDER = "order"
 
 
-class ExecutionStatus(str, Enum):
+class ExecutionStatus(StrEnum):
     PENDING = "pending"
     RUNNING = "running"
     SUCCESS = "success"

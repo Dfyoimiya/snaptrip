@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 import uuid
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -19,15 +19,15 @@ class AgentContext(BaseModel):
     lat: float = 39.9219
     lng: float = 116.4435
     state: str = "idle"
-    history: List[AgentResult] = Field(default_factory=list)
+    history: list[AgentResult] = Field(default_factory=list)
 
 
 class AgentResult(BaseModel):
     """Agent 执行结果"""
     agent_name: str = ""
     status: str = "success"
-    data: Dict[str, Any] = Field(default_factory=dict)
-    error: Optional[str] = None
+    data: dict[str, Any] = Field(default_factory=dict)
+    error: str | None = None
     elapsed_ms: int = 0
 
 

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Dict, List, Optional
-
 from pydantic import BaseModel
 
 from app.agents.protocol import AgentContext, AgentResult
@@ -15,7 +13,7 @@ from app.schemas.plan import ExecutionResult, PlanDraft, PlanSlot
 
 class PolicyDecision(BaseModel):
     next_state: str
-    agents_to_activate: List[str]
+    agents_to_activate: list[str]
     message: str = ""
 
 
@@ -23,10 +21,10 @@ class MasterController:
 
     def __init__(self):
         self.state_machine = PlanStateMachine()
-        self.checkpoints: Dict[str, Checkpoint] = {}
-        self.agent_results: Dict[str, Dict[str, AgentResult]] = {}
-        self.drafts: Dict[str, PlanDraft] = {}
-        self.execution_results: Dict[str, ExecutionResult] = {}
+        self.checkpoints: dict[str, Checkpoint] = {}
+        self.agent_results: dict[str, dict[str, AgentResult]] = {}
+        self.drafts: dict[str, PlanDraft] = {}
+        self.execution_results: dict[str, ExecutionResult] = {}
 
     # === State Registry ===
 
@@ -44,7 +42,7 @@ class MasterController:
 
     # === Policy Engine ===
 
-    def decide(self, record: StateRecord, event: StateEvent, payload: dict = None) -> PolicyDecision:
+    def decide(self, record: StateRecord, event: StateEvent, payload: dict | None = None) -> PolicyDecision:
         timeout_state = self.state_machine.tick_timeout(record)
         if timeout_state:
             return PolicyDecision(
@@ -68,21 +66,22 @@ class MasterController:
                 return self.decide(record, StateEvent.EXECUTION_PARTIAL_FAIL)
         return PolicyDecision(next_state=PlanStatus.FAILED, agents_to_activate=[])
 
-    def _agents_for_state(self, state: str) -> List[str]:
-        return {
+    def _agents_for_state(self, state: str) -> list[str]:
+        mapping: dict[str, list[str]] = {
             PlanStatus.DRAFTING: ["intent_parser", "context_loader"],
             PlanStatus.PLANNING: ["retrieval_engine", "planning_engine"],
             PlanStatus.CONFIRMING: [],
             PlanStatus.EXECUTING: ["execution_engine"],
             PlanStatus.DONE: ["notify_engine"],
             PlanStatus.FAILED: [],
-        }.get(state, [])
+        }
+        return mapping.get(state, [])
 
     # === Checkpoint Manager ===
 
     def save_checkpoint(
-        self, plan_id: str, record: StateRecord, locked: List[int],
-        tentative: List[PlanSlot], shadows: List[tuple]
+        self, plan_id: str, record: StateRecord, locked: list[int],
+        tentative: list[PlanSlot], shadows: list[tuple]
     ) -> Checkpoint:
         cp = Checkpoint(
             plan_id=plan_id,
@@ -104,10 +103,10 @@ class MasterController:
         self.checkpoints[plan_id] = cp
         return cp
 
-    def get_checkpoint(self, plan_id: str) -> Optional[Checkpoint]:
+    def get_checkpoint(self, plan_id: str) -> Checkpoint | None:
         return self.checkpoints.get(plan_id)
 
-    def get_locked_indices(self, plan_id: str) -> List[int]:
+    def get_locked_indices(self, plan_id: str) -> list[int]:
         cp = self.checkpoints.get(plan_id)
         return [s.slot_index for s in cp.locked_slots] if cp else []
 
@@ -120,8 +119,8 @@ class MasterController:
         if "execution" in result.data:
             self.execution_results[plan_id] = result.data["execution"]
 
-    def get_draft(self, plan_id: str) -> Optional[PlanDraft]:
+    def get_draft(self, plan_id: str) -> PlanDraft | None:
         return self.drafts.get(plan_id)
 
-    def get_execution(self, plan_id: str) -> Optional[ExecutionResult]:
+    def get_execution(self, plan_id: str) -> ExecutionResult | None:
         return self.execution_results.get(plan_id)

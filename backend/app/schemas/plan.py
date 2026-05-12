@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -21,13 +20,13 @@ class POI(BaseModel):
     type: str
     lat: float
     lng: float
-    mood_tags: List[str] = Field(default_factory=list)
+    mood_tags: list[str] = Field(default_factory=list)
     avg_price: int = 0
     rating: float = 0.0
     business_hours: str = "09:00-22:00"
     child_friendly: bool = False
-    dietary_tags: List[str] = Field(default_factory=list)
-    capacity: Optional[int] = None
+    dietary_tags: list[str] = Field(default_factory=list)
+    capacity: int | None = None
 
 
 # ===== Agent 1: Intent Parser =====
@@ -36,19 +35,19 @@ class IntentInput(BaseModel):
     raw_query: str
     user_lat: float
     user_lng: float
-    timestamp: Optional[datetime] = None
-    session_id: Optional[str] = None
+    timestamp: datetime | None = None
+    session_id: str | None = None
 
 
 class IntentSchema(BaseModel):
-    time_window: Optional[TimeRange] = None
+    time_window: TimeRange | None = None
     guest_count: int = 2
-    budget: Optional[int] = None
+    budget: int | None = None
     scene_type: str = "solo"
-    type_prefs: List[str] = Field(default_factory=list)
-    mood_prefs: List[str] = Field(default_factory=list)
-    implicit_constraints: List[str] = Field(default_factory=list)
-    city: Optional[str] = None
+    type_prefs: list[str] = Field(default_factory=list)
+    mood_prefs: list[str] = Field(default_factory=list)
+    implicit_constraints: list[str] = Field(default_factory=list)
+    city: str | None = None
     confidence: float = 0.5
 
 
@@ -56,9 +55,9 @@ class IntentSchema(BaseModel):
 
 class EnrichedIntent(BaseModel):
     intent: IntentSchema
-    profile_vector: List[float] = Field(default_factory=list)
+    profile_vector: list[float] = Field(default_factory=list)
     family_profile: dict = Field(default_factory=dict)
-    historical_rejections: List[str] = Field(default_factory=list)
+    historical_rejections: list[str] = Field(default_factory=list)
     preferred_pace: str = "normal"
     user_id: str = "default"
 
@@ -66,7 +65,7 @@ class EnrichedIntent(BaseModel):
 # ===== Agent 3: Retrieval Engine =====
 
 class CandidatePool(BaseModel):
-    candidates: List[POI] = Field(default_factory=list)
+    candidates: list[POI] = Field(default_factory=list)
     total: int = 0
     query_id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
 
@@ -81,12 +80,12 @@ class PlanSlot(BaseModel):
     estimated_cost: int = 0
     move_time_min: int = 0
     confidence: float = 0.5
-    shadow_id: Optional[str] = None
+    shadow_id: str | None = None
 
 
 class PlanDraft(BaseModel):
     plan_id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
-    slots: List[PlanSlot] = Field(default_factory=list)
+    slots: list[PlanSlot] = Field(default_factory=list)
     total_cost: int = 0
     total_time_min: int = 0
     confidence: float = 0.5
@@ -99,9 +98,9 @@ class SlotExecutionResult(BaseModel):
     slot_index: int
     tool_name: str
     status: str
-    booking_id: Optional[str] = None
-    error_code: Optional[str] = None
-    error_message: Optional[str] = None
+    booking_id: str | None = None
+    error_code: str | None = None
+    error_message: str | None = None
     elapsed_ms: int = 0
     is_fallback: bool = False
 
@@ -109,10 +108,10 @@ class SlotExecutionResult(BaseModel):
 class ExecutionResult(BaseModel):
     plan_id: str
     status: str
-    slot_results: Dict[int, SlotExecutionResult] = Field(default_factory=dict)
-    confirmed_bookings: Dict[int, str] = Field(default_factory=dict)
-    failed_slots: List[FailedSlot] = Field(default_factory=list)
-    layer_timings: Dict[int, int] = Field(default_factory=dict)
+    slot_results: dict[int, SlotExecutionResult] = Field(default_factory=dict)
+    confirmed_bookings: dict[int, str] = Field(default_factory=dict)
+    failed_slots: list[FailedSlot] = Field(default_factory=list)
+    layer_timings: dict[int, int] = Field(default_factory=dict)
     total_elapsed_ms: int = 0
 
 
@@ -129,7 +128,7 @@ class FailedSlot(BaseModel):
     tool_name: str
     error_code: str
     error_message: str
-    shadow_candidate: Optional[ShadowCandidate] = None
+    shadow_candidate: ShadowCandidate | None = None
     poi_id: str = ""
 
 
@@ -144,7 +143,7 @@ class SlotDiff(BaseModel):
 
 class RevisedPlan(BaseModel):
     plan: PlanDraft
-    diff_patch: List[SlotDiff] = Field(default_factory=list)
+    diff_patch: list[SlotDiff] = Field(default_factory=list)
 
 
 # ===== Agent 8: Notify Engine =====
@@ -152,7 +151,7 @@ class RevisedPlan(BaseModel):
 class ShareCard(BaseModel):
     url: str = ""
     message: str = ""
-    ics_event: Optional[str] = None
+    ics_event: str | None = None
 
 
 # ===== Plan API =====
@@ -162,8 +161,8 @@ class PlanCreateRequest(BaseModel):
     user_id: str = "default"
     lat: float = 39.9219
     lng: float = 116.4435
-    start_time: Optional[datetime] = None
-    end_time: Optional[datetime] = None
+    start_time: datetime | None = None
+    end_time: datetime | None = None
 
 
 class PlanResponse(BaseModel):
@@ -172,5 +171,5 @@ class PlanResponse(BaseModel):
     status: str
     total_cost: int = 0
     total_time_min: int = 0
-    slots: List[PlanSlot] = Field(default_factory=list)
-    share_card: Optional[ShareCard] = None
+    slots: list[PlanSlot] = Field(default_factory=list)
+    share_card: ShareCard | None = None

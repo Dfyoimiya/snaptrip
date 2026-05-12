@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
 
 class LockedSlot(BaseModel):
     slot_index: int
-    confirmed_at: Optional[datetime] = None
-    booking_id: Optional[str] = None
+    confirmed_at: datetime | None = None
+    booking_id: str | None = None
 
 
 class TentativeSlot(BaseModel):
@@ -32,8 +31,8 @@ class Checkpoint(BaseModel):
     plan_id: str
     version: int = 1
     state: str = "idle"
-    locked_slots: List[LockedSlot] = Field(default_factory=list)
-    tentative_slots: List[TentativeSlot] = Field(default_factory=list)
-    shadow_candidates: List[ShadowSlot] = Field(default_factory=list)
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    locked_slots: list[LockedSlot] = Field(default_factory=list)
+    tentative_slots: list[TentativeSlot] = Field(default_factory=list)
+    shadow_candidates: list[ShadowSlot] = Field(default_factory=list)
+    created_at: datetime | None = None
+    updated_at: datetime | None = None

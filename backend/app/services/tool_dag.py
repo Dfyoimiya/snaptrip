@@ -6,14 +6,14 @@ import asyncio
 import random
 import time
 from collections import defaultdict
-from typing import Dict, List
+from typing import Any
 
 from app.schemas.plan import PlanDraft, PlanSlot
-from app.schemas.tool import ToolInvocation, ToolResult, TOOL_REGISTRY
+from app.schemas.tool import TOOL_REGISTRY, ToolInvocation, ToolResult
 
 
-def build_execution_layers(slots: List[PlanSlot]) -> Dict[int, List[ToolInvocation]]:
-    layers: Dict[int, List[ToolInvocation]] = defaultdict(list)
+def build_execution_layers(slots: list[PlanSlot]) -> dict[int, list[ToolInvocation]]:
+    layers: dict[int, list[ToolInvocation]] = defaultdict(list)
     for idx, slot in enumerate(slots):
         tool_name = slot.action if slot.action in TOOL_REGISTRY else "search_poi"
         if tool_name not in TOOL_REGISTRY:
@@ -35,16 +35,16 @@ class ToolDAGScheduler:
     """Tool DAG 分层并行调度器"""
 
     def __init__(self):
-        self.failure_counts: Dict[str, int] = defaultdict(int)
+        self.failure_counts: dict[str, int] = defaultdict(int)
 
-    async def execute(self, draft: PlanDraft) -> Dict[str, any]:
+    async def execute(self, draft: PlanDraft) -> dict[str, Any]:
         layers = build_execution_layers(draft.slots)
-        results: Dict[int, List[ToolResult]] = {}
-        confirmed: Dict[int, str] = {}
-        failed = []
-        layer_timings: Dict[int, int] = {}
+        results: dict[int, list[ToolResult]] = {}
+        confirmed: dict[int, str] = {}
+        failed: list[dict[str, object]] = []
+        layer_timings: dict[int, int] = {}
         total_ms = 0
-        slot_results = {}
+        slot_results: dict[int, object] = {}
 
         for layer_idx in sorted(layers.keys()):
             t0 = time.perf_counter()
@@ -53,8 +53,9 @@ class ToolDAGScheduler:
             gathered = await asyncio.gather(*tasks, return_exceptions=True)
 
             for r in gathered:
-                if isinstance(r, Exception):
+                if isinstance(r, BaseException):
                     continue
+                assert isinstance(r, ToolResult)
                 results.setdefault(layer_idx, []).append(r)
                 if r.success and r.data and "booking_id" in (r.data or {}):
                     confirmed[r.slot_index] = r.data["booking_id"]

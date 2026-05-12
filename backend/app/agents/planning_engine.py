@@ -5,20 +5,18 @@ from __future__ import annotations
 import asyncio
 import random
 from datetime import datetime, timedelta
-from typing import List
 
 from app.agents.protocol import AgentContext, AgentResult, BaseAgent
 from app.core.constants import (
-    PLANNING_PHASE1_TIMEOUT_MS,
     PLANNING_PHASE2_TIMEOUT_S,
 )
 from app.schemas.plan import (
+    POI,
     CandidatePool,
     EnrichedIntent,
     IntentSchema,
     PlanDraft,
     PlanSlot,
-    POI,
     TimeRange,
 )
 
@@ -46,7 +44,7 @@ class PlanningEngine(BaseAgent):
                 self._phase2_llm_sort(candidates, intent, start_time, end_time),
                 timeout=PLANNING_PHASE2_TIMEOUT_S,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             ranked = self._phase2_fallback_sort(candidates, intent)
 
         slots = self._generate_slots(ranked, start_time, end_time)
@@ -64,8 +62,8 @@ class PlanningEngine(BaseAgent):
         )
         return AgentResult(data={"draft": draft.model_dump()})
 
-    def _phase1_hard_filter(self, candidates: List[POI], intent: IntentSchema,
-                            lat: float, lng: float, start: datetime, end: datetime) -> List[POI]:
+    def _phase1_hard_filter(self, candidates: list[POI], intent: IntentSchema,
+                            lat: float, lng: float, start: datetime, end: datetime) -> list[POI]:
         from app.agents.retrieval_engine import haversine
         filtered = []
         for poi in candidates:
@@ -83,8 +81,8 @@ class PlanningEngine(BaseAgent):
         filtered.sort(key=lambda x: -x[1])
         return [p for p, _ in filtered[:10]]
 
-    async def _phase2_llm_sort(self, candidates: List[POI], intent: IntentSchema,
-                                start: datetime, end: datetime) -> List[POI]:
+    async def _phase2_llm_sort(self, candidates: list[POI], intent: IntentSchema,
+                                start: datetime, end: datetime) -> list[POI]:
         try:
             from jinja2 import Template
             with open("app/agents/prompts/planning.j2") as f:
@@ -105,6 +103,7 @@ class PlanningEngine(BaseAgent):
             )
 
             import json
+
             import httpx
             async with httpx.AsyncClient(timeout=PLANNING_PHASE2_TIMEOUT_S) as client:
                 resp = await client.post(
@@ -125,9 +124,9 @@ class PlanningEngine(BaseAgent):
             pid = item.get("poi_id")
             if pid and pid in poi_map:
                 result.append(poi_map[pid])
-        return result or self._phase2_fallback_sort(candidates)
+        return result or self._phase2_fallback_sort(candidates, intent)
 
-    def _phase2_fallback_sort(self, candidates: List[POI], intent: IntentSchema) -> List[POI]:
+    def _phase2_fallback_sort(self, candidates: list[POI], intent: IntentSchema) -> list[POI]:
         scored = []
         for p in candidates:
             s = p.rating * 2
@@ -137,7 +136,7 @@ class PlanningEngine(BaseAgent):
         scored.sort(key=lambda x: -x[1])
         return [p for p, _ in scored]
 
-    def _generate_slots(self, pois: List[POI], start: datetime, end: datetime) -> List[PlanSlot]:
+    def _generate_slots(self, pois: list[POI], start: datetime, end: datetime) -> list[PlanSlot]:
         slots = []
         total_min = (end - start).total_seconds() / 60
         cnt = min(len(pois), 4)

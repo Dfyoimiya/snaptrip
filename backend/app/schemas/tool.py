@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -12,8 +12,8 @@ class ToolInvocation(BaseModel):
     tool_name: str
     slot_index: int = -1
     layer: int = 0
-    params: Dict[str, Any] = Field(default_factory=dict)
-    dependencies: List[str] = Field(default_factory=list)
+    params: dict[str, Any] = Field(default_factory=dict)
+    dependencies: list[str] = Field(default_factory=list)
 
 
 class ToolResult(BaseModel):
@@ -21,16 +21,16 @@ class ToolResult(BaseModel):
     tool_name: str
     node_id: str
     slot_index: int = -1
-    data: Optional[Dict[str, Any]] = None
-    error_code: Optional[str] = None
-    error_message: Optional[str] = None
+    data: dict[str, Any] | None = None
+    error_code: str | None = None
+    error_message: str | None = None
     elapsed_ms: int = 0
     cached: bool = False
 
 
 class ToolMeta(BaseModel):
     layer: int
-    dependencies: List[str] = Field(default_factory=list)
+    dependencies: list[str] = Field(default_factory=list)
     is_idempotent: bool = True
     timeout_ms: int = 3000
     failure_rate_mock: float = 0.0
@@ -38,7 +38,7 @@ class ToolMeta(BaseModel):
 
 # ===== Tool 注册表 =====
 
-TOOL_REGISTRY: Dict[str, ToolMeta] = {
+TOOL_REGISTRY: dict[str, ToolMeta] = {
     "search_poi": ToolMeta(
         layer=0, dependencies=[], is_idempotent=True, timeout_ms=1500,
     ),

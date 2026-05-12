@@ -4,19 +4,17 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Callable, Dict, List, Optional, Set
+from enum import StrEnum
 
 from app.core.constants import (
     CONFIRM_TIMEOUT_S,
     FALLBACK_MAX_RETRY,
     GLOBAL_TIMEOUT_S,
-    MAJORITY_RATIO,
     PlanStatus,
 )
 
 
-class StateEvent(str, Enum):
+class StateEvent(StrEnum):
     CREATE_REQUEST = "create_request"
     INTENT_READY = "intent_ready"
     CONTEXT_READY = "context_ready"
@@ -36,7 +34,7 @@ class StateRecord:
     plan_id: str
     state: str = PlanStatus.IDLE
     fallback_retry_count: int = 0
-    locked_slot_indices: Set[int] = field(default_factory=set)
+    locked_slot_indices: set[int] = field(default_factory=set)
     created_at: float = field(default_factory=time.time)
     last_transition_at: float = field(default_factory=time.time)
 
@@ -73,19 +71,34 @@ def _guard_fallback_exhausted(record: StateRecord, payload: dict) -> bool:
 
 
 class PlanStateMachine:
-    TRANSITIONS: List[tuple] = [
+    TRANSITIONS: list[tuple] = [
         (PlanStatus.IDLE, StateEvent.CREATE_REQUEST, PlanStatus.DRAFTING, _guard_create_request),
-        (PlanStatus.DRAFTING, StateEvent.INTENT_READY, PlanStatus.PLANNING, _guard_intent_ready),
-        (PlanStatus.PLANNING, StateEvent.PLAN_DRAFT_READY, PlanStatus.CONFIRMING, _guard_plan_draft_ready),
-        (PlanStatus.CONFIRMING, StateEvent.USER_CONFIRM_ALL, PlanStatus.EXECUTING, _guard_confirm_all),
+        (
+            PlanStatus.DRAFTING, StateEvent.INTENT_READY,
+            PlanStatus.PLANNING, _guard_intent_ready,
+        ),
+        (
+            PlanStatus.PLANNING, StateEvent.PLAN_DRAFT_READY,
+            PlanStatus.CONFIRMING, _guard_plan_draft_ready,
+        ),
+        (
+            PlanStatus.CONFIRMING, StateEvent.USER_CONFIRM_ALL,
+            PlanStatus.EXECUTING, _guard_confirm_all,
+        ),
         (PlanStatus.CONFIRMING, StateEvent.USER_OBJECTION, PlanStatus.CONFIRMING, None),
         (PlanStatus.CONFIRMING, StateEvent.SLOT_REPLACEMENT, PlanStatus.CONFIRMING, None),
         (PlanStatus.EXECUTING, StateEvent.EXECUTION_SUCCESS, PlanStatus.DONE, None),
-        (PlanStatus.EXECUTING, StateEvent.EXECUTION_PARTIAL_FAIL, PlanStatus.CONFIRMING, _guard_fallback_available),
-        (PlanStatus.EXECUTING, StateEvent.EXECUTION_PARTIAL_FAIL, PlanStatus.FAILED, _guard_fallback_exhausted),
+        (
+            PlanStatus.EXECUTING, StateEvent.EXECUTION_PARTIAL_FAIL,
+            PlanStatus.CONFIRMING, _guard_fallback_available,
+        ),
+        (
+            PlanStatus.EXECUTING, StateEvent.EXECUTION_PARTIAL_FAIL,
+            PlanStatus.FAILED, _guard_fallback_exhausted,
+        ),
     ]
 
-    GLOBAL_TIMEOUT_STATES: Dict[str, str] = {
+    GLOBAL_TIMEOUT_STATES: dict[str, str] = {
         PlanStatus.DRAFTING: PlanStatus.FAILED,
         PlanStatus.PLANNING: PlanStatus.FAILED,
         PlanStatus.CONFIRMING: PlanStatus.FAILED,
@@ -93,24 +106,24 @@ class PlanStateMachine:
     }
 
     def __init__(self):
-        self._records: Dict[str, StateRecord] = {}
+        self._records: dict[str, StateRecord] = {}
 
     def get_or_create(self, plan_id: str) -> StateRecord:
         if plan_id not in self._records:
             self._records[plan_id] = StateRecord(plan_id=plan_id)
         return self._records[plan_id]
 
-    def can_transition(self, record: StateRecord, event: StateEvent, payload: dict = None) -> bool:
-        for from_s, evt, to_s, guard in self.TRANSITIONS:
-            if from_s == record.state and evt == event:
-                if guard is None or guard(record, payload or {}):
-                    return True
+    def can_transition(self, record: StateRecord, event: StateEvent, payload: dict | None = None) -> bool:
+        for from_s, evt, _to_s, guard in self.TRANSITIONS:
+            if from_s == record.state and evt == event and (guard is None or guard(record, payload or {})):
+                return True
         return False
 
-    def transition(self, record: StateRecord, event: StateEvent, payload: dict = None) -> str:
-        for from_s, evt, to_s, guard in self.TRANSITIONS:
+    def transition(self, record: StateRecord, event: StateEvent, payload: dict | None = None) -> str:
+        for from_s, evt, to_s_str, guard in self.TRANSITIONS:
             if from_s == record.state and evt == event:
                 if guard is None or guard(record, payload or {}):
+                    to_s: str = to_s_str
                     record.state = to_s
                     record.last_transition_at = time.time()
                     return to_s

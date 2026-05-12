@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 from app.agents.protocol import AgentContext, AgentResult, BaseAgent
 from app.core.constants import INTENT_TIMEOUT_S
-from app.schemas.plan import IntentInput, IntentSchema, TimeRange
+from app.schemas.plan import IntentSchema, TimeRange
 
 CITY_KEYWORDS: dict[str, list[str]] = {
     "北京": ["北京", "朝阳", "海淀", "东城", "故宫", "长城", "三里屯", "798", "簋街"],
@@ -44,7 +44,7 @@ class IntentParser(BaseAgent):
             return await asyncio.wait_for(
                 self._parse_via_llm(context), timeout=INTENT_TIMEOUT_S
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return await self._parse_via_keywords(context)
 
     async def _parse_via_llm(self, context: AgentContext) -> AgentResult:
@@ -63,7 +63,7 @@ class IntentParser(BaseAgent):
                 resp = await client.post(
                     "https://openrouter.ai/api/v1/chat/completions",
                     headers={
-                        "Authorization": f"Bearer placeholder",
+                        "Authorization": "Bearer placeholder",
                         "Content-Type": "application/json",
                     },
                     json={

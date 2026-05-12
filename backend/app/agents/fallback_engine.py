@@ -4,20 +4,15 @@ from __future__ import annotations
 
 import random
 from datetime import timedelta
-from typing import List
 
 from app.agents.protocol import AgentContext, AgentResult, BaseAgent
 from app.schemas.plan import (
-    CandidatePool,
+    POI,
     EnrichedIntent,
     ExecutionResult,
-    FailedSlot,
-    IntentSchema,
     PlanDraft,
     PlanSlot,
-    POI,
     RevisedPlan,
-    ShadowCandidate,
     SlotDiff,
     TimeRange,
 )
@@ -87,7 +82,7 @@ class FallbackEngine(BaseAgent):
                               enriched: EnrichedIntent | None) -> POI | None:
         return self._find_alternative(draft, slot_index)
 
-    def _ripple_reschedule(self, slots: List[PlanSlot], changed_idx: int):
+    def _ripple_reschedule(self, slots: list[PlanSlot], changed_idx: int):
         for i in range(changed_idx + 1, len(slots)):
             prev = slots[i - 1]
             cur = slots[i]

@@ -12,12 +12,11 @@ from app.agents.hub import MasterController
 from app.agents.intent_parser import IntentParser
 from app.agents.notify_engine import NotifyEngine
 from app.agents.planning_engine import PlanningEngine
-from app.agents.protocol import AgentContext, AgentResult
+from app.agents.protocol import AgentContext
 from app.agents.retrieval_engine import RetrievalEngine
-from app.core.constants import PlanStatus
-from app.core.state import StateEvent
-from app.schemas.plan import PlanCreateRequest, PlanResponse, PlanSlot, ShareCard, TimeRange
 from app.api.v1.session import stream_plan
+from app.core.state import StateEvent
+from app.schemas.plan import PlanCreateRequest, PlanResponse, PlanSlot, ShareCard
 
 router = APIRouter(prefix="/api/v1/plan", tags=["plan"])
 
@@ -25,7 +24,7 @@ router = APIRouter(prefix="/api/v1/plan", tags=["plan"])
 def get_hub(request: Request) -> MasterController:
     if not hasattr(request.app.state, "hub"):
         request.app.state.hub = MasterController()
-    return request.app.state.hub
+    return request.app.state.hub  # type: ignore[no-any-return]
 
 
 @router.post("/create", response_model=PlanResponse)
@@ -45,7 +44,7 @@ async def create_plan(req: PlanCreateRequest, request: Request):
     context.history.append(result)
     hub.store_result(plan_id, "intent_parser", result)
 
-    decision = hub.decide(record, StateEvent.INTENT_READY, {"intent": result.data.get("intent")})
+    hub.decide(record, StateEvent.INTENT_READY, {"intent": result.data.get("intent")})
 
     context_loader = ContextLoader()
     result = await context_loader.execute(context)

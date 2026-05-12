@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import asyncio
 import math
 import random
 
 from app.agents.protocol import AgentContext, AgentResult, BaseAgent
-from app.core.constants import RETRIEVAL_TIMEOUT_S
 from app.data.seed_pois import SEED_POIS
-from app.schemas.plan import CandidatePool, EnrichedIntent, IntentSchema, POI
+from app.schemas.plan import POI, CandidatePool, IntentSchema
 
 CITY_CENTERS: dict[str, tuple[float, float]] = {
     "北京": (39.9042, 116.4074),
@@ -44,7 +42,7 @@ class RetrievalEngine(BaseAgent):
 
         pois = [POI(**p.model_dump()) for p in SEED_POIS]
 
-        type_groups = {"restaurant": [], "cafe": [], "attraction": [], "activity": []}
+        type_groups: dict[str, list[POI]] = {"restaurant": [], "cafe": [], "attraction": [], "activity": []}
         for p in pois:
             if intent.city and p.city != intent.city:
                 continue

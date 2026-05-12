@@ -25,10 +25,10 @@ class ExecutionEngine(BaseAgent):
         return None
 
     async def _execute_dag(self, draft: PlanDraft) -> ExecutionResult:
-        from app.schemas.tool import ToolResult, TOOL_REGISTRY
-        from collections import defaultdict
         import asyncio
-        import random
+        from collections import defaultdict
+
+        from app.schemas.tool import TOOL_REGISTRY, ToolResult
 
         slots = draft.slots
         layers: dict[int, list] = defaultdict(list)
@@ -55,8 +55,9 @@ class ExecutionEngine(BaseAgent):
             layer_results = await asyncio.gather(*tasks, return_exceptions=True)
 
             for r in layer_results:
-                if isinstance(r, Exception):
+                if isinstance(r, BaseException):
                     continue
+                assert isinstance(r, ToolResult)
                 results.setdefault(layer_idx, []).append(r)
                 if r.success and r.data and "booking_id" in (r.data or {}):
                     confirmed[r.slot_index] = r.data["booking_id"]
@@ -76,7 +77,7 @@ class ExecutionEngine(BaseAgent):
 
         from app.schemas.plan import SlotExecutionResult
         slot_results = {}
-        for layer_idx, items in results.items():
+        for _layer_idx, items in results.items():
             for r in items:
                 slot_results[r.slot_index] = SlotExecutionResult(
                     slot_index=r.slot_index, tool_name=r.tool_name,
@@ -94,8 +95,9 @@ class ExecutionEngine(BaseAgent):
         )
 
     async def _call_mock_tool(self, slot_index: int, slot, tool: str, meta):
-        import random
         import asyncio
+        import random
+
         from app.schemas.tool import ToolResult
         await asyncio.sleep(random.uniform(0.05, 0.2))
         if random.random() < meta.failure_rate_mock:
