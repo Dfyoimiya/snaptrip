@@ -124,15 +124,23 @@ async def create_plan(req: PlanCreateRequest, request: Request):
 @router.get("/{plan_id}", response_model=PlanResponse)
 async def get_plan(plan_id: str, request: Request):
     hub = get_hub(request)
-    draft = hub.get_draft(plan_id)
+    draft_raw = hub.get_draft(plan_id)
     record = hub.get_state(plan_id)
+
+    slots_raw = (draft_raw.get("slots", []) if isinstance(draft_raw, dict)
+                 else (draft_raw.slots if draft_raw else []))
+    slots = [PlanSlot(**s) if isinstance(s, dict) else s for s in slots_raw]
+    total_cost = (draft_raw.get("total_cost", 0) if isinstance(draft_raw, dict)
+                  else (draft_raw.total_cost if draft_raw else 0))
+    total_time = (draft_raw.get("total_time_min", 0) if isinstance(draft_raw, dict)
+                  else (draft_raw.total_time_min if draft_raw else 0))
 
     return PlanResponse(
         plan_id=plan_id,
         query_text="", status=record.state,
-        total_cost=draft.total_cost if draft else 0,
-        total_time_min=draft.total_time_min if draft else 0,
-        slots=draft.slots if draft else [],
+        total_cost=total_cost,
+        total_time_min=total_time,
+        slots=slots,
     )
 
 
