@@ -68,7 +68,7 @@ class MasterController:
 
     def _agents_for_state(self, state: str) -> list[str]:
         mapping: dict[str, list[str]] = {
-            PlanStatus.DRAFTING: ["intent_parser", "context_loader"],
+            PlanStatus.DRAFTING: ["intent_parser", "context_loader", "memory_manager"],
             PlanStatus.PLANNING: ["retrieval_engine", "planning_engine"],
             PlanStatus.CONFIRMING: [],
             PlanStatus.EXECUTING: ["execution_engine"],

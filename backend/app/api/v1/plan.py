@@ -10,6 +10,7 @@ from app.agents.execution_engine import ExecutionEngine
 from app.agents.fallback_engine import FallbackEngine
 from app.agents.hub import MasterController
 from app.agents.intent_parser import IntentParser
+from app.agents.memory_manager import MemoryManager
 from app.agents.notify_engine import NotifyEngine
 from app.agents.planning_engine import PlanningEngine
 from app.agents.protocol import AgentContext
@@ -50,6 +51,11 @@ async def create_plan(req: PlanCreateRequest, request: Request):
     result = await context_loader.execute(context)
     context.history.append(result)
     hub.store_result(plan_id, "context_loader", result)
+
+    memory_manager = MemoryManager()
+    result = await memory_manager.execute(context)
+    context.history.append(result)
+    hub.store_result(plan_id, "memory_manager", result)
 
     retrieval = RetrievalEngine()
     result = await retrieval.execute(context)
