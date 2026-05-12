@@ -47,8 +47,8 @@ def _guard_create_request(record: StateRecord, payload: dict) -> bool:
     return bool(user_input) and -90 <= lat <= 90 and -180 <= lng <= 180
 
 
-def _guard_intent_ready(record: StateRecord, payload: dict) -> bool:
-    return True
+def _guard_intent_ready(_record: StateRecord, payload: dict) -> bool:
+    return payload.get("intent") is not None
 
 
 def _guard_plan_draft_ready(record: StateRecord, payload: dict) -> bool:
