@@ -1,0 +1,25 @@
+# GitGuardian 配置 —— 标记项目中的合法占位符
+
+secret:
+  show-secrets: false
+
+matches-ignore:
+  # docker-compose.yml — POSTGRES_USER 默认值（非密码）
+  - name: POSTGRES_USER snaptrip
+    match: snaptrip
+    path: docker-compose.yml
+
+  # .env.example — 显式占位符，非真实凭据
+  - name: env example placeholders
+    match: <set-your-db-password>
+    path: .env.example
+
+  # .env.example — 显式占位符
+  - name: env example secret key placeholder
+    match: <generate-with-openssl-rand-hex-32>
+    path: .env.example
+
+  # .env.example — 显式占位符
+  - name: env example openrouter placeholder
+    match: <sk-or-your-openrouter-key>
+    path: .env.example

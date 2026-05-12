@@ -1,0 +1,29 @@
+services:
+  backend:
+    build:
+      target: development
+    volumes:
+      - ./backend:/app
+      - backend-venv:/app/.venv
+    environment:
+      APP_DEBUG: "true"
+      LOG_LEVEL: DEBUG
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  frontend:
+    build:
+      target: development
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    command: npm run dev -- --host 0.0.0.0
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+
+  mock-server:
+    volumes:
+      - ./mock_server:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+
+volumes:
+  backend-venv:
