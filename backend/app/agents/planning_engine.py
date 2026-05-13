@@ -1,4 +1,27 @@
-"""Planning Engine — 两阶段求解器：Phase1 CSP + Phase2 LLM"""
+"""Planning Engine —— 两阶段求解器：Phase1 CSP + Phase2 LLM。
+
+将候选 POI 池转换为可执行的时间轴方案 (PlanDraft)。
+
+Phase 1: 硬约束过滤（纯代码，≤50ms）
+  - 类型偏好匹配评分
+  - 预算约束降级
+  - 距离 > 20km 直接排除
+  - 心情标签匹配加分
+
+Phase 2: 软约束排序（LLM，≤3s）
+  - Jinja2 模板渲染 Prompt
+  - 调用 OpenRouter DeepSeek-V3
+  - 超时降级为 Phase 1 评分降序排序
+
+Shadow 预计算:
+  Phase 1 后为每个 Slot 预计算同类型替代候选（shadow_id），
+  写入 PlanSlot.shadow_id，供 Fallback Engine 优先使用。
+
+输出: PlanDraft (含 slots, total_cost, confidence, version, shadow_id)
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 

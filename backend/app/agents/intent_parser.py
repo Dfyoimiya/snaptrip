@@ -1,4 +1,19 @@
-"""Intent Parser — LLM 意图解析 + 关键词降级"""
+"""Intent Parser —— LLM 意图解析 + 关键词降级。
+
+将用户自然语言输入转换为结构化的 IntentSchema。
+
+执行策略:
+  1. 首选 LLM 调用（Jinja2 模板渲染 → OpenRouter → DeepSeek-V3）
+  2. 超时 2s 或 LLM 不可用时，降级为关键词匹配
+  3. 关键词覆盖: 城市/类型/心情/预算/人数/场景
+
+输出:
+  IntentSchema: {time_window, guest_count, budget, scene_type,
+                  type_prefs, mood_prefs, implicit_constraints, city, confidence}
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 

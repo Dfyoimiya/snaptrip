@@ -1,4 +1,17 @@
-"""Fallback Engine — Shadow Candidate 查找 + 局部重检索 + 涟漪重排"""
+"""Fallback Engine —— Shadow Candidate 查找 + 局部重检索 + 涟漪重排。
+
+当 ExecutionEngine 返回 failed_slots 时激活，负责局部修复而不推翻全局规划。
+
+核心机制:
+  1. Shadow 缓存优先: 优先使用 PlanningEngine 预计算的 shadow_id
+  2. 局部重检索: 若无 Shadow 缓存，同类型种子数据中查找替代
+  3. 涟漪重排: 替换 Slot 后向下游传播时间偏移，检查营业时间冲突
+
+输出: RevisedPlan (含 diff_patch: {added, removed, modified})
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 
