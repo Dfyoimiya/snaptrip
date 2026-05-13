@@ -1,4 +1,23 @@
-"""Plan API — 对接 MasterController"""
+"""Plan API —— 对接 MasterController。
+
+提供活动计划创建、查询、流式推送的 RESTful 接口。
+
+端点:
+  POST /api/v1/plan/create      —— 创建计划，触发 9 Agent 串行全链路
+  GET  /api/v1/plan/{plan_id}   —— 获取已完成计划详情
+  GET  /api/v1/plan/{plan_id}/stream —— SSE 流式推送 Agent 思考过程
+
+Agent 执行链路:
+  IntentParser → ContextLoader → MemoryManager → RetrievalEngine
+  → PlanningEngine → ConsensusResolver → ExecutionEngine
+  → FallbackEngine → NotifyEngine
+
+每个 Agent 执行后通过 hub.store_result() 存储结果，
+后续 Agent 通过 context.history 获取上游产出。
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 

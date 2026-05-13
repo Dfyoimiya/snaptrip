@@ -1,4 +1,23 @@
-"""Pydantic Schema —— 计划与 Agent 契约"""
+"""Pydantic Schema —— 计划与 Agent 契约。
+
+定义编排层 9 个 Agent 的输入输出数据结构（按 Agent 顺序排列）:
+  1. IntentInput / IntentSchema     —— Intent Parser
+  2. EnrichedIntent                 —— Context Loader + Memory Manager
+  3. CandidatePool                  —— Retrieval Engine
+  4. PlanSlot / PlanDraft           —— Planning Engine
+  5. ExecutionResult / FailedSlot   —— Execution Engine
+  6. ShadowCandidate / RevisedPlan  —— Fallback Engine
+  7. ShareCard                      —— Notify Engine
+  8. PlanCreateRequest / PlanResponse —— API 层
+
+Schema 设计原则:
+- 所有 Agent 的输入输出必须通过 Pydantic 校验
+- 使用 | None 替代 Optional（Python 3.10+ 语法）
+- 内存 Schema 传递（非序列化），仅在 API 边界做 JSON 转换
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 

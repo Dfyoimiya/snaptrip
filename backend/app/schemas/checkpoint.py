@@ -1,4 +1,19 @@
-"""Checkpoint Schema —— Slot 粒度检查点"""
+"""Checkpoint Schema —— Slot 粒度检查点。
+
+以 Slot 为最小粒度的乐观检查点系统，确保 Incremental Replanning 时
+有明确的「已冻结」与「可变更」边界。
+
+结构:
+- LockedSlot: 已确认 Slot，含 confirmed_by 列表和 booking_id
+- TentativeSlot: 当前版本的草案 Slot，可在增量重规划中被替换
+- ShadowSlot: 预计算的替代候选，prechecked 标记是否已预查可用性
+
+写入策略: 用户确认→Redis+PostgreSQL / Fallback完成→Redis+PostgreSQL
+读取策略: 增量重规划时，locked_slots 作为前缀固定值，仅替换 tentative 中目标 Slot
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 

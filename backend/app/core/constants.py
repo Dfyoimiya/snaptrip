@@ -1,4 +1,20 @@
-"""核心常量 —— 状态枚举 + 策略参数"""
+"""核心常量 —— 状态枚举与策略参数。
+
+枚举类型：
+- PlanStatus: 7 状态 FSM（idle→done），其中 CONFIRMING 为可重入状态
+- SceneType: 场景分类（family/friends/solo/date）
+- POIType: POI 类型（restaurant/cafe/attraction/activity）
+- ToolAction: Slot 动作类型（arrive/book_table/book_ticket/order）
+- ExecutionStatus: Tool 执行状态（pending/running/success/failed/timeout/skipped）
+
+策略参数：
+- 超时控制: Intent 2s / Phase2 3s / Tool 3s / DAG 10s / Global 300s
+- Fallback: 最大重试 2 次
+- 共识: 确认超时 300s / 多数决比例 0.6 / 覆盖阈值 0.8
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from enum import StrEnum
 

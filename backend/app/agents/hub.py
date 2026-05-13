@@ -1,4 +1,23 @@
-"""Master Controller — 中央控制器：State Registry + Policy Engine + Checkpoint Manager"""
+"""Master Controller —— 编排层中央控制器。
+
+负责单个 Plan 实例的完整生命周期管理，包含三个内核:
+1. State Registry: 维护 7 状态 FSM，所有状态转移通过 PlanStateMachine 执行
+2. Policy Engine: 基于当前状态 + Agent 输出 + 异常信号，裁决下一状态和激活的 Agent 列表
+3. Checkpoint Manager: 以 Slot 为最小粒度的乐观检查点，确保增量重规划时的已确认/可变更边界
+
+对外接口:
+- init_plan(): 创建新 Plan，状态从 IDLE 转移到 DRAFTING
+- decide(): 策略裁决，返回 PolicyDecision（目标状态 + Agent 列表）
+- decide_execution_result(): 处理 ExecutionEngine 返回结果，路由 Fallback 或完成
+- save_checkpoint(): 持久化 locked/tentative/shadow slots
+- store_result(): 存储 Agent 执行结果，供后续 Agent 通过 context.history 获取
+
+9 Agent 调度链: Intent → Context → Memory → Retrieval → Planning
+                 → Consensus → Execution → Fallback → Notify
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 

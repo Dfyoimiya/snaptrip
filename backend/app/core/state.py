@@ -1,4 +1,30 @@
-"""Plan 状态机 — 7 状态 FSM + 守卫条件 + 转移矩阵"""
+"""Plan 状态机 —— 7 状态 FSM + 守卫条件 + 转移矩阵。
+
+状态流转规则:
+  IDLE ─[create_request]──→ DRAFTING
+  DRAFTING ─[intent_ready]──→ PLANNING
+  PLANNING ─[plan_draft_ready]──→ CONFIRMING
+  CONFIRMING ─[user_confirm_all]──→ EXECUTING
+  CONFIRMING ─[user_objection/slot_replacement]──→ CONFIRMING (可重入)
+  CONFIRMING ─[fallback_triggered]──→ CONFIRMING (增量重规划)
+  EXECUTING ─[execution_success]──→ DONE
+  EXECUTING ─[execution_partial_fail + retry<N]──→ CONFIRMING
+  EXECUTING ─[execution_partial_fail + retry≥N]──→ FAILED
+  任意状态 ─[timeout>300s]──→ FAILED
+
+守卫条件:
+  _guard_create_request: 用户输入非空 + 经纬度有效范围
+  _guard_intent_ready: Intent 产出非空
+  _guard_plan_draft_ready: slots 非空 + 总费用 ≤ 预算
+  _guard_fallback_available: Fallback 重试次数 < 上限
+  _guard_fallback_exhausted: Fallback 重试次数 ≥ 上限
+
+同状态多守卫: EXECUTING + EXECUTION_PARTIAL_FAIL 有两个目标状态，
+transition() 按顺序尝试守卫，首个通过即生效。
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 
