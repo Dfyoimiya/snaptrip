@@ -1,4 +1,16 @@
-"""SnapTrip API — FastAPI 入口（Agent 架构版）"""
+"""SnapTrip API —— FastAPI 入口（Agent 架构版）。
+
+应用生命周期:
+- startup: 初始化 MasterController + MemoryService + MockGateway
+- shutdown: 清理 MockGateway 连接
+
+路由注册:
+- /api/v1/plan/*  —— 计划创建/查询/SSE流
+- /health          —— 健康检查
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 

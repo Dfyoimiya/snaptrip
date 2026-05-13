@@ -1,4 +1,21 @@
-"""Tool DAG 编排器 — 拓扑排序 + 分层并行执行 + 轻量熔断 + 结构化日志"""
+"""Tool DAG 编排器 —— 拓扑排序 + 分层并行执行 + 轻量熔断 + 结构化日志。
+
+执行层核心组件，负责将 PlanDraft 的抽象时隙翻译为具体的 Tool 调用序列。
+
+核心功能:
+  1. build_execution_layers(): 按 TOOL_REGISTRY 的 layer 属性分层分组
+  2. ToolDAGScheduler.execute(): 自底向上分层执行，层内 asyncio.gather 并行
+  3. 轻量熔断: 连续 5 次失败 → circuit_open，后续直接跳过
+  4. 结构化日志: 每个 Tool 调用输出 JSON 格式日志
+
+熔断器设计（快速失败 + 缓存兜底）:
+  - 不实现完整三态熔断器（Closed/Open/Half-Open）
+  - 采用失败计数 + 单向打开策略
+  - 成功后 failure_count 归零
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 
