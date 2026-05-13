@@ -57,7 +57,8 @@ class RetrievalEngine(BaseAgent):
             candidates.extend(type_groups.get(t, [])[:5])
 
         if not candidates:
-            candidates = [random.choice(pois) for _ in range(min(5, len(pois)))]
+            nearby = sorted(pois, key=lambda p: haversine(lat, lng, p.lat, p.lng))
+            candidates = nearby[:5]
 
         pool = CandidatePool(candidates=candidates[:20], total=len(candidates))
         return AgentResult(data={"candidate_pool": pool.model_dump()})

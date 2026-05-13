@@ -73,6 +73,8 @@ class PlanningEngine(BaseAgent):
             if intent.budget and poi.avg_price > intent.budget * 0.7:
                 score -= 3
             dist = haversine(lat, lng, poi.lat, poi.lng)
+            if dist > 20.0:
+                continue
             score += max(0, 5 - dist)
             if intent.mood_prefs:
                 matches = len(set(poi.mood_tags) & set(intent.mood_prefs))
