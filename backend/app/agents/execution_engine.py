@@ -36,6 +36,16 @@ class ExecutionEngine(BaseAgent):
     name = "execution_engine"
 
     async def execute(self, context: AgentContext) -> AgentResult:
+        """执行 Tool DAG：从 history 提取 PlanDraft → 分层并行执行 → 聚合结果。
+
+        使用 asyncio.wait_for 控制总超时 (EXEC_TIMEOUT_TOTAL_S)。
+
+        Args:
+            context: 含 PlanDraft 的上下文
+
+        Returns:
+            AgentResult.data["execution"] = ExecutionResult
+        """
         draft = self._extract_draft(context)
         if not draft:
             return AgentResult(status="failed", error="No plan draft found")

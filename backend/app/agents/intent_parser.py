@@ -55,24 +55,43 @@ class IntentParser(BaseAgent):
     name = "intent_parser"
 
     async def execute(self, context: AgentContext) -> AgentResult:
+        """优先 LLM 解析，超时降级关键词匹配。
+
+        Args:
+            context: 含 user_input 的执行上下文
+
+        Returns:
+            AgentResult.data["intent"] = IntentSchema
+        """
         try:
             return await asyncio.wait_for(
                 self._parse_via_llm(context), timeout=INTENT_TIMEOUT_S
             )
-        except TimeoutError:
+        except (TimeoutError, Exception):
             return await self._parse_via_keywords(context)
 
     async def _parse_via_llm(self, context: AgentContext) -> AgentResult:
-        from jinja2 import Template
-        with open("app/agents/prompts/intent.j2") as f:
-            tpl = Template(f.read())
+        """Jinja2 模板渲染 → OpenRouter → DeepSeek-V3。
 
-        prompt = tpl.render(
-            user_input=context.user_input,
-            current_time=datetime.now().isoformat(),
-        )
+        解析 LLM 返回的 JSON 为 IntentSchema。
+        若 LLM 不可用（import 失败 / API 错误 / 返回格式异常），降级关键词。
 
+        Args:
+            context: 执行上下文
+
+        Returns:
+            AgentResult
+        """
         try:
+            from jinja2 import Template
+            with open("app/agents/prompts/intent.j2") as f:
+                tpl = Template(f.read())
+
+            prompt = tpl.render(
+                user_input=context.user_input,
+                current_time=datetime.now().isoformat(),
+            )
+
             import httpx
             async with httpx.AsyncClient(timeout=INTENT_TIMEOUT_S) as client:
                 resp = await client.post(
