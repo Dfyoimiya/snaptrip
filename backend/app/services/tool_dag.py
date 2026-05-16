@@ -1,4 +1,21 @@
-"""Tool DAG 编排器 — 拓扑排序 + 分层并行执行 + 轻量熔断 + 结构化日志"""
+"""Tool DAG 编排器 —— 拓扑排序 + 分层并行执行 + 轻量熔断 + 结构化日志。
+
+执行层核心组件，负责将 PlanDraft 的抽象时隙翻译为具体的 Tool 调用序列。
+
+核心功能:
+  1. build_execution_layers(): 按 TOOL_REGISTRY 的 layer 属性分层分组
+  2. ToolDAGScheduler.execute(): 自底向上分层执行，层内 asyncio.gather 并行
+  3. 轻量熔断: 连续 5 次失败 → circuit_open，后续直接跳过
+  4. 结构化日志: 每个 Tool 调用输出 JSON 格式日志
+
+熔断器设计（快速失败 + 缓存兜底）:
+  - 不实现完整三态熔断器（Closed/Open/Half-Open）
+  - 采用失败计数 + 单向打开策略
+  - 成功后 failure_count 归零
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 
@@ -14,6 +31,17 @@ from app.schemas.tool import TOOL_REGISTRY, ToolInvocation, ToolResult
 
 
 def build_execution_layers(slots: list[PlanSlot]) -> dict[int, list[ToolInvocation]]:
+    """将 PlanDraft 的 Slots 映射为按 Layer 分组的 Tool 调用节点。
+
+    同层 Tool 之间无依赖，可并行执行。
+    仅处理 action 在 TOOL_REGISTRY 中注册的 Slot。
+
+    Args:
+        slots: PlanDraft 的 Slot 列表
+
+    Returns:
+        {layer_idx: [ToolInvocation, ...]}
+    """
     layers: dict[int, list[ToolInvocation]] = defaultdict(list)
     for idx, slot in enumerate(slots):
         tool_name = slot.action if slot.action in TOOL_REGISTRY else "search_poi"
@@ -41,6 +69,14 @@ class ToolDAGScheduler:
         self._failure_threshold = 5
 
     async def execute(self, draft: PlanDraft) -> dict[str, Any]:
+        """执行 Tool DAG：自底向上分层执行，层内并行。
+
+        Args:
+            draft: PlanDraft 含要执行的 Slots
+
+        Returns:
+            {status, confirmed_bookings, failed_slots, layer_timings, total_elapsed_ms}
+        """
         layers = build_execution_layers(draft.slots)
         results: dict[int, list[ToolResult]] = {}
         confirmed: dict[int, str] = {}

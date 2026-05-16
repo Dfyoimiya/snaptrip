@@ -1,4 +1,21 @@
-"""Execution Engine — Tool DAG 编排入口：依赖感知 + 分层超时 + Gateway 集成"""
+"""Execution Engine —— Tool DAG 编排入口。
+
+将 PlanDraft 的抽象时隙翻译为 Tool 调用序列，按 DAG 分层并行执行。
+
+核心特性:
+  1. DAG 依赖感知: 上游 Tool 失败时，下游依赖 Tool 自动跳过 (SKIPPED)
+  2. 分层超时: per-tool 3s / per-layer 5s / total DAG 10s
+  3. 超时不阻塞同层: 单 Tool 超时不影响同层其他 Tool 并行执行
+  4. 结构化日志: 每个 Tool 调用输出 JSON 格式日志供前端 AgentMonitor 渲染
+
+Mock 行为: 根据 TOOL_REGISTRY 中的 failure_rate_mock 模拟失败
+
+输出: ExecutionResult (含 slot_results, confirmed_bookings,
+       failed_slots, layer_timings)
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 
@@ -19,6 +36,16 @@ class ExecutionEngine(BaseAgent):
     name = "execution_engine"
 
     async def execute(self, context: AgentContext) -> AgentResult:
+        """执行 Tool DAG：从 history 提取 PlanDraft → 分层并行执行 → 聚合结果。
+
+        使用 asyncio.wait_for 控制总超时 (EXEC_TIMEOUT_TOTAL_S)。
+
+        Args:
+            context: 含 PlanDraft 的上下文
+
+        Returns:
+            AgentResult.data["execution"] = ExecutionResult
+        """
         draft = self._extract_draft(context)
         if not draft:
             return AgentResult(status="failed", error="No plan draft found")

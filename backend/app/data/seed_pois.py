@@ -1,4 +1,13 @@
-"""Mock POI 数据 —— 北京 / 上海 / 重庆 各 5 条"""
+"""Mock POI 数据 —— 北京 / 上海 / 重庆 16 条预置数据。
+
+覆盖 4 种类型: attraction / cafe / restaurant / activity。
+分布: 北京 6 条 / 上海 5 条 / 重庆 5 条。
+
+每个 POI 含: 名称、坐标、心情标签、人均消费、评分、营业时间。
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from app.schemas.plan import POI
 

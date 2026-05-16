@@ -1,4 +1,15 @@
-"""Memory Manager — 记忆增强：pgvector 检索 + 历史模式匹配"""
+"""Memory Manager —— 记忆增强：pgvector 检索 + 历史模式匹配。
+
+负责增强 EnrichedIntent 中的记忆向量，用于后续 POI 语义检索。
+
+当前实现: Stub 模式，保持 EnrichedIntent 不变。
+远期: pgvector 语义检索 + Skill 文件匹配 + 历史规划模式蒸馏。
+
+位于 Context Loader 和 Retrieval Engine 之间，确保检索时已有完整的记忆增强输入。
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from app.agents.protocol import AgentContext, AgentResult, BaseAgent
 from app.schemas.plan import EnrichedIntent

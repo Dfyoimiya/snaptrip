@@ -1,4 +1,19 @@
-"""Retrieval Engine — 并行 POI 检索"""
+"""Retrieval Engine —— 并行 POI 检索。
+
+从种子数据中按城市、类型、距离筛选候选 POI。
+
+执行流程:
+  1. 读取 EnrichedIntent，获取城市和类型偏好
+  2. 若城市已知，自动映射到城市中心坐标
+  3. haversine 距离过滤（≤15km）
+  4. 按类型分组，优先返回偏好类型的 TOP 5
+  5. 若无匹配结果，返回最近的 5 个 POI
+
+haversine 公式: 使用球面余弦定理计算两点间大圆距离。
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 
@@ -28,6 +43,17 @@ class RetrievalEngine(BaseAgent):
     name = "retrieval_engine"
 
     async def execute(self, context: AgentContext) -> AgentResult:
+        """执行 POI 检索：城市映射 → 距离过滤 → 类型分组 → 返回候选池。
+
+        从 context.history 读取 EnrichedIntent，按城市/类型/距离筛选。
+        若无匹配结果，返回距离最近的 5 个 POI 作为兜底。
+
+        Args:
+            context: 含 EnrichedIntent 的上下文
+
+        Returns:
+            AgentResult.data["candidate_pool"] = CandidatePool
+        """
         enriched_data = {}
         for h in reversed(context.history):
             if "enriched_intent" in h.data:

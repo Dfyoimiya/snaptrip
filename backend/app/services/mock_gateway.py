@@ -1,4 +1,16 @@
-"""Mock API 网关 — httpx HTTP Client 封装"""
+"""Mock API 网关 —— httpx HTTP Client 封装。
+
+执行层与 Mock 服务（端口 8001）之间的唯一 HTTP 出口。
+
+职责:
+  - 连接池管理: httpx.AsyncClient (max_connections=20)
+  - Tool 路由映射: TOOL_ROUTES 将 tool_name 映射到 HTTP 方法+路径
+  - 请求注入: X-Force-Fail / X-Simulate-Delay Header 用于演示异常
+  - 响应校验: HTTPError 捕获并包装为统一错误格式
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 

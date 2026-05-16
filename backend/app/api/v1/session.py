@@ -1,4 +1,19 @@
-"""SSE 流式输出 — 10 种事件类型"""
+"""SSE 流式输出 —— 10 种事件类型。
+
+通过 Server-Sent Events 将 Agent 思考过程实时推送到前端 AgentMonitor。
+
+10 个事件类型（按流顺序）:
+  intent → retrieval → planning → planning_done
+  → execution → execution_done
+  → [fallback → consensus]
+  → notify → done
+
+前端映射: 中栏 Agent 大脑终端风格实时渲染。
+复用 _sse() 辅助函数构建标准 {"event":..., "data":...} 格式。
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 

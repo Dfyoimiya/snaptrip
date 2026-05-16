@@ -1,4 +1,24 @@
-"""Tool Schema —— Tool 调用契约与注册表"""
+"""Tool Schema —— Tool 调用契约与注册表。
+
+定义执行层 10 个 Tool 的注册元数据（分层、依赖、超时、失败率）。
+
+Tool DAG 分层:
+  L0: search_poi / get_user_profile          —— 无依赖，可并行
+  L1: check_queue / check_availability       —— 依赖 search_poi
+      check_child_facility / calculate_route
+  L2: book_table / book_ticket / order       —— 依赖 L1 结果
+  L3: notify                                 —— 依赖 L2 全部完成
+
+ToolMeta 字段:
+- layer: DAG 层级
+- dependencies: 上游依赖 Tool 名称列表
+- is_idempotent: 是否幂等（用于缓存策略）
+- timeout_ms: 单次调用超时
+- failure_rate_mock: Mock 环境下的模拟失败概率
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,27 @@
-"""Planning Engine — 两阶段求解器：Phase1 CSP + Phase2 LLM"""
+"""Planning Engine —— 两阶段求解器：Phase1 CSP + Phase2 LLM。
+
+将候选 POI 池转换为可执行的时间轴方案 (PlanDraft)。
+
+Phase 1: 硬约束过滤（纯代码，≤50ms）
+  - 类型偏好匹配评分
+  - 预算约束降级
+  - 距离 > 20km 直接排除
+  - 心情标签匹配加分
+
+Phase 2: 软约束排序（LLM，≤3s）
+  - Jinja2 模板渲染 Prompt
+  - 调用 OpenRouter DeepSeek-V3
+  - 超时降级为 Phase 1 评分降序排序
+
+Shadow 预计算:
+  Phase 1 后为每个 Slot 预计算同类型替代候选（shadow_id），
+  写入 PlanSlot.shadow_id，供 Fallback Engine 优先使用。
+
+输出: PlanDraft (含 slots, total_cost, confidence, version, shadow_id)
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 
@@ -25,6 +48,16 @@ class PlanningEngine(BaseAgent):
     name = "planning_engine"
 
     async def execute(self, context: AgentContext) -> AgentResult:
+        """两阶段规划：Phase1 硬约束 → Phase2 LLM 算序 → 时隙生成。
+
+        从 history 提取 CandidatePool 和 EnrichedIntent，执行完整规划流程。
+
+        Args:
+            context: 含上游 Agent 结果的上下文
+
+        Returns:
+            AgentResult.data["draft"] = PlanDraft
+        """
         enriched = self._extract_enriched(context)
         pool = self._extract_pool(context)
         intent = enriched.intent if enriched else IntentSchema()
@@ -64,6 +97,19 @@ class PlanningEngine(BaseAgent):
 
     def _phase1_hard_filter(self, candidates: list[POI], intent: IntentSchema,
                             lat: float, lng: float, start: datetime, end: datetime) -> list[POI]:
+        """Phase 1: 硬约束过滤（纯代码，≤50ms）。
+
+        按类型偏好、预算、距离（>20km 直接排除）、心情标签评分排序。
+
+        Args:
+            candidates: 候选 POI 列表
+            intent: 用户意图
+            lat/lng: 参考坐标
+            start/end: 时间窗口（预留，当前未使用）
+
+        Returns:
+            ≤10 个按评分降序的 POI
+        """
         from app.agents.retrieval_engine import haversine
         filtered = []
         for poi in candidates:
@@ -127,6 +173,17 @@ class PlanningEngine(BaseAgent):
         return result or self._phase2_fallback_sort(candidates, intent)
 
     def _phase2_fallback_sort(self, candidates: list[POI], intent: IntentSchema) -> list[POI]:
+        """Phase 2 降级排序（纯代码，LLM 超时时使用）。
+
+        按评分 + 心情标签匹配加权排序。
+
+        Args:
+            candidates: Phase 1 输出的候选 POI
+            intent: 用户意图
+
+        Returns:
+            排序后的 POI 列表
+        """
         scored = []
         for p in candidates:
             s = p.rating * 2
@@ -137,6 +194,19 @@ class PlanningEngine(BaseAgent):
         return [p for p, _ in scored]
 
     def _generate_slots(self, pois: list[POI], start: datetime, end: datetime) -> list[PlanSlot]:
+        """根据排序后的 POI 列表生成时间轴 Slots。
+
+        最多 4 个 Slot，均匀分配时间窗口，含移动时间随机扰动。
+        同时为每个 Slot 预计算同类型 Shadow Candidate（shadow_id）。
+
+        Args:
+            pois: 排序后的 POI 列表
+            start: 计划开始时间
+            end: 计划结束时间
+
+        Returns:
+            PlanSlot 列表（≤4 个）
+        """
         slots = []
         total_min = (end - start).total_seconds() / 60
         cnt = min(len(pois), 4)

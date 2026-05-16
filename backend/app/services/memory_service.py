@@ -1,4 +1,13 @@
-"""Memory Service — Redis/PostgreSQL 统一访问层 (Stub)"""
+"""Memory Service —— Redis/PostgreSQL 统一访问层 (Stub)。
+
+封装底层存储访问，Agent 不直接操作 Redis/Postgres。
+
+当前实现: 内存 dict 模拟，供开发阶段使用。
+远期: Redis 缓存 (会话状态 + POI 检索) + PostgreSQL 持久化 (用户画像 + Checkpoint)
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,17 @@
-"""Fallback Engine — Shadow Candidate 查找 + 局部重检索 + 涟漪重排"""
+"""Fallback Engine —— Shadow Candidate 查找 + 局部重检索 + 涟漪重排。
+
+当 ExecutionEngine 返回 failed_slots 时激活，负责局部修复而不推翻全局规划。
+
+核心机制:
+  1. Shadow 缓存优先: 优先使用 PlanningEngine 预计算的 shadow_id
+  2. 局部重检索: 若无 Shadow 缓存，同类型种子数据中查找替代
+  3. 涟漪重排: 替换 Slot 后向下游传播时间偏移，检查营业时间冲突
+
+输出: RevisedPlan (含 diff_patch: {added, removed, modified})
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
 
 from __future__ import annotations
 
@@ -22,6 +35,14 @@ class FallbackEngine(BaseAgent):
     name = "fallback_engine"
 
     async def execute(self, context: AgentContext) -> AgentResult:
+        """激活 Fallback：从 history 提取失败信息 → 修复 → 返回 RevisedPlan。
+
+        Args:
+            context: 含 ExecutionResult 和 PlanDraft 的上下文
+
+        Returns:
+            AgentResult.data["revised_plan"] = RevisedPlan
+        """
         execution_result = self._extract_execution(context)
         draft = self._extract_draft(context)
         enriched = self._extract_enriched(context)
@@ -72,6 +93,17 @@ class FallbackEngine(BaseAgent):
         return RevisedPlan(plan=revised, diff_patch=diffs)
 
     def _find_alternative(self, draft: PlanDraft, slot_index: int) -> POI | None:
+        """查找失败 Slot 的替代 POI。
+
+        优先级：1) shadow_id 预计算缓存  2) 同类型种子数据中随机选取。
+
+        Args:
+            draft: 当前计划草案
+            slot_index: 失败的 Slot 索引
+
+        Returns:
+            替代 POI 或 None
+        """
         from app.data.seed_pois import SEED_POIS
         original = draft.slots[slot_index]
 
@@ -89,6 +121,14 @@ class FallbackEngine(BaseAgent):
         return self._find_alternative(draft, slot_index)
 
     def _ripple_reschedule(self, slots: list[PlanSlot], changed_idx: int):
+        """涟漪重排：替换后向下游传播时间偏移。
+
+        将 changed_idx 之后的所有 Slot 按前一个 Slot 的结束时间顺延。
+
+        Args:
+            slots: 当前 Slot 列表（原地修改）
+            changed_idx: 被替换的 Slot 索引
+        """
         for i in range(changed_idx + 1, len(slots)):
             prev = slots[i - 1]
             cur = slots[i]
