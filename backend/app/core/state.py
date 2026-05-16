@@ -264,6 +264,7 @@ class PlanStateMachine:
         Raises:
             ValueError: 无匹配转移或所有守卫条件失败
         """
+        last_error: str | None = None
         for from_s, evt, to_s_str, guard in self.TRANSITIONS:
             if from_s == record.state and evt == event:
                 if guard is None or guard(record, payload or {}):
@@ -271,7 +272,9 @@ class PlanStateMachine:
                     record.state = to_s
                     record.last_transition_at = time.time()
                     return to_s
-                raise ValueError(f"Guard failed: {record.state} + {event}")
+                last_error = f"Guard failed: {record.state} + {event}"
+        if last_error:
+            raise ValueError(last_error)
         raise ValueError(f"No transition: {record.state} + {event}")
 
     def tick_timeout(self, record: StateRecord) -> str | None:
