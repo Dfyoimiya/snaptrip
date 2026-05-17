@@ -128,7 +128,7 @@ async def retrieval_engine_node(state: PlanState) -> dict[str, Any]:
     ]
     context = _context_from_state(state, history)
     result = await agent.execute(context)
-    candidates = result.data.get("candidates", {})
+    candidates = result.data.get("candidate_pool", {})
     return {
         "candidates": candidates,
         "status": PlanStatus.PLANNING,
