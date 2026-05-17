@@ -1,4 +1,10 @@
-"""Pytest fixtures"""
+"""Pytest fixtures —— sample data for unit tests.
+
+Author: SnapTrip Team
+Date: 2026-05-13
+"""
+
+from __future__ import annotations
 
 from datetime import datetime, timedelta
 

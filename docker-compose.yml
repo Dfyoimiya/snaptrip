@@ -1,6 +1,6 @@
 services:
   # ===== 数据库 =====
-  db:
+  postgres:
     image: pgvector/pgvector:pg16
     container_name: snaptrip-db
     environment:
@@ -10,7 +10,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-snaptrip}"]
       interval: 5s
@@ -39,24 +40,35 @@ services:
       target: ${BUILD_TARGET:-production}
     container_name: snaptrip-backend
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-snaptrip}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-snaptrip}
       REDIS_URL: redis://redis:6379/0
       MOCK_API_BASE_URL: http://mock-server:8001
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
       LLM_MODEL: ${LLM_MODEL:-deepseek/deepseek-v3}
-      APP_ENV: ${APP_ENV:-development}
+      APP_ENV: ${APP_ENV:-production}
       APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       LOG_FORMAT: ${LOG_FORMAT:-json}
+      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-20}
+      DATABASE_MAX_OVERFLOW: ${DATABASE_MAX_OVERFLOW:-10}
     ports:
       - "8000:8000"
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     restart: unless-stopped
+    command: >
+      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
   # ===== Mock API 服务 =====
   mock-server:
@@ -66,6 +78,38 @@ services:
     container_name: snaptrip-mock
     ports:
       - "8001:8001"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  # ===== Celery Worker =====
+  celery-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-production}
+    container_name: snaptrip-celery
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-snaptrip}
+      REDIS_URL: redis://redis:6379/0
+      MOCK_API_BASE_URL: http://mock-server:8001
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      LLM_MODEL: ${LLM_MODEL:-deepseek/deepseek-v3}
+      APP_ENV: ${APP_ENV:-production}
+      APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.celery_app worker -l info
     restart: unless-stopped
 
   # ===== 前端 =====
@@ -82,4 +126,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  pgdata:
+  postgres_data:

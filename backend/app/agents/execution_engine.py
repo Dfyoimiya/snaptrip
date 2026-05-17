@@ -8,8 +8,6 @@
   3. 超时不阻塞同层: 单 Tool 超时不影响同层其他 Tool 并行执行
   4. 结构化日志: 每个 Tool 调用输出 JSON 格式日志供前端 AgentMonitor 渲染
 
-Mock 行为: 根据 TOOL_REGISTRY 中的 failure_rate_mock 模拟失败
-
 输出: ExecutionResult (含 slot_results, confirmed_bookings,
        failed_slots, layer_timings)
 
@@ -29,23 +27,19 @@ from typing import Any
 from app.agents.protocol import AgentContext, AgentResult, BaseAgent
 from app.core.constants import EXEC_TIMEOUT_TOTAL_S
 from app.schemas.plan import ExecutionResult, FailedSlot, PlanDraft, SlotExecutionResult
-from app.schemas.tool import TOOL_REGISTRY, ToolResult
+from app.schemas.tool import TOOL_REGISTRY, ToolDefinition, ToolResult
+
+_MOCK_FAILURE_RATES: dict[str, float] = {
+    "book_table": 0.2,
+    "book_ticket": 0.1,
+    "order": 0.05,
+}
 
 
 class ExecutionEngine(BaseAgent):
     name = "execution_engine"
 
     async def execute(self, context: AgentContext) -> AgentResult:
-        """执行 Tool DAG：从 history 提取 PlanDraft → 分层并行执行 → 聚合结果。
-
-        使用 asyncio.wait_for 控制总超时 (EXEC_TIMEOUT_TOTAL_S)。
-
-        Args:
-            context: 含 PlanDraft 的上下文
-
-        Returns:
-            AgentResult.data["execution"] = ExecutionResult
-        """
         draft = self._extract_draft(context)
         if not draft:
             return AgentResult(status="failed", error="No plan draft found")
@@ -64,15 +58,14 @@ class ExecutionEngine(BaseAgent):
 
     async def _execute_dag(self, draft: PlanDraft, context: AgentContext) -> ExecutionResult:
         slots = draft.slots
-        layers: dict[int, list[tuple[int, str, Any]]] = defaultdict(list)
+        layers: dict[int, list[tuple[int, str, ToolDefinition]]] = defaultdict(list)
         failed_tools: set[str] = set()
 
         for i, slot in enumerate(slots):
             tool = slot.action if slot.action in TOOL_REGISTRY else "search_poi"
             if tool not in TOOL_REGISTRY:
                 continue
-            meta = TOOL_REGISTRY[tool]
-            layers[meta.layer].append((i, tool, meta))
+            layers[TOOL_REGISTRY[tool].layer].append((i, tool, TOOL_REGISTRY[tool]))
 
         results: dict[int, list[ToolResult]] = {}
         confirmed: dict[int, str] = {}
@@ -86,12 +79,15 @@ class ExecutionEngine(BaseAgent):
             for slot_i, tool, meta in layers[layer_idx]:
                 deps_ok = all(d not in failed_tools for d in meta.dependencies)
                 if not deps_ok:
-                    failed_slots.append(FailedSlot(
-                        slot_index=slot_i, tool_name=tool,
-                        error_code="SKIPPED",
-                        error_message="Upstream dependency failed",
-                        poi_id=str(slot_i),
-                    ))
+                    failed_slots.append(
+                        FailedSlot(
+                            slot_index=slot_i,
+                            tool_name=tool,
+                            error_code="SKIPPED",
+                            error_message="Upstream dependency failed",
+                            poi_id=str(slot_i),
+                        )
+                    )
                     continue
                 tasks.append(self._call_tool_with_timeout(slot_i, tool, meta))
 
@@ -105,16 +101,20 @@ class ExecutionEngine(BaseAgent):
                     continue
                 assert isinstance(r, ToolResult)
                 results.setdefault(layer_idx, []).append(r)
-                if r.success and r.data and "booking_id" in (r.data or {}):
-                    confirmed[r.slot_index] = r.data["booking_id"]
-                elif not r.success:
-                    failed_tools.add(r.tool_name)
-                    failed_slots.append(FailedSlot(
-                        slot_index=r.slot_index, tool_name=r.tool_name,
-                        error_code=r.error_code or "UNKNOWN",
-                        error_message=r.error_message or "Tool failed",
-                        poi_id=str(r.slot_index),
-                    ))
+                slot_index = r.data.get("slot_index", -1) if r.data else -1
+                if r.status == "success" and r.data and "booking_id" in (r.data or {}):
+                    confirmed[slot_index] = r.data["booking_id"]
+                elif r.status != "success":
+                    failed_tools.add(_tool_name_for_result(r, slot_index))
+                    failed_slots.append(
+                        FailedSlot(
+                            slot_index=slot_index,
+                            tool_name=_tool_name_for_result(r, slot_index),
+                            error_code=r.error_code or "UNKNOWN",
+                            error_message=r.error_message or "Tool failed",
+                            poi_id=str(slot_index),
+                        )
+                    )
 
                 self._log_tool_call(r, draft.plan_id, layer_idx)
 
@@ -128,62 +128,87 @@ class ExecutionEngine(BaseAgent):
         slot_result_map: dict[int, SlotExecutionResult] = {}
         for _layer_idx, items in results.items():
             for r in items:
-                slot_result_map[r.slot_index] = SlotExecutionResult(
-                    slot_index=r.slot_index, tool_name=r.tool_name,
-                    status="success" if r.success else "failed",
+                si = r.data.get("slot_index", -1) if r.data else -1
+                slot_result_map[si] = SlotExecutionResult(
+                    slot_index=si,
+                    tool_name=_tool_name_for_result(r, si),
+                    status=r.status,
                     booking_id=r.data.get("booking_id") if r.data else None,
-                    error_code=r.error_code, error_message=r.error_message,
-                    elapsed_ms=r.elapsed_ms,
+                    error_code=r.error_code,
+                    error_message=r.error_message,
+                    elapsed_ms=r.latency_ms,
                 )
 
         return ExecutionResult(
-            plan_id=draft.plan_id, status=status,
-            slot_results=slot_result_map, confirmed_bookings=confirmed,
-            failed_slots=failed_slots, layer_timings=timings,
+            plan_id=draft.plan_id,
+            status=status,
+            slot_results=slot_result_map,
+            confirmed_bookings=confirmed,
+            failed_slots=failed_slots,
+            layer_timings=timings,
             total_elapsed_ms=total_ms,
         )
 
-    async def _call_tool_with_timeout(self, slot_index: int, tool: str,
-                                       meta) -> ToolResult:
+    async def _call_tool_with_timeout(
+        self, slot_index: int, tool: str, meta: ToolDefinition
+    ) -> ToolResult:
         try:
+            timeout_s = meta.default_timeout_ms / 1000.0
             return await asyncio.wait_for(
                 self._call_mock_tool(slot_index, tool, meta),
-                timeout=meta.timeout_ms / 1000.0,
+                timeout=timeout_s,
             )
         except TimeoutError:
             return ToolResult(
-                success=False, tool_name=tool,
-                node_id=f"{tool}_{slot_index}",
-                slot_index=slot_index, error_code="TIMEOUT",
+                invocation_id=f"{tool}_{slot_index}",
+                status="timeout",
+                data={"slot_index": slot_index, "tool_name": tool},
+                error_code="TIMEOUT",
                 error_message=f"{tool} timed out",
-                elapsed_ms=meta.timeout_ms,
+                latency_ms=meta.default_timeout_ms,
             )
 
-    async def _call_mock_tool(self, slot_index: int, tool: str, meta) -> ToolResult:
+    async def _call_mock_tool(
+        self, slot_index: int, tool: str, meta: ToolDefinition
+    ) -> ToolResult:
         delay = random.uniform(0.02, 0.15)
         await asyncio.sleep(delay)
-        if random.random() < meta.failure_rate_mock:
+        failure_rate = _MOCK_FAILURE_RATES.get(tool, 0.0)
+        if random.random() < failure_rate:
             return ToolResult(
-                success=False, tool_name=tool, node_id=f"{tool}_{slot_index}",
-                slot_index=slot_index, error_code="BOOKING_FULL",
-                error_message="该时段已满", elapsed_ms=int(delay * 1000),
+                invocation_id=f"{tool}_{slot_index}",
+                status="failure",
+                data={"slot_index": slot_index, "tool_name": tool},
+                error_code="BOOKING_FULL",
+                error_message="该时段已满",
+                latency_ms=int(delay * 1000),
             )
         return ToolResult(
-            success=True, tool_name=tool, node_id=f"{tool}_{slot_index}",
-            slot_index=slot_index,
-            data={"booking_id": f"bk_{slot_index}_{random.randint(1000, 9999)}"},
-            elapsed_ms=int(delay * 1000),
+            invocation_id=f"{tool}_{slot_index}",
+            status="success",
+            data={
+                "booking_id": f"bk_{slot_index}_{random.randint(1000, 9999)}",
+                "slot_index": slot_index,
+                "tool_name": tool,
+            },
+            latency_ms=int(delay * 1000),
         )
 
     def _log_tool_call(self, r: ToolResult, plan_id: str, layer: int):
-        log = json.dumps({
-            "event": "tool_execution",
-            "plan_id": plan_id,
-            "layer": layer,
-            "tool_name": r.tool_name,
-            "slot_index": r.slot_index,
-            "status": "success" if r.success else "failed",
-            "error_code": r.error_code,
-            "elapsed_ms": r.elapsed_ms,
-        }, ensure_ascii=False)
+        log = json.dumps(
+            {
+                "event": "tool_execution",
+                "plan_id": plan_id,
+                "layer": layer,
+                "invocation_id": r.invocation_id,
+                "status": r.status,
+                "error_code": r.error_code,
+                "latency_ms": r.latency_ms,
+            },
+            ensure_ascii=False,
+        )
         print(log)
+
+
+def _tool_name_for_result(r: ToolResult, slot_index: int) -> str:
+    return r.data.get("tool_name", str(slot_index)) if r.data else str(slot_index)
