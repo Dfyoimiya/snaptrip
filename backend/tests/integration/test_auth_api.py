@@ -14,13 +14,13 @@ from httpx import ASGITransport, AsyncClient
 from app.main import app
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 async def client():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c
 
 
-@pytest.mark.asyncio(loop_scope="session")
+@pytest.mark.asyncio
 async def test_register_and_login_flow(client: AsyncClient):
     suffix = uuid.uuid4().hex[:8]
     email = f"test-{suffix}@snaptrip.cn"
@@ -55,19 +55,19 @@ async def test_register_and_login_flow(client: AsyncClient):
     assert resp.status_code == 200
 
 
-@pytest.mark.asyncio(loop_scope="session")
+@pytest.mark.asyncio
 async def test_login_invalid_credentials(client: AsyncClient):
     resp = await client.post("/api/v1/auth/login", json={"email": "no-user@test.com", "password": "wrong"})
     assert resp.status_code == 401
 
 
-@pytest.mark.asyncio(loop_scope="session")
+@pytest.mark.asyncio
 async def test_register_short_password(client: AsyncClient):
     resp = await client.post("/api/v1/auth/register", json={"email": "x@test.com", "password": "12"})
     assert resp.status_code == 422
 
 
-@pytest.mark.asyncio(loop_scope="session")
+@pytest.mark.asyncio
 async def test_me_without_token(client: AsyncClient):
     resp = await client.get("/api/v1/auth/me")
     assert resp.status_code == 401

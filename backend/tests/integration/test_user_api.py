@@ -14,7 +14,7 @@ from httpx import ASGITransport, AsyncClient
 from app.main import app
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="function")
 async def client_and_user():
     suffix = uuid.uuid4().hex[:8]
     email = f"user-{suffix}@snaptrip.cn"
@@ -28,7 +28,7 @@ async def client_and_user():
         yield c, headers
 
 
-@pytest.mark.asyncio(loop_scope="session")
+@pytest.mark.asyncio
 async def test_get_profile(client_and_user):
     c, headers = client_and_user
     resp = await c.get("/api/v1/user/profile", headers=headers)
@@ -37,7 +37,7 @@ async def test_get_profile(client_and_user):
     assert "nickname" in data
 
 
-@pytest.mark.asyncio(loop_scope="session")
+@pytest.mark.asyncio
 async def test_update_profile(client_and_user):
     c, headers = client_and_user
     resp = await c.put(
@@ -49,7 +49,7 @@ async def test_update_profile(client_and_user):
     assert resp.json()["data"]["nickname"] == "新昵称"
 
 
-@pytest.mark.asyncio(loop_scope="session")
+@pytest.mark.asyncio
 async def test_list_plans_empty(client_and_user):
     c, headers = client_and_user
     resp = await c.get("/api/v1/user/plans", headers=headers)
@@ -57,7 +57,7 @@ async def test_list_plans_empty(client_and_user):
     assert resp.json()["data"]["total"] == 0
 
 
-@pytest.mark.asyncio(loop_scope="session")
+@pytest.mark.asyncio
 async def test_profile_requires_auth():
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         resp = await c.get("/api/v1/user/profile")
