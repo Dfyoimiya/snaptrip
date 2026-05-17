@@ -19,6 +19,9 @@ from fastapi.responses import JSONResponse
 
 async def fault_injection_middleware(request: Request, call_next):
     """全局故障注入中间件"""
+    if request.url.path == "/health":
+        return await call_next(request)
+
     t0 = time.perf_counter()
 
     # 5% 概率 503
