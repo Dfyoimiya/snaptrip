@@ -51,10 +51,12 @@ class Settings(BaseSettings):
     RATE_LIMIT_IP_PER_MIN: int = 100
     RATE_LIMIT_USER_PER_MIN: int = 300
 
+    @property
     def effective_database_url(self) -> str:
         if self.APP_ENV == "test":
             return self.DATABASE_TEST_URL
         return self.DATABASE_URL
+
     COMPOSE_PROJECT_NAME: str = "snaptrip"
 
 
