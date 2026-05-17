@@ -92,7 +92,7 @@ jobs:
           pip install fastapi uvicorn pydantic
           nohup uvicorn app.main:app --host 0.0.0.0 --port 8001 &
           for i in $(seq 1 15); do
-            curl -s http://localhost:8001/health && break
+            curl -sf http://localhost:8001/health && break
             sleep 1
           done
       - name: Run alembic

@@ -16,12 +16,9 @@ MOCK_URL = "http://localhost:8001"
 
 def _is_server_running():
     try:
-        import socket
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(0.5)
-        result = s.connect_ex(("localhost", 8001))
-        s.close()
-        return result == 0
+        import urllib.request
+        resp = urllib.request.urlopen("http://localhost:8001/health", timeout=2)
+        return resp.status == 200
     except Exception:
         return False
 
