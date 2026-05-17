@@ -142,7 +142,7 @@ async def planning_engine_node(state: PlanState) -> dict[str, Any]:
         _ar("intent_parser", {"intent": state.get("intent", {})}),
         _ar("context_loader", {"enriched_intent": enriched}),
         _ar("memory_manager", {"enriched_intent": enriched}),
-        _ar("retrieval_engine", {"candidates": state.get("candidates", {})}),
+        _ar("retrieval_engine", {"candidate_pool": state.get("candidates", {})}),
     ]
     context = _context_from_state(state, history)
     result = await agent.execute(context)
