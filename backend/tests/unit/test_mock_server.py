@@ -8,6 +8,8 @@ Date: 2026-05-17
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 import httpx
 
@@ -31,6 +33,16 @@ requires_mock = pytest.mark.skipif(
 
 @pytest.fixture
 async def mock_client():
+    for _ in range(20):
+        try:
+            import urllib.request
+            r = urllib.request.urlopen("http://localhost:8001/health", timeout=1)
+            if r.status == 200:
+                break
+        except Exception:
+            pass
+        await asyncio.sleep(0.3)
+
     async with httpx.AsyncClient(base_url=MOCK_URL, timeout=5.0) as c:
         yield c
 
