@@ -72,7 +72,7 @@ lint: ## 代码检查（ruff + mypy）
 	cd backend && uv run ruff check app/ && uv run mypy app/
 
 lint-frontend: ## 前端类型检查
-	cd frontend && npx tsc --noEmit
+	cd frontend && npx -p typescript tsc --noEmit
 
 format: ## 代码格式化
 	cd backend && uv run ruff format app/
