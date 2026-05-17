@@ -5,6 +5,8 @@
 - AsyncSessionLocal: 异步会话工厂
 - get_db: FastAPI 依赖注入，yield AsyncSession
 
+测试环境 (APP_ENV=test) 自动使用 NullPool 避免跨事件循环问题。
+
 Author: SnapTrip Team
 Date: 2026-05-17
 """
@@ -14,14 +16,22 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
+_engine_kwargs = {
+    "echo": settings.APP_DEBUG,
+}
+if settings.APP_ENV == "test":
+    _engine_kwargs["poolclass"] = NullPool
+else:
+    _engine_kwargs["pool_size"] = settings.DATABASE_POOL_SIZE
+    _engine_kwargs["max_overflow"] = settings.DATABASE_MAX_OVERFLOW
+
 async_engine = create_async_engine(
-    settings.DATABASE_URL,
-    pool_size=settings.DATABASE_POOL_SIZE,
-    max_overflow=settings.DATABASE_MAX_OVERFLOW,
-    echo=settings.APP_DEBUG,
+    settings.effective_database_url,
+    **_engine_kwargs,
 )
 
 AsyncSessionLocal = async_sessionmaker(

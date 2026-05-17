@@ -27,7 +27,8 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"
 
-    DATABASE_URL: str = "postgresql+asyncpg://snaptrip:snaptrip@localhost:5432/snaptrip"
+    DATABASE_URL: str = "postgresql+asyncpg://snaptrip:snaptrip@localhost:5432/snaptrip_dev"
+    DATABASE_TEST_URL: str = "postgresql+asyncpg://snaptrip:snaptrip@localhost:5433/snaptrip_test"
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 10
 
@@ -50,7 +51,10 @@ class Settings(BaseSettings):
     RATE_LIMIT_IP_PER_MIN: int = 100
     RATE_LIMIT_USER_PER_MIN: int = 300
 
-    BUILD_TARGET: str = "production"
+    def effective_database_url(self) -> str:
+        if self.APP_ENV == "test":
+            return self.DATABASE_TEST_URL
+        return self.DATABASE_URL
     COMPOSE_PROJECT_NAME: str = "snaptrip"
 
 

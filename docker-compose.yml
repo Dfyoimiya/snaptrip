@@ -6,7 +6,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-snaptrip}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
-      POSTGRES_DB: ${POSTGRES_DB:-snaptrip}
+      POSTGRES_DB: ${POSTGRES_DEV_DB:-snaptrip_dev}
     ports:
       - "5432:5432"
     volumes:
@@ -40,7 +40,7 @@ services:
       target: ${BUILD_TARGET:-production}
     container_name: snaptrip-backend
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-snaptrip}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DEV_DB:-snaptrip_dev}
       REDIS_URL: redis://redis:6379/0
       MOCK_API_BASE_URL: http://mock-server:8001
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
@@ -50,9 +50,6 @@ services:
       APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      LOG_FORMAT: ${LOG_FORMAT:-json}
-      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-20}
-      DATABASE_MAX_OVERFLOW: ${DATABASE_MAX_OVERFLOW:-10}
     ports:
       - "8000:8000"
     depends_on:
@@ -94,7 +91,7 @@ services:
       target: ${BUILD_TARGET:-production}
     container_name: snaptrip-celery
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-snaptrip}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DEV_DB:-snaptrip_dev}
       REDIS_URL: redis://redis:6379/0
       MOCK_API_BASE_URL: http://mock-server:8001
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
