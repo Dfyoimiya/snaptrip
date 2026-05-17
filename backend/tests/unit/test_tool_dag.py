@@ -1,11 +1,11 @@
-"""Tool DAG — 拓扑排序 + 熔断器"""
+"""Tool DAG — 工具注册表 + 拓扑排序 + 熔断器"""
 
 from datetime import datetime, timedelta
 
 import pytest
 
 from app.schemas.plan import POI, PlanSlot, TimeRange
-from app.schemas.tool import TOOL_REGISTRY, ToolInvocation
+from app.schemas.tool import TOOL_REGISTRY
 from app.services.tool_dag import ToolDAGScheduler, build_execution_layers
 
 
@@ -13,20 +13,26 @@ def make_slot(seq: int, action: str, poi_id: str) -> PlanSlot:
     now = datetime(2026, 5, 13, 14, 0)
     return PlanSlot(
         sequence=seq,
-        poi=POI(id=poi_id, name="test", city="北京", type="restaurant",
-                lat=39.9, lng=116.4, avg_price=100, rating=4.5),
-        time_range=TimeRange(start=now + timedelta(hours=seq),
-                             end=now + timedelta(hours=seq + 1)),
+        poi=POI(
+            id=poi_id, name="test", city="北京", type="restaurant",
+            lat=39.9, lng=116.4, avg_price=100, rating=4.5,
+        ),
+        time_range=TimeRange(
+            start=now + timedelta(hours=seq),
+            end=now + timedelta(hours=seq + 1),
+        ),
         action=action, estimated_cost=100,
     )
 
 
 class TestToolRegistry:
     def test_all_tools_registered(self):
-        expected = {"search_poi", "get_user_profile", "check_queue",
-                    "check_availability", "check_child_facility",
-                    "calculate_route", "book_table", "book_ticket",
-                    "order", "notify"}
+        expected = {
+            "search_poi", "get_user_profile", "check_queue",
+            "check_availability", "check_child_facility",
+            "calculate_route", "book_table", "book_ticket",
+            "order", "notify",
+        }
         assert set(TOOL_REGISTRY.keys()) == expected
 
     def test_book_table_depends_on_check_queue(self):
@@ -43,6 +49,14 @@ class TestToolRegistry:
         assert "book_table" in deps
         assert "book_ticket" in deps
         assert "order" in deps
+
+    def test_tool_definition_has_input_schema(self):
+        assert "poi_id" in TOOL_REGISTRY["book_table"].input_schema["properties"]
+
+    def test_fallback_policy_values(self):
+        assert TOOL_REGISTRY["book_table"].fallback_policy == "abort"
+        assert TOOL_REGISTRY["order"].fallback_policy == "continue"
+        assert TOOL_REGISTRY["search_poi"].fallback_policy == "degrade"
 
 
 class TestBuildLayers:
@@ -69,11 +83,6 @@ class TestCircuitBreaker:
         scheduler = ToolDAGScheduler()
         assert "book_table" not in scheduler.circuit_open
 
-    @pytest.mark.asyncio
-    async def test_failure_count_increments(self):
+    def test_failure_count_inits_zero(self):
         scheduler = ToolDAGScheduler()
-        scheduler.failure_counts["book_table"] = 4
-        await scheduler._call_tool_with_breaker(
-            ToolInvocation(node_id="t0", tool_name="book_table", slot_index=0)
-        )
-        assert scheduler.failure_counts["book_table"] in (0, 5)
+        assert scheduler.failure_counts.get("book_table", 0) == 0

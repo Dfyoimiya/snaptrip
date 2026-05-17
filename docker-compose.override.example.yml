@@ -1,14 +1,23 @@
+# ===== 开发环境覆盖：热重载 + 绑定挂载 + 开发数据库 =====
+# 使用方式:
+#   cp docker-compose.override.example.yml docker-compose.override.yml
+#   make dev
+
 services:
+  postgres:
+    environment:
+      POSTGRES_DB: ${POSTGRES_DEV_DB:-snaptrip_dev}
+
   backend:
     build:
       target: development
     volumes:
       - ./backend:/app
-      - backend-venv:/app/.venv
     environment:
+      APP_ENV: development
       APP_DEBUG: "true"
       LOG_LEVEL: DEBUG
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
     build:
@@ -23,7 +32,9 @@ services:
   mock-server:
     volumes:
       - ./mock_server:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
 
-volumes:
-  backend-venv:
+  celery-worker:
+    volumes:
+      - ./backend:/app
+    command: uv run celery -A app.celery_app worker -l info

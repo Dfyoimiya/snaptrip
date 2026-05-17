@@ -55,3 +55,8 @@ alembic/versions/*.pyc
 tmp/
 temp/
 backend/.venv/
+
+# Coverage reports
+coverage.xml
+.coverage
+
