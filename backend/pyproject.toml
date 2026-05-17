@@ -45,6 +45,7 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "SIM"]
+ignore = ["B008"]
 
 [tool.mypy]
 ignore_missing_imports = true

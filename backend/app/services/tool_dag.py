@@ -23,7 +23,6 @@ Date: 2026-05-17
 from __future__ import annotations
 
 import asyncio
-import json
 import random
 import time
 import uuid
@@ -34,7 +33,7 @@ import httpx
 
 from app.core.config import settings
 from app.schemas.plan import PlanDraft, PlanSlot
-from app.schemas.tool import TOOL_REGISTRY, ToolDefinition, ToolInvocation, ToolResult
+from app.schemas.tool import TOOL_REGISTRY, ToolInvocation, ToolResult
 from app.services.circuit_breaker import CircuitBreaker
 from app.services.memory_service import MemoryService
 
@@ -205,7 +204,7 @@ class ToolDAGExecutor:
             tasks = [self._execute_node(node) for node in layer]
             layer_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-            for node, r in zip(layer, layer_results):
+            for node, r in zip(layer, layer_results, strict=False):
                 if isinstance(r, BaseException):
                     r = ToolResult(invocation_id=node.invocation_id, status="failure",
                                    error_code="EXECUTION_ERROR", error_message=str(r))

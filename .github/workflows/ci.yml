@@ -73,10 +73,6 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      mock-server:
-        image: snaptrip-mock:ci
-        ports:
-          - 8001:8001
     env:
       DATABASE_URL: postgresql+asyncpg://ci_runner:ci_test_pass@localhost:5432/ci_test
       REDIS_URL: redis://localhost:6379/0
@@ -90,8 +86,12 @@ jobs:
       - name: Install deps
         working-directory: backend
         run: uv sync && uv sync --extra dev
-      - name: Build mock-server image
-        run: docker build -t snaptrip-mock:ci mock_server/
+      - name: Start mock-server
+        run: |
+          cd mock_server
+          pip install fastapi uvicorn pydantic
+          nohup uvicorn app.main:app --host 0.0.0.0 --port 8001 &
+          sleep 3
       - name: Run alembic
         working-directory: backend
         run: uv run alembic upgrade head

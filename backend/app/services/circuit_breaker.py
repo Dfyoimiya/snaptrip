@@ -88,9 +88,8 @@ class CircuitBreaker:
 
     def _try_transition(self) -> None:
         now = time.monotonic()
-        if self._state == CircuitState.OPEN:
-            if now - self._last_failure_time >= self._recovery_timeout:
-                self._state = CircuitState.HALF_OPEN
+        if self._state == CircuitState.OPEN and now - self._last_failure_time >= self._recovery_timeout:
+            self._state = CircuitState.HALF_OPEN
 
     def _on_success(self) -> None:
         self._failure_count = 0

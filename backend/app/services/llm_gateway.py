@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import asyncio
 import time
-from datetime import datetime, timezone
 
 import httpx
 
@@ -86,7 +85,7 @@ class LLMGateway:
                     temperature=temperature,
                     timeout=timeout,
                 )
-            except (LLMError, httpx.HTTPError, asyncio.TimeoutError) as e:
+            except (TimeoutError, LLMError, httpx.HTTPError) as e:
                 last_error = e
                 if len(candidates) > 1:
                     await asyncio.sleep(0.5)

@@ -7,10 +7,10 @@ Date: 2026-05-17
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, func
+from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -50,6 +50,6 @@ class PlanSlot(Base):
         DateTime(timezone=True), nullable=True
     )
 
-    plan: Mapped["Plan"] = relationship("Plan", back_populates="plan_slots")
+    plan: Mapped[Plan] = relationship("Plan", back_populates="plan_slots")
 
     __table_args__ = ()

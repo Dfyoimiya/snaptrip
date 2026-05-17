@@ -7,7 +7,7 @@ Date: 2026-05-17
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String, func
@@ -41,10 +41,10 @@ class PlanAdjustment(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         server_default=func.now(),
     )
 
-    plan: Mapped["Plan"] = relationship("Plan", back_populates="plan_adjustments")
+    plan: Mapped[Plan] = relationship("Plan", back_populates="plan_adjustments")
 
     __table_args__ = ()

@@ -7,7 +7,7 @@ Date: 2026-05-17
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, String, func
@@ -39,8 +39,8 @@ class RefreshToken(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         server_default=func.now(),
     )
 
-    user: Mapped["User"] = relationship("User", back_populates="refresh_tokens")
+    user: Mapped[User] = relationship("User", back_populates="refresh_tokens")

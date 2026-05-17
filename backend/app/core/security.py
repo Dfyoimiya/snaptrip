@@ -15,7 +15,7 @@ from __future__ import annotations
 import hashlib
 import secrets
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import bcrypt
 from fastapi import Depends, HTTPException, status
@@ -27,7 +27,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.refresh_token import RefreshToken
-from app.models.user_profile import UserProfile
 from app.models.users import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
@@ -43,7 +42,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + (
+    expire = datetime.now(UTC) + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode.update({"exp": expire, "type": "access"})
@@ -53,7 +52,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 async def create_refresh_token(user_id: uuid.UUID, db: AsyncSession) -> str:
     raw_token = secrets.token_urlsafe(64)
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    expires_at = datetime.now(UTC) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
 
     rt = RefreshToken(user_id=user_id, token_hash=token_hash, expires_at=expires_at)
     db.add(rt)
@@ -69,7 +68,7 @@ async def verify_refresh_token(raw_token: str, db: AsyncSession) -> RefreshToken
     rt = result.scalar_one_or_none()
     if rt is None:
         return None
-    if rt.expires_at < datetime.now(timezone.utc):
+    if rt.expires_at < datetime.now(UTC):
         await db.delete(rt)
         await db.flush()
         return None
@@ -95,7 +94,7 @@ def verify_token(token: str) -> dict:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="无效的认证令牌",
-        )
+        ) from None
 
 
 async def get_current_user(
@@ -120,7 +119,7 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="令牌格式无效",
-        )
+        ) from None
     result = await db.execute(select(User).where(User.id == uid))
     user = result.scalar_one_or_none()
     if user is None or not user.is_active:

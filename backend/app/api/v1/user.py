@@ -14,7 +14,7 @@ Date: 2026-05-17
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -25,9 +25,7 @@ from sqlalchemy.orm import selectinload
 from app.core.response import success
 from app.core.security import get_current_user
 from app.db.session import get_db
-from app.models.checkpoint import Checkpoint
 from app.models.plan import Plan
-from app.models.plan_adjustment import PlanAdjustment
 from app.models.plan_slot import PlanSlot
 from app.models.user_profile import UserProfile
 from app.models.users import User
@@ -199,9 +197,10 @@ async def get_plan_detail(
     if plan is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="计划不存在")
 
-    slots = sorted(plan.plan_slots, key=lambda s: s.time_start if s.time_start else datetime.min.replace(tzinfo=timezone.utc))
+    _utc_min = datetime.min.replace(tzinfo=UTC)
+    slots = sorted(plan.plan_slots, key=lambda s: s.time_start if s.time_start else _utc_min)
     checkpoints = sorted(plan.checkpoints, key=lambda c: c.version)
-    adjustments = sorted(plan.plan_adjustments, key=lambda a: a.created_at if a.created_at else datetime.min.replace(tzinfo=timezone.utc))
+    adjustments = sorted(plan.plan_adjustments, key=lambda a: a.created_at if a.created_at else _utc_min)
 
     return success(
         data=PlanDetailOut(

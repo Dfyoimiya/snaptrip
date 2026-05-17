@@ -3,7 +3,7 @@
 所有 API 返回:
     {"code": 0, "message": "success", "data": {...}}
 
-自定义异常 APIException 携带 code 和 status_code，由全局异常处理器统一包装。
+自定义异常 APIServiceError 携带 code 和 status_code，由全局异常处理器统一包装。
 
 Author: SnapTrip Team
 Date: 2026-05-17
@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 
-class APIException(Exception):
+class APIServiceError(Exception):
     """业务异常，携带错误码和 HTTP 状态码"""
 
     def __init__(self, code: int, message: str, status_code: int = 400) -> None:
@@ -43,7 +43,7 @@ def error(code: int, message: str, data: Any = None) -> dict:
     return {"code": code, "message": message, "data": data}
 
 
-async def api_exception_handler(request: Request, exc: APIException) -> JSONResponse:
+async def api_exception_handler(request: Request, exc: APIServiceError) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
         content={"code": exc.code, "message": exc.message, "data": None},

@@ -7,7 +7,7 @@ Date: 2026-05-17
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from pgvector.sqlalchemy import Vector
@@ -40,11 +40,11 @@ class UserProfile(Base):
     home_address: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         server_default=func.now(),
-        onupdate=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(UTC),
     )
 
-    user: Mapped["User"] = relationship("User", backref="profile", uselist=False)
+    user: Mapped[User] = relationship("User", backref="profile", uselist=False)
 
     __table_args__ = ()

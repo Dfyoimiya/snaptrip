@@ -7,8 +7,8 @@ Date: 2026-05-17
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, List
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, String, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -40,11 +40,11 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         server_default=func.now(),
     )
 
-    plans: Mapped[List["Plan"]] = relationship("Plan", back_populates="user")
-    refresh_tokens: Mapped[List["RefreshToken"]] = relationship(
+    plans: Mapped[list[Plan]] = relationship("Plan", back_populates="user")
+    refresh_tokens: Mapped[list[RefreshToken]] = relationship(
         "RefreshToken", back_populates="user"
     )

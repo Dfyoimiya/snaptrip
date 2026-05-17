@@ -22,7 +22,6 @@ import json
 import random
 import time
 from collections import defaultdict
-from typing import Any
 
 from app.agents.protocol import AgentContext, AgentResult, BaseAgent
 from app.core.constants import EXEC_TIMEOUT_TOTAL_S

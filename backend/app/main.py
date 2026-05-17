@@ -27,7 +27,7 @@ from app.api.v1.auth import router as auth_router
 from app.api.v1.plan import router as plan_router
 from app.api.v1.user import router as user_router
 from app.core.response import (
-    APIException,
+    APIServiceError,
     api_exception_handler,
     http_exception_handler,
     validation_exception_handler,
@@ -66,7 +66,7 @@ app.include_router(plan_router)
 app.include_router(auth_router)
 app.include_router(user_router)
 
-app.add_exception_handler(APIException, api_exception_handler)
+app.add_exception_handler(APIServiceError, api_exception_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 

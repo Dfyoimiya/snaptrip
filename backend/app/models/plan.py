@@ -7,8 +7,8 @@ Date: 2026-05-17
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, List
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import DATERANGE, UUID
@@ -47,14 +47,14 @@ class Plan(Base):
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
+        default=lambda: datetime.now(UTC),
         server_default=func.now(),
     )
 
-    user: Mapped["User"] = relationship("User", back_populates="plans")
-    plan_slots: Mapped[List["PlanSlot"]] = relationship("PlanSlot", back_populates="plan")
-    checkpoints: Mapped[List["Checkpoint"]] = relationship("Checkpoint", back_populates="plan")
-    plan_adjustments: Mapped[List["PlanAdjustment"]] = relationship(
+    user: Mapped[User] = relationship("User", back_populates="plans")
+    plan_slots: Mapped[list[PlanSlot]] = relationship("PlanSlot", back_populates="plan")
+    checkpoints: Mapped[list[Checkpoint]] = relationship("Checkpoint", back_populates="plan")
+    plan_adjustments: Mapped[list[PlanAdjustment]] = relationship(
         "PlanAdjustment", back_populates="plan"
     )
 
