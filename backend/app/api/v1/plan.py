@@ -1,172 +1,88 @@
-"""Plan API —— 对接 MasterController。
+"""Plan API —— 对接 LangGraph 编排引擎。
 
 提供活动计划创建、查询、流式推送的 RESTful 接口。
 
 端点:
-  POST /api/v1/plan/create      —— 创建计划，触发 9 Agent 串行全链路
+  POST /api/v1/plan/create      —— 创建计划，LangGraph StateGraph 驱动全链路
   GET  /api/v1/plan/{plan_id}   —— 获取已完成计划详情
   GET  /api/v1/plan/{plan_id}/stream —— SSE 流式推送 Agent 思考过程
 
-Agent 执行链路:
-  IntentParser → ContextLoader → MemoryManager → RetrievalEngine
-  → PlanningEngine → ConsensusResolver → ExecutionEngine
-  → FallbackEngine → NotifyEngine
-
-每个 Agent 执行后通过 hub.store_result() 存储结果，
-后续 Agent 通过 context.history 获取上游产出。
+与旧版差异:
+  - 不再硬编码 9 个 Agent 的串行调用
+  - 改为 plan_graph.ainvoke() / plan_graph.astream_events()
+  - 异常分支 (consensus/execution/fallback) 由 conditional_edges 驱动
+  - FSM 状态迁移完全在图内完成
 
 Author: SnapTrip Team
-Date: 2026-05-13
+Date: 2026-05-13 / Refactored 2026-05-17
 """
 
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, HTTPException, Request
 
-from app.agents.consensus_resolver import ConsensusResolver
-from app.agents.context_loader import ContextLoader
-from app.agents.execution_engine import ExecutionEngine
-from app.agents.fallback_engine import FallbackEngine
-from app.agents.hub import MasterController
-from app.agents.intent_parser import IntentParser
-from app.agents.memory_manager import MemoryManager
-from app.agents.notify_engine import NotifyEngine
-from app.agents.planning_engine import PlanningEngine
-from app.agents.protocol import AgentContext
-from app.agents.retrieval_engine import RetrievalEngine
+from app.agents.graph import plan_graph
 from app.api.v1.session import stream_plan
-from app.core.state import StateEvent
 from app.schemas.plan import PlanCreateRequest, PlanResponse, PlanSlot, ShareCard
 
 router = APIRouter(prefix="/api/v1/plan", tags=["plan"])
 
 
-def get_hub(request: Request) -> MasterController:
-    if not hasattr(request.app.state, "hub"):
-        request.app.state.hub = MasterController()
-    return request.app.state.hub  # type: ignore[no-any-return]
+def _build_initial_state(req: PlanCreateRequest) -> dict:
+    plan_id = str(uuid.uuid4())[:8]
+    return {
+        "plan_id": plan_id,
+        "session_id": str(uuid.uuid4())[:8],
+        "user_id": req.user_id,
+        "user_input": req.user_input,
+        "lat": req.lat,
+        "lng": req.lng,
+        "status": "idle",
+        "fallback_count": 0,
+        "errors": [],
+    }
+
+
+def _state_to_response(state: dict, query_text: str) -> PlanResponse:
+    draft = state.get("draft", {}) or {}
+    slots_raw = draft.get("slots", [])
+    slots = [PlanSlot(**s) if isinstance(s, dict) else s for s in slots_raw]
+    share_card_data = state.get("share_card", {}) or {}
+
+    return PlanResponse(
+        plan_id=state.get("plan_id", ""),
+        query_text=query_text,
+        status=state.get("status", "idle"),
+        total_cost=draft.get("total_cost", 0),
+        total_time_min=draft.get("total_time_min", 0),
+        slots=slots,
+        share_card=ShareCard(**share_card_data) if share_card_data else None,
+    )
 
 
 @router.post("/create", response_model=PlanResponse)
 async def create_plan(req: PlanCreateRequest, request: Request):
-    hub = get_hub(request)
-    context = AgentContext(
-        user_input=req.user_input, user_id=req.user_id,
-        lat=req.lat, lng=req.lng,
-    )
-    plan_id = context.plan_id
-
-    record = hub.init_plan(plan_id, context)
-
-    # Agent chain: Intent → Context → Retrieval → Planning → Confirm → Execute → Notify
-    intent_parser = IntentParser()
-    result = await intent_parser.execute(context)
-    context.history.append(result)
-    hub.store_result(plan_id, "intent_parser", result)
-
-    hub.decide(record, StateEvent.INTENT_READY, {"intent": result.data.get("intent")})
-
-    context_loader = ContextLoader()
-    result = await context_loader.execute(context)
-    context.history.append(result)
-    hub.store_result(plan_id, "context_loader", result)
-
-    memory_manager = MemoryManager()
-    result = await memory_manager.execute(context)
-    context.history.append(result)
-    hub.store_result(plan_id, "memory_manager", result)
-
-    retrieval = RetrievalEngine()
-    result = await retrieval.execute(context)
-    context.history.append(result)
-    hub.store_result(plan_id, "retrieval_engine", result)
-
-    planning = PlanningEngine()
-    result = await planning.execute(context)
-    context.history.append(result)
-    hub.store_result(plan_id, "planning_engine", result)
-
-    hub.decide(record, StateEvent.PLAN_DRAFT_READY, {
-        "slots": result.data.get("draft", {}).get("slots", []),
-        "total_cost": result.data.get("draft", {}).get("total_cost", 0),
-        "budget": float("inf"),
-    })
-
-    # Auto confirmation (single user)
-    consensus = ConsensusResolver()
-    result = await consensus.execute(context)
-    context.history.append(result)
-
-    hub.decide(record, StateEvent.USER_CONFIRM_ALL)
-
-    # Execution
-    execution = ExecutionEngine()
-    result = await execution.execute(context)
-    context.history.append(result)
-    hub.store_result(plan_id, "execution_engine", result)
-
-    exec_data = result.data.get("execution", {})
-    if exec_data.get("status") == "full_success":
-        hub.decide(record, StateEvent.EXECUTION_SUCCESS)
-    else:
-        # Try fallback
-        fallback = FallbackEngine()
-        fb_result = await fallback.execute(context)
-        context.history.append(fb_result)
-        hub.decide(record, StateEvent.EXECUTION_PARTIAL_FAIL)
-
-    # Notify
-    notify = NotifyEngine()
-    result = await notify.execute(context)
-    context.history.append(result)
-
-    hub.decide(record, StateEvent.EXECUTION_SUCCESS)
-
-    draft = hub.get_draft(plan_id)
-    slots_raw = draft.get("slots", []) if isinstance(draft, dict) else (draft.slots if draft else [])
-    total_cost = draft.get("total_cost", 0) if isinstance(draft, dict) else (draft.total_cost if draft else 0)
-    total_time = draft.get("total_time_min", 0) if isinstance(draft, dict) else (draft.total_time_min if draft else 0)
-    slots = [PlanSlot(**s) if isinstance(s, dict) else s for s in slots_raw]
-    share_data = result.data.get("share_card", {})
-
-    return PlanResponse(
-        plan_id=plan_id,
-        query_text=req.user_input,
-        status=record.state,
-        total_cost=total_cost,
-        total_time_min=total_time,
-        slots=slots,
-        share_card=ShareCard(**share_data) if share_data else None,
-    )
+    initial_state = _build_initial_state(req)
+    config = {"configurable": {"thread_id": initial_state["plan_id"]}}
+    final_state = await plan_graph.ainvoke(initial_state, config)
+    return _state_to_response(final_state, req.user_input)
 
 
 @router.get("/{plan_id}", response_model=PlanResponse)
 async def get_plan(plan_id: str, request: Request):
-    hub = get_hub(request)
-    draft_raw = hub.get_draft(plan_id)
-    record = hub.get_state(plan_id)
-
-    slots_raw = (draft_raw.get("slots", []) if isinstance(draft_raw, dict)
-                 else (draft_raw.slots if draft_raw else []))
-    slots = [PlanSlot(**s) if isinstance(s, dict) else s for s in slots_raw]
-    total_cost = (draft_raw.get("total_cost", 0) if isinstance(draft_raw, dict)
-                  else (draft_raw.total_cost if draft_raw else 0))
-    total_time = (draft_raw.get("total_time_min", 0) if isinstance(draft_raw, dict)
-                  else (draft_raw.total_time_min if draft_raw else 0))
-
-    return PlanResponse(
-        plan_id=plan_id,
-        query_text="", status=record.state,
-        total_cost=total_cost,
-        total_time_min=total_time,
-        slots=slots,
-    )
+    config = {"configurable": {"thread_id": plan_id}}
+    state = await plan_graph.aget_state(config)
+    if state is None or state.values is None:
+        raise HTTPException(status_code=404, detail="plan not found")
+    return _state_to_response(state.values, "")
 
 
 @router.get("/{plan_id}/stream")
 async def plan_stream(plan_id: str, request: Request):
-    hub = get_hub(request)
-    record = hub.get_state(plan_id)
-    if not record:
+    config = {"configurable": {"thread_id": plan_id}}
+    state_snapshot = await plan_graph.aget_state(config)
+    if state_snapshot is None or state_snapshot.values is None:
         raise HTTPException(status_code=404, detail="plan not found")
-    return await stream_plan(plan_id, hub)
+    return await stream_plan(plan_id, state_snapshot.values)

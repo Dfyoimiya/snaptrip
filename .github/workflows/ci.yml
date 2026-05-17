@@ -79,6 +79,9 @@ jobs:
         working-directory: backend
         run: uv sync --extra dev
       - name: make mock-up
+        env:
+          MOCK_FAULT_RATE: "0"
+          MOCK_DELAY_RATE: "0"
         run: |
           cd mock_server && uv sync
           nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 &
