@@ -71,7 +71,7 @@ jobs:
       MOCK_API_BASE_URL: http://localhost:8001
       APP_SECRET_KEY: ci-test-secret-key-not-for-prod
       JWT_SECRET_KEY: ci-test-jwt-secret-key-not-for-prod
-      OPENROUTER_API_KEY: placeholder
+      DEEPSEEK_API_KEY: placeholder
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3

@@ -3,7 +3,7 @@
 将用户自然语言输入转换为结构化的 IntentSchema。
 
 执行策略:
-  1. 首选 LLM 调用（Jinja2 模板渲染 → OpenRouter → DeepSeek-V3）
+  1. 首选 LLM 调用（Jinja2 模板渲染 → DeepSeek API）
   2. 超时 2s 或 LLM 不可用时，降级为关键词匹配
   3. 关键词覆盖: 城市/类型/心情/预算/人数/场景
 
@@ -71,10 +71,10 @@ class IntentParser(BaseAgent):
             return await self._parse_via_keywords(context)
 
     async def _parse_via_llm(self, context: AgentContext) -> AgentResult:
-        """Jinja2 模板渲染 → OpenRouter → DeepSeek-V4-Pro。
+        """Jinja2 模板渲染 → DeepSeek API → 结构化意图。
 
         解析 LLM 返回的 JSON 为 IntentSchema。
-        若 LLM 不可用（import 失败 / API 错误 / 返回格式异常），降级关键词。
+        若 LLM 不可用，降级关键词匹配。
 
         Args:
             context: 执行上下文
@@ -97,9 +97,9 @@ class IntentParser(BaseAgent):
             from app.core.config import settings
             async with httpx.AsyncClient(timeout=INTENT_TIMEOUT_S) as client:
                 resp = await client.post(
-                    f"{settings.OPENROUTER_BASE_URL}/chat/completions",
+                    f"{settings.DEEPSEEK_BASE_URL}/chat/completions",
                     headers={
-                        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+                        "Authorization": f"Bearer {settings.DEEPSEEK_API_KEY}",
                         "Content-Type": "application/json",
                     },
                     json={

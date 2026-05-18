@@ -155,9 +155,9 @@ class PlanningEngine(BaseAgent):
             from app.core.config import settings
             async with httpx.AsyncClient(timeout=PLANNING_PHASE2_TIMEOUT_S) as client:
                 resp = await client.post(
-                    f"{settings.OPENROUTER_BASE_URL}/chat/completions",
+                    f"{settings.DEEPSEEK_BASE_URL}/chat/completions",
                     headers={
-                        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+                        "Authorization": f"Bearer {settings.DEEPSEEK_API_KEY}",
                         "Content-Type": "application/json",
                     },
                     json={
