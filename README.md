@@ -57,7 +57,7 @@ make up
 |------|------|----------|
 | 后端 API | 8000 | http://localhost:8000/docs |
 | Mock 服务 | 8001 | http://localhost:8001/docs |
-| 前端 | 5173 | http://localhost:5173 |
+| 前端 | 5174 | http://localhost:5174 |
 | PostgreSQL | 5432 | — |
 | Redis | 6379 | — |
 

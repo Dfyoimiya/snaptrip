@@ -117,7 +117,7 @@ services:
       target: ${BUILD_TARGET:-production}
     container_name: snaptrip-frontend
     ports:
-      - "5173:5173"
+      - "5174:5173"
     depends_on:
       - backend
     restart: unless-stopped
