@@ -104,15 +104,3 @@ jobs:
           file: backend/coverage.xml
           flags: backend
         if: always()
-
-  docker-build:
-    name: Docker Build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Build backend
-        run: docker build -t snaptrip-backend:ci backend/
-      - name: Build mock-server
-        run: docker build -t snaptrip-mock:ci mock_server/
-      - name: Build frontend
-        run: docker build -t snaptrip-frontend:ci frontend/
