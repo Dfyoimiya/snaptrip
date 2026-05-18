@@ -30,6 +30,7 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import interrupt
 
 from app.agents.context_loader import ContextLoader
 from app.agents.execution_engine import ExecutionEngine
@@ -161,15 +162,15 @@ async def planning_engine_node(state: PlanState) -> dict[str, Any]:
 
 
 async def consensus_resolver_node(state: PlanState) -> dict[str, Any]:
-    from app.agents.consensus_resolver import ConsensusResolver
-    agent = ConsensusResolver()
-    history = [
-        AgentResult(agent_name="planning_engine", status="success", data={"draft": state.get("draft", {})}),
-    ]
-    context = _context_from_state(state, history)
-    result = await agent.execute(context)
-    decision = result.data.get("status", "confirmed")
-    return {"user_decision": decision}
+    draft = state.get("draft", {})
+    user_choice = interrupt({
+        "event": "consensus",
+        "draft": draft,
+        "message": "请确认或修改计划",
+    })
+    if isinstance(user_choice, dict):
+        return {"user_decision": user_choice.get("decision", "confirmed")}
+    return {"user_decision": "confirmed"}
 
 
 def route_consensus(state: PlanState) -> Literal["execution_engine", "planning_engine", "end"]:
