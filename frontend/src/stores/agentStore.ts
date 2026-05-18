@@ -24,7 +24,7 @@ const PIPELINE: AgentNode[] = [
   { id: "notify_engine", label: "生成卡片", status: "idle" },
 ]
 
-export const useAgentStore = create<AgentState>((set, get) => ({
+export const useAgentStore = create<AgentState>((set) => ({
   nodes: PIPELINE.map((n) => ({ ...n })),
   logs: [],
   isRunning: false,

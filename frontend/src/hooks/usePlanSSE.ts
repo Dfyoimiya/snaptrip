@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react"
+import { useEffect } from "react"
 import { sseUrl } from "../api/plan"
 import { useAgentStore } from "../stores/agentStore"
 import { usePlanStore } from "../stores/planStore"
@@ -17,7 +17,6 @@ const EVENT_NODE_MAP: Record<string, string> = {
 }
 
 export function usePlanSSE(planId: string | null) {
-  const esRef = useRef<EventSource | null>(null)
   const addLog = useAgentStore((s) => s.addLog)
   const updateNode = useAgentStore((s) => s.updateNode)
   const setRunning = useAgentStore((s) => s.setRunning)
@@ -29,7 +28,6 @@ export function usePlanSSE(planId: string | null) {
     if (!planId) return
 
     const es = new EventSource(sseUrl(planId))
-    esRef.current = es
     setRunning(true)
 
     es.onmessage = (e) => {
@@ -79,8 +77,4 @@ export function usePlanSSE(planId: string | null) {
       setRunning(false)
     }
   }, [planId, addLog, updateNode, setRunning, setAwaitingConfirm, setStatus, setSlots])
-
-  return {
-    close: () => esRef.current?.close(),
-  }
 }

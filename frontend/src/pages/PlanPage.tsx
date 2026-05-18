@@ -18,7 +18,7 @@ export function PlanPage() {
   const agentReset = useAgentStore((s) => s.reset)
   const setRunning = useAgentStore((s) => s.setRunning)
 
-  const { close } = usePlanSSE(loading ? planId : null)
+  usePlanSSE(loading ? planId : null)
 
   const handleSend = useCallback(
     async (text: string) => {
