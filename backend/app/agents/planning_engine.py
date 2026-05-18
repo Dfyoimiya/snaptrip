@@ -151,12 +151,21 @@ class PlanningEngine(BaseAgent):
             import json
 
             import httpx
+
+            from app.core.config import settings
             async with httpx.AsyncClient(timeout=PLANNING_PHASE2_TIMEOUT_S) as client:
                 resp = await client.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={"Authorization": "Bearer placeholder", "Content-Type": "application/json"},
-                    json={"model": "deepseek/deepseek-v3", "messages": [{"role": "user", "content": prompt}],
-                          "temperature": 0.5, "max_tokens": 1024},
+                    f"{settings.OPENROUTER_BASE_URL}/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": settings.LLM_MODEL,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": settings.AGENT_LLM_TEMPERATURE,
+                        "max_tokens": 1024,
+                    },
                 )
                 data = resp.json()
                 content = data["choices"][0]["message"]["content"]

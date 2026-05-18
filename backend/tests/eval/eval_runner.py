@@ -63,7 +63,7 @@ def eval_intent(golden_path: Path | None = None) -> IntentMetrics:
         expected = case["expected"]
 
         context = AgentContext(user_input=user_input, lat=39.9, lng=116.4)
-        result = asyncio.run(parser._parse_via_keywords(context))
+        result = asyncio.run(parser.execute(context))
         intent = result.data.get("intent", {})
 
         actual_city = intent.get("city", "")
@@ -148,7 +148,7 @@ def eval_plan(golden_path: Path | None = None) -> PlanMetrics:
 
         context = AgentContext(user_input=user_input, lat=39.9, lng=116.4)
 
-        intent_result = asyncio.run(parser._parse_via_keywords(context))
+        intent_result = asyncio.run(parser.execute(context))
         intent = intent_result.data.get("intent", {})
 
         context.history = [

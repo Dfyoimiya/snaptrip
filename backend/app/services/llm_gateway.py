@@ -1,7 +1,7 @@
 """LLM 网关 —— OpenRouter 统一调用、Embedding、自动降级、Token 统计。
 
 封装 OpenRouter API 的 chat 和 embedding 端点，提供：
-- 模型别名映射（deepseek → deepseek/deepseek-v3）
+- 模型别名映射（deepseek → deepseek/deepseek-v4-pro）
 - 自动降级（主模型超时/失败 → 备用模型）
 - 结构化日志记录到 llm_usage_logs 表
 - 重试 + 指数退避
@@ -22,7 +22,8 @@ from app.db.session import AsyncSessionLocal
 from app.models.llm_usage_log import LLMUsageLog
 
 MODEL_ALIASES: dict[str, str] = {
-    "deepseek": "deepseek/deepseek-v3",
+    "deepseek": "deepseek/deepseek-v4-pro",
+    "deepseek-v4-pro": "deepseek/deepseek-v4-pro",
     "deepseek-r1": "deepseek/deepseek-r1",
     "gemma": "google/gemma-3-4b-it:free",
 }

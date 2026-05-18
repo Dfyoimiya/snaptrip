@@ -71,7 +71,7 @@ class IntentParser(BaseAgent):
             return await self._parse_via_keywords(context)
 
     async def _parse_via_llm(self, context: AgentContext) -> AgentResult:
-        """Jinja2 模板渲染 → OpenRouter → DeepSeek-V3。
+        """Jinja2 模板渲染 → OpenRouter → DeepSeek-V4-Pro。
 
         解析 LLM 返回的 JSON 为 IntentSchema。
         若 LLM 不可用（import 失败 / API 错误 / 返回格式异常），降级关键词。
@@ -93,17 +93,19 @@ class IntentParser(BaseAgent):
             )
 
             import httpx
+
+            from app.core.config import settings
             async with httpx.AsyncClient(timeout=INTENT_TIMEOUT_S) as client:
                 resp = await client.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
+                    f"{settings.OPENROUTER_BASE_URL}/chat/completions",
                     headers={
-                        "Authorization": "Bearer placeholder",
+                        "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
                         "Content-Type": "application/json",
                     },
                     json={
-                        "model": "deepseek/deepseek-v3",
+                        "model": settings.LLM_MODEL,
                         "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.3,
+                        "temperature": settings.AGENT_LLM_TEMPERATURE,
                         "max_tokens": 512,
                     },
                 )

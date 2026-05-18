@@ -40,7 +40,7 @@ class Settings(BaseSettings):
 
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
-    LLM_MODEL: str = "deepseek/deepseek-v3"
+    LLM_MODEL: str = "deepseek/deepseek-v4-pro"
     LLM_MAX_TOKENS: int = 2048
     LLM_TEMPERATURE: float = 0.7
 
