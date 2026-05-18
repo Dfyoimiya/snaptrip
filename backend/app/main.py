@@ -31,6 +31,7 @@ from app.core.response import (
     APIServiceError,
     api_exception_handler,
     http_exception_handler,
+    unhandled_exception_handler,
     validation_exception_handler,
 )
 from app.services.memory_service import MemoryService
@@ -70,6 +71,7 @@ app.include_router(user_router)
 app.add_exception_handler(APIServiceError, api_exception_handler)
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
 
 
 @app.get("/health")

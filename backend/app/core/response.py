@@ -19,9 +19,13 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)
+
 
 class APIServiceError(Exception):
-    """业务异常，携带错误码和 HTTP 状态码"""
+    """业务异常，携带业务错误码和 HTTP 状态码（解耦）"""
 
     def __init__(self, code: int, message: str, status_code: int = 400) -> None:
         self.code = code
@@ -65,4 +69,12 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(
         status_code=422,
         content={"code": 422, "message": "; ".join(errors), "data": None},
+    )
+
+
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.error("unhandled_exception", path=str(request.url), error=str(exc))
+    return JSONResponse(
+        status_code=500,
+        content={"code": 9999, "message": "Internal server error", "data": None},
     )

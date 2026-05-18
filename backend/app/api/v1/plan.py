@@ -23,13 +23,14 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Request
 from langgraph.errors import GraphInterrupt
 from langgraph.types import Command
 from pydantic import BaseModel
 
 from app.agents.graph import plan_graph
 from app.api.v1.session import stream_plan
+from app.core.response import APIServiceError, success
 from app.schemas.plan import PlanCreateRequest, PlanResponse, PlanSlot, ShareCard
 
 router = APIRouter(prefix="/api/v1/plan", tags=["plan"])
@@ -72,7 +73,7 @@ def _state_to_response(state: dict, query_text: str) -> PlanResponse:
     )
 
 
-@router.post("/create", response_model=PlanResponse)
+@router.post("/create")
 async def create_plan(req: PlanCreateRequest, request: Request):
     initial_state = _build_initial_state(req)
     config = {"configurable": {"thread_id": initial_state["plan_id"]}}
@@ -81,17 +82,17 @@ async def create_plan(req: PlanCreateRequest, request: Request):
     except GraphInterrupt:
         state = await plan_graph.aget_state(config)
         if state and state.values:
-            return _state_to_response(state.values, req.user_input)
-        raise HTTPException(status_code=500, detail="graph interrupted but state unavailable") from None
-    return _state_to_response(final_state, req.user_input)
+            return success(data=_state_to_response(state.values, req.user_input).model_dump())
+        raise APIServiceError(code=2001, message="graph interrupted but state unavailable", status_code=500) from None
+    return success(data=_state_to_response(final_state, req.user_input).model_dump())
 
 
-@router.post("/{plan_id}/confirm", response_model=PlanResponse)
+@router.post("/{plan_id}/confirm")
 async def confirm_plan(plan_id: str, body: ConfirmRequest, request: Request):
     config = {"configurable": {"thread_id": plan_id}}
     state = await plan_graph.aget_state(config)
     if state is None or state.values is None:
-        raise HTTPException(status_code=404, detail="plan not found")
+        raise APIServiceError(code=1001, message="plan not found", status_code=404)
     try:
         final_state = await plan_graph.ainvoke(
             Command(resume={"decision": body.decision, "slot_index": body.slot_index}),
@@ -100,18 +101,18 @@ async def confirm_plan(plan_id: str, body: ConfirmRequest, request: Request):
     except GraphInterrupt:
         state = await plan_graph.aget_state(config)
         if state and state.values:
-            return _state_to_response(state.values, "")
-        raise HTTPException(status_code=500, detail="graph interrupted but state unavailable") from None
-    return _state_to_response(final_state, "")
+            return success(data=_state_to_response(state.values, "").model_dump())
+        raise APIServiceError(code=2001, message="graph interrupted but state unavailable", status_code=500) from None
+    return success(data=_state_to_response(final_state, "").model_dump())
 
 
-@router.get("/{plan_id}", response_model=PlanResponse)
+@router.get("/{plan_id}")
 async def get_plan(plan_id: str, request: Request):
     config = {"configurable": {"thread_id": plan_id}}
     state = await plan_graph.aget_state(config)
     if state is None or state.values is None:
-        raise HTTPException(status_code=404, detail="plan not found")
-    return _state_to_response(state.values, "")
+        raise APIServiceError(code=1001, message="plan not found", status_code=404)
+    return success(data=_state_to_response(state.values, "").model_dump())
 
 
 @router.get("/{plan_id}/stream")
@@ -119,5 +120,5 @@ async def plan_stream(plan_id: str, request: Request):
     config = {"configurable": {"thread_id": plan_id}}
     state_snapshot = await plan_graph.aget_state(config)
     if state_snapshot is None or state_snapshot.values is None:
-        raise HTTPException(status_code=404, detail="plan not found")
+        raise APIServiceError(code=1001, message="plan not found", status_code=404)
     return await stream_plan(plan_id, state_snapshot.values)
