@@ -40,9 +40,21 @@ class Settings(BaseSettings):
 
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
-    LLM_MODEL: str = "deepseek/deepseek-v3"
+    DEEPSEEK_API_KEY: str = ""
+    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
+    LLM_MODEL: str = "deepseek-chat"
     LLM_MAX_TOKENS: int = 2048
     LLM_TEMPERATURE: float = 0.7
+
+    @property
+    def llm_api_key(self) -> str:
+        return self.OPENROUTER_API_KEY or self.DEEPSEEK_API_KEY or ""
+
+    @property
+    def llm_base_url(self) -> str:
+        if self.OPENROUTER_API_KEY:
+            return self.OPENROUTER_BASE_URL
+        return self.DEEPSEEK_BASE_URL
 
     AGENT_TIMEOUT: int = 300
     AGENT_MAX_RETRIES: int = 2

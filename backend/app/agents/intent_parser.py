@@ -23,6 +23,7 @@ import re
 from datetime import datetime, timedelta
 
 from app.agents.protocol import AgentContext, AgentResult, BaseAgent
+from app.core.config import settings
 from app.core.constants import INTENT_TIMEOUT_S
 from app.schemas.plan import IntentSchema, TimeRange
 
@@ -71,7 +72,7 @@ class IntentParser(BaseAgent):
             return await self._parse_via_keywords(context)
 
     async def _parse_via_llm(self, context: AgentContext) -> AgentResult:
-        """Jinja2 模板渲染 → OpenRouter → DeepSeek-V3。
+        """Jinja2 模板渲染 → LLM API。
 
         解析 LLM 返回的 JSON 为 IntentSchema。
         若 LLM 不可用（import 失败 / API 错误 / 返回格式异常），降级关键词。
@@ -95,13 +96,13 @@ class IntentParser(BaseAgent):
             import httpx
             async with httpx.AsyncClient(timeout=INTENT_TIMEOUT_S) as client:
                 resp = await client.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
+                    f"{settings.llm_base_url}/chat/completions",
                     headers={
-                        "Authorization": "Bearer placeholder",
+                        "Authorization": f"Bearer {settings.llm_api_key}",
                         "Content-Type": "application/json",
                     },
                     json={
-                        "model": "deepseek/deepseek-v3",
+                        "model": settings.LLM_MODEL,
                         "messages": [{"role": "user", "content": prompt}],
                         "temperature": 0.3,
                         "max_tokens": 512,

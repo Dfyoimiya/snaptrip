@@ -44,8 +44,8 @@ class LLMGateway:
     """OpenRouter LLM 网关"""
 
     def __init__(self, api_key: str = "") -> None:
-        self._api_key = api_key or settings.OPENROUTER_API_KEY
-        self._base_url = settings.OPENROUTER_BASE_URL.rstrip("/")
+        self._api_key = api_key or settings.llm_api_key
+        self._base_url = settings.llm_base_url.rstrip("/")
 
     # ===== Chat =====
 

@@ -10,7 +10,7 @@ Phase 1: 硬约束过滤（纯代码，≤50ms）
 
 Phase 2: 软约束排序（LLM，≤3s）
   - Jinja2 模板渲染 Prompt
-  - 调用 OpenRouter DeepSeek-V3
+  - 调用 LLM
   - 超时降级为 Phase 1 评分降序排序
 
 Shadow 预计算:
@@ -30,6 +30,7 @@ import random
 from datetime import datetime, timedelta
 
 from app.agents.protocol import AgentContext, AgentResult, BaseAgent
+from app.core.config import settings
 from app.core.constants import (
     PLANNING_PHASE2_TIMEOUT_S,
 )
@@ -153,9 +154,9 @@ class PlanningEngine(BaseAgent):
             import httpx
             async with httpx.AsyncClient(timeout=PLANNING_PHASE2_TIMEOUT_S) as client:
                 resp = await client.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    headers={"Authorization": "Bearer placeholder", "Content-Type": "application/json"},
-                    json={"model": "deepseek/deepseek-v3", "messages": [{"role": "user", "content": prompt}],
+                    f"{settings.llm_base_url}/chat/completions",
+                    headers={"Authorization": f"Bearer {settings.llm_api_key}", "Content-Type": "application/json"},
+                    json={"model": settings.LLM_MODEL, "messages": [{"role": "user", "content": prompt}],
                           "temperature": 0.5, "max_tokens": 1024},
                 )
                 data = resp.json()
