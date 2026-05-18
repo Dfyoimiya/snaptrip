@@ -1,9 +1,10 @@
 """Plan API —— 对接 LangGraph 编排引擎。
 
-提供活动计划创建、查询、流式推送的 RESTful 接口。
+提供活动计划创建、查询、确认、流式推送的 RESTful 接口。
 
 端点:
   POST /api/v1/plan/create      —— 创建计划，LangGraph StateGraph 驱动全链路
+  POST /api/v1/plan/{plan_id}/confirm —— 人机协同：确认/反对计划草案
   GET  /api/v1/plan/{plan_id}   —— 获取已完成计划详情
   GET  /api/v1/plan/{plan_id}/stream —— SSE 流式推送 Agent 思考过程
 
@@ -12,9 +13,10 @@
   - 改为 plan_graph.ainvoke() / plan_graph.astream_events()
   - 异常分支 (consensus/execution/fallback) 由 conditional_edges 驱动
   - FSM 状态迁移完全在图内完成
+  - consensus_resolver 使用 LangGraph interrupt() 实现人机协同
 
 Author: SnapTrip Team
-Date: 2026-05-13 / Refactored 2026-05-17
+Date: 2026-05-13 / Refactored 2026-05-17 / Interrupt 2026-05-18
 """
 
 from __future__ import annotations
@@ -22,12 +24,20 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, HTTPException, Request
+from langgraph.errors import GraphInterrupt
+from langgraph.types import Command
+from pydantic import BaseModel
 
 from app.agents.graph import plan_graph
 from app.api.v1.session import stream_plan
 from app.schemas.plan import PlanCreateRequest, PlanResponse, PlanSlot, ShareCard
 
 router = APIRouter(prefix="/api/v1/plan", tags=["plan"])
+
+
+class ConfirmRequest(BaseModel):
+    decision: str = "confirmed"
+    slot_index: int | None = None
 
 
 def _build_initial_state(req: PlanCreateRequest) -> dict:
@@ -66,8 +76,33 @@ def _state_to_response(state: dict, query_text: str) -> PlanResponse:
 async def create_plan(req: PlanCreateRequest, request: Request):
     initial_state = _build_initial_state(req)
     config = {"configurable": {"thread_id": initial_state["plan_id"]}}
-    final_state = await plan_graph.ainvoke(initial_state, config)
+    try:
+        final_state = await plan_graph.ainvoke(initial_state, config)
+    except GraphInterrupt:
+        state = await plan_graph.aget_state(config)
+        if state and state.values:
+            return _state_to_response(state.values, req.user_input)
+        raise HTTPException(status_code=500, detail="graph interrupted but state unavailable") from None
     return _state_to_response(final_state, req.user_input)
+
+
+@router.post("/{plan_id}/confirm", response_model=PlanResponse)
+async def confirm_plan(plan_id: str, body: ConfirmRequest, request: Request):
+    config = {"configurable": {"thread_id": plan_id}}
+    state = await plan_graph.aget_state(config)
+    if state is None or state.values is None:
+        raise HTTPException(status_code=404, detail="plan not found")
+    try:
+        final_state = await plan_graph.ainvoke(
+            Command(resume={"decision": body.decision, "slot_index": body.slot_index}),
+            config,
+        )
+    except GraphInterrupt:
+        state = await plan_graph.aget_state(config)
+        if state and state.values:
+            return _state_to_response(state.values, "")
+        raise HTTPException(status_code=500, detail="graph interrupted but state unavailable") from None
+    return _state_to_response(final_state, "")
 
 
 @router.get("/{plan_id}", response_model=PlanResponse)
