@@ -55,7 +55,7 @@ make up
 
 | 服务 | 端口 | 访问地址 |
 |------|------|----------|
-| 后端 API | 8000 | http://localhost:8000/docs |
+| 后端 API | 8080 | http://localhost:8080/docs |
 | Mock 服务 | 8001 | http://localhost:8001/docs |
 | 前端 | 5174 | http://localhost:5174 |
 | PostgreSQL | 5432 | — |

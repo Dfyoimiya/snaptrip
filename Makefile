@@ -38,7 +38,7 @@ logs: ## 查看日志
 # ===== 后端 =====
 
 backend-dev: ## 仅启动后端（本地）
-	cd backend && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+	cd backend && uv run uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
 
 backend-shell: ## 进入后端容器
 	docker compose exec backend bash

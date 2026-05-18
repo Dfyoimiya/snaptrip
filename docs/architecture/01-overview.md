@@ -8,7 +8,7 @@
 - **竞赛核心**：Hackathon 命题 1.6 — 本地短时活动规划与执行 Agent（规划→预订→自愈→分享）
 - **课设扩展**：传统本地生活服务 Agent 化（智能推荐、评价分析、配送调度、动态定价、质量监控）
 
-**部署模式**：**模块化单体 + 3 进程部署**（backend :8000 / mock_server :8001 / frontend :5174），内部按目录分层，
+**部署模式**：**模块化单体 + 3 进程部署**（backend :8080 / mock_server :8001 / frontend :5174），内部按目录分层，
 非微服务架构。各模块直接 import，同一进程内内存传递，避免分布式复杂度。
 
 **核心设计原则**：
@@ -33,7 +33,7 @@
                             │ REST / SSE
                             ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                  API 网关层 (FastAPI :8000)                        │
+│                  API 网关层 (FastAPI :8080)                        │
 │  Auth 中间件(JWT) | Rate Limiter(Redis) | 统一响应{code,msg,data} │
 │  /api/v1/plan/* (竞赛)  |  /api/v1/order/* | /api/v1/poi/* (课设) │
 └───────────────────────────┬──────────────────────────────────────┘
@@ -91,7 +91,7 @@
                      docker compose up
 
 ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-│  backend :8000   │  │  mock_server:8001 │  │  frontend :5174  │
+│  backend :8080   │  │  mock_server:8001 │  │  frontend :5174  │
 │                  │  │                  │  │                  │
 │ FastAPI + Agents │  │ 模拟美团本地生活API  │  │ React SPA        │
 │ LangGraph 图引擎  │  │ poi/queue/booking │  │ Amap 地图集成     │
