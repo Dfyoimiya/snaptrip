@@ -20,13 +20,13 @@ Date: 2026-05-13 / Gateway integration 2026-05-17
 from __future__ import annotations
 
 import asyncio
-import json
 import random
 import time
 from collections import defaultdict
 
 from app.agents.protocol import AgentContext, AgentResult, BaseAgent
 from app.core.constants import EXEC_TIMEOUT_TOTAL_S
+from app.core.logging import get_logger
 from app.schemas.plan import (
     ExecutionResult,
     FailedSlot,
@@ -36,6 +36,8 @@ from app.schemas.plan import (
     SlotExecutionResult,
 )
 from app.schemas.tool import TOOL_REGISTRY, ToolDefinition, ToolResult
+
+logger = get_logger(__name__)
 
 
 class ExecutionEngine(BaseAgent):
@@ -276,19 +278,15 @@ class ExecutionEngine(BaseAgent):
         )
 
     def _log_tool_call(self, r: ToolResult, plan_id: str, layer: int) -> None:
-        log = json.dumps(
-            {
-                "event": "tool_execution",
-                "plan_id": plan_id,
-                "layer": layer,
-                "invocation_id": r.invocation_id,
-                "status": r.status,
-                "error_code": r.error_code,
-                "latency_ms": r.latency_ms,
-            },
-            ensure_ascii=False,
+        logger.info(
+            "tool_execution",
+            plan_id=plan_id,
+            layer=layer,
+            invocation_id=r.invocation_id,
+            status=r.status,
+            error_code=r.error_code,
+            latency_ms=r.latency_ms,
         )
-        print(log)
 
 
 def _tool_name_for_result(r: ToolResult, slot_index: int) -> str:

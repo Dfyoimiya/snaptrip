@@ -1,0 +1,52 @@
+"""structlog 结构化日志配置。
+
+替换项目中的 print() 调用，统一输出 JSON 格式的结构化日志。
+
+用法:
+  from app.core.logging import get_logger
+  logger = get_logger(__name__)
+  logger.info("event_name", key1=value1, key2=value2)
+
+Author: SnapTrip Team
+Date: 2026-05-18
+"""
+
+from __future__ import annotations
+
+import structlog
+
+from app.core.config import settings
+
+
+def setup_logging(level: str | None = None) -> None:
+    log_level = (level or settings.LOG_LEVEL).upper()
+    is_json = settings.LOG_FORMAT == "json"
+
+    renderer = (
+        structlog.processors.JSONRenderer()
+        if is_json
+        else structlog.dev.ConsoleRenderer()
+    )
+
+    structlog.configure(
+        processors=[
+            structlog.stdlib.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.dev.set_exc_info,
+            renderer,
+        ],
+        wrapper_class=structlog.stdlib.BoundLogger,
+        context_class=dict,
+        logger_factory=structlog.PrintLoggerFactory(),
+        cache_logger_on_first_use=True,
+    )
+
+    import logging
+    logging.basicConfig(level=getattr(logging, log_level, logging.INFO))
+
+
+def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
+    return structlog.get_logger(name or __name__)
+
+
+setup_logging()
