@@ -22,6 +22,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.agents.graph import set_gateway
 from app.agents.hub import MasterController
 from app.api.v1.auth import router as auth_router
 from app.api.v1.plan import router as plan_router
@@ -41,8 +42,8 @@ async def lifespan(app: FastAPI):
     app.state.hub = MasterController()
     app.state.memory = MemoryService()
     app.state.mock_gateway = MockAPIGateway()
-    await app.state.memory.start()
     await app.state.mock_gateway.start()
+    set_gateway(app.state.mock_gateway)
     yield
     await app.state.mock_gateway.stop()
     await app.state.memory.stop()

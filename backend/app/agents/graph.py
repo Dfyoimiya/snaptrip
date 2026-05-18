@@ -44,6 +44,13 @@ from app.core.constants import FALLBACK_MAX_RETRY, PlanStatus
 
 logger = logging.getLogger(__name__)
 
+_gateway = None
+
+
+def set_gateway(gateway) -> None:
+    global _gateway
+    _gateway = gateway
+
 
 def _ar(key: str, data: dict[str, Any]) -> AgentResult:
     """快捷构造 AgentResult 用于 history 链。"""
@@ -175,7 +182,7 @@ def route_consensus(state: PlanState) -> Literal["execution_engine", "planning_e
 
 
 async def execution_engine_node(state: PlanState) -> dict[str, Any]:
-    agent = ExecutionEngine()
+    agent = ExecutionEngine(gateway=_gateway)
     history = [
         AgentResult(agent_name="planning_engine", status="success", data={"draft": state.get("draft", {})}),
     ]
