@@ -38,9 +38,9 @@ class Settings(BaseSettings):
     MOCK_API_BASE_URL: str = "http://localhost:8001"
     MOCK_API_TIMEOUT: int = 3
 
-    OPENROUTER_API_KEY: str = ""
-    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
-    LLM_MODEL: str = "deepseek/deepseek-v3"
+    DEEPSEEK_API_KEY: str = ""
+    DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
+    LLM_MODEL: str = "deepseek-chat"
     LLM_MAX_TOKENS: int = 2048
     LLM_TEMPERATURE: float = 0.7
 
