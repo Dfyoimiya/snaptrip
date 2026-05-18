@@ -1,24 +1,94 @@
 """Notify Engine —— 输出封装：生成分享卡片。
 
-Plan 进入 DONE 状态后，生成可分享的 ShareCard。
+Plan 进入 DONE 状态后，生成可分享的 ShareCard：
+  - Jinja2 渲染 HTML 分享卡片
+  - 生成文字摘要消息
+  - 预留 Playwright 截图为 PNG（远期）
 
-输出: ShareCard {url, message, ics_event}
-远景: Jinja2 渲染 HTML → Playwright 截图 → 微信分享卡片
+输出: ShareCard {url, message, html}
 
 Author: SnapTrip Team
-Date: 2026-05-13
+Date: 2026-05-13 / Jinja2 integration 2026-05-18
 """
 
+from __future__ import annotations
+
+import logging
+from pathlib import Path
+
+from jinja2 import Template
+
 from app.agents.protocol import AgentContext, AgentResult, BaseAgent
-from app.schemas.plan import ShareCard
+from app.schemas.plan import PlanDraft, ShareCard
+
+logger = logging.getLogger(__name__)
+
+_TEMPLATE_DIR = Path(__file__).parent / "prompts"
 
 
 class NotifyEngine(BaseAgent):
     name = "notify_engine"
 
     async def execute(self, context: AgentContext) -> AgentResult:
+        draft = self._extract_draft(context)
+        execution = self._extract_execution(context)
+
+        message = _build_message(draft, execution)
+        html = _render_card(
+            plan_id=context.plan_id,
+            draft=draft,
+            execution=execution,
+            message=message,
+        )
+
         card = ShareCard(
             url=f"https://snaptrip.cn/cards/{context.plan_id}",
-            message=f"计划已生成！共 {len(context.history)} 步完成。",
+            message=message,
         )
-        return AgentResult(data={"share_card": card.model_dump()})
+        result = card.model_dump()
+        result["html"] = html
+        return AgentResult(data={"share_card": result})
+
+    def _extract_draft(self, context: AgentContext) -> PlanDraft | None:
+        for h in reversed(context.history):
+            if "draft" in h.data:
+                return PlanDraft(**h.data["draft"])
+        return None
+
+    def _extract_execution(self, context: AgentContext) -> dict | None:
+        for h in reversed(context.history):
+            if "execution" in h.data:
+                return h.data["execution"]
+        return None
+
+
+# ------------------------------------------------------------------
+# rendering
+# ------------------------------------------------------------------
+
+
+def _render_card(plan_id: str, draft: PlanDraft | None, execution: dict | None, message: str) -> str:
+    tpl_path = _TEMPLATE_DIR / "notify.j2"
+    if not tpl_path.exists():
+        return ""
+
+    template = Template(tpl_path.read_text(encoding="utf-8"))
+    slots_data = [s.model_dump() if hasattr(s, "model_dump") else s for s in (draft.slots if draft else [])]
+    booked_count = len(execution.get("confirmed_bookings", {})) if execution else 0
+
+    return template.render(
+        plan_id=plan_id,
+        title="SnapTrip 计划",
+        message=message,
+        slots=slots_data,
+        total_cost=draft.total_cost if draft else 0,
+        booked_count=booked_count,
+    )
+
+
+def _build_message(draft: PlanDraft | None, execution: dict | None) -> str:
+    if not draft:
+        return "计划生成完成"
+    count = len(draft.slots)
+    booked = len(execution.get("confirmed_bookings", {})) if execution else 0
+    return f"计划已生成！共 {count} 站，已预订 {booked} 项，预估 ¥{draft.total_cost}"
