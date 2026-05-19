@@ -16,9 +16,11 @@ import os
 
 import pytest
 
+from app.core.config import settings
 
-AMAP_INTEGRATION = os.getenv("AMAP_API_KEY", "") != ""
-pytestmark_amap = pytest.mark.skipif(not AMAP_INTEGRATION, reason="需要 AMAP_API_KEY")
+
+AMAP_INTEGRATION = len(settings.AMAP_API_KEY) >= 8
+_amap_skip = pytest.mark.skipif(not AMAP_INTEGRATION, reason="需要 AMAP_API_KEY")
 
 pytestmark_ci = pytest.mark.ci
 
@@ -86,7 +88,7 @@ class TestDegradationPath:
 # ===== 真实高德 API 测试 (需要 AMAP_API_KEY) =====
 
 
-@pytest.mark.amap
+@_amap_skip
 @pytest.mark.anyio
 class TestRealAmapAPI:
     """真实高德 API 功能测试 (消耗配额, 需 Key 和网络)"""
