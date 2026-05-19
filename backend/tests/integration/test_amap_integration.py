@@ -102,7 +102,7 @@ class TestRealAmapAPI:
         )
         result = await adapter.execute(inv)
 
-        assert result.status == "success"
+        assert result.status == "success", f"FAILED: {result.error_code} - {result.error_message}"
         assert result.data is not None
         assert result.data["source"] == "amap"
         assert result.data["total"] > 0
@@ -120,7 +120,7 @@ class TestRealAmapAPI:
         )
         result = await adapter.execute(inv)
 
-        assert result.status == "success"
+        assert result.status == "success", f"FAILED: {result.error_code} - {result.error_message}"
         assert result.data is not None
         assert result.data["source"] == "amap"
         assert len(result.data["pois"]) > 0
@@ -136,7 +136,7 @@ class TestRealAmapAPI:
         )
         result = await adapter.execute(inv)
 
-        assert result.status == "success"
+        assert result.status == "success", f"FAILED: {result.error_code} - {result.error_message}"
         assert result.data is not None
         assert result.data["count"] >= 1
         assert result.data["results"][0]["lat"] != 0.0
@@ -153,7 +153,7 @@ class TestRealAmapAPI:
         )
         result = await adapter.execute(inv)
 
-        assert result.status == "success"
+        assert result.status == "success", f"FAILED: {result.error_code} - {result.error_message}"
         assert result.data is not None
         assert len(result.data["formatted_address"]) > 0
 
@@ -172,7 +172,7 @@ class TestRealAmapAPI:
         )
         result = await adapter.execute(inv)
 
-        assert result.status == "success"
+        assert result.status == "success", f"FAILED: {result.error_code} - {result.error_message}"
         assert result.data is not None
         assert result.data["distance_km"] > 0
         assert result.data["duration_min"] > 0
@@ -188,7 +188,7 @@ class TestRealAmapAPI:
         )
         result = await adapter.execute(inv)
 
-        assert result.status == "success"
+        assert result.status == "success", f"FAILED: {result.error_code} - {result.error_message}"
         assert result.data is not None
         assert result.data["count"] >= 1
         assert result.data["results"][0]["name"] == "北京市"
