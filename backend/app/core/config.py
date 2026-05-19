@@ -51,11 +51,23 @@ class Settings(BaseSettings):
     RATE_LIMIT_IP_PER_MIN: int = 100
     RATE_LIMIT_USER_PER_MIN: int = 300
 
+    AMAP_API_KEY: str = ""
+    AMAP_BASE_URL: str = "https://restapi.amap.com"
+    AMAP_TIMEOUT: int = 3
+    AMAP_GEOCODE_CACHE_TTL: int = 86400
+    AMAP_POI_CACHE_TTL: int = 3600
+    AMAP_QPS_LIMIT: int = 10
+    AMAP_DAILY_LIMIT: int = 5000
+
     @property
     def effective_database_url(self) -> str:
         if self.APP_ENV == "test":
             return self.DATABASE_TEST_URL
         return self.DATABASE_URL
+
+    @property
+    def amap_enabled(self) -> bool:
+        return bool(self.AMAP_API_KEY)
 
     COMPOSE_PROJECT_NAME: str = "snaptrip"
 
