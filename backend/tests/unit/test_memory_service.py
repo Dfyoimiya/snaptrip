@@ -13,7 +13,7 @@ import pytest
 
 from app.services.memory_service import MemoryService
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/1")
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6380/0")
 
 
 def _uid() -> str:

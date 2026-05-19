@@ -26,7 +26,7 @@ from __future__ import annotations
 from typing import Any
 
 
-class SnapTripException(Exception):
+class SnapTripException(Exception):  # noqa: N818
     """业务异常基类。
 
     Attributes:

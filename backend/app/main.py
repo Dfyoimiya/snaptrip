@@ -36,7 +36,6 @@ from app.core.exception_handlers import (
     permission_denied_handler,
     rate_limit_handler,
     snap_trip_exception_handler,
-    unhandled_exception_handler,
     validation_handler,
 )
 from app.core.exceptions import (
@@ -98,15 +97,14 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler) 
 app.add_exception_handler(Exception, unhandled_exception_handler)
 
 # 统一异常体系 —— SOCID Consistent Exception
-app.add_exception_handler(AdapterError, adapter_exception_handler)
-app.add_exception_handler(AmapRateLimitError, rate_limit_handler)
-app.add_exception_handler(AuthenticationError, authentication_handler)
-app.add_exception_handler(CircuitBreakerOpenError, circuit_breaker_handler)
-app.add_exception_handler(PermissionDeniedError, permission_denied_handler)
-app.add_exception_handler(ResourceNotFoundError, not_found_handler)
-app.add_exception_handler(ValidationError, validation_handler)
-app.add_exception_handler(SnapTripException, snap_trip_exception_handler)
-app.add_exception_handler(Exception, unhandled_exception_handler)
+app.add_exception_handler(AdapterError, adapter_exception_handler)  # type: ignore[arg-type]
+app.add_exception_handler(AmapRateLimitError, rate_limit_handler)  # type: ignore[arg-type]
+app.add_exception_handler(AuthenticationError, authentication_handler)  # type: ignore[arg-type]
+app.add_exception_handler(CircuitBreakerOpenError, circuit_breaker_handler)  # type: ignore[arg-type]
+app.add_exception_handler(PermissionDeniedError, permission_denied_handler)  # type: ignore[arg-type]
+app.add_exception_handler(ResourceNotFoundError, not_found_handler)  # type: ignore[arg-type]
+app.add_exception_handler(ValidationError, validation_handler)  # type: ignore[arg-type]
+app.add_exception_handler(SnapTripException, snap_trip_exception_handler)  # type: ignore[arg-type]
 
 
 @app.get("/health")

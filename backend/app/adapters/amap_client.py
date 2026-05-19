@@ -18,7 +18,7 @@ Date: 2026-05-19
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import Any, NoReturn
 
 import httpx
 
@@ -116,10 +116,10 @@ class AmapApiClient:
         t0 = time.perf_counter()
         try:
             resp = await self.client.request(method=method, url=path, params=signed_params, json=json)
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as err:
             elapsed = time.perf_counter() - t0
             logger.error("amap_timeout", path=path, elapsed_ms=int(elapsed * 1000))
-            raise AdapterTimeoutError(endpoint=path, timeout_s=self._timeout)
+            raise AdapterTimeoutError(endpoint=path, timeout_s=self._timeout) from err
 
         elapsed = time.perf_counter() - t0
         logger.info(
@@ -135,9 +135,9 @@ class AmapApiClient:
 
         try:
             body: dict[str, Any] = resp.json()
-        except Exception:
+        except Exception as err:
             logger.error("amap_parse_error", path=path, raw=resp.text[:200])
-            raise AmapApiError(infocode="PARSE_ERROR", info="响应 JSON 解析失败")
+            raise AmapApiError(infocode="PARSE_ERROR", info="响应 JSON 解析失败") from err
 
         infocode = body.get("infocode", "")
         info = body.get("info", "")
@@ -147,7 +147,7 @@ class AmapApiClient:
 
         self._raise_by_infocode(infocode, info, path)
 
-    def _raise_by_infocode(self, infocode: str, info: str, path: str) -> None:
+    def _raise_by_infocode(self, infocode: str, info: str, path: str) -> NoReturn:
         """根据高德 infocode 映射到业务异常。
 
         高德错误码参考:
