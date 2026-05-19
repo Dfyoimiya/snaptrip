@@ -32,9 +32,7 @@ class POI(Base):
     tags: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     avg_rating: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     extra_data: Mapped[dict] = mapped_column("metadata", JSON, default=dict, nullable=False)
-    embedding: Mapped[list[float] | None] = mapped_column(
-        Vector(1536), nullable=True
-    )
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
     group_suitability: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

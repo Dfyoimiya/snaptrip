@@ -16,6 +16,6 @@ def trigger_preference_embedding_update(user_id: str) -> str | None:
         from app.tasks.plan_tasks import rebuild_user_preference_embedding
 
         task = rebuild_user_preference_embedding.delay(user_id)
-        return task.id
+        return task.id  # type: ignore[no-any-return]
     except Exception:
         return None

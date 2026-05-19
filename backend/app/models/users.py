@@ -45,6 +45,4 @@ class User(Base):
     )
 
     plans: Mapped[list[Plan]] = relationship("Plan", back_populates="user")
-    refresh_tokens: Mapped[list[RefreshToken]] = relationship(
-        "RefreshToken", back_populates="user"
-    )
+    refresh_tokens: Mapped[list[RefreshToken]] = relationship("RefreshToken", back_populates="user")

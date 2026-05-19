@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from app.agents.execution_engine import ExecutionEngine
-from app.schemas.plan import POI, PlanDraft, PlanSlot, TimeRange
+from app.schemas.plan import ExecutionResult, FailedSlot, POI, PlanDraft, PlanSlot, SlotExecutionResult, TimeRange
 
 
 @pytest.fixture
@@ -42,3 +42,48 @@ async def test_failed_tool_produces_failed_slots(engine):
     ], total_cost=100)
     result = await engine._execute_dag(draft, None)
     assert result.total_elapsed_ms >= 0
+
+
+def test_normalize_gateway_response_legacy_success(engine):
+    normalized = engine._normalize_gateway_response(
+        "book_table",
+        0,
+        {"success": True, "data": {"table_number": "A1"}},
+    )
+    assert normalized["status"] == "success"
+    assert normalized["data"]["booking_id"].startswith("gw_book_table_0")
+
+
+def test_to_execution_state_preserves_timeout_and_failed_slots(engine):
+    result = ExecutionResult(
+        plan_id="run_1",
+        status="partial_success",
+        slot_results={
+            0: SlotExecutionResult(
+                slot_index=0,
+                tool_name="book_table",
+                status="timeout",
+                error_code="TIMEOUT",
+                error_message="book_table timed out",
+                elapsed_ms=3000,
+            )
+        },
+        confirmed_bookings={},
+        failed_slots=[
+            FailedSlot(
+                slot_index=1,
+                tool_name="book_ticket",
+                error_code="SKIPPED",
+                error_message="Upstream dependency failed",
+                poi_id="1",
+            )
+        ],
+        total_elapsed_ms=3000,
+    )
+
+    state = engine.to_execution_state(result)
+
+    assert state.status == "partial_success"
+    assert 1 in state.failed_slot_indices
+    assert any(record.status == "timeout" for record in state.tool_records)
+    assert any(record.status == "skipped" for record in state.tool_records)

@@ -8,7 +8,16 @@ Date: 2026-05-17
 
 from __future__ import annotations
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+try:
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+except ModuleNotFoundError:  # pragma: no cover - fallback for lightweight test envs
+    from pydantic import BaseModel
+
+    class BaseSettings(BaseModel):  # type: ignore[no-redef]
+        """Fallback settings base when pydantic-settings is unavailable."""
+
+    def SettingsConfigDict(**kwargs):  # type: ignore[no-redef]  # noqa: N802  # pragma: no cover
+        return kwargs
 
 
 class Settings(BaseSettings):
@@ -38,11 +47,23 @@ class Settings(BaseSettings):
     MOCK_API_BASE_URL: str = "http://localhost:8001"
     MOCK_API_TIMEOUT: int = 3
 
+    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     DEEPSEEK_API_KEY: str = ""
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
     LLM_MODEL: str = "deepseek-chat"
     LLM_MAX_TOKENS: int = 2048
     LLM_TEMPERATURE: float = 0.7
+
+    @property
+    def llm_api_key(self) -> str:
+        return self.OPENROUTER_API_KEY or self.DEEPSEEK_API_KEY or ""
+
+    @property
+    def llm_base_url(self) -> str:
+        if self.OPENROUTER_API_KEY:
+            return self.OPENROUTER_BASE_URL
+        return self.DEEPSEEK_BASE_URL
 
     AGENT_TIMEOUT: int = 300
     AGENT_MAX_RETRIES: int = 2

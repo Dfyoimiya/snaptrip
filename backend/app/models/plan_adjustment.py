@@ -36,9 +36,7 @@ class PlanAdjustment(Base):
     trigger_reason: Mapped[str] = mapped_column(String(255), nullable=False)
     original_slots: Mapped[dict] = mapped_column(JSON, nullable=False)
     adjusted_slots: Mapped[dict] = mapped_column(JSON, nullable=False)
-    user_confirmed: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )
+    user_confirmed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

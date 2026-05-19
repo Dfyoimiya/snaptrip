@@ -31,7 +31,7 @@ def _is_whitelisted(path: str) -> bool:
 
 
 def get_memory(request: Request) -> MemoryService:
-    return request.app.state.memory
+    return request.app.state.memory  # type: ignore[no-any-return]
 
 
 async def rate_limit_ip(
@@ -43,9 +43,7 @@ async def rate_limit_ip(
         return
     client_ip = request.client.host if request.client else "unknown"
     key = f"ip:{client_ip}"
-    allowed = await memory.sliding_window_check(
-        key, limit=settings.RATE_LIMIT_IP_PER_MIN, window=60
-    )
+    allowed = await memory.sliding_window_check(key, limit=settings.RATE_LIMIT_IP_PER_MIN, window=60)
     if not allowed:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -64,9 +62,7 @@ async def rate_limit_user(
     if _is_whitelisted(path):
         return
     key = f"user:{user_id}"
-    allowed = await memory.sliding_window_check(
-        key, limit=settings.RATE_LIMIT_USER_PER_MIN, window=60
-    )
+    allowed = await memory.sliding_window_check(key, limit=settings.RATE_LIMIT_USER_PER_MIN, window=60)
     if not allowed:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,

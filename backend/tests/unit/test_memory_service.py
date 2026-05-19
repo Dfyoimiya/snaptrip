@@ -6,13 +6,14 @@ Date: 2026-05-17
 
 from __future__ import annotations
 
+import os
 import uuid
 
 import pytest
 
 from app.services.memory_service import MemoryService
 
-REDIS_URL = "redis://localhost:6379/1"
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/1")
 
 
 def _uid() -> str:

@@ -46,16 +46,13 @@ class MemoryManager(BaseAgent):
         if uid:
             try:
                 prefs = await _aggregate_user_history(uid)
-                enhanced.intent.type_prefs = _merge_prefs(
-                    enhanced.intent.type_prefs, prefs.get("types", [])
-                )
-                enhanced.intent.mood_prefs = _merge_prefs(
-                    enhanced.intent.mood_prefs, prefs.get("moods", [])
-                )
-                if prefs.get("dominant_scene") and enhanced.intent.scene_type == "solo":
-                    enhanced.intent.scene_type = prefs["dominant_scene"]
+                enhanced.intent.type_prefs = _merge_prefs(enhanced.intent.type_prefs, prefs.get("types", []))
+                enhanced.intent.mood_prefs = _merge_prefs(enhanced.intent.mood_prefs, prefs.get("moods", []))
+                dominant_scene = prefs.get("dominant_scene")
+                if isinstance(dominant_scene, str) and dominant_scene and enhanced.intent.scene_type == "solo":
+                    enhanced.intent.scene_type = dominant_scene
             except Exception:
-                logger.warning("memory_manager_db_failed", user_id=context.user_id, exc_info=True)
+                logger.warning("memory_manager_db_failed", user_id=context.user_id, exc_info=True)  # type: ignore[call-arg]
 
         return AgentResult(data={"enriched_intent": enhanced.model_dump()})
 
@@ -91,10 +88,7 @@ def _merge_prefs(current: list[str], historical: list[str]) -> list[str]:
 async def _aggregate_user_history(user_id: uuid.UUID) -> dict[str, list[str]]:
     async with AsyncSessionLocal() as db:
         result = await db.execute(
-            select(Plan)
-            .where(Plan.user_id == user_id)
-            .order_by(Plan.created_at.desc())
-            .limit(20)
+            select(Plan).where(Plan.user_id == user_id).order_by(Plan.created_at.desc()).limit(20)
         )
         plans = result.scalars().all()
 
@@ -115,7 +109,7 @@ async def _aggregate_user_history(user_id: uuid.UUID) -> dict[str, list[str]]:
     return {
         "types": list(set(type_prefs)),
         "moods": list(set(mood_prefs)),
-        "dominant_scene": dominant_scene,
+        "dominant_scene": dominant_scene,  # type: ignore[dict-item]
     }
 
 
@@ -132,4 +126,3 @@ _scene_mood_map: dict[str, list[str]] = {
     "solo": ["安静", "文艺", "治愈"],
     "date": ["浪漫", "安静", "拍照"],
 }
-

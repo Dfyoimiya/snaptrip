@@ -8,6 +8,7 @@ import { PlanCard } from "../components/plan/PlanCard"
 import { usePlanSSE } from "../hooks/usePlanSSE"
 import { useAgentStore } from "../stores/agentStore"
 import { usePlanStore } from "../stores/planStore"
+import type { PlanResponse } from "../types/plan"
 
 export function PlanPage() {
   const [loading, setLoading] = useState(false)
@@ -30,8 +31,9 @@ export function PlanPage() {
 
       try {
         const resp = await createPlan({ user_input: text, lat: 39.9219, lng: 116.4435 })
-        if (resp.code === 0 && resp.data) {
-          setPlan(resp.data)
+        const data = resp.data ?? resp
+        if (data && data.slots) {
+          setPlan(data as PlanResponse)
         }
       } catch {
         // ignore

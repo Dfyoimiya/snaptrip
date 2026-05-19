@@ -54,8 +54,7 @@ class FallbackEngine(BaseAgent):
 
         return AgentResult(data={"revised_plan": revised.model_dump()})
 
-    async def _repair(self, draft: PlanDraft, result: ExecutionResult,
-                      enriched: EnrichedIntent | None) -> RevisedPlan:
+    async def _repair(self, draft: PlanDraft, result: ExecutionResult, enriched: EnrichedIntent | None) -> RevisedPlan:
         diffs = []
         new_slots = list(draft.slots)
 
@@ -77,18 +76,24 @@ class FallbackEngine(BaseAgent):
                     move_time_min=old.move_time_min,
                     confidence=0.6,
                 )
-                diffs.append(SlotDiff(
-                    slot_index=failed.slot_index,
-                    old_poi_id=old.poi.id, new_poi_id=alt_poi.id,
-                    old_poi_name=old.poi.name, new_poi_name=alt_poi.name,
-                ))
+                diffs.append(
+                    SlotDiff(
+                        slot_index=failed.slot_index,
+                        old_poi_id=old.poi.id,
+                        new_poi_id=alt_poi.id,
+                        old_poi_name=old.poi.name,
+                        new_poi_name=alt_poi.name,
+                    )
+                )
                 self._ripple_reschedule(new_slots, failed.slot_index)
 
         revised = PlanDraft(
-            plan_id=draft.plan_id, slots=new_slots,
+            plan_id=draft.plan_id,
+            slots=new_slots,
             total_cost=sum(s.estimated_cost for s in new_slots),
             total_time_min=draft.total_time_min,
-            confidence=0.5, version=draft.version + 1,
+            confidence=0.5,
+            version=draft.version + 1,
         )
         return RevisedPlan(plan=revised, diff_patch=diffs)
 
@@ -105,6 +110,7 @@ class FallbackEngine(BaseAgent):
             替代 POI 或 None
         """
         from app.data.seed_pois import SEED_POIS
+
         original = draft.slots[slot_index]
 
         if original.shadow_id:
@@ -112,12 +118,10 @@ class FallbackEngine(BaseAgent):
             if shadow:
                 return POI(**shadow.model_dump())
 
-        candidates = [p for p in SEED_POIS
-                      if p.type == original.poi.type and p.id != original.poi.id]
+        candidates = [p for p in SEED_POIS if p.type == original.poi.type and p.id != original.poi.id]
         return random.choice(candidates) if candidates else None
 
-    def _retrieve_alternative(self, draft: PlanDraft, slot_index: int,
-                              enriched: EnrichedIntent | None) -> POI | None:
+    def _retrieve_alternative(self, draft: PlanDraft, slot_index: int, enriched: EnrichedIntent | None) -> POI | None:
         return self._find_alternative(draft, slot_index)
 
     def _ripple_reschedule(self, slots: list[PlanSlot], changed_idx: int):

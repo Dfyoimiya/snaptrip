@@ -18,12 +18,14 @@ Date: 2026-05-13
 from __future__ import annotations
 
 import asyncio
-import json
 import re
 from datetime import datetime, timedelta
 
 from app.agents.protocol import AgentContext, AgentResult, BaseAgent
 from app.core.constants import INTENT_TIMEOUT_S
+from app.core.logging import get_logger
+from app.ports.llm import LLMPort
+from app.ports.prompt import PromptPort
 from app.schemas.plan import IntentSchema, TimeRange
 
 CITY_KEYWORDS: dict[str, list[str]] = {
@@ -50,9 +52,20 @@ MOOD_KEYWORDS: dict[str, list[str]] = {
     "拍照": ["拍照", "出片", "好看"],
 }
 
+logger = get_logger(__name__)
+
 
 class IntentParser(BaseAgent):
     name = "intent_parser"
+
+    def __init__(
+        self,
+        llm: LLMPort | None = None,
+        prompt_renderer: PromptPort | None = None,
+    ) -> None:
+        super().__init__()
+        self._llm = llm
+        self._prompt_renderer = prompt_renderer
 
     async def execute(self, context: AgentContext) -> AgentResult:
         """优先 LLM 解析，超时降级关键词匹配。
@@ -63,15 +76,17 @@ class IntentParser(BaseAgent):
         Returns:
             AgentResult.data["intent"] = IntentSchema
         """
+        logger.info("intent_parser_started", user_id=context.user_id, plan_id=context.plan_id)
         try:
-            return await asyncio.wait_for(
-                self._parse_via_llm(context), timeout=INTENT_TIMEOUT_S
-            )
+            result = await asyncio.wait_for(self._parse_via_llm(context), timeout=INTENT_TIMEOUT_S)
+            logger.info("intent_parser_completed", source="llm", plan_id=context.plan_id)
+            return result
         except (TimeoutError, Exception):
+            logger.info("intent_parser_fallback", source="keyword", plan_id=context.plan_id)
             return await self._parse_via_keywords(context)
 
     async def _parse_via_llm(self, context: AgentContext) -> AgentResult:
-        """Jinja2 模板渲染 → DeepSeek API → 结构化意图。
+        """Jinja2 模板渲染 → LLM API。
 
         解析 LLM 返回的 JSON 为 IntentSchema。
         若 LLM 不可用，降级关键词匹配。
@@ -83,43 +98,31 @@ class IntentParser(BaseAgent):
             AgentResult
         """
         try:
-            from jinja2 import Template
-            with open("app/agents/prompts/intent.j2") as f:
-                tpl = Template(f.read())
-
-            prompt = tpl.render(
-                user_input=context.user_input,
-                current_time=datetime.now().isoformat(),
+            prompt = await self._get_prompt_renderer().render(
+                "intent.j2",
+                {
+                    "user_input": context.user_input,
+                    "current_time": datetime.now().isoformat(),
+                },
             )
-
-            import httpx
-
-            from app.core.config import settings
-            async with httpx.AsyncClient(timeout=INTENT_TIMEOUT_S) as client:
-                resp = await client.post(
-                    f"{settings.DEEPSEEK_BASE_URL}/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {settings.DEEPSEEK_API_KEY}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": settings.LLM_MODEL,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": settings.AGENT_LLM_TEMPERATURE,
-                        "max_tokens": 512,
-                    },
-                )
-                data = resp.json()
-                content = data["choices"][0]["message"]["content"]
-                parsed = json.loads(content.strip().removeprefix("```json").removesuffix("```"))
+            parsed = await self._get_llm().chat_json(
+                prompt=prompt,
+                model_alias="deepseek",
+                timeout_s=INTENT_TIMEOUT_S,
+                temperature=0.3,
+                max_tokens=512,
+            )
         except Exception:
+            logger.warning("intent_parser_llm_failed", plan_id=context.plan_id, exc_info=True)
             return await self._parse_via_keywords(context)
 
         intent = IntentSchema(
             time_window=TimeRange(
                 start=parsed.get("time_window", {}).get("start", datetime.now().isoformat()),
                 end=parsed.get("time_window", {}).get("end", (datetime.now() + timedelta(hours=4)).isoformat()),
-            ) if parsed.get("time_window") else None,
+            )
+            if parsed.get("time_window")
+            else None,
             guest_count=parsed.get("guest_count", 2),
             budget=parsed.get("budget"),
             scene_type=parsed.get("scene_type", "solo"),
@@ -130,6 +133,20 @@ class IntentParser(BaseAgent):
             confidence=parsed.get("confidence", 0.8),
         )
         return AgentResult(data={"intent": intent.model_dump()})
+
+    def _get_llm(self) -> LLMPort:
+        if self._llm is None:
+            from app.adapters.llm.openrouter import OpenRouterLLMAdapter
+
+            self._llm = OpenRouterLLMAdapter()
+        return self._llm
+
+    def _get_prompt_renderer(self) -> PromptPort:
+        if self._prompt_renderer is None:
+            from app.adapters.prompt.jinja import JinjaPromptAdapter
+
+            self._prompt_renderer = JinjaPromptAdapter()
+        return self._prompt_renderer
 
     async def _parse_via_keywords(self, context: AgentContext) -> AgentResult:
         text = context.user_input
@@ -156,9 +173,14 @@ class IntentParser(BaseAgent):
             count = int(m.group(1))
 
         scene_map = {
-            "带娃": "family", "亲子": "family", "小孩": "family",
-            "朋友": "friends", "和": "friends",
-            "约会": "date", "情侣": "date", "浪漫": "date",
+            "带娃": "family",
+            "亲子": "family",
+            "小孩": "family",
+            "朋友": "friends",
+            "和": "friends",
+            "约会": "date",
+            "情侣": "date",
+            "浪漫": "date",
         }
         scene = "solo"
         for kw, s in scene_map.items():
@@ -168,8 +190,12 @@ class IntentParser(BaseAgent):
 
         intent = IntentSchema(
             time_window=TimeRange(start=now, end=now + timedelta(hours=4)),
-            guest_count=count, budget=budget, scene_type=scene,
-            type_prefs=type_prefs, mood_prefs=mood_prefs, city=city,
+            guest_count=count,
+            budget=budget,
+            scene_type=scene,
+            type_prefs=type_prefs,
+            mood_prefs=mood_prefs,
+            city=city,
             confidence=0.4,
         )
         return AgentResult(data={"intent": intent.model_dump()})

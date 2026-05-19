@@ -13,20 +13,27 @@ Date: 2026-05-18
 
 from __future__ import annotations
 
-import structlog
+from typing import Any
 
 from app.core.config import settings
+
+try:
+    import structlog
+except ModuleNotFoundError:  # pragma: no cover - fallback for lightweight test envs
+    structlog = None  # type: ignore[assignment]
 
 
 def setup_logging(level: str | None = None) -> None:
     log_level = (level or settings.LOG_LEVEL).upper()
+    if structlog is None:
+        import logging
+
+        logging.basicConfig(level=getattr(logging, log_level, logging.INFO))
+        return
+
     is_json = settings.LOG_FORMAT == "json"
 
-    renderer = (
-        structlog.processors.JSONRenderer()
-        if is_json
-        else structlog.dev.ConsoleRenderer()
-    )
+    renderer = structlog.processors.JSONRenderer() if is_json else structlog.dev.ConsoleRenderer()
 
     structlog.configure(
         processors=[
@@ -42,10 +49,15 @@ def setup_logging(level: str | None = None) -> None:
     )
 
     import logging
+
     logging.basicConfig(level=getattr(logging, log_level, logging.INFO))
 
 
-def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
+def get_logger(name: str | None = None) -> Any:
+    if structlog is None:
+        import logging
+
+        return logging.getLogger(name or __name__)
     return structlog.get_logger(name or __name__)
 
 

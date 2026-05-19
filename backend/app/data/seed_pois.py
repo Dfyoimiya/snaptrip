@@ -73,7 +73,6 @@ SEED_POIS: list[POI] = [
         rating=4.3,
         business_hours="11:00-02:00",
     ),
-
     # ===== 上海 =====
     POI(
         id="sh-001",
@@ -135,7 +134,6 @@ SEED_POIS: list[POI] = [
         rating=4.4,
         business_hours="全天",
     ),
-
     # ===== 重庆 =====
     POI(
         id="cq-001",

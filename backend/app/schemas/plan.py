@@ -50,6 +50,7 @@ class POI(BaseModel):
 
 # ===== Agent 1: Intent Parser =====
 
+
 class IntentInput(BaseModel):
     raw_query: str
     user_lat: float
@@ -72,6 +73,7 @@ class IntentSchema(BaseModel):
 
 # ===== Agent 2: Context Loader =====
 
+
 class EnrichedIntent(BaseModel):
     intent: IntentSchema
     profile_vector: list[float] = Field(default_factory=list)
@@ -83,6 +85,7 @@ class EnrichedIntent(BaseModel):
 
 # ===== Agent 3: Retrieval Engine =====
 
+
 class CandidatePool(BaseModel):
     candidates: list[POI] = Field(default_factory=list)
     total: int = 0
@@ -90,6 +93,7 @@ class CandidatePool(BaseModel):
 
 
 # ===== Agent 4: Planning Engine =====
+
 
 class PlanSlot(BaseModel):
     sequence: int
@@ -113,6 +117,7 @@ class PlanDraft(BaseModel):
 
 # ===== Agent 5: Execution Engine =====
 
+
 class SlotExecutionResult(BaseModel):
     slot_index: int
     tool_name: str
@@ -135,6 +140,7 @@ class ExecutionResult(BaseModel):
 
 
 # ===== Agent 6: Fallback Engine =====
+
 
 class ShadowCandidate(BaseModel):
     poi_id: str
@@ -167,6 +173,7 @@ class RevisedPlan(BaseModel):
 
 # ===== Agent 8: Notify Engine =====
 
+
 class ShareCard(BaseModel):
     url: str = ""
     message: str = ""
@@ -174,6 +181,7 @@ class ShareCard(BaseModel):
 
 
 # ===== Plan API =====
+
 
 class PlanCreateRequest(BaseModel):
     user_input: str

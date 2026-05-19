@@ -53,25 +53,26 @@ class ContextLoader(BaseAgent):
     async def _load_profile(self, user_id: uuid.UUID, intent: IntentSchema) -> EnrichedIntent:
         try:
             async with AsyncSessionLocal() as db:
-                result = await db.execute(
-                    select(UserProfile).where(UserProfile.user_id == user_id)
-                )
+                result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
                 profile = result.scalar_one_or_none()
         except Exception:
-            logger.warning("context_loader_db_failed", user_id=str(user_id), exc_info=True)
+            logger.warning("context_loader_db_failed", user_id=str(user_id), exc_info=True)  # type: ignore[call-arg]
             return self._default(intent, str(user_id))
 
         if profile is None:
             return self._default(intent, str(user_id))
 
-        allergens = _DEFAULT_FAMILY.get("allergens", [])
-        if not isinstance(allergens, list):
-            allergens = []
+        historical_rejections: list[str] = []
+        prefs = profile.preferences or _DEFAULT_FAMILY
+        if isinstance(prefs, dict):
+            rejects = prefs.get("historical_rejections", [])
+            if isinstance(rejects, list):
+                historical_rejections = rejects
         return EnrichedIntent(
             intent=intent,
             profile_vector=profile.preference_embedding or _DEFAULT_VECTOR,
-            family_profile=profile.preferences or _DEFAULT_FAMILY,
-            historical_rejections=allergens,
+            family_profile=prefs,
+            historical_rejections=historical_rejections,
             preferred_pace=profile.travel_style or "normal",
             user_id=str(user_id),
         )

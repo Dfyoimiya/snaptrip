@@ -38,13 +38,9 @@ class Plan(Base):
         index=True,
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    status: Mapped[str] = mapped_column(
-        String(32), nullable=False, default="draft", index=True
-    )
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft", index=True)
     date_range: Mapped[Any] = mapped_column(DATERANGE, nullable=False, index=True)
-    group_type: Mapped[str] = mapped_column(
-        String(32), nullable=False, default="solo"
-    )
+    group_type: Mapped[str] = mapped_column(String(32), nullable=False, default="solo")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
@@ -54,8 +50,6 @@ class Plan(Base):
     user: Mapped[User] = relationship("User", back_populates="plans")
     plan_slots: Mapped[list[PlanSlot]] = relationship("PlanSlot", back_populates="plan")
     checkpoints: Mapped[list[Checkpoint]] = relationship("Checkpoint", back_populates="plan")
-    plan_adjustments: Mapped[list[PlanAdjustment]] = relationship(
-        "PlanAdjustment", back_populates="plan"
-    )
+    plan_adjustments: Mapped[list[PlanAdjustment]] = relationship("PlanAdjustment", back_populates="plan")
 
     __table_args__ = ()

@@ -7,7 +7,7 @@ help: ## 显示帮助信息
 
 init: .env docker-compose.override.yml ## 初始化项目（复制配置、安装依赖）
 	@echo "==> 安装后端依赖..."
-	cd backend && uv sync
+	cd backend && uv sync --extra dev
 	@echo "==> 安装前端依赖..."
 	cd frontend && npm install
 	@echo "==> 初始化完成! 运行 make dev 启动开发环境"
@@ -38,7 +38,7 @@ logs: ## 查看日志
 # ===== 后端 =====
 
 backend-dev: ## 仅启动后端（本地）
-	cd backend && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+	cd backend && uv run uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
 
 backend-shell: ## 进入后端容器
 	docker compose exec backend bash
@@ -46,10 +46,10 @@ backend-shell: ## 进入后端容器
 # ===== 测试 =====
 
 test-unit: ## 运行单元测试
-	cd backend && uv run pytest tests/unit/ -v --cov=app --cov-report=xml --cov-report=term
+	cd backend && uv sync --extra dev && uv run pytest tests/unit/ -v --cov=app --cov-report=xml --cov-report=term
 
 test-integration: ## 运行集成测试
-	cd backend && uv run pytest tests/integration/ -v
+	cd backend && uv sync --extra dev && uv run pytest tests/integration/ -v
 
 test-backend: test-unit test-integration ## 运行全部后端测试
 
@@ -69,13 +69,13 @@ mock-up: ## 启动 Mock 服务（本地）
 # ===== 代码质量 =====
 
 lint: ## 代码检查（ruff + mypy）
-	cd backend && uv run ruff check app/ && uv run mypy app/
+	cd backend && uv sync --extra dev && uv run ruff check app/ && uv run mypy app/
 
 lint-frontend: ## 前端类型检查
 	cd frontend && npx -p typescript tsc --noEmit
 
 format: ## 代码格式化
-	cd backend && uv run ruff format app/
+	cd backend && uv sync --extra dev && uv run ruff format app/
 
 # ===== 数据库 =====
 

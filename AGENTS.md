@@ -4,7 +4,7 @@
 
 ## 项目语境
 
-SnapTrip 是面向美团 AI Hackathon 的全栈项目，目标是让用户通过自然语言输入，获得可执行的本地活动计划方案。
+SnapTrip 是面向美团生活服务的全栈agent项目，目标是让用户通过自然语言输入，获得可执行的本地活动计划方案，并实际完成工具调用执行。
 
 详见 [PROJECT.md](PROJECT.md) 获取完整语境。
 
@@ -15,43 +15,6 @@ SnapTrip 是面向美团 AI Hackathon 的全栈项目，目标是让用户通过
 3. **异步优先**：数据库、HTTP 调用全部使用 `async/await`
 4. **错误处理**：所有外部调用必须 `try/except`，包装为业务异常
 5. **结构化日志**：关键节点必须 `logger.info("event", key=value)` 格式
-
-## 开发阶段优先级
-
-按以下顺序执行。禁止跨阶段跳跃：
-
-### 阶段 1：基础设施
-- 创建 `docker-compose.yml` + `docker-compose.override.yml` + `.env.example`
-- 创建 `backend/pyproject.toml`（uv + FastAPI 依赖）
-- 创建 `frontend/package.json`（React + Vite + Tailwind）
-- 创建 `mock_server/pyproject.toml`
-- 创建 `Makefile`（含 `make dev` / `make init` / `make test-backend`）
-
-### 阶段 2：后端骨架
-- 创建 `backend/app/core/config.py`（Pydantic-Settings）
-- 创建 `backend/app/core/logging.py`（structlog JSON）
-- 创建 `backend/app/main.py`（App Factory + lifespan + 路由注册）
-- 创建 `backend/app/db/session.py`（asyncpg + AsyncSessionLocal）
-- 创建 `backend/app/models/base.py`（SQLAlchemy Base + TimestampMixin）
-- 初始化 Alembic 并生成首版迁移
-
-### 阶段 3：Mock 服务
-- 创建 `mock_server/app/main.py`
-- 创建 4 个 Router：poi、queue、booking、order
-- 创建 `mock_server/app/data/seed_pois.json`（50 条 POI）
-
-### 阶段 4：Agent 层
-- 创建 Agent Hub 状态机
-- 创建 Intent / Planning / Execution Agent
-- 创建 Prompt 模板 + Skill 文件
-
-### 阶段 5：前端骨架
-- 创建三栏布局（地图 / Agent 大脑 / 计划卡片）
-- 实现 SSE Hook + Plan API 调用
-
-### 阶段 6：集成与测试
-- 确保 `make dev` 一键启动全栈
-- 编写单元测试 + 集成测试
 
 ## 代码规范
 
@@ -94,8 +57,11 @@ docs: 完善异常处理设计文档
 
 ## 关键约束
 
-- Agent 框架通信走 ACP/HTTP 协议，不直接调用 Python 函数
+- **Agent 通信协议（已更新）**：
+  - 竞赛核心 9 Agent 运行在同一个 FastAPI 事件循环中，通过 `AgentContext` + `AgentResult` Schema 做同进程内存传递（零序列化开销，适合 hackathon 规模）。
+  - 仅 Execution Engine 调用 Mock API 时走 HTTP（`MockAPIGateway`）。
+  - 未来若需横向扩展（新增 Recommend / Review / Dispatch 等课设 Agent），应引入 **AgentBus (Redis Pub/Sub)** 或 **ACP/HTTP** 消息协议，当前已预留 `ConsensusResolver` 等多利益方协商接口。
 - Prompt 必须放在 `backend/app/agents/prompts/` 下，Jinja2 模板
-- Skill 文件格式：`## 触发条件` / `## 执行步骤` / `## 示例`
+- Skill 文件格式：`## 触发条件` / `## 执行步骤` / `## 示例`，代码级 Skill 放在 `backend/app/agents/skills/`
 - 数据库表名复数（`plans`）、字段蛇形（`created_at`）
 - 向量字段名统一使用 `embedding`，类型 `vector(1536)`

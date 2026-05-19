@@ -36,7 +36,7 @@ class MemoryService:
             max_connections=settings.REDIS_POOL_SIZE,
             decode_responses=True,
         )
-        await self._client.ping()
+        await self._client.ping()  # type: ignore[misc]
 
     async def stop(self) -> None:
         if self._client:
@@ -57,13 +57,11 @@ class MemoryService:
 
     async def get_session_state(self, session_id: str) -> str | None:
         key = f"session:{session_id}:state"
-        return await self.client.get(key)
+        return await self.client.get(key)  # type: ignore[no-any-return]
 
     # ===== 对话历史 =====
 
-    async def push_dialogue(
-        self, session_id: str, role: str, content: str, max_keep: int = 10
-    ) -> None:
+    async def push_dialogue(self, session_id: str, role: str, content: str, max_keep: int = 10) -> None:
         key = f"session:{session_id}:dialogue"
         entry = json.dumps({"role": role, "content": content, "ts": time.time()})
         async with self.client.pipeline() as pipe:
@@ -73,14 +71,12 @@ class MemoryService:
 
     async def get_dialogue(self, session_id: str) -> list[dict]:
         key = f"session:{session_id}:dialogue"
-        raw = await self.client.lrange(key, 0, -1)
+        raw = await self.client.lrange(key, 0, -1)  # type: ignore[misc]
         return [json.loads(item) for item in raw]
 
     # ===== 热门 POI 缓存 =====
 
-    async def set_hot_pois(
-        self, city: str, category: str, data: list[dict], ttl: int = 3600
-    ) -> None:
+    async def set_hot_pois(self, city: str, category: str, data: list[dict], ttl: int = 3600) -> None:
         key = f"hot_pois:{city}:{category}"
         await self.client.set(key, json.dumps(data, ensure_ascii=False), ex=ttl)
 
@@ -102,19 +98,17 @@ class MemoryService:
             pipe.zadd(redis_key, {member: now_ms})
             pipe.expire(redis_key, window + 1)
             _, count, _, _ = await pipe.execute()
-        return count < limit
+        return count < limit  # type: ignore[no-any-return]
 
     # ===== 事务状态 =====
 
-    async def set_transaction_status(
-        self, txn_id: str, status: str, ttl: int = 3600
-    ) -> None:
+    async def set_transaction_status(self, txn_id: str, status: str, ttl: int = 3600) -> None:
         key = f"txn:{txn_id}:status"
         await self.client.set(key, status, ex=ttl)
 
     async def get_transaction_status(self, txn_id: str) -> str | None:
         key = f"txn:{txn_id}:status"
-        return await self.client.get(key)
+        return await self.client.get(key)  # type: ignore[no-any-return]
 
     # ===== 兼容旧接口 (内存 dict stub 过渡) =====
 
