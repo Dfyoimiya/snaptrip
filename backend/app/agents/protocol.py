@@ -38,6 +38,7 @@ class AgentContext(BaseModel):
         state: 当前 FSM 状态
         history: Agent 执行结果列表，按执行顺序排列
     """
+
     plan_id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
     session_id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
     user_id: str = "default"
@@ -60,6 +61,7 @@ class AgentResult(BaseModel):
         error: 失败时的错误信息
         elapsed_ms: 执行耗时（毫秒）
     """
+
     agent_name: str = ""
     status: str = "success"
     data: dict[str, Any] = Field(default_factory=dict)
@@ -76,6 +78,7 @@ class BaseAgent(ABC):
 
     _timed 装饰器自动填充 agent_name 和 elapsed_ms。
     """
+
     name: str = "base"
 
     @abstractmethod
@@ -99,6 +102,7 @@ class BaseAgent(ABC):
         Returns:
             包装后的协程，自动填充 AgentResult.agent_name 和 elapsed_ms
         """
+
         async def wrapper():
             start = time.perf_counter()
             result = await coro
@@ -107,4 +111,5 @@ class BaseAgent(ABC):
                 result.elapsed_ms = elapsed
                 result.agent_name = self.name
             return result
+
         return wrapper()

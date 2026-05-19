@@ -34,9 +34,7 @@ class UserProfile(Base):
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     preferences: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     travel_style: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    preference_embedding: Mapped[list[float] | None] = mapped_column(
-        Vector(1536), nullable=True
-    )
+    preference_embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
     home_address: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

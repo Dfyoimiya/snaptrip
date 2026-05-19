@@ -35,20 +35,12 @@ class PlanSlot(Base):
         index=True,
     )
     poi_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
-    time_start: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
-    time_end: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False
-    )
-    slot_status: Mapped[str] = mapped_column(
-        String(32), nullable=False, default="tentative"
-    )
+    time_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    time_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    slot_status: Mapped[str] = mapped_column(String(32), nullable=False, default="tentative")
     booking_ref: Mapped[str | None] = mapped_column(String(128), nullable=True)
     buffer_minutes: Mapped[int] = mapped_column(Integer, default=15, nullable=False)
-    actual_end: Mapped[datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
+    actual_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     plan: Mapped[Plan] = relationship("Plan", back_populates="plan_slots")
 

@@ -32,6 +32,32 @@ from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import interrupt
 
+from app.agent_runtime.events import build_runtime_event
+from app.agent_runtime.postconfirm_state import (
+    build_repair_state,
+    confirmation_from_resume,
+    maybe_apply_confirmation_replan,
+    notification_state_from_share_card,
+    route_from_confirmation,
+)
+from app.agent_runtime.preconfirm_state import (
+    build_memory_features as _build_memory_features,
+)
+from app.agent_runtime.preconfirm_state import (
+    candidate_pool_from_state as _candidate_pool_from_state,
+)
+from app.agent_runtime.preconfirm_state import (
+    context_from_state as _context_from_state,
+)
+from app.agent_runtime.preconfirm_state import (
+    context_profile_from_state as _context_profile_from_state,
+)
+from app.agent_runtime.preconfirm_state import (
+    make_agent_result as _ar,
+)
+from app.agent_runtime.preconfirm_state import (
+    pending_confirmation,
+)
 from app.agents.consensus_resolver import ConsensusResolver
 from app.agents.context_loader import ContextLoader
 from app.agents.execution_engine import ExecutionEngine
@@ -40,26 +66,11 @@ from app.agents.intent_parser import IntentParser
 from app.agents.memory_manager import MemoryManager
 from app.agents.notify_engine import NotifyEngine
 from app.agents.planning_engine import PlanningEngine
-from app.agents.protocol import AgentContext, AgentResult
+from app.agents.protocol import AgentResult
 from app.agents.retrieval_engine import RetrievalEngine
-from app.agent_runtime.preconfirm_state import (
-    build_memory_features as _build_memory_features,
-    candidate_pool_from_state as _candidate_pool_from_state,
-    context_from_state as _context_from_state,
-    context_profile_from_state as _context_profile_from_state,
-    make_agent_result as _ar,
-    pending_confirmation,
-)
-from app.agent_runtime.postconfirm_state import (
-    build_repair_state,
-    confirmation_from_resume,
-    maybe_apply_confirmation_replan,
-    notification_state_from_share_card,
-    route_from_confirmation,
-)
-from app.agent_runtime.events import build_runtime_event
 from app.core.constants import FALLBACK_MAX_RETRY, PlanStatus
 from app.ports.events import EventSinkPort
+from app.schemas.agent.events import RuntimeEventType
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +86,7 @@ def set_gateway(gateway) -> None:
 def set_event_sink(event_sink: EventSinkPort | None) -> None:
     global _event_sink
     _event_sink = event_sink
+
 
 class PlanState(TypedDict, total=False):
     """LangGraph 运行时状态定义。
@@ -132,7 +144,7 @@ async def _emit_node_event(
     state: PlanState,
     *,
     node_name: str,
-    event_type: str,
+    event_type: RuntimeEventType,
     payload: dict[str, Any] | None = None,
 ) -> None:
     if _event_sink is None:
@@ -148,6 +160,7 @@ async def _emit_node_event(
         payload=payload or {},
     )
     await _event_sink.emit(event)
+
 
 async def intent_parser_node(state: PlanState) -> dict[str, Any]:
     await _emit_node_event(state, node_name="intent_parser", event_type="node_started")
@@ -258,7 +271,11 @@ async def planning_engine_node(state: PlanState) -> dict[str, Any]:
     repair = state.get("repair") or {}
     revised_from_fallback = repair.get("revised_draft")
     if revised_from_fallback:
-        revised_dump = revised_from_fallback.model_dump() if hasattr(revised_from_fallback, "model_dump") else revised_from_fallback
+        revised_dump = (
+            revised_from_fallback.model_dump()
+            if hasattr(revised_from_fallback, "model_dump")
+            else revised_from_fallback
+        )
         await _emit_node_event(
             state,
             node_name="planning_engine",
@@ -286,7 +303,7 @@ async def planning_engine_node(state: PlanState) -> dict[str, Any]:
         state,
         node_name="planning_engine",
         event_type="node_succeeded",
-        payload={"slot_count": len(draft.get("slots", [])), "total_cost": draft.get("total_cost", 0)},
+        payload={"slot_count": len(draft.get("slots", [])), "total_cost": draft.get("total_cost", 0)},  # type: ignore[union-attr]
     )
     return {
         "draft": draft,
@@ -305,7 +322,6 @@ async def consensus_resolver_node(state: PlanState) -> dict[str, Any]:
     ]
     context = _context_from_state(state, history)
     resolver_result = await agent.execute(context)
-    interrupt_payload = resolver_result.data.get("interrupt_payload", {})
     rationale = resolver_result.data.get("rationale", "请确认或修改计划")
 
     await _emit_node_event(
@@ -313,17 +329,19 @@ async def consensus_resolver_node(state: PlanState) -> dict[str, Any]:
         node_name="consensus_resolver",
         event_type="interrupt_requested",
         payload={
-            "slot_count": len(draft.get("slots", [])),
+            "slot_count": len(draft.get("slots", [])),  # type: ignore[union-attr]
             "suggested_decision": resolver_result.data.get("decision"),
             "rationale": rationale,
         },
     )
-    user_choice = interrupt({
-        "event": "consensus",
-        "draft": draft,
-        "message": rationale,
-        "suggested_decision": resolver_result.data.get("decision"),
-    })
+    user_choice = interrupt(
+        {
+            "event": "consensus",
+            "draft": draft,
+            "message": rationale,
+            "suggested_decision": resolver_result.data.get("decision"),
+        }
+    )
     decision = user_choice.get("decision", "confirmed") if isinstance(user_choice, dict) else "confirmed"
     confirmation = confirmation_from_resume(user_choice if isinstance(user_choice, dict) else {"decision": "confirmed"})
     await _emit_node_event(
@@ -367,7 +385,7 @@ async def execution_engine_node(state: PlanState) -> dict[str, Any]:
 
 
 def route_execution(state: PlanState) -> Literal["notify_engine", "fallback_engine", "end"]:
-    exec_data = state.get("execution", {})
+    exec_data: dict[str, Any] = state.get("execution") or {}
     status = exec_data.get("status", "full_success")
     if status == "full_success":
         return "notify_engine"
@@ -394,7 +412,9 @@ async def fallback_engine_node(state: PlanState) -> dict[str, Any]:
         payload={"retry_count": new_count, "has_revision": bool(revision)},
     )
     return {
-        "draft": (revision or {}).get("plan", state.get("draft", {})) if isinstance(revision, dict) else state.get("draft", {}),
+        "draft": (revision or {}).get("plan", state.get("draft", {}))
+        if isinstance(revision, dict)
+        else state.get("draft", {}),
         "fallback_revision": revision,
         "repair": build_repair_state(
             draft=state.get("draft"),

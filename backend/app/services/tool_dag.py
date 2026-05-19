@@ -68,8 +68,10 @@ def build_execution_layers(slots: list[PlanSlot]) -> dict[int, list[ToolInvocati
             ToolInvocation(
                 tool_name=tool_name,
                 params={
-                    "poi_id": slot.poi.id, "poi_name": slot.poi.name,
-                    "guest_count": 2, "time_range": str(slot.time_range),
+                    "poi_id": slot.poi.id,
+                    "poi_name": slot.poi.name,
+                    "guest_count": 2,
+                    "time_range": str(slot.time_range),
                     "slot_index": idx,
                 },
                 timeout_ms=meta.default_timeout_ms,
@@ -142,22 +144,23 @@ class ToolDAGScheduler:
                 if r.status == "success" and r.data and "booking_id" in (r.data or {}):
                     confirmed[si] = r.data["booking_id"]
                 elif r.status != "success":
-                    failed.append({"slot_index": si, "invocation_id": r.invocation_id,
-                                   "error_code": r.error_code})
+                    failed.append({"slot_index": si, "invocation_id": r.invocation_id, "error_code": r.error_code})
             total_ms += int((time.perf_counter() - t0) * 1000)
         status = "full_success"
         if failed:
             status = "partial_success" if confirmed else "full_failure"
-        return {"status": status, "confirmed_bookings": confirmed,
-                "failed_slots": failed, "total_elapsed_ms": total_ms}
+        return {"status": status, "confirmed_bookings": confirmed, "failed_slots": failed, "total_elapsed_ms": total_ms}
 
     async def _mock_call(self, inv: ToolInvocation) -> ToolResult:
         delay = random.uniform(0.02, 0.10)
         await asyncio.sleep(delay)
         si = inv.params.get("slot_index", -1)
-        return ToolResult(invocation_id=inv.invocation_id, status="success",
-                          data={"booking_id": f"bk_{si}_{random.randint(1000,9999)}", "slot_index": si},
-                          latency_ms=int(delay * 1000))
+        return ToolResult(
+            invocation_id=inv.invocation_id,
+            status="success",
+            data={"booking_id": f"bk_{si}_{random.randint(1000, 9999)}", "slot_index": si},
+            latency_ms=int(delay * 1000),
+        )
 
 
 # ===== 新版执行引擎 =====
@@ -189,8 +192,7 @@ class ToolDAGExecutor:
         try:
             layers = topological_layers(invocations)
         except ValueError as e:
-            return {"status": "failed", "transaction_id": self.transaction_id,
-                    "error": str(e), "results": {}}
+            return {"status": "failed", "transaction_id": self.transaction_id, "error": str(e), "results": {}}
 
         all_results: dict[str, ToolResult] = {}
         layer_timings: dict[int, int] = {}
@@ -206,8 +208,12 @@ class ToolDAGExecutor:
 
             for node, r in zip(layer, layer_results, strict=False):
                 if isinstance(r, BaseException):
-                    r = ToolResult(invocation_id=node.invocation_id, status="failure",
-                                   error_code="EXECUTION_ERROR", error_message=str(r))
+                    r = ToolResult(
+                        invocation_id=node.invocation_id,
+                        status="failure",
+                        error_code="EXECUTION_ERROR",
+                        error_message=str(r),
+                    )
                 assert isinstance(r, ToolResult)
                 all_results[node.invocation_id] = r
 
@@ -229,9 +235,7 @@ class ToolDAGExecutor:
             status = "partial"
 
         if self._memory:
-            await self._memory.set_transaction_status(
-                self.transaction_id, status, ttl=600
-            )
+            await self._memory.set_transaction_status(self.transaction_id, status, ttl=600)
 
         return {
             "status": status,

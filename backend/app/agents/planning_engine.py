@@ -96,7 +96,7 @@ class PlanningEngine(BaseAgent):
 
         try:
             ranked = await asyncio.wait_for(
-                self._phase2_llm_sort(candidates, intent, start_time, end_time, skill_prompt),
+                self._phase2_llm_sort(candidates, intent, start_time, end_time, skill_prompt, context.lat, context.lng),
                 timeout=PLANNING_PHASE2_TIMEOUT_S,
             )
         except TimeoutError:
@@ -119,8 +119,9 @@ class PlanningEngine(BaseAgent):
         logger.info("planning_engine_completed", plan_id=context.plan_id, slot_count=len(slots))
         return AgentResult(data={"draft": draft.model_dump()})
 
-    def _phase1_hard_filter(self, candidates: list[POI], intent: IntentSchema,
-                            lat: float, lng: float, start: datetime, end: datetime) -> list[POI]:
+    def _phase1_hard_filter(
+        self, candidates: list[POI], intent: IntentSchema, lat: float, lng: float, start: datetime, end: datetime
+    ) -> list[POI]:
         """Phase 1: 硬约束过滤（纯代码，≤50ms）。
 
         按类型偏好、预算、距离（>20km 直接排除）、心情标签评分排序。
@@ -135,6 +136,7 @@ class PlanningEngine(BaseAgent):
             ≤10 个按评分降序的 POI
         """
         from app.agents.retrieval_engine import haversine
+
         filtered = []
         for poi in candidates:
             score = 0.0
@@ -158,9 +160,12 @@ class PlanningEngine(BaseAgent):
         start: datetime,
         end: datetime,
         skill_prompt: str = "",
+        lat: float = 0.0,
+        lng: float = 0.0,
     ) -> list[POI]:
         try:
             from app.agents.retrieval_engine import haversine
+
             enriched = []
             for p in candidates:
                 d = p.model_dump()
@@ -240,8 +245,7 @@ class PlanningEngine(BaseAgent):
         cnt = min(len(pois), 4)
         dur = total_min / max(cnt, 1)
         cur = start
-        action_map = {"restaurant": "book_table", "cafe": "arrive",
-                      "attraction": "arrive", "activity": "book_ticket"}
+        action_map = {"restaurant": "book_table", "cafe": "arrive", "attraction": "arrive", "activity": "book_ticket"}
 
         shadow_pool = [p for p in pois]
         for i, poi in enumerate(pois[:cnt]):
@@ -254,13 +258,18 @@ class PlanningEngine(BaseAgent):
             if shadows:
                 shadow_id = random.choice(shadows).id
 
-            slots.append(PlanSlot(
-                sequence=i, poi=poi,
-                time_range=TimeRange(start=cur, end=slot_end),
-                action=action_map.get(poi.type, "arrive"),
-                estimated_cost=poi.avg_price, move_time_min=move, confidence=0.7,
-                shadow_id=shadow_id,
-            ))
+            slots.append(
+                PlanSlot(
+                    sequence=i,
+                    poi=poi,
+                    time_range=TimeRange(start=cur, end=slot_end),
+                    action=action_map.get(poi.type, "arrive"),
+                    estimated_cost=poi.avg_price,
+                    move_time_min=move,
+                    confidence=0.7,
+                    shadow_id=shadow_id,
+                )
+            )
             cur = slot_end
             if cur >= end:
                 break

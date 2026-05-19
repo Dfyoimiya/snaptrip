@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import enum
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.schemas.tool import ToolResult
@@ -47,7 +47,7 @@ class CircuitBreaker:
         self._try_transition()
         return self._state
 
-    async def call(self, func: Callable, *args: Any, **kwargs: Any) -> ToolResult:
+    async def call(self, func: Callable[..., Awaitable[ToolResult]], *args: Any, **kwargs: Any) -> ToolResult:
         """受熔断保护地执行函数。
 
         Args:

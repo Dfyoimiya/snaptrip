@@ -66,7 +66,7 @@ class NotifyEngine(BaseAgent):
     def _extract_execution(self, context: AgentContext) -> dict | None:
         for h in reversed(context.history):
             if "execution" in h.data:
-                return h.data["execution"]
+                return h.data["execution"]  # type: ignore[no-any-return]
         return None
 
 

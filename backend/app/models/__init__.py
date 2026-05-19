@@ -10,9 +10,9 @@ from app.models.base import Base, TimestampMixin, UUIDMixin
 from app.models.checkpoint import Checkpoint
 from app.models.llm_usage_log import LLMUsageLog
 from app.models.plan import Plan
+from app.models.plan_adjustment import PlanAdjustment
 from app.models.plan_run import PlanRun
 from app.models.plan_run_event import PlanRunEvent
-from app.models.plan_adjustment import PlanAdjustment
 from app.models.plan_slot import PlanSlot
 from app.models.poi import POI
 from app.models.refresh_token import RefreshToken

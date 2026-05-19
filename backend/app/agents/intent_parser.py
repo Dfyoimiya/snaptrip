@@ -78,9 +78,7 @@ class IntentParser(BaseAgent):
         """
         logger.info("intent_parser_started", user_id=context.user_id, plan_id=context.plan_id)
         try:
-            result = await asyncio.wait_for(
-                self._parse_via_llm(context), timeout=INTENT_TIMEOUT_S
-            )
+            result = await asyncio.wait_for(self._parse_via_llm(context), timeout=INTENT_TIMEOUT_S)
             logger.info("intent_parser_completed", source="llm", plan_id=context.plan_id)
             return result
         except (TimeoutError, Exception):
@@ -122,7 +120,9 @@ class IntentParser(BaseAgent):
             time_window=TimeRange(
                 start=parsed.get("time_window", {}).get("start", datetime.now().isoformat()),
                 end=parsed.get("time_window", {}).get("end", (datetime.now() + timedelta(hours=4)).isoformat()),
-            ) if parsed.get("time_window") else None,
+            )
+            if parsed.get("time_window")
+            else None,
             guest_count=parsed.get("guest_count", 2),
             budget=parsed.get("budget"),
             scene_type=parsed.get("scene_type", "solo"),
@@ -173,9 +173,14 @@ class IntentParser(BaseAgent):
             count = int(m.group(1))
 
         scene_map = {
-            "带娃": "family", "亲子": "family", "小孩": "family",
-            "朋友": "friends", "和": "friends",
-            "约会": "date", "情侣": "date", "浪漫": "date",
+            "带娃": "family",
+            "亲子": "family",
+            "小孩": "family",
+            "朋友": "friends",
+            "和": "friends",
+            "约会": "date",
+            "情侣": "date",
+            "浪漫": "date",
         }
         scene = "solo"
         for kw, s in scene_map.items():
@@ -185,8 +190,12 @@ class IntentParser(BaseAgent):
 
         intent = IntentSchema(
             time_window=TimeRange(start=now, end=now + timedelta(hours=4)),
-            guest_count=count, budget=budget, scene_type=scene,
-            type_prefs=type_prefs, mood_prefs=mood_prefs, city=city,
+            guest_count=count,
+            budget=budget,
+            scene_type=scene,
+            type_prefs=type_prefs,
+            mood_prefs=mood_prefs,
+            city=city,
             confidence=0.4,
         )
         return AgentResult(data={"intent": intent.model_dump()})

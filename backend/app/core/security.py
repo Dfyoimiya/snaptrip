@@ -42,11 +42,9 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
-    expire = datetime.now(UTC) + (
-        expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    )
+    expire = datetime.now(UTC) + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire, "type": "access"})
-    return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm="HS256")
+    return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm="HS256")  # type: ignore[no-any-return]
 
 
 async def create_refresh_token(user_id: uuid.UUID, db: AsyncSession) -> str:
@@ -62,9 +60,7 @@ async def create_refresh_token(user_id: uuid.UUID, db: AsyncSession) -> str:
 
 async def verify_refresh_token(raw_token: str, db: AsyncSession) -> RefreshToken | None:
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-    result = await db.execute(
-        select(RefreshToken).where(RefreshToken.token_hash == token_hash)
-    )
+    result = await db.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
     rt = result.scalar_one_or_none()
     if rt is None:
         return None
@@ -77,9 +73,7 @@ async def verify_refresh_token(raw_token: str, db: AsyncSession) -> RefreshToken
 
 async def revoke_refresh_token(raw_token: str, db: AsyncSession) -> None:
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-    result = await db.execute(
-        select(RefreshToken).where(RefreshToken.token_hash == token_hash)
-    )
+    result = await db.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
     rt = result.scalar_one_or_none()
     if rt:
         await db.delete(rt)
@@ -89,7 +83,7 @@ async def revoke_refresh_token(raw_token: str, db: AsyncSession) -> None:
 def verify_token(token: str) -> dict:
     try:
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=["HS256"])
-        return payload
+        return payload  # type: ignore[no-any-return]
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

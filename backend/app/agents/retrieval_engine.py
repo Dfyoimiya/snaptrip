@@ -79,7 +79,7 @@ class RetrievalEngine(BaseAgent):
             type_groups.get(p.type, type_groups["attraction"]).append(p)
 
         candidates = []
-        for t in (intent.type_prefs or ["restaurant", "cafe", "attraction", "activity"]):
+        for t in intent.type_prefs or ["restaurant", "cafe", "attraction", "activity"]:
             candidates.extend(type_groups.get(t, [])[:5])
 
         if not candidates:

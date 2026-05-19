@@ -54,14 +54,16 @@ class ConsensusResolver(BaseAgent):
         votes = _extract_votes(context)
 
         if draft is None or not draft.slots:
-            return AgentResult(data={
-                "needs_interrupt": False,
-                "decision": "rejected",
-                "revised_constraints": None,
-                "diff_slots": [],
-                "interrupt_payload": {},
-                "rationale": "计划草案为空，无法进入确认流程",
-            })
+            return AgentResult(
+                data={
+                    "needs_interrupt": False,
+                    "decision": "rejected",
+                    "revised_constraints": None,
+                    "diff_slots": [],
+                    "interrupt_payload": {},
+                    "rationale": "计划草案为空，无法进入确认流程",
+                }
+            )
 
         if votes:
             decision, diff_slots, rationale = self._weighted_vote(draft, votes)
@@ -76,14 +78,16 @@ class ConsensusResolver(BaseAgent):
             "diff_slots": [d.model_dump() if hasattr(d, "model_dump") else d for d in diff_slots],
         }
 
-        return AgentResult(data={
-            "needs_interrupt": True,
-            "decision": decision,
-            "revised_constraints": None,
-            "diff_slots": diff_slots,
-            "interrupt_payload": interrupt_payload,
-            "rationale": rationale,
-        })
+        return AgentResult(
+            data={
+                "needs_interrupt": True,
+                "decision": decision,
+                "revised_constraints": None,
+                "diff_slots": diff_slots,
+                "interrupt_payload": interrupt_payload,
+                "rationale": rationale,
+            }
+        )
 
     def _single_user_review(self, draft: PlanDraft, context: AgentContext) -> tuple[str, list, str]:
         """单用户场景：预检查草案并给出建议决策。"""
@@ -120,12 +124,8 @@ class ConsensusResolver(BaseAgent):
           - 反对票权重 > 赞成票权重时，降级为 partial_change
         """
         total_weight = sum(v.get("weight", 1.0) for v in votes)
-        confirm_weight = sum(
-            v.get("weight", 1.0) for v in votes if v.get("decision") == "confirmed"
-        )
-        reject_weight = sum(
-            v.get("weight", 1.0) for v in votes if v.get("decision") in {"rejected", "objection"}
-        )
+        confirm_weight = sum(v.get("weight", 1.0) for v in votes if v.get("decision") == "confirmed")
+        reject_weight = sum(v.get("weight", 1.0) for v in votes if v.get("decision") in {"rejected", "objection"})
 
         if total_weight == 0:
             return "confirmed", [], "无有效投票权重，默认通过"

@@ -56,9 +56,7 @@ async def get_profile(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    result = await db.execute(
-        select(UserProfile).where(UserProfile.user_id == current_user.id)
-    )
+    result = await db.execute(select(UserProfile).where(UserProfile.user_id == current_user.id))
     profile = result.scalar_one_or_none()
     if profile is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户资料不存在")
@@ -81,9 +79,7 @@ async def update_profile(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    result = await db.execute(
-        select(UserProfile).where(UserProfile.user_id == current_user.id)
-    )
+    result = await db.execute(select(UserProfile).where(UserProfile.user_id == current_user.id))
     profile = result.scalar_one_or_none()
     if profile is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户资料不存在")
@@ -146,13 +142,7 @@ async def list_plans(
     total_result = await db.execute(total_q)
     total = total_result.scalar() or 0
 
-    rows_q = (
-        select(Plan)
-        .where(*conditions)
-        .order_by(Plan.created_at.desc())
-        .offset(offset)
-        .limit(page_size)
-    )
+    rows_q = select(Plan).where(*conditions).order_by(Plan.created_at.desc()).offset(offset).limit(page_size)
     rows_result = await db.execute(rows_q)
     plans = rows_result.scalars().all()
 
@@ -168,11 +158,7 @@ async def list_plans(
         for p in plans
     ]
 
-    return success(
-        data=PaginatedPlans(
-            items=items, total=total, page=page, page_size=page_size
-        ).model_dump()
-    )
+    return success(data=PaginatedPlans(items=items, total=total, page=page, page_size=page_size).model_dump())
 
 
 # ===== 计划详情 =====
@@ -257,9 +243,7 @@ async def clone_plan(
     db: AsyncSession = Depends(get_db),
 ) -> dict:
     result = await db.execute(
-        select(Plan)
-        .options(selectinload(Plan.plan_slots))
-        .where(Plan.id == plan_id, Plan.user_id == current_user.id)
+        select(Plan).options(selectinload(Plan.plan_slots)).where(Plan.id == plan_id, Plan.user_id == current_user.id)
     )
     original = result.unique().scalar_one_or_none()
     if original is None:

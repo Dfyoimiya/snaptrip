@@ -16,7 +16,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for lightweight test 
     class BaseSettings(BaseModel):  # type: ignore[no-redef]
         """Fallback settings base when pydantic-settings is unavailable."""
 
-    def SettingsConfigDict(**kwargs):  # type: ignore[no-redef]
+    def SettingsConfigDict(**kwargs):  # type: ignore[no-redef]  # noqa: N802  # pragma: no cover
         return kwargs
 
 

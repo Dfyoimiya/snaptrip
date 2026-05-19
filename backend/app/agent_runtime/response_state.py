@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from app.schemas.plan import PlanDraft, PlanResponse, PlanSlot, ShareCard
 
 
-def state_to_response(state: dict[str, Any], query_text: str = "") -> PlanResponse:
+def state_to_response(state: Mapping[str, Any], query_text: str = "") -> PlanResponse:
     """Assemble API response preferring typed runtime state fields."""
 
     request = state.get("request") or {}
@@ -30,13 +31,13 @@ def state_to_response(state: dict[str, Any], query_text: str = "") -> PlanRespon
     )
 
 
-def _draft_from_state(state: dict[str, Any]) -> dict[str, Any] | None:
+def _draft_from_state(state: Mapping[str, Any]) -> dict[str, Any] | None:
     repair = state.get("repair") or {}
     revised = repair.get("revised_draft")
     if revised:
         if isinstance(revised, PlanDraft):
             return revised.model_dump()
-        return revised
+        return revised  # type: ignore[no-any-return]
 
     draft = state.get("draft")
     if isinstance(draft, PlanDraft):
@@ -44,11 +45,11 @@ def _draft_from_state(state: dict[str, Any]) -> dict[str, Any] | None:
     return draft
 
 
-def _share_card_from_state(state: dict[str, Any]) -> dict[str, Any] | None:
+def _share_card_from_state(state: Mapping[str, Any]) -> dict[str, Any] | None:
     notification = state.get("notification") or {}
     typed_share_card = notification.get("share_card")
     if typed_share_card:
         if isinstance(typed_share_card, ShareCard):
             return typed_share_card.model_dump()
-        return typed_share_card
+        return typed_share_card  # type: ignore[no-any-return]
     return state.get("share_card")

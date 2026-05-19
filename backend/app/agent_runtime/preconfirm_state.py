@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from app.agents.protocol import AgentContext, AgentResult
@@ -15,7 +16,7 @@ def make_agent_result(agent_name: str, data: dict[str, Any]) -> AgentResult:
     return AgentResult(agent_name=agent_name, status="success", data=data)
 
 
-def context_from_state(state: dict[str, Any], history: list[AgentResult] | None = None) -> AgentContext:
+def context_from_state(state: Mapping[str, Any], history: list[AgentResult] | None = None) -> AgentContext:
     """Build agent context from mixed legacy + typed runtime state."""
 
     request = state.get("request") or {}
@@ -31,19 +32,19 @@ def context_from_state(state: dict[str, Any], history: list[AgentResult] | None 
     )
 
 
-def candidate_pool_from_state(state: dict[str, Any]) -> dict[str, Any]:
+def candidate_pool_from_state(state: Mapping[str, Any]) -> dict[str, Any]:
     """Read candidate pool from graph state."""
 
     return state.get("candidate_pool") or {}
 
 
-def context_profile_from_state(state: dict[str, Any]) -> dict[str, Any]:
+def context_profile_from_state(state: Mapping[str, Any]) -> dict[str, Any]:
     """Read enriched context profile from graph state."""
 
     return state.get("context_profile") or {}
 
 
-def build_memory_features(enriched: dict[str, Any]) -> dict[str, Any]:
+def build_memory_features(enriched: Mapping[str, Any]) -> dict[str, Any]:
     """Derive a minimal typed memory feature view from enriched intent."""
 
     intent = enriched.get("intent", {}) if isinstance(enriched, dict) else {}

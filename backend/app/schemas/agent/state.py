@@ -8,7 +8,16 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.schemas.agent.runtime import AgentError, PlanRequestEnvelope
-from app.schemas.plan import CandidatePool, EnrichedIntent, ExecutionResult, PlanDraft, POI, ShareCard, TimeRange
+from app.schemas.plan import (
+    POI,
+    CandidatePool,
+    EnrichedIntent,
+    ExecutionResult,
+    PlanDraft,
+    ShareCard,
+    SlotDiff,
+    TimeRange,
+)
 
 PlanRuntimeStatus = Literal[
     "created",
@@ -105,17 +114,6 @@ class DraftSlotSnapshot(BaseModel):
     confidence: float = 0.0
     rationale: list[str] = Field(default_factory=list)
     alternatives: list[SlotAlternative] = Field(default_factory=list)
-
-
-class SlotDiff(BaseModel):
-    """Diff between two plan drafts during repair."""
-
-    slot_index: int
-    old_poi_id: str
-    new_poi_id: str
-    old_poi_name: str
-    new_poi_name: str
-    time_shift_min: int = 0
 
 
 class CheckpointSnapshot(BaseModel):

@@ -6,13 +6,18 @@ Date: 2026-05-17 / Updated 2026-05-18
 
 from __future__ import annotations
 
+import pytest
+
 from app.services.llm_gateway import LLMError, LLMGateway
 
 
 class TestGatewayInit:
-    def test_default_base_url(self):
-        gw = LLMGateway(api_key="test")
-        assert "api.deepseek.com" in gw._base_url
+    def test_default_base_url(self, monkeypatch):
+        from app.core import config
+        monkeypatch.setattr(config.settings, "OPENROUTER_API_KEY", "")
+        monkeypatch.setattr(config.settings, "DEEPSEEK_API_KEY", "")
+        gw = LLMGateway(api_key="sk-test")
+        assert gw._base_url == "https://api.deepseek.com/v1"
 
     def test_custom_api_key(self):
         gw = LLMGateway(api_key="sk-custom")

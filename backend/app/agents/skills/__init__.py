@@ -84,7 +84,7 @@ def match_skills(*, scene_type: str | None = None, type_prefs: list[str] | None 
     keywords = []
     if scene_type:
         keywords.append(scene_type.lower())
-    for tp in (type_prefs or []):
+    for tp in type_prefs or []:
         keywords.append(tp.lower())
 
     for skill in all_skills:

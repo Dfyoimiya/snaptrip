@@ -34,9 +34,7 @@ class SQLRuntimeEventRepository(RuntimeEventRepositoryPort):
         try:
             async with AsyncSessionLocal() as db:
                 result = await db.execute(
-                    select(PlanRunEvent)
-                    .where(PlanRunEvent.plan_id == plan_id)
-                    .order_by(PlanRunEvent.created_at.asc())
+                    select(PlanRunEvent).where(PlanRunEvent.plan_id == plan_id).order_by(PlanRunEvent.created_at.asc())
                 )
                 rows = result.scalars().all()
         except Exception:

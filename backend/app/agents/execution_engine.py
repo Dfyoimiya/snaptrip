@@ -116,14 +116,17 @@ class ExecutionEngine(BaseAgent):
             for slot_i, tool, meta in layers[layer_idx]:
                 deps_ok = all(d not in failed_tools for d in meta.dependencies)
                 if not deps_ok:
-                    failed_slots.append(FailedSlot(
-                        slot_index=slot_i, tool_name=tool,
-                        error_code="SKIPPED",
-                        error_message="Upstream dependency failed",
-                        poi_id=str(slot_i),
-                    ))
+                    failed_slots.append(
+                        FailedSlot(
+                            slot_index=slot_i,
+                            tool_name=tool,
+                            error_code="SKIPPED",
+                            error_message="Upstream dependency failed",
+                            poi_id=str(slot_i),
+                        )
+                    )
                     continue
-                slot = slots_by_idx.get(slot_i)
+                slot = slots_by_idx.get(slot_i)  # type: ignore[assignment]
                 tasks.append(self._call_tool_with_timeout(slot_i, tool, meta, slot, context))
 
             try:
@@ -141,12 +144,15 @@ class ExecutionEngine(BaseAgent):
                     confirmed[si] = r.data["booking_id"]
                 elif r.status in {"failure", "timeout"}:
                     failed_tools.add(_tool_name_for_result(r, si))
-                    failed_slots.append(FailedSlot(
-                        slot_index=si, tool_name=_tool_name_for_result(r, si),
-                        error_code=r.error_code or "UNKNOWN",
-                        error_message=r.error_message or "Tool failed",
-                        poi_id=str(si),
-                    ))
+                    failed_slots.append(
+                        FailedSlot(
+                            slot_index=si,
+                            tool_name=_tool_name_for_result(r, si),
+                            error_code=r.error_code or "UNKNOWN",
+                            error_message=r.error_message or "Tool failed",
+                            poi_id=str(si),
+                        )
+                    )
 
                 self._log_tool_call(r, draft.plan_id, layer_idx)
 

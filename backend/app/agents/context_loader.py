@@ -53,12 +53,10 @@ class ContextLoader(BaseAgent):
     async def _load_profile(self, user_id: uuid.UUID, intent: IntentSchema) -> EnrichedIntent:
         try:
             async with AsyncSessionLocal() as db:
-                result = await db.execute(
-                    select(UserProfile).where(UserProfile.user_id == user_id)
-                )
+                result = await db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
                 profile = result.scalar_one_or_none()
         except Exception:
-            logger.warning("context_loader_db_failed", user_id=str(user_id), exc_info=True)
+            logger.warning("context_loader_db_failed", user_id=str(user_id), exc_info=True)  # type: ignore[call-arg]
             return self._default(intent, str(user_id))
 
         if profile is None:

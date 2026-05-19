@@ -14,13 +14,14 @@ Date: 2026-05-17
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
-_engine_kwargs = {
+_engine_kwargs: dict[str, Any] = {
     "echo": settings.APP_DEBUG,
 }
 if settings.APP_ENV == "test":

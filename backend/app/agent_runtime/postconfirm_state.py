@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from app.schemas.agent.state import (
     CheckpointSnapshot,
     ConfirmationState,
     RepairState,
-    SlotDiff,
     UserChangeRequest,
 )
-from app.schemas.plan import POI, PlanDraft, PlanSlot, RevisedPlan
+from app.schemas.plan import POI, PlanDraft, PlanSlot, RevisedPlan, SlotDiff
 
 
 def confirmation_from_resume(resume: dict[str, Any] | None) -> dict[str, Any]:
@@ -26,7 +26,8 @@ def confirmation_from_resume(resume: dict[str, Any] | None) -> dict[str, Any]:
     instruction = payload.get("instruction", "")
     change_requests = list(payload.get("change_requests") or [])
 
-    if slot_index is not None and slot_index not in rejected_slots and decision in {"objection", "partial_change", "rejected"}:
+    reject_decisions = {"objection", "partial_change", "rejected"}
+    if slot_index is not None and slot_index not in rejected_slots and decision in reject_decisions:
         rejected_slots.append(slot_index)
 
     if decision == "confirmed":
@@ -53,12 +54,15 @@ def confirmation_from_resume(resume: dict[str, Any] | None) -> dict[str, Any]:
         status=status,
         locked_slots=locked_slots,
         rejected_slots=rejected_slots,
-        user_change_requests=[UserChangeRequest(**item) if isinstance(item, dict) else item for item in normalized_requests],
+        user_change_requests=[
+            UserChangeRequest(**item) if isinstance(item, dict) else item
+            for item in normalized_requests
+        ],
         confirmed_at=datetime.utcnow() if status == "confirmed" else None,
     ).model_dump()
 
 
-def route_from_confirmation(state: dict[str, Any]) -> str:
+def route_from_confirmation(state: Mapping[str, Any]) -> Literal["execution_engine", "planning_engine", "end"]:
     """Resolve the next graph branch from confirmation state or legacy decision."""
 
     confirmation = state.get("confirmation") or {}
@@ -76,7 +80,7 @@ def route_from_confirmation(state: dict[str, Any]) -> str:
     return "end"
 
 
-def maybe_apply_confirmation_replan(state: dict[str, Any]) -> dict[str, Any] | None:
+def maybe_apply_confirmation_replan(state: Mapping[str, Any]) -> dict[str, Any] | None:
     """Apply a lightweight slot-level replan from confirmation state.
 
     This keeps the mainline moving before the full planning engine is migrated to
@@ -158,7 +162,7 @@ def build_repair_state(
     ).model_dump()
 
 
-def notification_state_from_share_card(share_card: dict[str, Any] | None) -> dict[str, Any]:
+def notification_state_from_share_card(share_card: Mapping[str, Any] | None) -> dict[str, Any]:
     """Build typed notification state from legacy share card payload."""
 
     return {
@@ -185,7 +189,7 @@ def _find_replacement_poi(draft: PlanDraft, slot_index: int) -> POI | None:
     return POI(**candidates[0].model_dump())
 
 
-def _as_plan_draft(draft: dict[str, Any] | PlanDraft | None) -> PlanDraft | None:
+def _as_plan_draft(draft: Mapping[str, Any] | PlanDraft | None) -> PlanDraft | None:
     if draft is None:
         return None
     if isinstance(draft, PlanDraft):
