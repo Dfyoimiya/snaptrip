@@ -1,0 +1,45 @@
+{
+  "status": "1",
+  "infocode": "10000",
+  "info": "OK",
+  "count": "2",
+  "pois": [
+    {
+      "id": "B000A7BD6C",
+      "name": "故宫博物院",
+      "type": "风景名胜;国家级景点;故宫",
+      "typecode": "110101",
+      "address": "北京市东城区景山前街4号",
+      "location": "116.397,39.908",
+      "pname": "北京市",
+      "cityname": "北京市",
+      "adname": "东城区",
+      "business_area": "东华门",
+      "tel": "010-85007421",
+      "distance": "0",
+      "biz_ext": {
+        "rating": "4.8",
+        "cost": "60",
+        "open_time": "08:30-17:00"
+      },
+      "photos": [
+        {"url": "https://example.com/photo1.jpg", "title": "故宫"}
+      ]
+    },
+    {
+      "id": "B0FFFATVPL",
+      "name": "南锣鼓巷",
+      "type": "风景名胜;风景名胜;国家级景点",
+      "typecode": "110101",
+      "address": "北京市东城区南锣鼓巷",
+      "location": "116.403,39.937",
+      "pname": "北京市",
+      "cityname": "北京市",
+      "adname": "东城区",
+      "business_area": "南锣鼓巷",
+      "biz_ext": {
+        "rating": "4.5"
+      }
+    }
+  ]
+}

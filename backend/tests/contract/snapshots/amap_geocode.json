@@ -1,0 +1,24 @@
+{
+  "status": "1",
+  "infocode": "10000",
+  "info": "OK",
+  "count": "1",
+  "geocodes": [
+    {
+      "formatted_address": "北京市东城区景山前街4号",
+      "country": "中国",
+      "province": "北京市",
+      "citycode": "010",
+      "city": "北京市",
+      "district": "东城区",
+      "township": [],
+      "neighborhood": {"name": [], "type": []},
+      "building": {"name": [], "type": []},
+      "adcode": "110101",
+      "street": [],
+      "number": [],
+      "location": "116.397,39.908",
+      "level": "门牌号"
+    }
+  ]
+}
