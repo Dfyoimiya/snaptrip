@@ -28,6 +28,27 @@ from app.agents.graph import set_event_sink, set_gateway
 from app.api.v1.auth import router as auth_router
 from app.api.v1.plan import router as plan_router
 from app.api.v1.user import router as user_router
+from app.core.exception_handlers import (
+    adapter_exception_handler,
+    authentication_handler,
+    circuit_breaker_handler,
+    not_found_handler,
+    permission_denied_handler,
+    rate_limit_handler,
+    snap_trip_exception_handler,
+    unhandled_exception_handler,
+    validation_handler,
+)
+from app.core.exceptions import (
+    AdapterError,
+    AmapRateLimitError,
+    AuthenticationError,
+    CircuitBreakerOpenError,
+    PermissionDeniedError,
+    ResourceNotFoundError,
+    SnapTripException,
+    ValidationError,
+)
 from app.core.response import (
     APIServiceError,
     api_exception_handler,
@@ -74,6 +95,17 @@ app.include_router(user_router)
 app.add_exception_handler(APIServiceError, api_exception_handler)  # type: ignore[arg-type]
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)  # type: ignore[arg-type]
 app.add_exception_handler(RequestValidationError, validation_exception_handler)  # type: ignore[arg-type]
+app.add_exception_handler(Exception, unhandled_exception_handler)
+
+# 统一异常体系 —— SOCID Consistent Exception
+app.add_exception_handler(AdapterError, adapter_exception_handler)
+app.add_exception_handler(AmapRateLimitError, rate_limit_handler)
+app.add_exception_handler(AuthenticationError, authentication_handler)
+app.add_exception_handler(CircuitBreakerOpenError, circuit_breaker_handler)
+app.add_exception_handler(PermissionDeniedError, permission_denied_handler)
+app.add_exception_handler(ResourceNotFoundError, not_found_handler)
+app.add_exception_handler(ValidationError, validation_handler)
+app.add_exception_handler(SnapTripException, snap_trip_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 
 

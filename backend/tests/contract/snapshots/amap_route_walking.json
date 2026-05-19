@@ -1,0 +1,41 @@
+{
+  "status": "1",
+  "infocode": "10000",
+  "info": "OK",
+  "count": "1",
+  "route": {
+    "origin": "116.397,39.908",
+    "destination": "116.403,39.937",
+    "paths": [
+      {
+        "distance": "3200",
+        "duration": "2100",
+        "steps": [
+          {
+            "instruction": "向北步行500米",
+            "orientation": "北",
+            "road": "景山前街",
+            "distance": "500",
+            "duration": "360",
+            "polyline": "116.397,39.908;116.398,39.912",
+            "action": "直行",
+            "assistant_action": ""
+          },
+          {
+            "instruction": "右转进入南锣鼓巷",
+            "orientation": "东",
+            "road": "南锣鼓巷",
+            "distance": "2700",
+            "duration": "1740",
+            "polyline": "116.398,39.912;116.403,39.937",
+            "action": "右转",
+            "assistant_action": ""
+          }
+        ],
+        "tolls": "0",
+        "restriction": "",
+        "traffic_lights": "0"
+      }
+    ]
+  }
+}
