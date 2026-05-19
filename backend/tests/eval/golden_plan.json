@@ -1,0 +1,102 @@
+[
+  {
+    "id": "P01",
+    "user_input": "下午想带孩子去故宫玩",
+    "expected": {
+      "slots_min": 1,
+      "slots_max": 3,
+      "must_contain_type": ["attraction"],
+      "total_cost_max": 500
+    }
+  },
+  {
+    "id": "P02",
+    "user_input": "周末和朋友一起去三里屯吃烤肉然后看展",
+    "expected": {
+      "slots_min": 2,
+      "slots_max": 4,
+      "must_contain_type": ["restaurant", "attraction"],
+      "total_cost_max": 600
+    }
+  },
+  {
+    "id": "P03",
+    "user_input": "带老婆孩子去吃烤鸭，预算人均200",
+    "expected": {
+      "slots_min": 1,
+      "slots_max": 3,
+      "must_contain_type": ["restaurant"],
+      "total_cost_max": 800
+    }
+  },
+  {
+    "id": "P04",
+    "user_input": "晚上去外滩看夜景然后找个酒吧喝一杯",
+    "expected": {
+      "slots_min": 1,
+      "slots_max": 3,
+      "must_contain_type": ["attraction"],
+      "total_cost_max": 400
+    }
+  },
+  {
+    "id": "P05",
+    "user_input": "周末去洪崖洞逛逛然后吃个火锅",
+    "expected": {
+      "slots_min": 2,
+      "slots_max": 4,
+      "must_contain_type": ["attraction", "restaurant"],
+      "total_cost_max": 500
+    }
+  },
+  {
+    "id": "P06",
+    "user_input": "4个人去南山一棵树看夜景再去洞子火锅",
+    "expected": {
+      "slots_min": 2,
+      "slots_max": 4,
+      "must_contain_type": ["attraction", "restaurant"],
+      "total_cost_max": 600
+    }
+  },
+  {
+    "id": "P07",
+    "user_input": "带女朋友去新天地猫咖然后去外滩散步",
+    "expected": {
+      "slots_min": 2,
+      "slots_max": 3,
+      "must_contain_type": ["cafe", "attraction"],
+      "total_cost_max": 500
+    }
+  },
+  {
+    "id": "P08",
+    "user_input": "周末三个人去簋街吃饭然后逛逛胡同",
+    "expected": {
+      "slots_min": 1,
+      "slots_max": 4,
+      "must_contain_type": ["restaurant"],
+      "total_cost_max": 500
+    }
+  },
+  {
+    "id": "P09",
+    "user_input": "带5个人去江北吃火锅聚餐",
+    "expected": {
+      "slots_min": 1,
+      "slots_max": 3,
+      "must_contain_type": ["restaurant"],
+      "total_cost_max": 800
+    }
+  },
+  {
+    "id": "P10",
+    "user_input": "和男朋友去迪士尼约会",
+    "expected": {
+      "slots_min": 1,
+      "slots_max": 3,
+      "must_contain_type": ["activity"],
+      "total_cost_max": 800
+    }
+  }
+]

@@ -1,0 +1,222 @@
+[
+  {
+    "id": "I01",
+    "user_input": "下午想带孩子去故宫玩",
+    "expected": {
+      "city": "北京",
+      "scene_type": "family",
+      "guest_count": 3,
+      "type_prefs": ["attraction"],
+      "mood_prefs": ["亲子"]
+    }
+  },
+  {
+    "id": "I02",
+    "user_input": "周末和朋友一起去三里屯吃烤肉然后看展",
+    "expected": {
+      "city": "北京",
+      "scene_type": "friends",
+      "guest_count": 2,
+      "type_prefs": ["restaurant", "attraction"],
+      "mood_prefs": ["热闹", "文艺"]
+    }
+  },
+  {
+    "id": "I03",
+    "user_input": "想和女朋友约会，找个安静的咖啡厅坐坐",
+    "expected": {
+      "city": "",
+      "scene_type": "date",
+      "guest_count": 2,
+      "type_prefs": ["cafe"],
+      "mood_prefs": ["浪漫", "安静"]
+    }
+  },
+  {
+    "id": "I04",
+    "user_input": "一个人想去798看艺术展",
+    "expected": {
+      "city": "北京",
+      "scene_type": "solo",
+      "guest_count": 1,
+      "type_prefs": ["attraction"],
+      "mood_prefs": ["文艺"]
+    }
+  },
+  {
+    "id": "I05",
+    "user_input": "带老婆孩子去吃烤鸭，预算人均200",
+    "expected": {
+      "city": "北京",
+      "scene_type": "family",
+      "guest_count": 3,
+      "type_prefs": ["restaurant"],
+      "mood_prefs": ["亲子"]
+    }
+  },
+  {
+    "id": "I06",
+    "user_input": "晚上去外滩看夜景然后找个酒吧喝一杯",
+    "expected": {
+      "city": "上海",
+      "scene_type": "friends",
+      "guest_count": 2,
+      "type_prefs": ["attraction"],
+      "mood_prefs": ["拍照", "热闹"]
+    }
+  },
+  {
+    "id": "I07",
+    "user_input": "带娃去迪士尼乐园玩一天",
+    "expected": {
+      "city": "上海",
+      "scene_type": "family",
+      "guest_count": 3,
+      "type_prefs": ["activity", "restaurant"],
+      "mood_prefs": ["亲子"]
+    }
+  },
+  {
+    "id": "I08",
+    "user_input": "周末去洪崖洞逛逛然后吃个火锅",
+    "expected": {
+      "city": "重庆",
+      "scene_type": "solo",
+      "guest_count": 2,
+      "type_prefs": ["attraction", "restaurant"],
+      "mood_prefs": ["辣", "拍照"]
+    }
+  },
+  {
+    "id": "I09",
+    "user_input": "4个人去南山一棵树看夜景再去洞子火锅",
+    "expected": {
+      "city": "重庆",
+      "scene_type": "friends",
+      "guest_count": 4,
+      "type_prefs": ["attraction", "restaurant"],
+      "mood_prefs": ["拍照", "辣"]
+    }
+  },
+  {
+    "id": "I10",
+    "user_input": "想一个人去一个安静的地方喝下午茶",
+    "expected": {
+      "city": "",
+      "scene_type": "solo",
+      "guest_count": 2,
+      "type_prefs": ["cafe"],
+      "mood_prefs": ["安静", "治愈"]
+    }
+  },
+  {
+    "id": "I11",
+    "user_input": "带女朋友去新天地猫咖然后去外滩散步",
+    "expected": {
+      "city": "上海",
+      "scene_type": "date",
+      "guest_count": 2,
+      "type_prefs": ["cafe", "attraction"],
+      "mood_prefs": ["浪漫", "治愈", "拍照"]
+    }
+  },
+  {
+    "id": "I12",
+    "user_input": "周末三个人去簋街吃饭然后逛逛胡同",
+    "expected": {
+      "city": "北京",
+      "scene_type": "friends",
+      "guest_count": 3,
+      "type_prefs": ["restaurant", "attraction"],
+      "mood_prefs": ["热闹"]
+    }
+  },
+  {
+    "id": "I13",
+    "user_input": "想去一个文艺小众的地方拍照打卡",
+    "expected": {
+      "city": "",
+      "scene_type": "solo",
+      "guest_count": 2,
+      "type_prefs": ["attraction"],
+      "mood_prefs": ["文艺", "拍照"]
+    }
+  },
+  {
+    "id": "I14",
+    "user_input": "带5个人去江北吃火锅聚餐",
+    "expected": {
+      "city": "重庆",
+      "scene_type": "friends",
+      "guest_count": 5,
+      "type_prefs": ["restaurant"],
+      "mood_prefs": ["辣", "热闹"]
+    }
+  },
+  {
+    "id": "I15",
+    "user_input": "和男朋友去迪士尼约会",
+    "expected": {
+      "city": "上海",
+      "scene_type": "date",
+      "guest_count": 2,
+      "type_prefs": ["activity"],
+      "mood_prefs": ["浪漫"]
+    }
+  },
+  {
+    "id": "I16",
+    "user_input": "想带孩子去一个亲子乐园玩一下午",
+    "expected": {
+      "city": "",
+      "scene_type": "family",
+      "guest_count": 3,
+      "type_prefs": ["activity"],
+      "mood_prefs": ["亲子"]
+    }
+  },
+  {
+    "id": "I17",
+    "user_input": "中午一个人去吃个川菜",
+    "expected": {
+      "city": "",
+      "scene_type": "solo",
+      "guest_count": 1,
+      "type_prefs": ["restaurant"],
+      "mood_prefs": ["辣"]
+    }
+  },
+  {
+    "id": "I18",
+    "user_input": "下午带朋友去胡同咖啡馆打卡拍照",
+    "expected": {
+      "city": "北京",
+      "scene_type": "friends",
+      "guest_count": 2,
+      "type_prefs": ["cafe"],
+      "mood_prefs": ["拍照", "文艺"]
+    }
+  },
+  {
+    "id": "I19",
+    "user_input": "晚上去解放碑吃小吃逛夜市",
+    "expected": {
+      "city": "重庆",
+      "scene_type": "friends",
+      "guest_count": 2,
+      "type_prefs": ["restaurant", "attraction"],
+      "mood_prefs": ["热闹"]
+    }
+  },
+  {
+    "id": "I20",
+    "user_input": "周末和女朋友去武康路骑车然后喝咖啡",
+    "expected": {
+      "city": "上海",
+      "scene_type": "date",
+      "guest_count": 2,
+      "type_prefs": ["activity", "cafe"],
+      "mood_prefs": ["浪漫", "治愈"]
+    }
+  }
+]

@@ -3,7 +3,7 @@
 将用户自然语言输入转换为结构化的 IntentSchema。
 
 执行策略:
-  1. 首选 LLM 调用（Jinja2 模板渲染 → OpenRouter → DeepSeek-V3）
+  1. 首选 LLM 调用（Jinja2 模板渲染 → DeepSeek API）
   2. 超时 2s 或 LLM 不可用时，降级为关键词匹配
   3. 关键词覆盖: 城市/类型/心情/预算/人数/场景
 
@@ -91,7 +91,7 @@ class IntentParser(BaseAgent):
         """Jinja2 模板渲染 → LLM API。
 
         解析 LLM 返回的 JSON 为 IntentSchema。
-        若 LLM 不可用（import 失败 / API 错误 / 返回格式异常），降级关键词。
+        若 LLM 不可用，降级关键词匹配。
 
         Args:
             context: 执行上下文
