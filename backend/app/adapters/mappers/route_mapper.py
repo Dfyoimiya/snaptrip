@@ -12,6 +12,8 @@ Date: 2026-05-19
 
 from __future__ import annotations
 
+import contextlib
+
 from app.adapters.schemas.route import AmapPath
 
 
@@ -30,17 +32,13 @@ class RouteMapper:
         """
         distance_m = 0
         if path.distance:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 distance_m = int(path.distance)
-            except (ValueError, TypeError):
-                pass
 
         duration_s = 0
         if path.duration:
-            try:
+            with contextlib.suppress(ValueError, TypeError):
                 duration_s = int(path.duration)
-            except (ValueError, TypeError):
-                pass
 
         polyline = ""
         if path.steps:

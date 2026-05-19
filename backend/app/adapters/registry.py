@@ -27,11 +27,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.adapters.base import BaseAmapAdapter
+from app.adapters.adapters.district_adapter import AmapDistrictAdapter
+from app.adapters.adapters.geocode_adapter import AmapGeocodeAdapter, AmapReGeocodeAdapter
 from app.adapters.adapters.poi_adapter import AmapPoiAdapter
 from app.adapters.adapters.route_adapter import AmapRouteAdapter
-from app.adapters.adapters.geocode_adapter import AmapGeocodeAdapter, AmapReGeocodeAdapter
-from app.adapters.adapters.district_adapter import AmapDistrictAdapter
+from app.adapters.base import BaseAmapAdapter
 from app.core.config import settings
 from app.schemas.tool import ToolInvocation, ToolResult
 

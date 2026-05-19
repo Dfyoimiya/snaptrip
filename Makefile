@@ -45,11 +45,13 @@ backend-shell: ## 进入后端容器
 
 # ===== 测试 =====
 
+TEST_ENV = APP_ENV=test DATABASE_TEST_URL=postgresql+asyncpg://snaptrip:snaptrip_dev_pass@localhost:5433/snaptrip_test REDIS_URL=redis://localhost:6380/0 APP_SECRET_KEY=test-secret JWT_SECRET_KEY=test-jwt-secret OPENROUTER_API_KEY=placeholder MOCK_FAULT_RATE=0 MOCK_DELAY_RATE=0
+
 test-unit: ## 运行单元测试
-	cd backend && uv sync --extra dev && uv run pytest tests/unit/ -v --cov=app --cov-report=xml --cov-report=term
+	cd backend && uv sync --extra dev && $(TEST_ENV) uv run pytest tests/unit/ -v --cov=app --cov-report=xml --cov-report=term
 
 test-integration: ## 运行集成测试
-	cd backend && uv sync --extra dev && uv run pytest tests/integration/ -v
+	cd backend && uv sync --extra dev && $(TEST_ENV) uv run pytest tests/integration/ -v
 
 test-backend: test-unit test-integration ## 运行全部后端测试
 

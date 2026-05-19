@@ -59,7 +59,7 @@ class AmapRegeoResult(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
     formatted_address: AmapStr = ""
-    addressComponent: AmapAddressComponent = Field(default_factory=AmapAddressComponent)
+    addressComponent: AmapAddressComponent = Field(default_factory=AmapAddressComponent)  # noqa: N815
     pois: list[dict] = Field(default_factory=list)
     roads: list[dict] = Field(default_factory=list)
 

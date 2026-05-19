@@ -27,6 +27,8 @@ Date: 2026-05-19
 
 from __future__ import annotations
 
+import contextlib
+
 from app.adapters.schemas.poi import AmapPoiItem
 from app.schemas.plan import POI
 
@@ -124,15 +126,11 @@ class PoiMapper:
         business_hours = "09:00-22:00"
         if amap_poi.biz_ext:
             if amap_poi.biz_ext.cost:
-                try:
+                with contextlib.suppress(ValueError, TypeError):
                     avg_price = int(float(amap_poi.biz_ext.cost))
-                except (ValueError, TypeError):
-                    pass
             if amap_poi.biz_ext.rating:
-                try:
+                with contextlib.suppress(ValueError, TypeError):
                     rating = float(amap_poi.biz_ext.rating)
-                except (ValueError, TypeError):
-                    pass
             if amap_poi.biz_ext.open_time:
                 business_hours = amap_poi.biz_ext.open_time
 

@@ -146,6 +146,15 @@ class LLMGateway:
             },
         }
 
+    # ===== Embedding =====
+
+    async def embed(
+        self,
+        texts: str | list[str],
+        timeout: float = 5.0,
+    ) -> list[list[float]]:
+        raise NotImplementedError("Embedding not yet implemented for LLMGateway")
+
     # ===== 内部 =====
 
     async def _log_usage(
