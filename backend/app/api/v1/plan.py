@@ -21,17 +21,16 @@ Date: 2026-05-13 / Refactored 2026-05-17 / Interrupt 2026-05-18
 
 from __future__ import annotations
 
-import uuid
-
 from fastapi import APIRouter, Request
 from langgraph.errors import GraphInterrupt
 from langgraph.types import Command
 from pydantic import BaseModel
 
-from app.agents.graph import plan_graph
+from app.agent_runtime import GRAPH_VERSION, build_initial_runtime_state, build_plan_graph
+from app.agent_runtime.response_state import state_to_response
 from app.api.v1.session import stream_plan
 from app.core.response import APIServiceError, success
-from app.schemas.plan import PlanCreateRequest, PlanResponse, PlanSlot, ShareCard
+from app.schemas.plan import PlanCreateRequest, PlanResponse
 
 router = APIRouter(prefix="/api/v1/plan", tags=["plan"])
 
@@ -39,48 +38,48 @@ router = APIRouter(prefix="/api/v1/plan", tags=["plan"])
 class ConfirmRequest(BaseModel):
     decision: str = "confirmed"
     slot_index: int | None = None
+    locked_slots: list[int] = []
+    rejected_slots: list[int] = []
+    instruction: str = ""
+    replace_only: bool = False
+    change_requests: list[dict] = []
 
 
 def _build_initial_state(req: PlanCreateRequest) -> dict:
-    plan_id = str(uuid.uuid4())[:8]
+    runtime_state = build_initial_runtime_state(req, graph_version=GRAPH_VERSION)
     return {
-        "plan_id": plan_id,
-        "session_id": str(uuid.uuid4())[:8],
-        "user_id": req.user_id,
-        "user_input": req.user_input,
-        "lat": req.lat,
-        "lng": req.lng,
+        "plan_id": runtime_state.request.plan_id,
+        "session_id": runtime_state.request.session_id,
+        "user_id": runtime_state.request.user_id,
+        "user_input": runtime_state.request.user_input,
+        "lat": runtime_state.request.lat,
+        "lng": runtime_state.request.lng,
         "status": "idle",
         "fallback_count": 0,
         "errors": [],
+        "request": runtime_state.request.model_dump(mode="json"),
     }
 
 
 def _state_to_response(state: dict, query_text: str) -> PlanResponse:
-    draft = state.get("draft", {}) or {}
-    slots_raw = draft.get("slots", [])
-    slots = [PlanSlot(**s) if isinstance(s, dict) else s for s in slots_raw]
-    share_card_data = state.get("share_card", {}) or {}
+    return state_to_response(state, query_text)
 
-    return PlanResponse(
-        plan_id=state.get("plan_id", ""),
-        query_text=query_text,
-        status=state.get("status", "idle"),
-        total_cost=draft.get("total_cost", 0),
-        total_time_min=draft.get("total_time_min", 0),
-        slots=slots,
-        share_card=ShareCard(**share_card_data) if share_card_data else None,
-    )
+
+def _get_plan_graph(request: Request):
+    if not hasattr(request.app.state, "plan_graph") or request.app.state.plan_graph is None:
+        request.app.state.plan_graph = build_plan_graph()
+    return request.app.state.plan_graph
 
 
 @router.post("/create")
 async def create_plan(req: PlanCreateRequest, request: Request):
+    graph = _get_plan_graph(request)
     initial_state = _build_initial_state(req)
     config = {"configurable": {"thread_id": initial_state["plan_id"]}}
     try:
-        final_state = await plan_graph.ainvoke(initial_state, config)
+        final_state = await graph.ainvoke(initial_state, config)
     except GraphInterrupt:
-        state = await plan_graph.aget_state(config)
+        state = await graph.aget_state(config)
         if state and state.values:
             return success(data=_state_to_response(state.values, req.user_input).model_dump())
         raise APIServiceError(code=2001, message="graph interrupted but state unavailable", status_code=500) from None
@@ -89,17 +88,28 @@ async def create_plan(req: PlanCreateRequest, request: Request):
 
 @router.post("/{plan_id}/confirm")
 async def confirm_plan(plan_id: str, body: ConfirmRequest, request: Request):
+    graph = _get_plan_graph(request)
     config = {"configurable": {"thread_id": plan_id}}
-    state = await plan_graph.aget_state(config)
+    state = await graph.aget_state(config)
     if state is None or state.values is None:
         raise APIServiceError(code=1001, message="plan not found", status_code=404)
     try:
-        final_state = await plan_graph.ainvoke(
-            Command(resume={"decision": body.decision, "slot_index": body.slot_index}),
+        final_state = await graph.ainvoke(
+            Command(
+                resume={
+                    "decision": body.decision,
+                    "slot_index": body.slot_index,
+                    "locked_slots": body.locked_slots,
+                    "rejected_slots": body.rejected_slots,
+                    "instruction": body.instruction,
+                    "replace_only": body.replace_only,
+                    "change_requests": body.change_requests,
+                }
+            ),
             config,
         )
     except GraphInterrupt:
-        state = await plan_graph.aget_state(config)
+        state = await graph.aget_state(config)
         if state and state.values:
             return success(data=_state_to_response(state.values, "").model_dump())
         raise APIServiceError(code=2001, message="graph interrupted but state unavailable", status_code=500) from None
@@ -108,8 +118,9 @@ async def confirm_plan(plan_id: str, body: ConfirmRequest, request: Request):
 
 @router.get("/{plan_id}")
 async def get_plan(plan_id: str, request: Request):
+    graph = _get_plan_graph(request)
     config = {"configurable": {"thread_id": plan_id}}
-    state = await plan_graph.aget_state(config)
+    state = await graph.aget_state(config)
     if state is None or state.values is None:
         raise APIServiceError(code=1001, message="plan not found", status_code=404)
     return success(data=_state_to_response(state.values, "").model_dump())
@@ -117,8 +128,9 @@ async def get_plan(plan_id: str, request: Request):
 
 @router.get("/{plan_id}/stream")
 async def plan_stream(plan_id: str, request: Request):
+    graph = _get_plan_graph(request)
     config = {"configurable": {"thread_id": plan_id}}
-    state_snapshot = await plan_graph.aget_state(config)
+    state_snapshot = await graph.aget_state(config)
     if state_snapshot is None or state_snapshot.values is None:
         raise APIServiceError(code=1001, message="plan not found", status_code=404)
-    return await stream_plan(plan_id, state_snapshot.values)
+    return await stream_plan(plan_id, request.app.state.runtime_events)

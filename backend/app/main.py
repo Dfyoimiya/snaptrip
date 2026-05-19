@@ -1,7 +1,7 @@
 """SnapTrip API —— FastAPI 入口（Agent 架构版）。
 
 应用生命周期:
-- startup: 初始化 MasterController + MemoryService + MockGateway
+- startup: 初始化 MemoryService + MockGateway + RuntimeEventStore
 - shutdown: 清理 MockGateway 连接
 
 路由注册:
@@ -22,8 +22,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.agents.graph import set_gateway
-from app.agents.hub import MasterController
+from app.adapters.persistence.runtime_event_repository import SQLRuntimeEventRepository
+from app.agent_runtime import RuntimeEventStore, build_plan_graph
+from app.agents.graph import set_event_sink, set_gateway
 from app.api.v1.auth import router as auth_router
 from app.api.v1.plan import router as plan_router
 from app.api.v1.user import router as user_router
@@ -40,11 +41,13 @@ from app.services.mock_gateway import MockAPIGateway
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.hub = MasterController()
     app.state.memory = MemoryService()
     app.state.mock_gateway = MockAPIGateway()
+    app.state.runtime_events = RuntimeEventStore(repository=SQLRuntimeEventRepository())
+    app.state.plan_graph = build_plan_graph()
     await app.state.mock_gateway.start()
     set_gateway(app.state.mock_gateway)
+    set_event_sink(app.state.runtime_events)
     yield
     await app.state.mock_gateway.stop()
     await app.state.memory.stop()

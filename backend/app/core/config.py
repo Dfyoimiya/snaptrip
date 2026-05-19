@@ -8,7 +8,16 @@ Date: 2026-05-17
 
 from __future__ import annotations
 
-from pydantic_settings import BaseSettings, SettingsConfigDict
+try:
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+except ModuleNotFoundError:  # pragma: no cover - fallback for lightweight test envs
+    from pydantic import BaseModel
+
+    class BaseSettings(BaseModel):  # type: ignore[no-redef]
+        """Fallback settings base when pydantic-settings is unavailable."""
+
+    def SettingsConfigDict(**kwargs):  # type: ignore[no-redef]
+        return kwargs
 
 
 class Settings(BaseSettings):

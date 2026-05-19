@@ -64,14 +64,17 @@ class ContextLoader(BaseAgent):
         if profile is None:
             return self._default(intent, str(user_id))
 
-        allergens = _DEFAULT_FAMILY.get("allergens", [])
-        if not isinstance(allergens, list):
-            allergens = []
+        historical_rejections: list[str] = []
+        prefs = profile.preferences or _DEFAULT_FAMILY
+        if isinstance(prefs, dict):
+            rejects = prefs.get("historical_rejections", [])
+            if isinstance(rejects, list):
+                historical_rejections = rejects
         return EnrichedIntent(
             intent=intent,
             profile_vector=profile.preference_embedding or _DEFAULT_VECTOR,
-            family_profile=profile.preferences or _DEFAULT_FAMILY,
-            historical_rejections=allergens,
+            family_profile=prefs,
+            historical_rejections=historical_rejections,
             preferred_pace=profile.travel_style or "normal",
             user_id=str(user_id),
         )

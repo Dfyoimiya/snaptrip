@@ -30,10 +30,13 @@ import random
 from datetime import datetime, timedelta
 
 from app.agents.protocol import AgentContext, AgentResult, BaseAgent
-from app.core.config import settings
+from app.agents.skills import build_skill_prompt, match_skills
 from app.core.constants import (
     PLANNING_PHASE2_TIMEOUT_S,
 )
+from app.core.logging import get_logger
+from app.ports.llm import LLMPort
+from app.ports.prompt import PromptPort
 from app.schemas.plan import (
     POI,
     CandidatePool,
@@ -44,9 +47,20 @@ from app.schemas.plan import (
     TimeRange,
 )
 
+logger = get_logger(__name__)
+
 
 class PlanningEngine(BaseAgent):
     name = "planning_engine"
+
+    def __init__(
+        self,
+        llm: LLMPort | None = None,
+        prompt_renderer: PromptPort | None = None,
+    ) -> None:
+        super().__init__()
+        self._llm = llm
+        self._prompt_renderer = prompt_renderer
 
     async def execute(self, context: AgentContext) -> AgentResult:
         """两阶段规划：Phase1 硬约束 → Phase2 LLM 算序 → 时隙生成。
@@ -59,6 +73,7 @@ class PlanningEngine(BaseAgent):
         Returns:
             AgentResult.data["draft"] = PlanDraft
         """
+        logger.info("planning_engine_started", plan_id=context.plan_id, user_id=context.user_id)
         enriched = self._extract_enriched(context)
         pool = self._extract_pool(context)
         intent = enriched.intent if enriched else IntentSchema()
@@ -73,12 +88,19 @@ class PlanningEngine(BaseAgent):
 
         candidates = self._phase1_hard_filter(pool.candidates, intent, context.lat, context.lng, start_time, end_time)
 
+        matched_skills = match_skills(
+            scene_type=intent.scene_type,
+            type_prefs=intent.type_prefs,
+        )
+        skill_prompt = build_skill_prompt(matched_skills)
+
         try:
             ranked = await asyncio.wait_for(
-                self._phase2_llm_sort(candidates, intent, start_time, end_time),
+                self._phase2_llm_sort(candidates, intent, start_time, end_time, skill_prompt),
                 timeout=PLANNING_PHASE2_TIMEOUT_S,
             )
         except TimeoutError:
+            logger.info("planning_engine_phase2_timeout", plan_id=context.plan_id)
             ranked = self._phase2_fallback_sort(candidates, intent)
 
         slots = self._generate_slots(ranked, start_time, end_time)
@@ -94,6 +116,7 @@ class PlanningEngine(BaseAgent):
             confidence=0.7,
             version=1,
         )
+        logger.info("planning_engine_completed", plan_id=context.plan_id, slot_count=len(slots))
         return AgentResult(data={"draft": draft.model_dump()})
 
     def _phase1_hard_filter(self, candidates: list[POI], intent: IntentSchema,
@@ -128,41 +151,45 @@ class PlanningEngine(BaseAgent):
         filtered.sort(key=lambda x: -x[1])
         return [p for p, _ in filtered[:10]]
 
-    async def _phase2_llm_sort(self, candidates: list[POI], intent: IntentSchema,
-                                start: datetime, end: datetime) -> list[POI]:
+    async def _phase2_llm_sort(
+        self,
+        candidates: list[POI],
+        intent: IntentSchema,
+        start: datetime,
+        end: datetime,
+        skill_prompt: str = "",
+    ) -> list[POI]:
         try:
-            from jinja2 import Template
-            with open("app/agents/prompts/planning.j2") as f:
-                tpl = Template(f.read())
-
             from app.agents.retrieval_engine import haversine
             enriched = []
             for p in candidates:
                 d = p.model_dump()
-                d["distance_km"] = round(haversine(39.9, 116.4, p.lat, p.lng), 1)
+                d["distance_km"] = round(haversine(lat, lng, p.lat, p.lng), 1)
                 enriched.append(d)
 
-            prompt = tpl.render(
-                scene_type=intent.scene_type, guest_count=intent.guest_count,
-                budget=intent.budget, mood_prefs=intent.mood_prefs or [],
-                type_prefs=intent.type_prefs or [], start_time=start.isoformat(),
-                end_time=end.isoformat(), candidates=enriched,
+            prompt = await self._get_prompt_renderer().render(
+                "planning.j2",
+                {
+                    "scene_type": intent.scene_type,
+                    "guest_count": intent.guest_count,
+                    "budget": intent.budget,
+                    "mood_prefs": intent.mood_prefs or [],
+                    "type_prefs": intent.type_prefs or [],
+                    "start_time": start.isoformat(),
+                    "end_time": end.isoformat(),
+                    "candidates": enriched,
+                    "skill_prompt": skill_prompt,
+                },
             )
-
-            import json
-
-            import httpx
-            async with httpx.AsyncClient(timeout=PLANNING_PHASE2_TIMEOUT_S) as client:
-                resp = await client.post(
-                    f"{settings.llm_base_url}/chat/completions",
-                    headers={"Authorization": f"Bearer {settings.llm_api_key}", "Content-Type": "application/json"},
-                    json={"model": settings.LLM_MODEL, "messages": [{"role": "user", "content": prompt}],
-                          "temperature": 0.5, "max_tokens": 1024},
-                )
-                data = resp.json()
-                content = data["choices"][0]["message"]["content"]
-                parsed = json.loads(content.strip().removeprefix("```json").removesuffix("```"))
+            parsed = await self._get_llm().chat_json(
+                prompt=prompt,
+                model_alias="deepseek",
+                timeout_s=PLANNING_PHASE2_TIMEOUT_S,
+                temperature=0.5,
+                max_tokens=1024,
+            )
         except Exception:
+            logger.warning("planning_engine_phase2_failed", exc_info=True)
             return self._phase2_fallback_sort(candidates, intent)
 
         poi_map = {p.id: p for p in candidates}
@@ -251,3 +278,17 @@ class PlanningEngine(BaseAgent):
             if "candidate_pool" in h.data:
                 return CandidatePool(**h.data["candidate_pool"])
         return CandidatePool()
+
+    def _get_llm(self) -> LLMPort:
+        if self._llm is None:
+            from app.adapters.llm.openrouter import OpenRouterLLMAdapter
+
+            self._llm = OpenRouterLLMAdapter()
+        return self._llm
+
+    def _get_prompt_renderer(self) -> PromptPort:
+        if self._prompt_renderer is None:
+            from app.adapters.prompt.jinja import JinjaPromptAdapter
+
+            self._prompt_renderer = JinjaPromptAdapter()
+        return self._prompt_renderer

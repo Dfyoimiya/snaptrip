@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from app.core.state import PlanStateMachine
 from app.schemas.plan import (
     POI,
     IntentSchema,
@@ -73,7 +72,3 @@ def sample_draft(sample_slots):
         version=1,
     )
 
-
-@pytest.fixture
-def state_machine():
-    return PlanStateMachine()

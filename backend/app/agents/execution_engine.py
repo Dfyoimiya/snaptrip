@@ -23,10 +23,13 @@ import asyncio
 import random
 import time
 from collections import defaultdict
+from typing import Any
 
 from app.agents.protocol import AgentContext, AgentResult, BaseAgent
 from app.core.constants import EXEC_TIMEOUT_TOTAL_S
 from app.core.logging import get_logger
+from app.ports.tools import ToolGatewayPort
+from app.schemas.agent.state import ExecutionState, ToolExecutionRecord
 from app.schemas.plan import (
     ExecutionResult,
     FailedSlot,
@@ -43,7 +46,7 @@ logger = get_logger(__name__)
 class ExecutionEngine(BaseAgent):
     name = "execution_engine"
 
-    def __init__(self, gateway=None) -> None:
+    def __init__(self, gateway: ToolGatewayPort | None = None) -> None:
         super().__init__()
         self._gateway = gateway
 
@@ -56,7 +59,13 @@ class ExecutionEngine(BaseAgent):
             self._execute_dag(draft, context),
             timeout=EXEC_TIMEOUT_TOTAL_S,
         )
-        return AgentResult(data={"execution": result.model_dump()})
+        execution_state = self.to_execution_state(result)
+        return AgentResult(
+            data={
+                "execution": result.model_dump(),
+                "execution_state": execution_state.model_dump(),
+            }
+        )
 
     # ------------------------------------------------------------------
     # data extraction
@@ -130,7 +139,7 @@ class ExecutionEngine(BaseAgent):
                 si = r.data.get("slot_index", -1) if r.data else -1
                 if r.status == "success" and r.data and "booking_id" in (r.data or {}):
                     confirmed[si] = r.data["booking_id"]
-                elif r.status == "failure":
+                elif r.status in {"failure", "timeout"}:
                     failed_tools.add(_tool_name_for_result(r, si))
                     failed_slots.append(FailedSlot(
                         slot_index=si, tool_name=_tool_name_for_result(r, si),
@@ -208,32 +217,35 @@ class ExecutionEngine(BaseAgent):
         slot: PlanSlot | None = None,
         context: AgentContext | None = None,
     ) -> ToolResult:
-        if self._gateway and slot and context:
-            return await self._call_via_gateway(slot_index, tool, slot, context)
+        if slot and context:
+            gateway = self._get_gateway()
+            if gateway is not None:
+                return await self._call_via_gateway(gateway, slot_index, tool, slot, context)
         return await self._call_mock_tool(slot_index, tool)
 
     async def _call_via_gateway(
         self,
+        gateway: ToolGatewayPort,
         slot_index: int,
         tool: str,
         slot: PlanSlot,
         context: AgentContext,
     ) -> ToolResult:
         params = self._build_tool_params(slot, context)
-        resp = await self._gateway.call(tool, params)
+        resp = await gateway.call(tool, params)
+        normalized = self._normalize_gateway_response(tool, slot_index, resp)
 
-        status = resp.get("status", "failure")
         return ToolResult(
             invocation_id=f"{tool}_{slot_index}",
-            status="success" if status == "success" else "failure",
+            status=normalized["status"],
             data={
-                **(resp.get("data") or {}),
+                **(normalized.get("data") or {}),
                 "slot_index": slot_index,
                 "tool_name": tool,
             },
-            error_code=resp.get("error_code"),
-            error_message=resp.get("error_message"),
-            latency_ms=resp.get("latency_ms", 0),
+            error_code=normalized.get("error_code"),
+            error_message=normalized.get("error_message"),
+            latency_ms=normalized.get("latency_ms", 0),
         )
 
     def _build_tool_params(self, slot: PlanSlot, context: AgentContext) -> dict[str, object]:
@@ -287,6 +299,116 @@ class ExecutionEngine(BaseAgent):
             error_code=r.error_code,
             latency_ms=r.latency_ms,
         )
+
+    def to_execution_state(self, result: ExecutionResult) -> ExecutionState:
+        """Convert execution output into the new typed runtime state."""
+
+        tool_records: list[ToolExecutionRecord] = []
+        for layer, slot_result in self._iter_slot_results(result):
+            tool_records.append(
+                ToolExecutionRecord(
+                    invocation_id=f"{slot_result.tool_name}_{slot_result.slot_index}",
+                    slot_index=slot_result.slot_index,
+                    tool_name=slot_result.tool_name,
+                    layer=layer,
+                    status=self._normalize_tool_status(slot_result.status),
+                    error_code=slot_result.error_code,
+                    error_message=slot_result.error_message,
+                    booking_id=slot_result.booking_id,
+                    latency_ms=slot_result.elapsed_ms,
+                )
+            )
+
+        for failed in result.failed_slots:
+            if any(
+                record.slot_index == failed.slot_index and record.tool_name == failed.tool_name
+                for record in tool_records
+            ):
+                continue
+            tool_records.append(
+                ToolExecutionRecord(
+                    invocation_id=f"{failed.tool_name}_{failed.slot_index}",
+                    slot_index=failed.slot_index,
+                    tool_name=failed.tool_name,
+                    layer=-1,
+                    status="skipped" if failed.error_code == "SKIPPED" else "failure",
+                    error_code=failed.error_code,
+                    error_message=failed.error_message,
+                )
+            )
+
+        return ExecutionState(
+            run_id=result.plan_id,
+            status=result.status,
+            tool_records=tool_records,
+            confirmed_bookings=result.confirmed_bookings,
+            failed_slot_indices=[failed.slot_index for failed in result.failed_slots],
+            total_elapsed_ms=result.total_elapsed_ms,
+            raw_result=result,
+        )
+
+    def _get_gateway(self) -> ToolGatewayPort | None:
+        if self._gateway is not None:
+            return self._gateway
+        try:
+            from app.adapters.tools.mock_gateway import MockToolGatewayAdapter
+
+            self._gateway = MockToolGatewayAdapter()
+        except Exception:
+            logger.warning("execution_engine_gateway_unavailable", exc_info=True)
+            self._gateway = None
+        return self._gateway
+
+    @staticmethod
+    def _normalize_gateway_response(tool: str, slot_index: int, resp: dict[str, Any]) -> dict[str, Any]:
+        """Normalize legacy gateway responses into ToolResult-compatible fields."""
+
+        if "status" in resp:
+            status = resp.get("status", "failure")
+            if status not in {"success", "failure", "timeout", "degraded"}:
+                status = "failure"
+            return {
+                "status": status,
+                "data": resp.get("data") or {},
+                "error_code": resp.get("error_code"),
+                "error_message": resp.get("error_message"),
+                "latency_ms": resp.get("latency_ms", 0),
+            }
+
+        success = bool(resp.get("success"))
+        error_message = resp.get("error_message") or resp.get("error")
+        data = resp.get("data") or {}
+        if success and not data.get("booking_id"):
+            data = {
+                **data,
+                "booking_id": f"gw_{tool}_{slot_index}",
+            }
+        return {
+            "status": "success" if success else "failure",
+            "data": data,
+            "error_code": None if success else "GATEWAY_ERROR",
+            "error_message": error_message,
+            "latency_ms": resp.get("latency_ms", 0),
+        }
+
+    @staticmethod
+    def _normalize_tool_status(status: str) -> str:
+        if status in {"success", "failure", "timeout"}:
+            return status
+        if status == "degraded":
+            return "success"
+        return "failure"
+
+    @staticmethod
+    def _iter_slot_results(result: ExecutionResult) -> list[tuple[int, SlotExecutionResult]]:
+        layered_results: list[tuple[int, SlotExecutionResult]] = []
+        for slot_result in result.slot_results.values():
+            layer = -1
+            tool_meta = TOOL_REGISTRY.get(slot_result.tool_name)
+            if tool_meta is not None:
+                layer = tool_meta.layer
+            layered_results.append((layer, slot_result))
+        return layered_results
 
 
 def _tool_name_for_result(r: ToolResult, slot_index: int) -> str:

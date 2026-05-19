@@ -14,27 +14,35 @@ Date: 2026-05-13 / Jinja2 integration 2026-05-18
 from __future__ import annotations
 
 import logging
-from pathlib import Path
-
-from jinja2 import Template
 
 from app.agents.protocol import AgentContext, AgentResult, BaseAgent
+from app.ports.prompt import PromptPort
 from app.schemas.plan import PlanDraft, ShareCard
 
 logger = logging.getLogger(__name__)
 
-_TEMPLATE_DIR = Path(__file__).parent / "prompts"
-
 
 class NotifyEngine(BaseAgent):
     name = "notify_engine"
+
+    def __init__(self, prompt_renderer: PromptPort | None = None) -> None:
+        super().__init__()
+        self._prompt_renderer = prompt_renderer
+
+    def _get_prompt_renderer(self) -> PromptPort:
+        if self._prompt_renderer is None:
+            from app.adapters.prompt.jinja import JinjaPromptAdapter
+
+            self._prompt_renderer = JinjaPromptAdapter()
+        return self._prompt_renderer
 
     async def execute(self, context: AgentContext) -> AgentResult:
         draft = self._extract_draft(context)
         execution = self._extract_execution(context)
 
         message = _build_message(draft, execution)
-        html = _render_card(
+        html = await _render_card(
+            renderer=self._get_prompt_renderer(),
             plan_id=context.plan_id,
             draft=draft,
             execution=execution,
@@ -67,23 +75,31 @@ class NotifyEngine(BaseAgent):
 # ------------------------------------------------------------------
 
 
-def _render_card(plan_id: str, draft: PlanDraft | None, execution: dict | None, message: str) -> str:
-    tpl_path = _TEMPLATE_DIR / "notify.j2"
-    if not tpl_path.exists():
-        return ""
-
-    template = Template(tpl_path.read_text(encoding="utf-8"))
+async def _render_card(
+    renderer: PromptPort,
+    plan_id: str,
+    draft: PlanDraft | None,
+    execution: dict | None,
+    message: str,
+) -> str:
     slots_data = [s.model_dump() if hasattr(s, "model_dump") else s for s in (draft.slots if draft else [])]
     booked_count = len(execution.get("confirmed_bookings", {})) if execution else 0
 
-    return template.render(
-        plan_id=plan_id,
-        title="SnapTrip 计划",
-        message=message,
-        slots=slots_data,
-        total_cost=draft.total_cost if draft else 0,
-        booked_count=booked_count,
-    )
+    try:
+        return await renderer.render(
+            "notify.j2",
+            {
+                "plan_id": plan_id,
+                "title": "SnapTrip 计划",
+                "message": message,
+                "slots": slots_data,
+                "total_cost": draft.total_cost if draft else 0,
+                "booked_count": booked_count,
+            },
+        )
+    except Exception:
+        logger.warning("notify_render_failed", exc_info=True)
+        return ""
 
 
 def _build_message(draft: PlanDraft | None, execution: dict | None) -> str:
