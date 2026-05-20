@@ -194,8 +194,22 @@ class MockApiError(GatewayError):
 class LLMError(GatewayError):
     """LLM 调用异常"""
 
-    def __init__(self, message: str = "LLM 调用失败", details: dict | None = None) -> None:
-        super().__init__(code="LLM_ERROR", message=message, details=details)
+    def __init__(self, message: str = "LLM 调用失败", details: dict | None = None, code: str = "LLM_ERROR") -> None:
+        super().__init__(code=code, message=message, details=details)
+
+
+class LLMTimeoutError(LLMError):
+    """LLM 调用超时"""
+
+    def __init__(self, message: str = "LLM 调用超时", details: dict | None = None) -> None:
+        super().__init__(code="LLM_TIMEOUT", message=message, details=details)
+
+
+class LLMRateLimitError(LLMError):
+    """LLM API 速率限制"""
+
+    def __init__(self, message: str = "LLM API 速率限制", details: dict | None = None) -> None:
+        super().__init__(code="LLM_RATE_LIMIT", message=message, details=details)
 
 
 # ===== 5xx 基础设施异常 =====

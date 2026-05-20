@@ -1,20 +1,22 @@
-"""LLM Gateway 错误类单元测试。
+"""LLM Error 类单元测试。
 
 Author: SnapTrip Team
-Date: 2026-05-17 / Updated 2026-05-18
+Date: 2026-05-17 / Refactored 2026-05-20
 """
 
 from __future__ import annotations
 
-from app.services.llm_gateway import LLMError
+from app.core.exceptions import LLMError
 
 
 class TestLLMError:
-    def test_with_status_code(self):
-        e = LLMError("api error", status_code=429)
-        assert e.status_code == 429
+    def test_with_details(self):
+        e = LLMError("api error", details={"http_status": 429})
+        assert e.status_code == 502  # GatewayError default
         assert "api error" in str(e)
+        assert e.details["http_status"] == 429
 
-    def test_without_status_code(self):
-        e = LLMError("timeout")
-        assert e.status_code is None
+    def test_default_message(self):
+        e = LLMError()
+        assert e.code == "LLM_ERROR"
+        assert e.status_code == 502

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from typing import Protocol
+
+from app.schemas.llm import StreamChunk
 
 
 class LLMPort(Protocol):
@@ -17,6 +20,16 @@ class LLMPort(Protocol):
         temperature: float,
         max_tokens: int = 1024,
     ) -> dict: ...
+
+    def chat_stream(
+        self,
+        *,
+        prompt: str,
+        model_alias: str,
+        timeout_s: float,
+        temperature: float,
+        max_tokens: int = 1024,
+    ) -> AsyncIterator[StreamChunk]: ...
 
     async def embed(
         self,

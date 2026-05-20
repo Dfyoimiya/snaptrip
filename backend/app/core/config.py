@@ -47,11 +47,15 @@ class Settings(BaseSettings):
     MOCK_API_BASE_URL: str = "http://localhost:8001"
     MOCK_API_TIMEOUT: int = 3
 
-    OPENROUTER_API_KEY: str = ""
-    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    # ── LLM Provider ──
     DEEPSEEK_API_KEY: str = ""
     DEEPSEEK_BASE_URL: str = "https://api.deepseek.com/v1"
-    LLM_MODEL: str = "deepseek-chat"
+    OPENROUTER_API_KEY: str = ""
+    OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
+    KIMI_API_KEY: str = ""
+    KIMI_BASE_URL: str = "https://api.moonshot.cn/v1"
+    LLM_DEFAULT_MODEL: str = "deepseek-v4-pro"
+    LLM_PROVIDER_CONFIG: str = "providers/models.toml"
     LLM_MAX_TOKENS: int = 2048
     LLM_TEMPERATURE: float = 0.7
 
@@ -64,6 +68,10 @@ class Settings(BaseSettings):
         if self.OPENROUTER_API_KEY:
             return self.OPENROUTER_BASE_URL
         return self.DEEPSEEK_BASE_URL
+
+    @property
+    def llm_model(self) -> str:
+        return self.LLM_DEFAULT_MODEL
 
     AGENT_TIMEOUT: int = 300
     AGENT_MAX_RETRIES: int = 2
