@@ -1,3 +1,15 @@
+# ===== SnapTrip 三层部署 =====
+# Phase 5: Gateway + Marketplace + Agent Worker 独立进程
+#
+# 服务:
+#   postgres     — PostgreSQL 16 (pgvector)
+#   redis        — Redis 7 (Celery broker + SSE Pub/Sub + cache)
+#   gateway      — FastAPI thin HTTP layer (port 8080)
+#   marketplace  — Marketplace service (port 8081)
+#   agent-worker — Celery Worker (LangGraph async execution)
+#   agent-beat   — Celery Beat (定时任务: OrphanReaper)
+#   mock-server  — Mock API for dev/CI
+
 services:
   # ===== 数据库 =====
   postgres:
@@ -19,7 +31,7 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ===== 缓存 =====
+  # ===== 缓存 / 消息队列 =====
   redis:
     image: redis:7-alpine
     container_name: snaptrip-redis
@@ -32,22 +44,28 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ===== 后端 API =====
-  backend:
+  # ===== Gateway :8080 — 薄 HTTP 层 =====
+  gateway:
     build:
       context: ./backend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.gateway
       target: ${BUILD_TARGET:-production}
-    container_name: snaptrip-backend
+    container_name: snaptrip-gateway
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DEV_DB:-snaptrip_dev}
       REDIS_URL: redis://redis:6379/0
+      REDIS_POOL_SIZE: 10
       MOCK_API_BASE_URL: http://mock-server:8001
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      # ── Phase 4/5: Marketplace 隔离 ──
+      MARKETPLACE_MODE: ${MARKETPLACE_MODE:-mock}
+      SNAPTRIP_MARKETPLACE_URL: ${SNAPTRIP_MARKETPLACE_URL:-http://marketplace:8081}
+      # ── LLM ──
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
       OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
       DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
       LLM_MODEL: ${LLM_MODEL:-deepseek-chat}
+      # ── 通用 ──
       APP_ENV: ${APP_ENV:-production}
       APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
@@ -67,9 +85,92 @@ services:
       start_period: 15s
     restart: unless-stopped
     command: >
-      sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+      sh -c "cd /app && uv run alembic upgrade head && uv run uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
-  # ===== Mock API 服务 =====
+  # ===== Marketplace :8081 — 商户/库存/订单/用户 =====
+  marketplace:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.gateway
+      target: ${BUILD_TARGET:-production}
+    container_name: snaptrip-marketplace
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DEV_DB:-snaptrip_dev}
+      REDIS_URL: redis://redis:6379/0
+      MARKETPLACE_MODE: ${MARKETPLACE_MODE:-mock}
+      SNAPTRIP_MARKETPLACE_URL: ${SNAPTRIP_MARKETPLACE_URL:-http://marketplace:8081}
+      APP_ENV: ${APP_ENV:-production}
+      APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "8081:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
+
+  # ===== Agent Worker (Celery) — LangGraph 异步执行 =====
+  agent-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+      target: ${BUILD_TARGET:-production}
+    container_name: snaptrip-agent-worker
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DEV_DB:-snaptrip_dev}
+      REDIS_URL: redis://redis:6379/0
+      REDIS_POOL_SIZE: 10
+      MOCK_API_BASE_URL: http://mock-server:8001
+      # ── Phase 4/5: Marketplace 隔离 ──
+      MARKETPLACE_MODE: ${MARKETPLACE_MODE:-mock}
+      SNAPTRIP_MARKETPLACE_URL: ${SNAPTRIP_MARKETPLACE_URL:-http://marketplace:8081}
+      # ── LLM ──
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
+      LLM_MODEL: ${LLM_MODEL:-deepseek-chat}
+      # ── 通用 ──
+      APP_ENV: ${APP_ENV:-production}
+      APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      AGENT_TIMEOUT: "300"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ===== Celery Beat — 定时任务调度 (Phase 5) =====
+  agent-beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+      target: ${BUILD_TARGET:-production}
+    container_name: snaptrip-agent-beat
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DEV_DB:-snaptrip_dev}
+      REDIS_URL: redis://redis:6379/0
+      APP_ENV: ${APP_ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    command: uv run celery -A app.celery_app beat -l info
+
+  # ===== Mock API 服务 (dev/CI) =====
   mock-server:
     build:
       context: ./mock_server
@@ -84,34 +185,9 @@ services:
       retries: 3
       start_period: 5s
     restart: unless-stopped
-
-  # ===== Celery Worker =====
-  celery-worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-      target: ${BUILD_TARGET:-production}
-    container_name: snaptrip-celery
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DEV_DB:-snaptrip_dev}
-      REDIS_URL: redis://redis:6379/0
-      MOCK_API_BASE_URL: http://mock-server:8001
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
-      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
-      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
-      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}
-      LLM_MODEL: ${LLM_MODEL:-deepseek-chat}
-      APP_ENV: ${APP_ENV:-production}
-      APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: celery -A app.celery_app worker -l info
-    restart: unless-stopped
+    profiles:
+      - dev
+      - full
 
   # ===== 前端 =====
   frontend:
@@ -123,8 +199,10 @@ services:
     ports:
       - "5174:5173"
     depends_on:
-      - backend
+      - gateway
     restart: unless-stopped
+    profiles:
+      - full
 
 volumes:
   postgres_data:

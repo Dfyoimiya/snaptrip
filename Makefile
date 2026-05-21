@@ -21,7 +21,7 @@ docker-compose.override.yml:
 # ===== Docker =====
 
 up: ## 启动全栈（production 模式）
-	docker compose up -d --build
+	docker compose --profile full up -d --build
 
 down: ## 停止全栈
 	docker compose down
@@ -40,8 +40,8 @@ logs: ## 查看日志
 backend-dev: ## 仅启动后端（本地）
 	cd backend && uv run uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
 
-backend-shell: ## 进入后端容器
-	docker compose exec backend bash
+backend-shell: ## 进入 Gateway 容器
+	docker compose exec gateway bash
 
 # ===== 测试 =====
 
