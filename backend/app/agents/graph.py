@@ -26,6 +26,7 @@ from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import interrupt
 
+from app.agent.runtime import AgentRuntime
 from app.agent_runtime.events import build_runtime_event
 from app.agent_runtime.postconfirm_state import (
     build_repair_state,
@@ -68,11 +69,12 @@ from app.schemas.agent.events import RuntimeEventType
 
 logger = logging.getLogger(__name__)
 
-# ── 共享全局配置 ──
+# ── 依赖注入（Phase 1: AgentRuntime 优先，全局变量向后兼容）──
+_runtime: AgentRuntime | None = None
+
+# ── 向后兼容的全局变量（deprecated，新代码请使用 AgentRuntime）──
 _gateway = None
 _event_sink: EventSinkPort | None = None
-
-# ── v3 安全管道依赖 ──
 _tool_adapter: Any = None
 _cb_registry: Any = None
 _idempotency: Any = None
@@ -81,12 +83,46 @@ _confirmator: Any = None
 _redis: Any = None
 
 
+def _resolve_gateway():
+    return _runtime.gateway if _runtime else _gateway
+
+
+def _resolve_event_sink():
+    return _runtime.event_sink if _runtime else _event_sink
+
+
+def _resolve_tool_adapter():
+    return _runtime.tool_adapter if _runtime else _tool_adapter
+
+
+def _resolve_cb_registry():
+    return _runtime.cb_registry if _runtime else _cb_registry
+
+
+def _resolve_idempotency():
+    return _runtime.idempotency if _runtime else _idempotency
+
+
+def _resolve_saga():
+    return _runtime.saga if _runtime else _saga
+
+
+def _resolve_confirmator():
+    return _runtime.confirmator if _runtime else _confirmator
+
+
+def _resolve_redis():
+    return _runtime.redis if _runtime else _redis
+
+
 def set_gateway(gateway) -> None:
+    """[deprecated] 使用 AgentRuntime.gateway 替代。"""
     global _gateway
     _gateway = gateway
 
 
 def set_event_sink(event_sink: EventSinkPort | None) -> None:
+    """[deprecated] 使用 AgentRuntime.event_sink 替代。"""
     global _event_sink
     _event_sink = event_sink
 
@@ -99,7 +135,7 @@ def set_v3_dependencies(
     confirmator: Any = None,
     redis: Any = None,
 ) -> None:
-    """注入 v3 安全管道依赖（单 Agent 模式使用）。"""
+    """[deprecated] 使用 AgentRuntime 注入 v3 安全管道依赖。"""
     global _tool_adapter, _cb_registry, _idempotency, _saga, _confirmator, _redis
     _tool_adapter = tool_adapter
     _cb_registry = cb_registry
@@ -173,7 +209,8 @@ async def _emit_node_event(
     event_type: RuntimeEventType,
     payload: dict[str, Any] | None = None,
 ) -> None:
-    if _event_sink is None:
+    sink = _resolve_event_sink()
+    if sink is None:
         return
     request = state.get("request") or {}
     run_id = request.get("request_id") or state.get("plan_id", "")
@@ -185,7 +222,7 @@ async def _emit_node_event(
         event_type=event_type,
         payload=payload or {},
     )
-    await _event_sink.emit(event)
+    await sink.emit(event)
 
 
 # ====================================================================
@@ -218,7 +255,7 @@ async def intent_parser_node(state: PlanState) -> dict[str, Any]:
 
 async def context_loader_node(state: PlanState) -> dict[str, Any]:
     await _emit_node_event(state, node_name="context_loader", event_type="node_started")
-    agent = ContextLoader()
+    agent = ContextLoader(user_profile_repo=_runtime.user_profile_repo if _runtime else None)
     history = [_ar("intent_parser", {"intent": state.get("intent", {})})]
     context = _context_from_state(state, history)
     result = await agent.execute(context)
@@ -241,7 +278,7 @@ async def context_loader_node(state: PlanState) -> dict[str, Any]:
 
 async def memory_manager_node(state: PlanState) -> dict[str, Any]:
     await _emit_node_event(state, node_name="memory_manager", event_type="node_started")
-    agent = MemoryManager()
+    agent = MemoryManager(plan_repo=_runtime.plan_repo if _runtime else None)
     enriched = _context_profile_from_state(state)
     history = [
         _ar("intent_parser", {"intent": state.get("intent", {})}),
@@ -424,15 +461,15 @@ def route_consensus(state: PlanState) -> Literal["execution_engine", "planning_e
 async def execution_engine_node(state: PlanState) -> dict[str, Any]:
     await _emit_node_event(state, node_name="execution_engine", event_type="node_started")
 
-    # v3 安全管道: 优先使用 ToolAdapter，回退到旧版 Gateway
+    # v3 安全管道: 优先使用 AgentRuntime，回退到旧版全局变量
     agent = ExecutionEngine(
-        tool_adapter=_tool_adapter,
-        circuit_breaker_registry=_cb_registry,
-        idempotency=_idempotency,
-        saga=_saga,
-        confirmator=_confirmator,
-        redis_client=_redis,
-        gateway=_gateway,
+        tool_adapter=_resolve_tool_adapter(),
+        circuit_breaker_registry=_resolve_cb_registry(),
+        idempotency=_resolve_idempotency(),
+        saga=_resolve_saga(),
+        confirmator=_resolve_confirmator(),
+        redis_client=_resolve_redis(),
+        gateway=_resolve_gateway(),
     )
 
     history = [
@@ -473,10 +510,10 @@ def route_execution(state: PlanState) -> Literal["notify_engine", "fallback_engi
 async def fallback_engine_node(state: PlanState) -> dict[str, Any]:
     await _emit_node_event(state, node_name="fallback_engine", event_type="node_started")
 
-    # v3 孤儿取消: 注入 ToolAdapter + Saga
+    # v3 孤儿取消: 注入 ToolAdapter + Saga（优先 AgentRuntime）
     agent = FallbackEngine(
-        tool_adapter=_tool_adapter,
-        saga=_saga,
+        tool_adapter=_resolve_tool_adapter(),
+        saga=_resolve_saga(),
     )
 
     history = [
@@ -554,14 +591,25 @@ async def notify_engine_node(state: PlanState) -> dict[str, Any]:
 # ====================================================================
 
 
-def build_plan_graph(checkpointer: BaseCheckpointSaver | None = None) -> CompiledStateGraph:
+def build_plan_graph(
+    checkpointer: BaseCheckpointSaver | None = None,
+    runtime: AgentRuntime | None = None,
+) -> CompiledStateGraph:
     """构建 9 节点多 Agent 编排图。
+
+    Args:
+        checkpointer: LangGraph checkpoint 存储。
+        runtime: 依赖注入容器。为 None 时使用全局变量（向后兼容）。
 
     Node 清单:
       intent_parser → context_loader → memory_manager
       → retrieval_engine → planning_engine → consensus_resolver
       → execution_engine → [fallback_engine] → notify_engine
     """
+    global _runtime
+    if runtime is not None:
+        _runtime = runtime
+
     graph = StateGraph(PlanState)
 
     graph.add_node("intent_parser", intent_parser_node)
@@ -687,13 +735,13 @@ async def planner_node(state: PlanState) -> dict[str, Any]:
     logger.info("planner_collapsed intent_parser done city=%s", intent_data.get("city"))
 
     # 2. Context Loader
-    ctx_loader = ContextLoader()
+    ctx_loader = ContextLoader(user_profile_repo=_runtime.user_profile_repo if _runtime else None)
     ctx_result = await ctx_loader.execute(_context_from_state(state, [_ar("intent_parser", {"intent": intent_data})]))
     enriched = ctx_result.data.get("enriched_intent", {})
     logger.info("planner_collapsed context_loader done")
 
     # 3. Memory Manager
-    mem_agent = MemoryManager()
+    mem_agent = MemoryManager(plan_repo=_runtime.plan_repo if _runtime else None)
     mem_result = await mem_agent.execute(
         _context_from_state(
             state,
@@ -809,8 +857,15 @@ async def notify_node(state: PlanState) -> dict[str, Any]:
     return await notify_engine_node(state)
 
 
-def build_single_agent_graph(checkpointer: BaseCheckpointSaver | None = None) -> CompiledStateGraph:
+def build_single_agent_graph(
+    checkpointer: BaseCheckpointSaver | None = None,
+    runtime: AgentRuntime | None = None,
+) -> CompiledStateGraph:
     """构建 5 节点单 Agent 编排图 (v3)。
+
+    Args:
+        checkpointer: LangGraph checkpoint 存储。
+        runtime: 依赖注入容器。为 None 时使用全局变量（向后兼容）。
 
     Node 清单:
       planner → consensus → execution → [fallback] → notify
@@ -819,8 +874,12 @@ def build_single_agent_graph(checkpointer: BaseCheckpointSaver | None = None) ->
       - intent_parser + context_loader + memory_manager + retrieval_engine + planning_engine
         → 折叠为单个 planner 节点（减少状态传递和序列化开销）
       - consensus + execution + fallback + notify 保持不变
-      - execution 节点自动使用 v3 安全管道（如果通过 set_v3_dependencies 注入了依赖）
+      - execution 节点自动使用 v3 安全管道（如果通过 AgentRuntime 或 set_v3_dependencies 注入了依赖）
     """
+    global _runtime
+    if runtime is not None:
+        _runtime = runtime
+
     graph = StateGraph(PlanState)
 
     graph.add_node("planner", planner_node)

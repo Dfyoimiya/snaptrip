@@ -23,8 +23,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.adapters.persistence.runtime_event_repository import SQLRuntimeEventRepository
+from app.agent.runtime import AgentRuntime
 from app.agent_runtime import RuntimeEventStore, build_plan_graph
-from app.agents.graph import set_event_sink, set_gateway
 from app.api.v1.auth import router as auth_router
 from app.api.v1.plan import router as plan_router
 from app.api.v1.user import router as user_router
@@ -64,10 +64,14 @@ async def lifespan(app: FastAPI):
     app.state.memory = MemoryService()
     app.state.mock_gateway = MockAPIGateway()
     app.state.runtime_events = RuntimeEventStore(repository=SQLRuntimeEventRepository())
-    app.state.plan_graph = build_plan_graph()
+
+    runtime = AgentRuntime(
+        gateway=app.state.mock_gateway,
+        event_sink=app.state.runtime_events,
+    )
+    app.state.plan_graph = build_plan_graph(runtime=runtime)
+
     await app.state.mock_gateway.start()
-    set_gateway(app.state.mock_gateway)
-    set_event_sink(app.state.runtime_events)
     yield
     await app.state.mock_gateway.stop()
     await app.state.memory.stop()

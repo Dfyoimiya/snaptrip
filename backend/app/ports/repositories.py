@@ -11,7 +11,13 @@ from app.schemas.agent.state import CheckpointSnapshot
 class UserProfileRepositoryPort(Protocol):
     """Read user profile data for context loading."""
 
-    async def get_profile(self, user_id: str) -> object | None: ...
+    async def get_profile(self, user_id: str) -> dict | None: ...
+
+
+class PlanRepositoryPort(Protocol):
+    """Read plan history for memory aggregation."""
+
+    async def get_user_history(self, user_id: str) -> dict[str, list[str]] | None: ...
 
 
 class CheckpointRepositoryPort(Protocol):
