@@ -25,10 +25,12 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from app.adapters.persistence.plan_run_repository import SQLPlanRunRepository
+from app.adapters.persistence.runtime_event_repository import SQLRuntimeEventRepository
 from app.agent_runtime import GRAPH_VERSION, build_initial_runtime_state
 from app.agent_runtime.response_state import state_to_response
 from app.api.v1.session import stream_plan
 from app.core.response import APIServiceError, success
+from app.db.redis import get_redis_client
 from app.schemas.plan import PlanCreateRequest, PlanResponse
 from app.services.agent_service import AgentService
 from app.tasks.plan_tasks import confirm_plan as celery_confirm
@@ -139,4 +141,6 @@ async def plan_stream(plan_id: str, request: Request):
     state = await service.get_state(plan_id)
     if state is None:
         raise APIServiceError(code=1001, message="plan not found", status_code=404)
-    return await stream_plan(plan_id, request.app.state.runtime_events)
+    redis_client = await get_redis_client()
+    event_repo = SQLRuntimeEventRepository()
+    return await stream_plan(plan_id, redis_client, event_repo, request)

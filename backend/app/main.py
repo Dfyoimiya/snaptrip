@@ -55,6 +55,7 @@ from app.core.response import (
     unhandled_exception_handler,
     validation_exception_handler,
 )
+from app.db.redis import close_redis_pool, get_redis_pool
 from app.services.memory_service import MemoryService
 from app.services.mock_gateway import MockAPIGateway
 
@@ -64,6 +65,7 @@ async def lifespan(app: FastAPI):
     app.state.memory = MemoryService()
     app.state.mock_gateway = MockAPIGateway()
     app.state.runtime_events = RuntimeEventStore(repository=SQLRuntimeEventRepository())
+    app.state.redis_pool = get_redis_pool()
 
     runtime = AgentRuntime(
         gateway=app.state.mock_gateway,
@@ -75,6 +77,7 @@ async def lifespan(app: FastAPI):
     yield
     await app.state.mock_gateway.stop()
     await app.state.memory.stop()
+    await close_redis_pool()
 
 
 app = FastAPI(

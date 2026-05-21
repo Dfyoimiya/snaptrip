@@ -12,11 +12,11 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from app.adapters.events.redis_event_bus import RedisEventBus
 from app.adapters.persistence.plan_run_repository import SQLPlanRunRepository
 from app.adapters.persistence.runtime_event_repository import SQLRuntimeEventRepository
 from app.agent.runtime import AgentRuntime
 from app.agent_runtime import build_plan_graph
-from app.agent_runtime.event_store import RuntimeEventStore
 from app.celery_app import celery_app
 from app.services.agent_service import AgentService, InterruptError
 from app.services.mock_gateway import MockAPIGateway
@@ -27,13 +27,22 @@ _worker_agent_service: AgentService | None = None
 
 
 def _build_worker_agent_service() -> AgentService:
-    """在 Worker 进程内构建 AgentService（含图 + 依赖）。"""
+    """在 Worker 进程内构建 AgentService（含图 + 依赖）。
+
+    Phase 3b: 使用 RedisEventBus 替代 in-memory RuntimeEventStore，
+    事件通过 Redis PUBLISH 跨进程推送到 Gateway SSE。
+    RedisEventBus 接受 ConnectionPool（lazy client），避免跨 asyncio.run() 的 event loop 绑定。
+    """
+    from app.db.redis import get_redis_pool
+
     gateway = MockAPIGateway()
     asyncio.run(gateway.start())
-    runtime = AgentRuntime(
-        gateway=gateway,
-        event_sink=RuntimeEventStore(repository=SQLRuntimeEventRepository()),
+
+    event_bus = RedisEventBus(
+        pool=get_redis_pool(),
+        repository=SQLRuntimeEventRepository(),
     )
+    runtime = AgentRuntime(gateway=gateway, event_sink=event_bus)
     graph = build_plan_graph(runtime=runtime)
     return AgentService(graph)
 

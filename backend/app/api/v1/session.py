@@ -1,19 +1,26 @@
-"""SSE 流式输出 —— 订阅真实 runtime event 流。
+"""SSE 流式输出 —— 跨进程 Redis Pub/Sub。
 
-通过 Server-Sent Events 将 runtime event store 中的真实事件推送到前端。
+Phase 3b: 不再依赖同进程 in-memory RuntimeEventStore。
+Agent Worker 通过 Redis PUBLISH 发射事件，Gateway 通过 SUBSCRIBE 接收。
+
+流程:
+  1. Last-Event-ID 存在 → 从 plan_run_events 表回放缺失事件（断线重连）
+  2. 回放完毕 → SUBSCRIBE Redis plan:{plan_id}:events
+  3. 收到终端事件 (plan_completed) → 自动关闭 SSE
 
 Author: SnapTrip Team
-Date: 2026-05-13 / Refactored 2026-05-17
+Date: 2026-05-13 / Phase 3b refactor 2026-05-22
 """
 
 from __future__ import annotations
 
 import json
 from collections.abc import AsyncGenerator
+from contextlib import suppress
 
 from sse_starlette.sse import EventSourceResponse
 
-from app.agent_runtime.event_store import RuntimeEventStore
+from app.ports.repositories import RuntimeEventRepositoryPort
 from app.schemas.agent.events import RuntimeEvent
 
 EVENT_NAME_MAP: dict[tuple[str, str], str] = {
@@ -27,6 +34,14 @@ EVENT_NAME_MAP: dict[tuple[str, str], str] = {
     ("consensus_resolver", "interrupt_requested"): "consensus",
     ("notify_engine", "node_started"): "notify",
     ("plan", "plan_completed"): "done",
+    # ── 单 Agent 模式 ──
+    ("planner", "node_started"): "intent",
+    ("planner", "node_succeeded"): "planning_done",
+    ("execution", "node_started"): "execution",
+    ("execution", "node_succeeded"): "execution_done",
+    ("fallback", "node_started"): "fallback",
+    ("consensus", "interrupt_requested"): "consensus",
+    ("notify", "node_started"): "notify",
 }
 
 
@@ -40,25 +55,72 @@ def _event_to_sse(event: RuntimeEvent) -> dict:
     return _sse(event_name, payload)
 
 
-async def stream_plan(plan_id: str, event_store: RuntimeEventStore):
-    async def event_generator() -> AsyncGenerator[dict, None]:
-        index = 0
-        initial_events = await event_store.list_by_plan(plan_id)
+async def _event_generator(
+    plan_id: str,
+    redis_client,  # redis.asyncio.Redis
+    event_repo: RuntimeEventRepositoryPort,
+    last_event_id: str | None = None,
+) -> AsyncGenerator[dict, None]:
+    """跨进程 SSE 事件生成器。
+
+    1. DB 回放（断线重连）
+    2. Redis Pub/Sub 订阅实时事件
+    3. 终端事件自动退出
+    """
+    # ── Phase 1: DB 回放（支持 Last-Event-ID 断线重连）──
+    if last_event_id is not None:
+        try:
+            replayed = await event_repo.get_events_after(plan_id, last_event_id)
+        except Exception:
+            replayed = []
+        for event in replayed:
+            yield _event_to_sse(event)
+            if event.event_type == "plan_completed":
+                return
+    else:
+        # 首次连接 — 回放全部已持久化事件
+        try:
+            initial_events = await event_repo.list_by_plan(plan_id)
+        except Exception:
+            initial_events = []
         for event in initial_events:
-            index += 1
             yield _event_to_sse(event)
             if event.event_type == "plan_completed":
                 return
 
-        while True:
-            new_events = await event_store.wait_for_events(plan_id, index, timeout_s=10.0)
-            if not new_events:
-                yield _sse("heartbeat", {"plan_id": plan_id})
+    # ── Phase 2: Redis Pub/Sub 实时订阅 ──
+    channel = f"plan:{plan_id}:events"
+    pubsub = redis_client.pubsub()
+    try:
+        await pubsub.subscribe(channel)
+        async for message in pubsub.listen():
+            if message["type"] != "message":
                 continue
-            for event in new_events:
-                index += 1
-                yield _event_to_sse(event)
-                if event.event_type == "plan_completed":
-                    return
+            try:
+                event = RuntimeEvent.model_validate_json(message["data"])
+            except Exception:
+                continue
+            yield _event_to_sse(event)
+            if event.event_type == "plan_completed":
+                break
+    finally:
+        with suppress(Exception):
+            await pubsub.unsubscribe(channel)
 
-    return EventSourceResponse(event_generator())
+
+async def stream_plan(
+    plan_id: str,
+    redis_client,  # redis.asyncio.Redis
+    event_repo: RuntimeEventRepositoryPort,
+    request,  # fastapi.Request (for Last-Event-ID header)
+) -> EventSourceResponse:
+    """跨进程 SSE 端点入口。
+
+    Args:
+        plan_id: 计划 ID
+        redis_client: Redis 异步客户端（从连接池获取）
+        event_repo: 运行时事件持久化仓库
+        request: FastAPI Request（读取 Last-Event-ID header）
+    """
+    last_event_id = request.headers.get("Last-Event-ID") or None
+    return EventSourceResponse(_event_generator(plan_id, redis_client, event_repo, last_event_id))
