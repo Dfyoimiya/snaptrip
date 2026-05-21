@@ -84,7 +84,7 @@ class AgentService:
         """
         config = self._config(plan_id)
         state = await self._graph.aget_state(config)  # type: ignore[arg-type]
-        if state is None or state.values is None:
+        if state is None or not state.values:
             return None
         return state.values
 
