@@ -22,15 +22,14 @@ Date: 2026-05-13 / Refactored 2026-05-17 / Interrupt 2026-05-18
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
-from langgraph.errors import GraphInterrupt
-from langgraph.types import Command
 from pydantic import BaseModel
 
-from app.agent_runtime import GRAPH_VERSION, build_initial_runtime_state, build_plan_graph
+from app.agent_runtime import GRAPH_VERSION, build_initial_runtime_state
 from app.agent_runtime.response_state import state_to_response
 from app.api.v1.session import stream_plan
 from app.core.response import APIServiceError, success
 from app.schemas.plan import PlanCreateRequest, PlanResponse
+from app.services.agent_service import AgentService, InterruptError
 
 router = APIRouter(prefix="/api/v1/plan", tags=["plan"])
 
@@ -65,72 +64,57 @@ def _state_to_response(state: dict, query_text: str) -> PlanResponse:
     return state_to_response(state, query_text)
 
 
-def _get_plan_graph(request: Request):
-    if not hasattr(request.app.state, "plan_graph") or request.app.state.plan_graph is None:
-        request.app.state.plan_graph = build_plan_graph()
-    return request.app.state.plan_graph
+def _get_agent_service(request: Request) -> AgentService:
+    if not hasattr(request.app.state, "_agent_service") or request.app.state._agent_service is None:
+        from app.agent_runtime import build_plan_graph
+        request.app.state._agent_service = AgentService(build_plan_graph())
+    return request.app.state._agent_service  # type: ignore[no-any-return]
 
 
 @router.post("/create")
 async def create_plan(req: PlanCreateRequest, request: Request):
-    graph = _get_plan_graph(request)
+    service = _get_agent_service(request)
     initial_state = _build_initial_state(req)
-    config = {"configurable": {"thread_id": initial_state["plan_id"]}}
+    plan_id = initial_state["plan_id"]
     try:
-        final_state = await graph.ainvoke(initial_state, config)
-    except GraphInterrupt:
-        state = await graph.aget_state(config)
-        if state and state.values:
-            return success(data=_state_to_response(state.values, req.user_input).model_dump())
+        final_state = await service.invoke(initial_state, plan_id)
+    except InterruptError:
+        state = await service.get_state(plan_id)
+        if state:
+            return success(data=_state_to_response(state, req.user_input).model_dump())
         raise APIServiceError(code=2001, message="graph interrupted but state unavailable", status_code=500) from None
     return success(data=_state_to_response(final_state, req.user_input).model_dump())
 
 
 @router.post("/{plan_id}/confirm")
 async def confirm_plan(plan_id: str, body: ConfirmRequest, request: Request):
-    graph = _get_plan_graph(request)
-    config = {"configurable": {"thread_id": plan_id}}
-    state = await graph.aget_state(config)
-    if state is None or state.values is None:
+    service = _get_agent_service(request)
+    state = await service.get_state(plan_id)
+    if state is None:
         raise APIServiceError(code=1001, message="plan not found", status_code=404)
     try:
-        final_state = await graph.ainvoke(
-            Command(
-                resume={
-                    "decision": body.decision,
-                    "slot_index": body.slot_index,
-                    "locked_slots": body.locked_slots,
-                    "rejected_slots": body.rejected_slots,
-                    "instruction": body.instruction,
-                    "replace_only": body.replace_only,
-                    "change_requests": body.change_requests,
-                }
-            ),
-            config,
-        )
-    except GraphInterrupt:
-        state = await graph.aget_state(config)
-        if state and state.values:
-            return success(data=_state_to_response(state.values, "").model_dump())
+        final_state = await service.resume(body.model_dump(), plan_id)
+    except InterruptError:
+        state = await service.get_state(plan_id)
+        if state:
+            return success(data=_state_to_response(state, "").model_dump())
         raise APIServiceError(code=2001, message="graph interrupted but state unavailable", status_code=500) from None
     return success(data=_state_to_response(final_state, "").model_dump())
 
 
 @router.get("/{plan_id}")
 async def get_plan(plan_id: str, request: Request):
-    graph = _get_plan_graph(request)
-    config = {"configurable": {"thread_id": plan_id}}
-    state = await graph.aget_state(config)
-    if state is None or state.values is None:
+    service = _get_agent_service(request)
+    state = await service.get_state(plan_id)
+    if state is None:
         raise APIServiceError(code=1001, message="plan not found", status_code=404)
-    return success(data=_state_to_response(state.values, "").model_dump())
+    return success(data=_state_to_response(state, "").model_dump())
 
 
 @router.get("/{plan_id}/stream")
 async def plan_stream(plan_id: str, request: Request):
-    graph = _get_plan_graph(request)
-    config = {"configurable": {"thread_id": plan_id}}
-    state_snapshot = await graph.aget_state(config)
-    if state_snapshot is None or state_snapshot.values is None:
+    service = _get_agent_service(request)
+    state = await service.get_state(plan_id)
+    if state is None:
         raise APIServiceError(code=1001, message="plan not found", status_code=404)
     return await stream_plan(plan_id, request.app.state.runtime_events)
