@@ -74,4 +74,4 @@ markers = [
 ]
 
 [tool.setuptools.packages.find]
-include = ["app*"]
+include = ["marketplace*", "agent_worker*", "shared*"]

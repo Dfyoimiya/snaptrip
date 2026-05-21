@@ -1,13 +1,11 @@
-# ===== SnapTrip 三层部署 =====
-# Phase 5: Gateway + Marketplace + Agent Worker 独立进程
+# ===== SnapTrip 双进程部署 =====
+# marketplace (FastAPI + Celery Beat) + Agent Worker (Celery Worker)
 #
 # 服务:
 #   postgres     — PostgreSQL 16 (pgvector)
 #   redis        — Redis 7 (Celery broker + SSE Pub/Sub + cache)
-#   gateway      — FastAPI thin HTTP layer (port 8080)
-#   marketplace  — Marketplace service (port 8081)
+#   marketplace  — FastAPI backend (port 8080, includes Celery Beat)
 #   agent-worker — Celery Worker (LangGraph async execution)
-#   agent-beat   — Celery Beat (定时任务: OrphanReaper)
 #   mock-server  — Mock API for dev/CI
 
 services:
@@ -44,21 +42,20 @@ services:
       retries: 5
     restart: unless-stopped
 
-  # ===== Gateway :8080 — 薄 HTTP 层 =====
-  gateway:
+  # ===== Marketplace :8080 — FastAPI + Celery Beat =====
+  marketplace:
     build:
       context: ./backend
       dockerfile: Dockerfile.gateway
       target: ${BUILD_TARGET:-production}
-    container_name: snaptrip-gateway
+    container_name: snaptrip-marketplace
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DEV_DB:-snaptrip_dev}
       REDIS_URL: redis://redis:6379/0
       REDIS_POOL_SIZE: 10
       MOCK_API_BASE_URL: http://mock-server:8001
-      # ── Phase 4/5: Marketplace 隔离 ──
       MARKETPLACE_MODE: ${MARKETPLACE_MODE:-mock}
-      SNAPTRIP_MARKETPLACE_URL: ${SNAPTRIP_MARKETPLACE_URL:-http://marketplace:8081}
+      SNAPTRIP_MARKETPLACE_URL: ${SNAPTRIP_MARKETPLACE_URL:-http://marketplace:8000}
       # ── LLM ──
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
@@ -87,37 +84,6 @@ services:
     command: >
       sh -c "cd /app && uv run alembic upgrade head && uv run uvicorn marketplace.app.main:app --host 0.0.0.0 --port 8000"
 
-  # ===== Marketplace :8081 — 商户/库存/订单/用户 =====
-  marketplace:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.gateway
-      target: ${BUILD_TARGET:-production}
-    container_name: snaptrip-marketplace
-    environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DEV_DB:-snaptrip_dev}
-      REDIS_URL: redis://redis:6379/0
-      MARKETPLACE_MODE: ${MARKETPLACE_MODE:-mock}
-      SNAPTRIP_MARKETPLACE_URL: ${SNAPTRIP_MARKETPLACE_URL:-http://marketplace:8081}
-      APP_ENV: ${APP_ENV:-production}
-      APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    ports:
-      - "8081:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 15s
-    restart: unless-stopped
-
   # ===== Agent Worker (Celery) — LangGraph 异步执行 =====
   agent-worker:
     build:
@@ -130,9 +96,8 @@ services:
       REDIS_URL: redis://redis:6379/0
       REDIS_POOL_SIZE: 10
       MOCK_API_BASE_URL: http://mock-server:8001
-      # ── Phase 4/5: Marketplace 隔离 ──
       MARKETPLACE_MODE: ${MARKETPLACE_MODE:-mock}
-      SNAPTRIP_MARKETPLACE_URL: ${SNAPTRIP_MARKETPLACE_URL:-http://marketplace:8081}
+      SNAPTRIP_MARKETPLACE_URL: ${SNAPTRIP_MARKETPLACE_URL:-http://marketplace:8000}
       # ── LLM ──
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
@@ -152,7 +117,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # ===== Celery Beat — 定时任务调度 (Phase 5) =====
+  # ===== Celery Beat — 定时任务调度 =====
   agent-beat:
     build:
       context: ./backend
@@ -199,7 +164,7 @@ services:
     ports:
       - "5174:5173"
     depends_on:
-      - gateway
+      - marketplace
     restart: unless-stopped
     profiles:
       - full
