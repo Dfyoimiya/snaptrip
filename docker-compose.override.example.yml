@@ -38,7 +38,7 @@ services:
       APP_ENV: development
       APP_DEBUG: "true"
       LOG_LEVEL: DEBUG
-    command: uv run celery -A app.celery_app worker -l info
+    command: uv run celery -A app.celery_app worker --pool=gevent --concurrency=100 -Q agent -l info
 
   frontend:
     build:
