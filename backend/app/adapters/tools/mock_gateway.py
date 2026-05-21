@@ -14,3 +14,12 @@ class MockToolGatewayAdapter(ToolGatewayPort):
 
     async def call(self, tool_name: str, params: dict) -> dict:
         return await self._gateway.call(tool_name, params)
+
+    async def call_idempotent(self, tool_name: str, params: dict, idempotency_key: str) -> dict:
+        return await self._gateway.call(tool_name, params)
+
+    async def cancel(self, tool_name: str, booking_ref: str) -> dict:
+        return {"status": "success", "data": {"cancelled": booking_ref}}
+
+    async def query_status(self, tool_name: str, booking_ref: str) -> dict:
+        return {"status": "success", "physical_state": "confirmed"}

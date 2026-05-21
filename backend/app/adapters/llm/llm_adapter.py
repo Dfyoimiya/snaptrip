@@ -117,9 +117,7 @@ class LLMAdapter(LLMPort):
         pricing = self._registry.model_registry.get_pricing(alias)
         cost_usd = 0.0
         if pricing is not None:
-            cost_usd = provider._calculate_cost(
-                pricing, result.usage.prompt_tokens, result.usage.completion_tokens
-            )
+            cost_usd = provider._calculate_cost(pricing, result.usage.prompt_tokens, result.usage.completion_tokens)
         await log_llm_usage(
             model_name=result.model,
             provider=result.provider,

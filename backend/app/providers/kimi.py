@@ -101,15 +101,16 @@ class KimiProvider(BaseLLMProvider):
         url = f"{self._base_url}/chat/completions"
 
         try:
-            async with httpx.AsyncClient(timeout=timeout) as client, client.stream(
-                "POST", url, headers=self._build_headers(), json=payload
-            ) as resp:
+            async with (
+                httpx.AsyncClient(timeout=timeout) as client,
+                client.stream("POST", url, headers=self._build_headers(), json=payload) as resp,
+            ):
                 if resp.status_code == 429:
                     raise LLMRateLimitError(details={"provider": "kimi", "http_status": 429})
                 if resp.status_code != 200:
                     body = await resp.aread()
                     raise LLMError(
-                        f"Kimi API 返回 {resp.status_code}: {body[:500]}",
+                        f"Kimi API 返回 {resp.status_code}: {body.decode('utf-8', errors='replace')[:500]}",
                         details={"provider": "kimi", "http_status": resp.status_code},
                     )
 

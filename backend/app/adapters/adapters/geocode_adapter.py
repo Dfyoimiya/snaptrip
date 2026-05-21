@@ -46,15 +46,17 @@ class AmapGeocodeAdapter(BaseAmapAdapter):
                     lat = float(parts[1])
                 except (ValueError, IndexError):
                     pass
-            results.append({
-                "formatted_address": geo.formatted_address,
-                "province": geo.province,
-                "city": geo.city,
-                "district": geo.district,
-                "lat": lat,
-                "lng": lng,
-                "level": geo.level,
-            })
+            results.append(
+                {
+                    "formatted_address": geo.formatted_address,
+                    "province": geo.province,
+                    "city": geo.city,
+                    "district": geo.district,
+                    "lat": lat,
+                    "lng": lng,
+                    "level": geo.level,
+                }
+            )
 
         return {
             "results": results,

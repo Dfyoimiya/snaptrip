@@ -134,16 +134,12 @@ class BaseLLMProvider(ABC):
         for attempt in range(_MAX_RETRIES + 1):
             try:
                 async with httpx.AsyncClient(timeout=timeout) as client:
-                    resp = await client.post(
-                        url, headers=self._build_headers(), json=payload
-                    )
+                    resp = await client.post(url, headers=self._build_headers(), json=payload)
             except httpx.TimeoutException:
                 last_exception = LLMTimeoutError(
                     details={"provider": self.provider_name, "url": url, "attempt": attempt + 1},
                 )
-                logger.warning(
-                    "llm_timeout provider=%s attempt=%d", self.provider_name, attempt + 1
-                )
+                logger.warning("llm_timeout provider=%s attempt=%d", self.provider_name, attempt + 1)
             except httpx.RequestError as e:
                 last_exception = LLMError(
                     f"网络错误: {e}",
@@ -151,7 +147,9 @@ class BaseLLMProvider(ABC):
                 )
                 logger.warning(
                     "llm_network_error provider=%s error=%s attempt=%d",
-                    self.provider_name, str(e), attempt + 1,
+                    self.provider_name,
+                    str(e),
+                    attempt + 1,
                 )
             else:
                 # HTTP 响应收到，检查状态码
@@ -174,7 +172,9 @@ class BaseLLMProvider(ABC):
                     )
                     logger.warning(
                         "llm_server_error provider=%s status=%d attempt=%d",
-                        self.provider_name, resp.status_code, attempt + 1,
+                        self.provider_name,
+                        resp.status_code,
+                        attempt + 1,
                     )
                 else:
                     # 4xx (非 429)：不重试，立即抛出
@@ -185,7 +185,7 @@ class BaseLLMProvider(ABC):
 
             # 还有重试次数
             if attempt < _MAX_RETRIES:
-                delay = _RETRY_BASE_DELAY * (2 ** attempt)  # 1s, 2s
+                delay = _RETRY_BASE_DELAY * (2**attempt)  # 1s, 2s
                 logger.info("llm_retry provider=%s attempt=%d delay=%.1fs", self.provider_name, attempt + 1, delay)
                 await asyncio.sleep(delay)
 

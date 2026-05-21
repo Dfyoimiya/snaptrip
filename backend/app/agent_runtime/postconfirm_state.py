@@ -38,8 +38,7 @@ def confirmation_from_resume(resume: dict[str, Any] | None) -> dict[str, Any]:
         status = "rejected"
 
     normalized_requests = [
-        UserChangeRequest(**item).model_dump() if isinstance(item, dict) else item
-        for item in change_requests
+        UserChangeRequest(**item).model_dump() if isinstance(item, dict) else item for item in change_requests
     ]
     if instruction:
         normalized_requests.append(
@@ -55,8 +54,7 @@ def confirmation_from_resume(resume: dict[str, Any] | None) -> dict[str, Any]:
         locked_slots=locked_slots,
         rejected_slots=rejected_slots,
         user_change_requests=[
-            UserChangeRequest(**item) if isinstance(item, dict) else item
-            for item in normalized_requests
+            UserChangeRequest(**item) if isinstance(item, dict) else item for item in normalized_requests
         ],
         confirmed_at=datetime.utcnow() if status == "confirmed" else None,
     ).model_dump()
@@ -180,10 +178,7 @@ def _find_replacement_poi(draft: PlanDraft, slot_index: int) -> POI | None:
         if shadow is not None:
             return POI(**shadow.model_dump())
 
-    candidates = [
-        poi for poi in SEED_POIS
-        if poi.type == slot.poi.type and poi.id != slot.poi.id
-    ]
+    candidates = [poi for poi in SEED_POIS if poi.type == slot.poi.type and poi.id != slot.poi.id]
     if not candidates:
         return None
     return POI(**candidates[0].model_dump())

@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 class TokenUsage(BaseModel):
     """Token 用量统计"""
+
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
@@ -20,6 +21,7 @@ class TokenUsage(BaseModel):
 
 class ChatResult(BaseModel):
     """单次 LLM chat 完整结果"""
+
     content: str
     model: str
     usage: TokenUsage = Field(default_factory=TokenUsage)
@@ -30,6 +32,7 @@ class ChatResult(BaseModel):
 
 class StreamChunk(BaseModel):
     """流式 chat 增量 delta"""
+
     content: str
     finish_reason: str | None = None
     usage: TokenUsage | None = None
@@ -41,15 +44,17 @@ class StreamChunk(BaseModel):
 
 class ModelPricing(BaseModel):
     """模型定价（USD / 1K tokens）"""
+
     prompt_per_1k: float = 0.0
     completion_per_1k: float = 0.0
 
 
 class ModelConfig(BaseModel):
     """模型配置条目"""
-    alias: str                                    # "deepseek-v4-pro"
-    provider: str                                 # "deepseek"
-    api_model: str                                # "deepseek-chat"
+
+    alias: str  # "deepseek-v4-pro"
+    provider: str  # "deepseek"
+    api_model: str  # "deepseek-chat"
     prompt_per_1k: float = 0.0
     completion_per_1k: float = 0.0
     max_tokens: int = 4096

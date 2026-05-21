@@ -47,15 +47,17 @@ class AmapDistrictAdapter(BaseAmapAdapter):
                 except (ValueError, IndexError):
                     pass
 
-            results.append({
-                "name": dist.name,
-                "adcode": dist.adcode,
-                "citycode": dist.citycode,
-                "center_lat": center_lat,
-                "center_lng": center_lng,
-                "level": dist.level,
-                "sub_count": len(dist.districts),
-            })
+            results.append(
+                {
+                    "name": dist.name,
+                    "adcode": dist.adcode,
+                    "citycode": dist.citycode,
+                    "center_lat": center_lat,
+                    "center_lng": center_lng,
+                    "level": dist.level,
+                    "sub_count": len(dist.districts),
+                }
+            )
 
         return {
             "results": results,
