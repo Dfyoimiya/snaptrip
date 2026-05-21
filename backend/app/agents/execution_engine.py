@@ -6,15 +6,15 @@
   1. DAG 依赖感知: 上游 Tool 失败时，下游依赖 Tool 自动跳过 (SKIPPED)
   2. 分层超时: per-tool 3s / total DAG 10s
   3. 超时不阻塞同层: 单 Tool 超时不影响同层其他 Tool 并行执行
-  4. 结构化日志: 每个 Tool 调用输出 JSON 格式日志供前端 AgentMonitor 渲染
-  5. Gateway 集成: gateway 可用时通过 MockAPIGateway 对 mock_server:8001 发 HTTP
-                   gateway=None 时走本地随机 mock（单元测试兼容）
+  4. 安全管道 (v3): 幂等检查 → 双层熔断 → Provider 调用 → Saga 记录 → UNKNOWN 异步确认
+  5. 并发控制: Session/User 双层 Redis 锁
+  6. 结构化日志: 每个 Tool 调用输出 JSON 格式日志供前端 AgentMonitor 渲染
 
-输出: ExecutionResult (含 slot_results, confirmed_bookings,
-       failed_slots, layer_timings)
+v3 更新: 注入 ToolAdapter + IdempotencyService + CircuitBreakerRegistry
+         + SagaCoordinator + PhysicalConfirmator + Redis 锁
 
 Author: SnapTrip Team
-Date: 2026-05-13 / Gateway integration 2026-05-17
+Date: 2026-05-13 / v3 update 2026-05-20
 """
 
 from __future__ import annotations
@@ -22,7 +22,9 @@ from __future__ import annotations
 import asyncio
 import random
 import time
+import uuid
 from collections import defaultdict
+from datetime import UTC, datetime
 from typing import Any
 
 from app.agents.protocol import AgentContext, AgentResult, BaseAgent
@@ -39,26 +41,102 @@ from app.schemas.plan import (
     SlotExecutionResult,
 )
 from app.schemas.tool import TOOL_REGISTRY, ToolDefinition, ToolResult
+from app.schemas.tool_provider import PhysicalActionState, SagaStep, ToolProviderResult
 
 logger = get_logger(__name__)
 
 
 class ExecutionEngine(BaseAgent):
+    """Execution Engine —— 将 PlanDraft 编译为 DAG 并安全执行。
+
+    v3 安全管道:
+      1. 并发锁 (Session + User)
+      2. 双层熔断检查 (L1 Provider + L2 Tool)
+      3. 幂等键生成 + 获取
+      4. ToolAdapter.call()
+      5. Saga 步骤记录 (物理操作)
+      6. UNKNOWN → PhysicalConfirmator 异步确认
+    """
+
     name = "execution_engine"
 
-    def __init__(self, gateway: ToolGatewayPort | None = None) -> None:
+    def __init__(
+        self,
+        # ── v3 安全管道依赖 ──
+        tool_adapter: Any | None = None,  # ToolAdapter (避免循环导入用 Any)
+        circuit_breaker_registry: Any | None = None,  # CircuitBreakerRegistry
+        idempotency: Any | None = None,  # IdempotencyService
+        saga: Any | None = None,  # SagaCoordinator
+        confirmator: Any | None = None,  # PhysicalConfirmator
+        redis_client: Any | None = None,
+        # ── 旧版兼容 ──
+        gateway: ToolGatewayPort | None = None,
+    ) -> None:
         super().__init__()
+        self._tool_adapter = tool_adapter
+        self._cb_registry = circuit_breaker_registry
+        self._idempotency = idempotency
+        self._saga = saga
+        self._confirmator = confirmator
+        self._redis = redis_client
         self._gateway = gateway
+
+    # ------------------------------------------------------------------
+    # public API
+    # ------------------------------------------------------------------
 
     async def execute(self, context: AgentContext) -> AgentResult:
         draft = self._extract_draft(context)
         if not draft:
             return AgentResult(status="failed", error="No plan draft found")
 
-        result = await asyncio.wait_for(
-            self._execute_dag(draft, context),
-            timeout=EXEC_TIMEOUT_TOTAL_S,
-        )
+        # ── v3 并发锁: Session + User 双层 ──
+        session_lock_key: str | None = None
+        user_lock_key: str | None = None
+
+        if self._redis:
+            session_lock_key = f"exec_lock:session:{context.session_id}"
+            user_lock_key = f"exec_lock:user:{context.user_id}"
+
+            # 先抢 Session 锁（细粒度）
+            if not await self._acquire_lock(session_lock_key, draft.plan_id):
+                return AgentResult(
+                    status="failed",
+                    error="当前 Session 有 plan 正在执行",
+                )
+            try:
+                # 再抢 User 锁（粗粒度，防止跨 Session 并发）
+                if not await self._acquire_lock(user_lock_key, draft.plan_id):
+                    return AgentResult(
+                        status="failed",
+                        error="当前用户有 plan 正在执行，请稍候",
+                    )
+                try:
+                    return await self._execute_timed(draft, context)
+                finally:
+                    await self._release_lock(user_lock_key)
+            finally:
+                await self._release_lock(session_lock_key)
+        else:
+            return await self._execute_timed(draft, context)
+
+    async def _execute_timed(self, draft: PlanDraft, context: AgentContext) -> AgentResult:
+        try:
+            result = await asyncio.wait_for(
+                self._execute_dag(draft, context),
+                timeout=EXEC_TIMEOUT_TOTAL_S,
+            )
+        except TimeoutError:
+            # DAG 整体超时 → 补偿已执行的物理操作
+            if self._saga:
+                compensate_errors = await self._saga.compensate()
+                if compensate_errors:
+                    logger.error("execution_timeout_compensate_errors", errors=compensate_errors)
+            return AgentResult(
+                status="timeout",
+                error=f"DAG execution exceeded {EXEC_TIMEOUT_TOTAL_S}s limit",
+            )
+
         execution_state = self.to_execution_state(result)
         return AgentResult(
             data={
@@ -100,9 +178,10 @@ class ExecutionEngine(BaseAgent):
 
         for i, slot in enumerate(slots):
             tool = slot.action if slot.action in TOOL_REGISTRY else "search_poi"
-            if tool not in TOOL_REGISTRY:
+            meta = self._get_tool_definition(tool)
+            if meta is None:
                 continue
-            layers[TOOL_REGISTRY[tool].layer].append((i, tool, TOOL_REGISTRY[tool]))
+            layers[meta.layer].append((i, tool, meta))
 
         results: dict[int, list[ToolResult]] = {}
         confirmed: dict[int, str] = {}
@@ -126,8 +205,8 @@ class ExecutionEngine(BaseAgent):
                         )
                     )
                     continue
-                slot = slots_by_idx.get(slot_i)  # type: ignore[assignment]
-                tasks.append(self._call_tool_with_timeout(slot_i, tool, meta, slot, context))
+                plan_slot = slots_by_idx.get(slot_i)
+                tasks.append(self._execute_single_tool(slot_i, tool, meta, plan_slot, context))
 
             try:
                 layer_results: list = await asyncio.gather(*tasks, return_exceptions=True)
@@ -163,15 +242,25 @@ class ExecutionEngine(BaseAgent):
         if failed_slots:
             status = "partial_success" if confirmed else "full_failure"
 
+        # ── v3 失败补偿: 部分/全部失败时逆序补偿物理操作 ──
+        if failed_slots and self._saga and self._saga.has_physical_steps:
+            compensate_errors = await self._saga.compensate()
+            if compensate_errors:
+                logger.error("dag_compensate_errors", errors=compensate_errors)
+
         slot_result_map: dict[int, SlotExecutionResult] = {}
         for _layer_idx, items in results.items():
             for r in items:
                 si = r.data.get("slot_index", -1) if r.data else -1
+                booking_ref_val = r.data.get("booking_ref") if r.data else None
+                physical_state_val = r.data.get("physical_state", "pending") if r.data else "pending"
                 slot_result_map[si] = SlotExecutionResult(
                     slot_index=si,
                     tool_name=_tool_name_for_result(r, si),
                     status=r.status,
                     booking_id=r.data.get("booking_id") if r.data else None,
+                    booking_ref=booking_ref_val,
+                    physical_state=physical_state_val,
                     error_code=r.error_code,
                     error_message=r.error_message,
                     elapsed_ms=r.latency_ms,
@@ -188,10 +277,10 @@ class ExecutionEngine(BaseAgent):
         )
 
     # ------------------------------------------------------------------
-    # tool calling
+    # single tool execution (v3 safety pipeline)
     # ------------------------------------------------------------------
 
-    async def _call_tool_with_timeout(
+    async def _execute_single_tool(
         self,
         slot_index: int,
         tool: str,
@@ -199,10 +288,20 @@ class ExecutionEngine(BaseAgent):
         slot: PlanSlot | None = None,
         context: AgentContext | None = None,
     ) -> ToolResult:
+        """执行单个工具调用 —— v3 安全管道入口。
+
+        优先走 ToolAdapter 安全管道（熔断 + 幂等 + Saga + 确认），
+        ToolAdapter 不可用时回退到旧版 gateway / mock 路径。
+        """
+        # ── v3 安全管道路径 ──
+        if self._tool_adapter is not None:
+            return await self._execute_via_adapter(slot_index, tool, meta, slot, context)
+
+        # ── 旧版兼容路径 ──
+        timeout_s = meta.default_timeout_ms / 1000.0
         try:
-            timeout_s = meta.default_timeout_ms / 1000.0
             return await asyncio.wait_for(
-                self._call_tool(slot_index, tool, meta, slot, context),
+                self._call_tool_legacy(slot_index, tool, meta, slot, context),
                 timeout=timeout_s,
             )
         except TimeoutError:
@@ -215,7 +314,121 @@ class ExecutionEngine(BaseAgent):
                 latency_ms=meta.default_timeout_ms,
             )
 
-    async def _call_tool(
+    # ------------------------------------------------------------------
+    # v3 adapter pipeline
+    # ------------------------------------------------------------------
+
+    async def _execute_via_adapter(
+        self,
+        slot_index: int,
+        tool: str,
+        meta: ToolDefinition,
+        slot: PlanSlot | None,
+        context: AgentContext | None,
+    ) -> ToolResult:
+        """v3 安全管道: 熔断 → 幂等 → 调用 → Saga → 确认"""
+        # mypy 类型收窄: caller 保证 tool_adapter 非 None
+        assert self._tool_adapter is not None, "tool_adapter required for v3 path"
+
+        invocation_id = f"{tool}_{slot_index}"
+        t_start = time.perf_counter()
+
+        # 1. 双层熔断检查 (L1 Provider + L2 Tool)
+        provider = self._get_provider_for_tool(tool)
+        if self._cb_registry and self._cb_registry.is_open(tool, provider):
+            return ToolResult(
+                invocation_id=invocation_id,
+                status="failure",
+                data={"slot_index": slot_index, "tool_name": tool},
+                error_code="CIRCUIT_OPEN",
+                error_message=f"熔断器已打开: {tool} (provider={provider})",
+                latency_ms=0,
+            )
+
+        # 2. 构建参数
+        params = self._build_tool_params(slot, context) if slot else {}
+
+        # 3. 幂等键 (仅物理操作)
+        idempotency_key: str | None = None
+        if meta.physical_impact and self._idempotency:
+            idempotency_key = self._build_idempotency_key(context, tool, slot, slot_index)
+
+        # 4. 调用 ToolAdapter (幂等检查内置于 adapter.call)
+        try:
+            result: ToolProviderResult = await self._tool_adapter.call(
+                tool_name=tool,
+                params=params,
+                idempotency_key=idempotency_key,
+            )
+        except Exception as e:
+            logger.exception("tool_adapter_call_failed tool=%s", tool)
+            if self._cb_registry:
+                self._cb_registry.on_failure(tool, provider)
+            return ToolResult(
+                invocation_id=invocation_id,
+                status="failure",
+                data={"slot_index": slot_index, "tool_name": tool},
+                error_code="ADAPTER_ERROR",
+                error_message=str(e),
+                latency_ms=int((time.perf_counter() - t_start) * 1000),
+            )
+
+        latency_ms = int((time.perf_counter() - t_start) * 1000)
+
+        # 5. 熔断器反馈
+        if result.status in ("success", "degraded"):
+            if self._cb_registry:
+                self._cb_registry.on_success(tool, provider)
+        else:
+            if self._cb_registry:
+                self._cb_registry.on_failure(tool, provider)
+
+        # 6. Saga 记录 (物理操作成功)
+        if result.status == "success" and meta.physical_impact and self._saga:
+            step = SagaStep(
+                step_id=str(uuid.uuid4()),
+                tool_name=tool,
+                booking_ref=result.booking_ref,
+                physical_impact=True,
+                params=params,
+                executed_at=datetime.now(UTC),
+            )
+            self._saga.record_step(step)
+
+        # 7. UNKNOWN 异步确认
+        if result.physical_state == PhysicalActionState.UNKNOWN and self._confirmator and result.booking_ref:
+            # 需要 record_id —— 这里用 booking_ref 作为临时标识
+            # 正式集成时替换为 BookingRecord 的实际 ID
+            await self._confirmator.schedule_confirmation(
+                record_id=result.booking_ref,
+                tool_name=tool,
+                booking_ref=result.booking_ref,
+            )
+
+        # 8. 转换 ToolProviderResult → ToolResult
+        return ToolResult(
+            invocation_id=invocation_id,
+            status=self._normalize_provider_status(result.status),
+            data={
+                "slot_index": slot_index,
+                "tool_name": tool,
+                "booking_id": result.booking_ref or result.data.get("booking_id") if result.data else None,
+                "booking_ref": result.booking_ref,
+                "physical_state": result.physical_state.value
+                if isinstance(result.physical_state, PhysicalActionState)
+                else result.physical_state,
+                "provider_data": result.data,
+            },
+            error_code=result.error_code,
+            error_message=result.error_message,
+            latency_ms=latency_ms or result.latency_ms,
+        )
+
+    # ------------------------------------------------------------------
+    # legacy tool calling (backward compat)
+    # ------------------------------------------------------------------
+
+    async def _call_tool_legacy(
         self,
         slot_index: int,
         tool: str,
@@ -254,8 +467,10 @@ class ExecutionEngine(BaseAgent):
             latency_ms=normalized.get("latency_ms", 0),
         )
 
-    def _build_tool_params(self, slot: PlanSlot, context: AgentContext) -> dict[str, object]:
-        intent = self._extract_intent(context)
+    def _build_tool_params(self, slot: PlanSlot | None, context: AgentContext | None) -> dict[str, object]:
+        if slot is None:
+            return {}
+        intent = self._extract_intent(context) if context else None
         guest_count = intent.guest_count if intent else 2
 
         params: dict[str, object] = {
@@ -273,7 +488,7 @@ class ExecutionEngine(BaseAgent):
             params["items"] = [{"name": "signature_dish", "quantity": guest_count}]
         elif slot.action == "check_queue":
             params["guest_count"] = guest_count
-        elif slot.action == "search_poi":
+        elif slot.action == "search_poi" and context:
             params["city"] = slot.poi.city
             params["lat"] = context.lat
             params["lng"] = context.lng
@@ -295,6 +510,49 @@ class ExecutionEngine(BaseAgent):
             latency_ms=int(delay * 1000),
         )
 
+    # ------------------------------------------------------------------
+    # helpers
+    # ------------------------------------------------------------------
+
+    def _get_tool_definition(self, tool_name: str) -> ToolDefinition | None:
+        """获取工具元数据。优先从 ToolAdapter，回退到 TOOL_REGISTRY。"""
+        if self._tool_adapter:
+            meta = self._tool_adapter.get_tool_metadata(tool_name)  # type: ignore[no-any-return]
+            if meta:
+                return meta  # type: ignore[no-any-return]
+        return TOOL_REGISTRY.get(tool_name)
+
+    def _get_provider_for_tool(self, tool_name: str) -> str:
+        """获取工具的 provider 名称（用于熔断器 L1 检查）。"""
+        if self._tool_adapter:
+            cfg = self._tool_adapter.get_config(tool_name)  # type: ignore[no-any-return]
+            if cfg:
+                return cfg.provider  # type: ignore[no-any-return]
+        return ""
+
+    def _build_idempotency_key(
+        self,
+        context: AgentContext | None,
+        tool: str,
+        slot: PlanSlot | None,
+        slot_index: int,
+    ) -> str:
+        """生成幂等键: idempotent:{plan_id}:{tool_name}:{poi_id}:{slot_index}"""
+        plan_id = context.plan_id if context else "unknown"
+        poi_id = slot.poi.id if slot else "unknown"
+        return f"idempotent:{plan_id}:{tool}:{poi_id}:{slot_index}"
+
+    @staticmethod
+    def _normalize_provider_status(status: str) -> str:
+        """将 ToolProviderResult.status 映射到 ToolResult.status"""
+        if status in ("success", "degraded"):
+            return status
+        if status == "unknown":
+            return "degraded"
+        return "failure"
+
+    # ── logging ──
+
     def _log_tool_call(self, r: ToolResult, plan_id: str, layer: int) -> None:
         logger.info(
             "tool_execution",
@@ -305,6 +563,32 @@ class ExecutionEngine(BaseAgent):
             error_code=r.error_code,
             latency_ms=r.latency_ms,
         )
+
+    # ── locking ──
+
+    async def _acquire_lock(self, key: str, plan_id: str) -> bool:
+        """获取 Redis 锁 (SET NX EX 300)。"""
+        assert self._redis is not None, "redis required for locking"
+        try:
+            acquired = await self._redis.set(key, plan_id, nx=True, ex=300)
+            return bool(acquired)
+        except Exception as e:
+            logger.warning("execution_lock_acquire_failed key=%s error=%s", key, e)
+            return True  # Redis 不可用时允许降级
+
+    async def _release_lock(self, key: str | None) -> None:
+        """释放 Redis 锁。"""
+        if not key:
+            return
+        assert self._redis is not None, "redis required for locking"
+        try:
+            await self._redis.delete(key)
+        except Exception as e:
+            logger.warning("execution_lock_release_failed key=%s error=%s", key, e)
+
+    # ------------------------------------------------------------------
+    # state conversion
+    # ------------------------------------------------------------------
 
     def to_execution_state(self, result: ExecutionResult) -> ExecutionState:
         """Convert execution output into the new typed runtime state."""

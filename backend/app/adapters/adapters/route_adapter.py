@@ -28,12 +28,8 @@ class AmapRouteAdapter(BaseAmapAdapter):
         client = get_amap_client()
         mode = params.get("mode", "walking")  # walking / driving / transit
 
-        origin = GeoMapper.format_location(
-            float(params["from_lat"]), float(params["from_lng"])
-        )
-        destination = GeoMapper.format_location(
-            float(params["to_lat"]), float(params["to_lng"])
-        )
+        origin = GeoMapper.format_location(float(params["from_lat"]), float(params["from_lng"]))
+        destination = GeoMapper.format_location(float(params["to_lat"]), float(params["to_lng"]))
 
         resp = await client.get(
             f"/v3/direction/{mode}",

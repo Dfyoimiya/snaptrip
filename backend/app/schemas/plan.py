@@ -115,6 +115,25 @@ class PlanDraft(BaseModel):
     version: int = 1
 
 
+# ===== Single-Agent Plan Draft (LLM Structured Output) =====
+
+
+class AgentPlanStep(BaseModel):
+    """LLM 生成的单个工具调用步骤 —— Structured Output 约束"""
+
+    tool_name: str = Field(description="工具名，必须来自可用工具列表")
+    params: dict[str, object] = Field(default_factory=dict, description="工具参数，必须符合 input_schema")
+    reasoning: str = Field(default="", description="选择此工具的思考过程，用于审计")
+
+
+class AgentPlan(BaseModel):
+    """LLM 生成的完整计划草案 —— ExecutionEngine 的输入"""
+
+    steps: list[AgentPlanStep] = Field(description="按执行顺序排列的工具调用序列")
+    estimated_duration_min: int = Field(default=30, ge=0)
+    confidence: float = Field(default=0.5, ge=0.0, le=1.0, description="LLM 对此计划的置信度")
+
+
 # ===== Agent 5: Execution Engine =====
 
 
@@ -123,6 +142,8 @@ class SlotExecutionResult(BaseModel):
     tool_name: str
     status: str
     booking_id: str | None = None
+    booking_ref: str | None = None
+    physical_state: str = "pending"
     error_code: str | None = None
     error_message: str | None = None
     elapsed_ms: int = 0

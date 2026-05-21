@@ -1,24 +1,18 @@
-"""LangGraph StateGraph —— 竞赛核心 Agent 编排图。
+"""LangGraph StateGraph —— 多 Agent 与 单 Agent 双模式编排图。
 
-定义 9 个 Agent Node + 条件边，替代 plan.py 中的硬编码串行调用。
-接入 PostgresSaver 获得状态持久化与断点恢复能力。
+模式:
+  - 多 Agent (build_plan_graph): 9 节点完整编排
+  - 单 Agent (build_single_agent_graph): 5 节点简化编排
 
-Node 清单:
-  intent_parser → context_loader → memory_manager
-  → retrieval_engine → planning_engine → consensus_resolver
-  → execution_engine → [fallback_engine] → notify_engine
-
-条件边:
-  consensus_resolver ──[confirmed]→ execution_engine
-                     ──[objection]→ planning_engine (增量重规划)
-  execution_engine   ──[full_success]→ notify_engine
-                     ──[partial_success]→ fallback_engine
-                     ──[full_failure]→ END
-  fallback_engine    ──[retry]→ planning_engine
-                     ──[exhausted]→ END
+v3 单 Agent 模式:
+  planner (Intent+Context+Memory+Retrieval+Planning 折叠)
+  → consensus (人机确认)
+  → execution (v3 安全管道: CB + 幂等 + Saga + UNKNOWN 确认)
+  → [fallback] (v3 孤儿取消)
+  → notify
 
 Author: SnapTrip Team
-Date: 2026-05-17
+Date: 2026-05-17 / v3 update 2026-05-21
 """
 
 from __future__ import annotations
@@ -74,8 +68,17 @@ from app.schemas.agent.events import RuntimeEventType
 
 logger = logging.getLogger(__name__)
 
+# ── 共享全局配置 ──
 _gateway = None
 _event_sink: EventSinkPort | None = None
+
+# ── v3 安全管道依赖 ──
+_tool_adapter: Any = None
+_cb_registry: Any = None
+_idempotency: Any = None
+_saga: Any = None
+_confirmator: Any = None
+_redis: Any = None
 
 
 def set_gateway(gateway) -> None:
@@ -86,6 +89,24 @@ def set_gateway(gateway) -> None:
 def set_event_sink(event_sink: EventSinkPort | None) -> None:
     global _event_sink
     _event_sink = event_sink
+
+
+def set_v3_dependencies(
+    tool_adapter: Any = None,
+    cb_registry: Any = None,
+    idempotency: Any = None,
+    saga: Any = None,
+    confirmator: Any = None,
+    redis: Any = None,
+) -> None:
+    """注入 v3 安全管道依赖（单 Agent 模式使用）。"""
+    global _tool_adapter, _cb_registry, _idempotency, _saga, _confirmator, _redis
+    _tool_adapter = tool_adapter
+    _cb_registry = cb_registry
+    _idempotency = idempotency
+    _saga = saga
+    _confirmator = confirmator
+    _redis = redis
 
 
 class PlanState(TypedDict, total=False):
@@ -140,6 +161,11 @@ class PlanState(TypedDict, total=False):
     errors: list[dict[str, Any]]
 
 
+# ====================================================================
+# Event helpers
+# ====================================================================
+
+
 async def _emit_node_event(
     state: PlanState,
     *,
@@ -162,6 +188,11 @@ async def _emit_node_event(
     await _event_sink.emit(event)
 
 
+# ====================================================================
+# Node: intent_parser (多 Agent 模式)
+# ====================================================================
+
+
 async def intent_parser_node(state: PlanState) -> dict[str, Any]:
     await _emit_node_event(state, node_name="intent_parser", event_type="node_started")
     agent = IntentParser()
@@ -180,6 +211,11 @@ async def intent_parser_node(state: PlanState) -> dict[str, Any]:
     }
 
 
+# ====================================================================
+# Node: context_loader (多 Agent 模式)
+# ====================================================================
+
+
 async def context_loader_node(state: PlanState) -> dict[str, Any]:
     await _emit_node_event(state, node_name="context_loader", event_type="node_started")
     agent = ContextLoader()
@@ -196,6 +232,11 @@ async def context_loader_node(state: PlanState) -> dict[str, Any]:
     return {
         "context_profile": enriched,
     }
+
+
+# ====================================================================
+# Node: memory_manager (多 Agent 模式)
+# ====================================================================
 
 
 async def memory_manager_node(state: PlanState) -> dict[str, Any]:
@@ -222,6 +263,11 @@ async def memory_manager_node(state: PlanState) -> dict[str, Any]:
     }
 
 
+# ====================================================================
+# Node: retrieval_engine (多 Agent 模式)
+# ====================================================================
+
+
 async def retrieval_engine_node(state: PlanState) -> dict[str, Any]:
     await _emit_node_event(state, node_name="retrieval_engine", event_type="node_started")
     agent = RetrievalEngine()
@@ -244,6 +290,11 @@ async def retrieval_engine_node(state: PlanState) -> dict[str, Any]:
         "candidate_pool": candidates,
         "status": PlanStatus.PLANNING,
     }
+
+
+# ====================================================================
+# Node: planning_engine (多 Agent 模式)
+# ====================================================================
 
 
 async def planning_engine_node(state: PlanState) -> dict[str, Any]:
@@ -303,7 +354,7 @@ async def planning_engine_node(state: PlanState) -> dict[str, Any]:
         state,
         node_name="planning_engine",
         event_type="node_succeeded",
-        payload={"slot_count": len(draft.get("slots", [])), "total_cost": draft.get("total_cost", 0)},  # type: ignore[union-attr]
+        payload={"slot_count": len(draft.get("slots", [])), "total_cost": draft.get("total_cost", 0)},
     )
     return {
         "draft": draft,
@@ -312,10 +363,14 @@ async def planning_engine_node(state: PlanState) -> dict[str, Any]:
     }
 
 
-async def consensus_resolver_node(state: PlanState) -> dict[str, Any]:
-    draft = state.get("draft", {})
+# ====================================================================
+# Node: consensus_resolver
+# ====================================================================
 
-    # 调用 ConsensusResolver 做预分析
+
+async def consensus_resolver_node(state: PlanState) -> dict[str, Any]:
+    draft = state.get("draft") or {}
+
     agent = ConsensusResolver()
     history = [
         AgentResult(agent_name="planning_engine", status="success", data={"draft": draft}),
@@ -329,7 +384,7 @@ async def consensus_resolver_node(state: PlanState) -> dict[str, Any]:
         node_name="consensus_resolver",
         event_type="interrupt_requested",
         payload={
-            "slot_count": len(draft.get("slots", [])),  # type: ignore[union-attr]
+            "slot_count": len(draft.get("slots", [])),
             "suggested_decision": resolver_result.data.get("decision"),
             "rationale": rationale,
         },
@@ -361,9 +416,25 @@ def route_consensus(state: PlanState) -> Literal["execution_engine", "planning_e
     return route_from_confirmation(state)
 
 
+# ====================================================================
+# Node: execution_engine (v3 增强)
+# ====================================================================
+
+
 async def execution_engine_node(state: PlanState) -> dict[str, Any]:
     await _emit_node_event(state, node_name="execution_engine", event_type="node_started")
-    agent = ExecutionEngine(gateway=_gateway)
+
+    # v3 安全管道: 优先使用 ToolAdapter，回退到旧版 Gateway
+    agent = ExecutionEngine(
+        tool_adapter=_tool_adapter,
+        circuit_breaker_registry=_cb_registry,
+        idempotency=_idempotency,
+        saga=_saga,
+        confirmator=_confirmator,
+        redis_client=_redis,
+        gateway=_gateway,
+    )
+
     history = [
         AgentResult(agent_name="planning_engine", status="success", data={"draft": state.get("draft", {})}),
     ]
@@ -394,9 +465,20 @@ def route_execution(state: PlanState) -> Literal["notify_engine", "fallback_engi
     return "end"
 
 
+# ====================================================================
+# Node: fallback_engine (v3 增强)
+# ====================================================================
+
+
 async def fallback_engine_node(state: PlanState) -> dict[str, Any]:
     await _emit_node_event(state, node_name="fallback_engine", event_type="node_started")
-    agent = FallbackEngine()
+
+    # v3 孤儿取消: 注入 ToolAdapter + Saga
+    agent = FallbackEngine(
+        tool_adapter=_tool_adapter,
+        saga=_saga,
+    )
+
     history = [
         AgentResult(agent_name="planning_engine", status="success", data={"draft": state.get("draft", {})}),
         AgentResult(agent_name="execution_engine", status="success", data={"execution": state.get("execution", {})}),
@@ -433,6 +515,11 @@ def route_fallback(state: PlanState) -> Literal["planning_engine", "end"]:
     return "end"
 
 
+# ====================================================================
+# Node: notify_engine
+# ====================================================================
+
+
 async def notify_engine_node(state: PlanState) -> dict[str, Any]:
     await _emit_node_event(state, node_name="notify_engine", event_type="node_started")
     agent = NotifyEngine()
@@ -462,7 +549,19 @@ async def notify_engine_node(state: PlanState) -> dict[str, Any]:
     }
 
 
+# ====================================================================
+# Graph: 9 节点多 Agent 模式 (向后兼容)
+# ====================================================================
+
+
 def build_plan_graph(checkpointer: BaseCheckpointSaver | None = None) -> CompiledStateGraph:
+    """构建 9 节点多 Agent 编排图。
+
+    Node 清单:
+      intent_parser → context_loader → memory_manager
+      → retrieval_engine → planning_engine → consensus_resolver
+      → execution_engine → [fallback_engine] → notify_engine
+    """
     graph = StateGraph(PlanState)
 
     graph.add_node("intent_parser", intent_parser_node)
@@ -516,4 +615,260 @@ def build_plan_graph(checkpointer: BaseCheckpointSaver | None = None) -> Compile
     return graph.compile(checkpointer=checkpointer or MemorySaver())
 
 
+# ====================================================================
+# Graph: 5 节点单 Agent 模式 (v3)
+# ====================================================================
+
+# ── Planner Node (折叠 intent+context+memory+retrieval+planning) ──
+
+
+async def planner_node(state: PlanState) -> dict[str, Any]:
+    """单 Agent 规划节点 —— 折叠多 Agent 的前 5 个节点。
+
+    流程:
+      1. IntentParser → 意图解析
+      2. ContextLoader → 上下文加载
+      3. MemoryManager → 记忆聚合
+      4. RetrievalEngine → 候选召回
+      5. PlanningEngine → 计划生成
+
+    合并为一个节点以减少状态传递开销和序列化成本。
+    """
+    await _emit_node_event(state, node_name="planner", event_type="node_started")
+
+    # ── 检查是否有 fallback 修订或用户变更请求 ──
+    revised_draft = maybe_apply_confirmation_replan(state)
+    if revised_draft is not None:
+        await _emit_node_event(
+            state,
+            node_name="planner",
+            event_type="node_succeeded",
+            payload={"slot_count": len(revised_draft.get("slots", [])), "source": "confirmation_replan"},
+        )
+        return {
+            "draft": revised_draft,
+            "repair": build_repair_state(
+                draft=state.get("draft"),
+                revision={"plan": revised_draft, "diff_patch": []},
+                locked_slots=(state.get("confirmation") or {}).get("locked_slots", []),
+                retry_count=state.get("fallback_count", 0),
+            ),
+            "confirmation": pending_confirmation(),
+            "status": PlanStatus.CONFIRMING,
+        }
+
+    repair = state.get("repair") or {}
+    revised_from_fallback = repair.get("revised_draft")
+    if revised_from_fallback:
+        revised_dump = (
+            revised_from_fallback.model_dump()
+            if hasattr(revised_from_fallback, "model_dump")
+            else revised_from_fallback
+        )
+        await _emit_node_event(
+            state,
+            node_name="planner",
+            event_type="node_succeeded",
+            payload={"slot_count": len(revised_dump.get("slots", [])), "source": "fallback_repair"},
+        )
+        return {
+            "draft": revised_dump,
+            "confirmation": pending_confirmation(),
+            "status": PlanStatus.CONFIRMING,
+        }
+
+    # ── 折叠执行 5 个 Agent ──
+    ctx = _context_from_state(state)
+
+    # 1. Intent Parser
+    intent_agent = IntentParser()
+    intent_result = await intent_agent.execute(ctx)
+    intent_data = intent_result.data.get("intent", {})
+    logger.info("planner_collapsed intent_parser done city=%s", intent_data.get("city"))
+
+    # 2. Context Loader
+    ctx_loader = ContextLoader()
+    ctx_result = await ctx_loader.execute(_context_from_state(state, [_ar("intent_parser", {"intent": intent_data})]))
+    enriched = ctx_result.data.get("enriched_intent", {})
+    logger.info("planner_collapsed context_loader done")
+
+    # 3. Memory Manager
+    mem_agent = MemoryManager()
+    mem_result = await mem_agent.execute(
+        _context_from_state(
+            state,
+            [
+                _ar("intent_parser", {"intent": intent_data}),
+                _ar("context_loader", {"context_profile": enriched}),
+            ],
+        )
+    )
+    enhanced_enriched = mem_result.data.get("enriched_intent", enriched)
+    memory_features = _build_memory_features(enhanced_enriched)
+    logger.info("planner_collapsed memory_manager done scene=%s", memory_features.get("dominant_scene"))
+
+    # 4. Retrieval Engine
+    ret_agent = RetrievalEngine()
+    ret_result = await ret_agent.execute(
+        _context_from_state(
+            state,
+            [
+                _ar("intent_parser", {"intent": intent_data}),
+                _ar("context_loader", {"context_profile": enhanced_enriched}),
+                _ar("memory_manager", {"context_profile": enhanced_enriched}),
+            ],
+        )
+    )
+    candidates = ret_result.data.get("candidate_pool", {})
+    logger.info("planner_collapsed retrieval done count=%d", len(candidates.get("candidates", [])))
+
+    # 5. Planning Engine
+    plan_agent = PlanningEngine()
+    plan_result = await plan_agent.execute(
+        _context_from_state(
+            state,
+            [
+                _ar("intent_parser", {"intent": intent_data}),
+                _ar("context_loader", {"enriched_intent": enhanced_enriched}),
+                _ar("memory_manager", {"enriched_intent": enhanced_enriched}),
+                _ar("retrieval_engine", {"candidate_pool": candidates}),
+            ],
+        )
+    )
+    draft = plan_result.data.get("draft", {})
+    logger.info("planner_collapsed planning done slots=%d", len(draft.get("slots", [])))
+
+    await _emit_node_event(
+        state,
+        node_name="planner",
+        event_type="node_succeeded",
+        payload={"slot_count": len(draft.get("slots", [])), "total_cost": draft.get("total_cost", 0)},
+    )
+
+    return {
+        "intent": intent_data,
+        "context_profile": enhanced_enriched,
+        "memory_features": memory_features,
+        "candidate_pool": candidates,
+        "draft": draft,
+        "confirmation": pending_confirmation(),
+        "status": PlanStatus.CONFIRMING,
+    }
+
+
+async def consensus_node(state: PlanState) -> dict[str, Any]:
+    """单 Agent 模式的 consensus 节点（薄封装）。"""
+    return await consensus_resolver_node(state)
+
+
+def route_single_consensus(state: PlanState) -> Literal["execution", "planner", "end"]:
+    """单 Agent 模式 consensus 路由。"""
+    result = route_from_confirmation(state)
+    # 映射旧节点名 → 新节点名
+    _map: dict[str, Literal["execution", "planner", "end"]] = {
+        "execution_engine": "execution",
+        "planning_engine": "planner",
+        "end": "end",
+    }
+    return _map[result]
+
+
+async def execution_node(state: PlanState) -> dict[str, Any]:
+    """单 Agent 模式的 execution 节点（薄封装）。"""
+    return await execution_engine_node(state)
+
+
+def route_single_execution(state: PlanState) -> Literal["notify", "fallback", "end"]:
+    """单 Agent 模式 execution 路由。"""
+    result = route_execution(state)
+    _map: dict[str, Literal["notify", "fallback", "end"]] = {
+        "notify_engine": "notify",
+        "fallback_engine": "fallback",
+        "end": "end",
+    }
+    return _map[result]
+
+
+async def fallback_node(state: PlanState) -> dict[str, Any]:
+    """单 Agent 模式的 fallback 节点（薄封装）。"""
+    return await fallback_engine_node(state)
+
+
+def route_single_fallback(state: PlanState) -> Literal["planner", "end"]:
+    """单 Agent 模式 fallback 路由。"""
+    result = route_fallback(state)
+    _map: dict[str, Literal["planner", "end"]] = {
+        "planning_engine": "planner",
+        "end": "end",
+    }
+    return _map[result]
+
+
+async def notify_node(state: PlanState) -> dict[str, Any]:
+    """单 Agent 模式的 notify 节点（薄封装）。"""
+    return await notify_engine_node(state)
+
+
+def build_single_agent_graph(checkpointer: BaseCheckpointSaver | None = None) -> CompiledStateGraph:
+    """构建 5 节点单 Agent 编排图 (v3)。
+
+    Node 清单:
+      planner → consensus → execution → [fallback] → notify
+
+    相比 9 节点模式:
+      - intent_parser + context_loader + memory_manager + retrieval_engine + planning_engine
+        → 折叠为单个 planner 节点（减少状态传递和序列化开销）
+      - consensus + execution + fallback + notify 保持不变
+      - execution 节点自动使用 v3 安全管道（如果通过 set_v3_dependencies 注入了依赖）
+    """
+    graph = StateGraph(PlanState)
+
+    graph.add_node("planner", planner_node)
+    graph.add_node("consensus", consensus_node)
+    graph.add_node("execution", execution_node)
+    graph.add_node("fallback", fallback_node)
+    graph.add_node("notify", notify_node)
+
+    graph.set_entry_point("planner")
+    graph.add_edge("planner", "consensus")
+
+    graph.add_conditional_edges(
+        "consensus",
+        route_single_consensus,
+        {
+            "execution": "execution",
+            "planner": "planner",
+            "end": END,
+        },
+    )
+
+    graph.add_conditional_edges(
+        "execution",
+        route_single_execution,
+        {
+            "notify": "notify",
+            "fallback": "fallback",
+            "end": END,
+        },
+    )
+
+    graph.add_conditional_edges(
+        "fallback",
+        route_single_fallback,
+        {
+            "planner": "planner",
+            "end": END,
+        },
+    )
+
+    graph.add_edge("notify", END)
+
+    return graph.compile(checkpointer=checkpointer or MemorySaver())
+
+
+# ====================================================================
+# Module-level graph instances
+# ====================================================================
+
 plan_graph = build_plan_graph()
+single_agent_graph = build_single_agent_graph()

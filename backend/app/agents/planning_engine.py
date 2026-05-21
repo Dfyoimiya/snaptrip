@@ -186,9 +186,11 @@ class PlanningEngine(BaseAgent):
                     "skill_prompt": skill_prompt,
                 },
             )
+            from app.core.config import settings
+
             parsed = await self._get_llm().chat_json(
                 prompt=prompt,
-                model_alias="deepseek",
+                model_alias=settings.LLM_DEFAULT_MODEL,
                 timeout_s=PLANNING_PHASE2_TIMEOUT_S,
                 temperature=0.5,
                 max_tokens=1024,
@@ -290,9 +292,9 @@ class PlanningEngine(BaseAgent):
 
     def _get_llm(self) -> LLMPort:
         if self._llm is None:
-            from app.adapters.llm.openrouter import OpenRouterLLMAdapter
+            from app.adapters.llm.llm_adapter import LLMAdapter
 
-            self._llm = OpenRouterLLMAdapter()
+            self._llm = LLMAdapter()
         return self._llm
 
     def _get_prompt_renderer(self) -> PromptPort:

@@ -1,4 +1,4 @@
-"""Integration test fixtures —— mock LLM gateway for fast test execution.
+"""Integration test fixtures —— mock LLM adapter for fast test execution.
 
 LLM calls (intent_parser, planning_engine Phase 2) are mocked to fail immediately,
 triggering fast keyword/template fallback paths.
@@ -8,24 +8,25 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.llm_gateway import LLMError
+from app.core.exceptions import LLMError
 
 
 @pytest.fixture(autouse=True)
-def _mock_llm_gateway(monkeypatch):
-    """Mock LLMGateway.chat to raise immediately → fast keyword/sort fallbacks."""
+def _mock_llm_adapter(monkeypatch):
+    """Mock LLMAdapter.chat_json to raise immediately → fast keyword/sort fallbacks."""
 
     async def _fast_fail(
         self,
-        messages,
-        model_alias="deepseek",
-        max_tokens=1024,
-        temperature=0.7,
-        timeout=30.0,
-    ):
-        raise LLMError("LLM mocked for fast integration testing", status_code=503)
+        *,
+        prompt: str,
+        model_alias: str = "",
+        timeout_s: float = 30.0,
+        temperature: float = 0.7,
+        max_tokens: int = 1024,
+    ) -> dict:
+        raise LLMError("LLM mocked for fast integration testing")
 
     monkeypatch.setattr(
-        "app.services.llm_gateway.LLMGateway.chat",
+        "app.adapters.llm.llm_adapter.LLMAdapter.chat_json",
         _fast_fail,
     )

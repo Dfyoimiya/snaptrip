@@ -109,21 +109,36 @@ class TestSaga:
 
     @pytest.mark.asyncio
     async def test_compensate_reverse_order(self):
-        saga = SagaCoordinator()
+        """v3 Saga: ToolCancelPort 逆序补偿验证。"""
+        from datetime import datetime, timezone
+
+        from app.schemas.tool_provider import SagaStep, ToolProviderResult
+
         called: list[str] = []
 
-        async def comp(_tool: str, _params: dict) -> None:
-            called.append(_tool)
+        class _MockCancelPort:
+            async def cancel(self, tool_name: str, booking_ref: str) -> ToolProviderResult:
+                called.append(tool_name)
+                return ToolProviderResult(status="success", booking_ref=booking_ref)
 
-        saga.register_compensation("a", comp)
-        saga.register_compensation("b", comp)
+        saga = SagaCoordinator(cancel_port=_MockCancelPort())
 
-        inv_a = ToolInvocation(tool_name="a")
-        inv_b = ToolInvocation(tool_name="b")
-        saga.record_step(inv_a, ToolResult(invocation_id=inv_a.invocation_id))
-        saga.record_step(inv_b, ToolResult(invocation_id=inv_b.invocation_id))
+        step_a = SagaStep(
+            step_id="s1", tool_name="a", booking_ref="bk_a",
+            physical_impact=True, params={},
+            executed_at=datetime.now(timezone.utc),
+        )
+        step_b = SagaStep(
+            step_id="s2", tool_name="b", booking_ref="bk_b",
+            physical_impact=True, params={},
+            executed_at=datetime.now(timezone.utc),
+        )
 
-        await saga.compensate()
+        saga.record_step(step_a)
+        saga.record_step(step_b)
+
+        errors = await saga.compensate()
+        assert errors == []
         assert called == ["b", "a"]  # 逆序
 
 

@@ -105,9 +105,11 @@ class IntentParser(BaseAgent):
                     "current_time": datetime.now().isoformat(),
                 },
             )
+            from app.core.config import settings
+
             parsed = await self._get_llm().chat_json(
                 prompt=prompt,
-                model_alias="deepseek",
+                model_alias=settings.LLM_DEFAULT_MODEL,
                 timeout_s=INTENT_TIMEOUT_S,
                 temperature=0.3,
                 max_tokens=512,
@@ -136,9 +138,9 @@ class IntentParser(BaseAgent):
 
     def _get_llm(self) -> LLMPort:
         if self._llm is None:
-            from app.adapters.llm.openrouter import OpenRouterLLMAdapter
+            from app.adapters.llm.llm_adapter import LLMAdapter
 
-            self._llm = OpenRouterLLMAdapter()
+            self._llm = LLMAdapter()
         return self._llm
 
     def _get_prompt_renderer(self) -> PromptPort:
