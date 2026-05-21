@@ -1,35 +1,38 @@
-"""Plan API —— 对接 LangGraph 编排引擎。
+"""Plan API —— 异步计划服务入口（Phase 3a）。
 
-提供活动计划创建、查询、确认、流式推送的 RESTful 接口。
+提供活动计划提交、查询、确认、流式推送的 RESTful 接口。
 
 端点:
-  POST /api/v1/plan/create      —— 创建计划，LangGraph StateGraph 驱动全链路
-  POST /api/v1/plan/{plan_id}/confirm —— 人机协同：确认/反对计划草案
-  GET  /api/v1/plan/{plan_id}   —— 获取已完成计划详情
-  GET  /api/v1/plan/{plan_id}/stream —— SSE 流式推送 Agent 思考过程
+  POST /api/v1/plan/create      —— 提交计划 → Celery 异步执行 → 202
+  POST /api/v1/plan/{plan_id}/confirm —— 人机协同确认 → Celery 异步恢复 → 202
+  GET  /api/v1/plan/{plan_id}   —— 获取计划详情（从 checkpoint 读取）
+  GET  /api/v1/plan/{plan_id}/status —— 查询 plan_run 执行状态
+  GET  /api/v1/plan/{plan_id}/stream —— SSE 流式推送（从 RuntimeEventStore 读取）
 
-与旧版差异:
-  - 不再硬编码 9 个 Agent 的串行调用
-  - 改为 plan_graph.ainvoke() / plan_graph.astream_events()
-  - 异常分支 (consensus/execution/fallback) 由 conditional_edges 驱动
-  - FSM 状态迁移完全在图内完成
-  - consensus_resolver 使用 LangGraph interrupt() 实现人机协同
+Phase 3a 变更:
+  - POST /create 和 /confirm 不再同步执行 graph，改为 Celery task 派发
+  - 新增 GET /status 查询 plan_runs 状态
+  - GET /{plan_id} 和 /stream 仍从 checkpoint/event store 读取（跨进程兼容）
 
 Author: SnapTrip Team
-Date: 2026-05-13 / Refactored 2026-05-17 / Interrupt 2026-05-18
+Date: 2026-05-13 / Phase 2 2026-05-21 / Phase 3a 2026-05-21
 """
 
 from __future__ import annotations
 
 from fastapi import APIRouter, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from app.adapters.persistence.plan_run_repository import SQLPlanRunRepository
 from app.agent_runtime import GRAPH_VERSION, build_initial_runtime_state
 from app.agent_runtime.response_state import state_to_response
 from app.api.v1.session import stream_plan
 from app.core.response import APIServiceError, success
 from app.schemas.plan import PlanCreateRequest, PlanResponse
-from app.services.agent_service import AgentService, InterruptError
+from app.services.agent_service import AgentService
+from app.tasks.plan_tasks import confirm_plan as celery_confirm
+from app.tasks.plan_tasks import submit_plan as celery_submit
 
 router = APIRouter(prefix="/api/v1/plan", tags=["plan"])
 
@@ -73,17 +76,27 @@ def _get_agent_service(request: Request) -> AgentService:
 
 @router.post("/create")
 async def create_plan(req: PlanCreateRequest, request: Request):
-    service = _get_agent_service(request)
     initial_state = _build_initial_state(req)
     plan_id = initial_state["plan_id"]
-    try:
-        final_state = await service.invoke(initial_state, plan_id)
-    except InterruptError:
-        state = await service.get_state(plan_id)
-        if state:
-            return success(data=_state_to_response(state, req.user_input).model_dump())
-        raise APIServiceError(code=2001, message="graph interrupted but state unavailable", status_code=500) from None
-    return success(data=_state_to_response(final_state, req.user_input).model_dump())
+
+    # 写入 plan_run 审计记录（status=queued）
+    repo = SQLPlanRunRepository()
+    await repo.insert_run(
+        run_id=plan_id,
+        plan_id=plan_id,
+        thread_id=initial_state.get("session_id", plan_id),
+        graph_version=GRAPH_VERSION,
+        request_payload=req.model_dump(mode="json"),
+        final_status="queued",
+    )
+
+    # 派发 Celery 异步任务
+    celery_submit.delay(initial_state, plan_id)
+
+    return JSONResponse(
+        content=success(data={"plan_id": plan_id, "status": "queued"}),
+        status_code=202,
+    )
 
 
 @router.post("/{plan_id}/confirm")
@@ -92,14 +105,14 @@ async def confirm_plan(plan_id: str, body: ConfirmRequest, request: Request):
     state = await service.get_state(plan_id)
     if state is None:
         raise APIServiceError(code=1001, message="plan not found", status_code=404)
-    try:
-        final_state = await service.resume(body.model_dump(), plan_id)
-    except InterruptError:
-        state = await service.get_state(plan_id)
-        if state:
-            return success(data=_state_to_response(state, "").model_dump())
-        raise APIServiceError(code=2001, message="graph interrupted but state unavailable", status_code=500) from None
-    return success(data=_state_to_response(final_state, "").model_dump())
+
+    # 派发 Celery 异步恢复任务
+    celery_confirm.delay(body.model_dump(), plan_id)
+
+    return JSONResponse(
+        content=success(data={"plan_id": plan_id, "status": "accepted"}),
+        status_code=202,
+    )
 
 
 @router.get("/{plan_id}")
@@ -109,6 +122,15 @@ async def get_plan(plan_id: str, request: Request):
     if state is None:
         raise APIServiceError(code=1001, message="plan not found", status_code=404)
     return success(data=_state_to_response(state, "").model_dump())
+
+
+@router.get("/{plan_id}/status")
+async def get_plan_status(plan_id: str, request: Request):
+    repo = SQLPlanRunRepository()
+    run = await repo.get_by_plan_id(plan_id)
+    if run is None:
+        raise APIServiceError(code=1001, message="plan run not found", status_code=404)
+    return success(data=run)
 
 
 @router.get("/{plan_id}/stream")

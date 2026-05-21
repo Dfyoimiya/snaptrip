@@ -2,7 +2,7 @@
 
 封装 CompiledStateGraph 的 ainvoke/aget_state，隐藏所有 LangGraph 类型
 （Command, GraphInterrupt, StateSnapshot），对外只暴露纯 dict 和
-InterruptedException。
+InterruptError。
 
 用于 Phase 2：API 路由解耦 LangGraph，为 Gateway 独立部署做准备。
 
@@ -24,7 +24,7 @@ class InterruptError(Exception):
 class AgentService:
     """封装编译后的 LangGraph StateGraph。
 
-    隐藏所有 langgraph 类型，调用方只看到纯 dict 和 InterruptedException。
+    隐藏所有 langgraph 类型，调用方只看到纯 dict 和 InterruptError。
     """
 
     def __init__(self, graph: CompiledStateGraph) -> None:
@@ -45,7 +45,7 @@ class AgentService:
             最终状态 dict
 
         Raises:
-            InterruptedException: 图在 consensus 节点暂停（人机协同）
+            InterruptError: 图在 consensus 节点暂停（人机协同）
         """
         config = self._config(plan_id)
         try:
@@ -64,7 +64,7 @@ class AgentService:
             最终状态 dict
 
         Raises:
-            InterruptedException: 图再次暂停
+            InterruptError: 图再次暂停
         """
         cmd: Command = Command(resume=resume_data)
         config = self._config(plan_id)
