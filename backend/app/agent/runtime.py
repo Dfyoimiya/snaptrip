@@ -41,6 +41,9 @@ class AgentRuntime:
     confirmator: Any = None
     redis: Any = None
 
+    # ── Marketplace API Client (Phase 4) ──
+    marketplace_client: Any = None
+
     # ── Repository 端口 ──
     user_profile_repo: UserProfileRepositoryPort | None = None
     plan_repo: PlanRepositoryPort | None = None

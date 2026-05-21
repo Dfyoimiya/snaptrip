@@ -23,6 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.adapters.persistence.runtime_event_repository import SQLRuntimeEventRepository
+from app.adapters.tools.marketplace_client import MarketplaceClient
 from app.agent.runtime import AgentRuntime
 from app.agent_runtime import RuntimeEventStore, build_plan_graph
 from app.api.v1.auth import router as auth_router
@@ -66,10 +67,12 @@ async def lifespan(app: FastAPI):
     app.state.mock_gateway = MockAPIGateway()
     app.state.runtime_events = RuntimeEventStore(repository=SQLRuntimeEventRepository())
     app.state.redis_pool = get_redis_pool()
+    app.state.marketplace_client = MarketplaceClient(mode="mock")
 
     runtime = AgentRuntime(
         gateway=app.state.mock_gateway,
         event_sink=app.state.runtime_events,
+        marketplace_client=app.state.marketplace_client,
     )
     app.state.plan_graph = build_plan_graph(runtime=runtime)
 

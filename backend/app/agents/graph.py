@@ -115,6 +115,10 @@ def _resolve_redis():
     return _runtime.redis if _runtime else _redis
 
 
+def _resolve_marketplace_client():
+    return _runtime.marketplace_client if _runtime else None
+
+
 def set_gateway(gateway) -> None:
     """[deprecated] 使用 AgentRuntime.gateway 替代。"""
     global _gateway
