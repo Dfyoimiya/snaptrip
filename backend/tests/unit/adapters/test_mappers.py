@@ -7,8 +7,8 @@
   - 边界情况: 空字段 / 错误数据
 """
 
-from app.adapters.mappers.poi_mapper import PoiMapper, _parse_location, _map_typecode_to_poi_type
-from app.adapters.schemas.poi import AmapPoiBizExt, AmapPoiItem
+from marketplace.app.adapters.amap.poi_mapper import PoiMapper, _map_typecode_to_poi_type, _parse_location
+from marketplace.app.adapters.amap.schemas.poi import AmapPoiBizExt, AmapPoiItem
 
 
 class TestLocationParsing:
@@ -145,24 +145,24 @@ class TestPoiMapper:
 
 class TestGeoMapper:
     def test_normal_parse(self):
-        from app.adapters.mappers.geo_mapper import GeoMapper
+        from marketplace.app.adapters.amap.geo_mapper import GeoMapper
         lat, lng = GeoMapper.parse_location("116.397,39.908")
         assert lat == 39.908
         assert lng == 116.397
 
     def test_format_location(self):
-        from app.adapters.mappers.geo_mapper import GeoMapper
+        from marketplace.app.adapters.amap.geo_mapper import GeoMapper
         assert GeoMapper.format_location(39.908, 116.397) == "116.397000,39.908000"
 
     def test_valid_coordinates(self):
-        from app.adapters.mappers.geo_mapper import GeoMapper
+        from marketplace.app.adapters.amap.geo_mapper import GeoMapper
         assert GeoMapper.is_valid_coordinate(39.9, 116.4) is True
         assert GeoMapper.is_valid_coordinate(91.0, 0.0) is False
         assert GeoMapper.is_valid_coordinate(0.0, 181.0) is False
         assert GeoMapper.is_valid_coordinate(-90.0, -180.0) is True
 
     def test_build_origin_dest(self):
-        from app.adapters.mappers.geo_mapper import GeoMapper
+        from marketplace.app.adapters.amap.geo_mapper import GeoMapper
         origin, dest = GeoMapper.build_origin_dest(39.908, 116.397, 39.92, 116.40)
         assert origin == "116.397000,39.908000"
         assert dest == "116.400000,39.920000"
@@ -170,8 +170,8 @@ class TestGeoMapper:
 
 class TestRouteMapper:
     def test_normal_conversion(self):
-        from app.adapters.mappers.route_mapper import RouteMapper
-        from app.adapters.schemas.route import AmapPath, AmapStep
+        from marketplace.app.adapters.amap.route_mapper import RouteMapper
+        from marketplace.app.adapters.amap.schemas.route import AmapPath, AmapStep
 
         path = AmapPath(
             distance="1500",
@@ -207,8 +207,8 @@ class TestRouteMapper:
         assert result["polyline"] == "116.397,39.908;116.398,39.909;116.398,39.909;116.40,39.92"
 
     def test_empty_path(self):
-        from app.adapters.mappers.route_mapper import RouteMapper
-        from app.adapters.schemas.route import AmapPath
+        from marketplace.app.adapters.amap.route_mapper import RouteMapper
+        from marketplace.app.adapters.amap.schemas.route import AmapPath
 
         path = AmapPath()
         result = RouteMapper.to_internal(path)
@@ -218,8 +218,8 @@ class TestRouteMapper:
         assert result["step_count"] == 0
 
     def test_route_summary_picks_shortest(self):
-        from app.adapters.mappers.route_mapper import RouteMapper
-        from app.adapters.schemas.route import AmapPath
+        from marketplace.app.adapters.amap.route_mapper import RouteMapper
+        from marketplace.app.adapters.amap.schemas.route import AmapPath
 
         paths = [
             AmapPath(distance="2000", duration="1200"),
@@ -232,7 +232,7 @@ class TestRouteMapper:
         assert summary["duration_min"] == 10
 
     def test_route_summary_empty(self):
-        from app.adapters.mappers.route_mapper import RouteMapper
+        from marketplace.app.adapters.amap.route_mapper import RouteMapper
 
         summary = RouteMapper.to_route_summary([])
         assert summary["distance_km"] == 0

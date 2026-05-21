@@ -6,7 +6,7 @@ Date: 2026-05-17 / Refactored 2026-05-20
 
 from __future__ import annotations
 
-from app.core.exceptions import LLMError, LLMRateLimitError, LLMTimeoutError
+from shared.core.exceptions import LLMError, LLMRateLimitError, LLMTimeoutError
 
 
 class TestLLMErrors:

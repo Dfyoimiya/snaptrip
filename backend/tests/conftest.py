@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from app.schemas.plan import (
+from shared.schemas.plan import (
     POI,
     IntentSchema,
     PlanDraft,

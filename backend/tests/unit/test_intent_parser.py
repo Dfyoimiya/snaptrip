@@ -2,8 +2,8 @@
 
 import pytest
 
-from app.agents.intent_parser import IntentParser
-from app.agents.protocol import AgentContext
+from agent_worker.app.agent.engines.intent_parser import IntentParser
+from agent_worker.app.agent.protocol import AgentContext
 
 
 @pytest.mark.asyncio

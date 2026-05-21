@@ -17,15 +17,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.main import app
+from marketplace.app.main import app
 
 
 @pytest.fixture
 def mock_celery():
     """替换 Celery task 调用为本地 mock。"""
     with (
-        patch("app.api.v1.plan.celery_submit") as mock_submit,
-        patch("app.api.v1.plan.celery_confirm") as mock_confirm,
+        patch("marketplace.app.api.v1.plan.celery_submit") as mock_submit,
+        patch("marketplace.app.api.v1.plan.celery_confirm") as mock_confirm,
     ):
         mock_submit.delay = MagicMock()
         mock_confirm.delay = MagicMock()
@@ -48,7 +48,7 @@ class TestCreatePlanAsync:
     async def test_create_returns_202(self, mock_celery, async_client):
         """POST /create → 202 Accepted + plan_id + status=queued。"""
         with patch(
-            "app.api.v1.plan.SQLPlanRunRepository"
+            "marketplace.app.api.v1.plan.SQLPlanRunRepository"
         ) as mock_repo_cls:
             mock_repo = mock_repo_cls.return_value
             mock_repo.insert_run = AsyncMock()
@@ -81,7 +81,7 @@ class TestConfirmPlanAsync:
         plan_id = "550e8400-e29b-41d4-a716-446655440000"
 
         with patch(
-            "app.api.v1.plan._get_agent_service"
+            "marketplace.app.api.v1.plan._get_agent_service"
         ) as mock_svc_fn:
             mock_svc = mock_svc_fn.return_value
             mock_svc.get_state = AsyncMock(return_value={"status": "awaiting_confirmation"})
@@ -108,7 +108,7 @@ class TestGetPlanStatus:
         plan_id = "550e8400-e29b-41d4-a716-446655440000"
 
         with patch(
-            "app.api.v1.plan.SQLPlanRunRepository"
+            "marketplace.app.api.v1.plan.SQLPlanRunRepository"
         ) as mock_repo_cls:
             mock_repo = mock_repo_cls.return_value
             mock_repo.get_by_plan_id = AsyncMock(
@@ -136,7 +136,7 @@ class TestGetPlanUnchanged:
         plan_id = "550e8400-e29b-41d4-a716-446655440000"
 
         with patch(
-            "app.api.v1.plan._get_agent_service"
+            "marketplace.app.api.v1.plan._get_agent_service"
         ) as mock_svc_fn:
             mock_svc = mock_svc_fn.return_value
             mock_svc.get_state = AsyncMock(return_value=None)

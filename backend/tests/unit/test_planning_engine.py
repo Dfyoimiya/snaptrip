@@ -4,9 +4,9 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from app.agents.planning_engine import PlanningEngine
-from app.data.seed_pois import SEED_POIS
-from app.schemas.plan import POI, IntentSchema
+from agent_worker.app.agent.engines.planning_engine import PlanningEngine
+from marketplace.app.data.seed_pois import SEED_POIS
+from shared.schemas.plan import POI, IntentSchema
 
 
 @pytest.fixture

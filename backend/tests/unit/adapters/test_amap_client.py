@@ -10,11 +10,11 @@
 使用 respx 隔离 HTTP, 无需真实高德 API Key。
 """
 
-import pytest
 import httpx
+import pytest
 
-from app.adapters.amap_client import AmapApiClient
-from app.core.exceptions import AdapterTimeoutError, AmapApiError, AmapAuthError, AmapRateLimitError
+from marketplace.app.adapters.amap.client import AmapApiClient
+from shared.core.exceptions import AdapterTimeoutError, AmapApiError, AmapAuthError, AmapRateLimitError
 
 
 class TestAmapApiClientSigning:
@@ -139,8 +139,8 @@ class TestAmapApiClientSuccess:
 
     @pytest.mark.anyio
     async def test_get_amap_client_singleton(self):
-        from app.adapters.amap_client import get_amap_client, _amap_client
-        import app.adapters.amap_client as mod
+        import marketplace.app.adapters.amap.client as mod
+        from marketplace.app.adapters.amap.client import get_amap_client
         mod._amap_client = None
         client1 = get_amap_client()
         client2 = get_amap_client()

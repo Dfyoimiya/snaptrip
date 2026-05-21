@@ -18,7 +18,7 @@ import pytest
 from langgraph.errors import GraphInterrupt
 from langgraph.types import Command
 
-from app.services.agent_service import AgentService, InterruptError
+from agent_worker.app.agent.services.agent import AgentService, InterruptError
 
 
 def _mock_state_snapshot(values: dict | None):

@@ -11,20 +11,20 @@ import uuid
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.main import app
+from marketplace.app.main import app
 
 
 @pytest.fixture(scope="module")
 async def e2e_client():
     # Ensure app.state is fully initialized (lifespan may not have run in test)
-    from app.adapters.persistence.runtime_event_repository import SQLRuntimeEventRepository
-    from app.agent_runtime import RuntimeEventStore
+    from agent_worker.app.agent.adapters.persistence.runtime_event import SQLRuntimeEventRepository
+    from agent_worker.app.agent.events.store import RuntimeEventStore
     if not hasattr(app.state, "runtime_events"):
         app.state.runtime_events = RuntimeEventStore(repository=SQLRuntimeEventRepository())
     if not hasattr(app.state, "plan_graph") or app.state.plan_graph is None:
-        from app.agent_runtime.graph import build_plan_graph
+        from agent_worker.app.agent.graph import build_plan_graph
         app.state.plan_graph = build_plan_graph()
-    from app.agents.graph import set_event_sink
+    from agent_worker.app.agent.graph import set_event_sink
     set_event_sink(app.state.runtime_events)
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:

@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.schemas.agent.events import RuntimeEvent
+from agent_worker.app.agent.schemas.events import RuntimeEvent
 
 
 def _make_event(
@@ -74,7 +74,7 @@ class TestCrossProcessSSE:
 
         mock_redis.pubsub = MagicMock(return_value=mock_pubsub)
 
-        from app.api.v1.session import _event_generator
+        from marketplace.app.api.v1.session import _event_generator
 
         events = []
         async for sse in _event_generator(plan_id, mock_redis, mock_repo, last_event_id=None):
@@ -108,7 +108,7 @@ class TestCrossProcessSSE:
         mock_pubsub.listen = MagicMock(return_value=_async_iter(messages))
         mock_redis.pubsub = MagicMock(return_value=mock_pubsub)
 
-        from app.api.v1.session import _event_generator
+        from marketplace.app.api.v1.session import _event_generator
 
         events = []
         async for sse in _event_generator(plan_id, mock_redis, mock_repo, last_event_id=None):
@@ -143,7 +143,7 @@ class TestCrossProcessSSE:
         mock_pubsub.listen = MagicMock(return_value=_async_iter(messages))
         mock_redis.pubsub = MagicMock(return_value=mock_pubsub)
 
-        from app.api.v1.session import _event_generator
+        from marketplace.app.api.v1.session import _event_generator
 
         events = []
         async for sse in _event_generator(plan_id, mock_redis, mock_repo, last_event_id=None):
@@ -170,7 +170,7 @@ class TestCrossProcessSSE:
         ]))
         mock_redis.pubsub = MagicMock(return_value=mock_pubsub)
 
-        from app.api.v1.session import _event_generator
+        from marketplace.app.api.v1.session import _event_generator
 
         events = []
         async for sse in _event_generator(plan_id, mock_redis, mock_repo, last_event_id=None):
@@ -184,7 +184,7 @@ class TestCrossProcessSSE:
 class TestSSEEventMapping:
     def test_event_to_sse_maps_intent(self):
         """RuntimeEvent → SSE 事件名映射 correct。"""
-        from app.api.v1.session import _event_to_sse
+        from marketplace.app.api.v1.session import _event_to_sse
 
         event = _make_event("evt-1", plan_id="p1", node_name="intent_parser", event_type="node_started")
         result = _event_to_sse(event)
@@ -195,7 +195,7 @@ class TestSSEEventMapping:
 
     def test_event_to_sse_maps_plan_completed_to_done(self):
         """plan_completed → SSE event name 'done'。"""
-        from app.api.v1.session import _event_to_sse
+        from marketplace.app.api.v1.session import _event_to_sse
 
         event = _make_event("evt-1", plan_id="p1", node_name="plan", event_type="plan_completed")
         result = _event_to_sse(event)

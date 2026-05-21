@@ -12,12 +12,10 @@ Author: SnapTrip Team
 Date: 2026-05-19
 """
 
-import os
 
 import pytest
 
-from app.core.config import settings
-
+from shared.core.config import settings
 
 AMAP_INTEGRATION = len(settings.AMAP_API_KEY) >= 8
 _amap_skip = pytest.mark.skipif(not AMAP_INTEGRATION, reason="需要 AMAP_API_KEY")
@@ -33,10 +31,10 @@ class TestDegradationPath:
     """降级链路: 无 Key → degraded → mock data"""
 
     async def test_search_poi_degraded_when_key_missing(self, monkeypatch):
-        monkeypatch.setattr("app.adapters.registry.settings.AMAP_API_KEY", "")
+        monkeypatch.setattr("marketplace.app.adapters.amap.registry.settings.AMAP_API_KEY", "")
 
-        from app.adapters.registry import AdapterRouter
-        from app.schemas.tool import ToolInvocation
+        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from marketplace.app.adapters.amap.registry import AdapterRouter
 
         router = AdapterRouter()
         inv = ToolInvocation(
@@ -50,10 +48,10 @@ class TestDegradationPath:
         assert "降级" in result.data.get("message", "")
 
     async def test_calculate_route_degraded_when_key_missing(self, monkeypatch):
-        monkeypatch.setattr("app.adapters.registry.settings.AMAP_API_KEY", "")
+        monkeypatch.setattr("marketplace.app.adapters.amap.registry.settings.AMAP_API_KEY", "")
 
-        from app.adapters.registry import AdapterRouter
-        from app.schemas.tool import ToolInvocation
+        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from marketplace.app.adapters.amap.registry import AdapterRouter
 
         router = AdapterRouter()
         inv = ToolInvocation(
@@ -67,8 +65,8 @@ class TestDegradationPath:
 
     async def test_mock_tools_still_work(self):
         """Mock tools (book_table等) 不依赖高德, 即使 Key 缺失也能用 MockGateway"""
-        from app.adapters.registry import AdapterRouter
-        from app.schemas.tool import ToolInvocation
+        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from marketplace.app.adapters.amap.registry import AdapterRouter
 
         class MinimalMockGateway:
             async def call(self, tool_name, params):
@@ -94,8 +92,8 @@ class TestRealAmapAPI:
     """真实高德 API 功能测试 (消耗配额, 需 Key 和网络)"""
 
     async def test_search_poi_real(self):
-        from app.adapters.adapters.poi_adapter import AmapPoiAdapter
-        from app.schemas.tool import ToolInvocation
+        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from marketplace.app.adapters.amap.poi_adapter import AmapPoiAdapter
 
         adapter = AmapPoiAdapter()
         inv = ToolInvocation(
@@ -112,8 +110,8 @@ class TestRealAmapAPI:
         assert any("故宫" in p["name"] for p in result.data["pois"])
 
     async def test_search_poi_by_category(self):
-        from app.adapters.adapters.poi_adapter import AmapPoiAdapter
-        from app.schemas.tool import ToolInvocation
+        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from marketplace.app.adapters.amap.poi_adapter import AmapPoiAdapter
 
         adapter = AmapPoiAdapter()
         inv = ToolInvocation(
@@ -128,8 +126,8 @@ class TestRealAmapAPI:
         assert len(result.data["pois"]) > 0
 
     async def test_geocode_real(self):
-        from app.adapters.adapters.geocode_adapter import AmapGeocodeAdapter
-        from app.schemas.tool import ToolInvocation
+        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from marketplace.app.adapters.amap.geocode_adapter import AmapGeocodeAdapter
 
         adapter = AmapGeocodeAdapter()
         inv = ToolInvocation(
@@ -145,8 +143,8 @@ class TestRealAmapAPI:
         assert result.data["results"][0]["lng"] != 0.0
 
     async def test_reverse_geocode_real(self):
-        from app.adapters.adapters.geocode_adapter import AmapReGeocodeAdapter
-        from app.schemas.tool import ToolInvocation
+        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from marketplace.app.adapters.amap.geocode_adapter import AmapReGeocodeAdapter
 
         adapter = AmapReGeocodeAdapter()
         inv = ToolInvocation(
@@ -160,8 +158,8 @@ class TestRealAmapAPI:
         assert len(result.data["formatted_address"]) > 0
 
     async def test_walking_route_real(self):
-        from app.adapters.adapters.route_adapter import AmapRouteAdapter
-        from app.schemas.tool import ToolInvocation
+        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from marketplace.app.adapters.amap.route_adapter import AmapRouteAdapter
 
         adapter = AmapRouteAdapter()
         inv = ToolInvocation(
@@ -180,8 +178,8 @@ class TestRealAmapAPI:
         assert result.data["duration_min"] > 0
 
     async def test_search_district_real(self):
-        from app.adapters.adapters.district_adapter import AmapDistrictAdapter
-        from app.schemas.tool import ToolInvocation
+        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from marketplace.app.adapters.amap.district_adapter import AmapDistrictAdapter
 
         adapter = AmapDistrictAdapter()
         inv = ToolInvocation(
@@ -205,8 +203,9 @@ class TestErrorHandlingIntegration:
 
     async def test_adapter_timeout_propagates(self, respx_mock):
         import httpx
-        from app.adapters.adapters.poi_adapter import AmapPoiAdapter
-        from app.schemas.tool import ToolInvocation
+
+        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from marketplace.app.adapters.amap.poi_adapter import AmapPoiAdapter
 
         respx_mock.get("https://restapi.amap.com/v3/place/text").mock(
             side_effect=httpx.TimeoutException("timeout")
@@ -223,8 +222,8 @@ class TestErrorHandlingIntegration:
         assert "ADAPTERTIMEOUTERROR" in result.error_code or "timeout" in result.error_message.lower()
 
     async def test_invalid_key_handling(self, respx_mock):
-        from app.adapters.adapters.poi_adapter import AmapPoiAdapter
-        from app.schemas.tool import ToolInvocation
+        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from marketplace.app.adapters.amap.poi_adapter import AmapPoiAdapter
 
         respx_mock.get("https://restapi.amap.com/v3/place/text").respond(
             json={"status": "0", "infocode": "10001", "info": "INVALID_USER_KEY"}
@@ -241,8 +240,8 @@ class TestErrorHandlingIntegration:
         assert "AMAPAUTHERROR" in result.error_code or "KEY" in result.error_message
 
     async def test_router_graceful_unknown_tool(self):
-        from app.adapters.registry import AdapterRouter
-        from app.schemas.tool import ToolInvocation
+        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from marketplace.app.adapters.amap.registry import AdapterRouter
 
         router = AdapterRouter()
         inv = ToolInvocation(tool_name="completely_unknown_tool", params={})

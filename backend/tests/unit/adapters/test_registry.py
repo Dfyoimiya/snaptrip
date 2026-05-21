@@ -10,8 +10,8 @@
 
 import pytest
 
-from app.adapters.registry import AdapterRegistry, AdapterRouter, AMAP_TOOL_NAMES
-from app.schemas.tool import ToolInvocation, ToolResult
+from agent_worker.app.agent.schemas.tool import ToolInvocation, ToolResult
+from marketplace.app.adapters.amap.registry import AMAP_TOOL_NAMES, AdapterRegistry, AdapterRouter
 
 
 class TestAdapterRegistry:
@@ -35,7 +35,7 @@ class TestAdapterRegistry:
         assert registry.get("nonexistent_tool") is None
 
     def test_register_custom_adapter(self):
-        from app.adapters.base import BaseAmapAdapter
+        from marketplace.app.adapters.amap.base import BaseAmapAdapter
 
         class CustomAdapter(BaseAmapAdapter):
             tool_name = "custom_tool"
@@ -61,7 +61,7 @@ class TestAdapterRouter:
         return AdapterRouter()
 
     async def test_dispatch_to_amap_enabled(self, monkeypatch):
-        monkeypatch.setattr("app.adapters.registry.settings.AMAP_API_KEY", "fake-key-for-test")
+        monkeypatch.setattr("marketplace.app.adapters.amap.registry.settings.AMAP_API_KEY", "fake-key-for-test")
 
         router = AdapterRouter()
         inv = ToolInvocation(
@@ -75,7 +75,7 @@ class TestAdapterRouter:
         assert result.status in ("success", "failure", "degraded")
 
     async def test_dispatch_to_amap_disabled(self, monkeypatch):
-        monkeypatch.setattr("app.adapters.registry.settings.AMAP_API_KEY", "")
+        monkeypatch.setattr("marketplace.app.adapters.amap.registry.settings.AMAP_API_KEY", "")
 
         router = AdapterRouter()
         inv = ToolInvocation(tool_name="search_poi", params={})
@@ -117,7 +117,7 @@ class TestToolInvocationToAdapter:
 
     @pytest.mark.anyio
     async def test_params_passthrough(self, monkeypatch):
-        monkeypatch.setattr("app.adapters.registry.settings.AMAP_API_KEY", "fake-key")
+        monkeypatch.setattr("marketplace.app.adapters.amap.registry.settings.AMAP_API_KEY", "fake-key")
 
         router = AdapterRouter()
         inv = ToolInvocation(

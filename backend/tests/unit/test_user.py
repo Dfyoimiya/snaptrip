@@ -7,8 +7,9 @@ Date: 2026-05-17
 from __future__ import annotations
 
 import uuid
+from datetime import UTC
 
-from app.schemas.user import PlanListOut, PlanSlotOut, UserProfileOut
+from marketplace.app.schemas.user import PlanListOut, PlanSlotOut, UserProfileOut
 
 
 class TestUserSchemas:
@@ -21,16 +22,16 @@ class TestUserSchemas:
         assert p.preference_embedding is None
 
     def test_plan_list_out(self):
-        from datetime import datetime, timezone
-        now = datetime.now(timezone.utc)
+        from datetime import datetime
+        now = datetime.now(UTC)
         p = PlanListOut(id=str(uuid.uuid4()), title="Test", status="draft", group_type="solo", created_at=now)
         assert p.status == "draft"
         assert p.group_type == "solo"
         assert p.title == "Test"
 
     def test_plan_slot_out(self):
-        from datetime import datetime, timezone
-        now = datetime.now(timezone.utc)
+        from datetime import datetime
+        now = datetime.now(UTC)
         s = PlanSlotOut(id=str(uuid.uuid4()), poi_id="bj-001", time_start=now, time_end=now, slot_status="tentative", buffer_minutes=15)
         assert s.poi_id == "bj-001"
         assert s.slot_status == "tentative"

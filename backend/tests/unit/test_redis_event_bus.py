@@ -16,7 +16,7 @@ import asyncio
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.schemas.agent.events import RuntimeEvent
+from agent_worker.app.agent.schemas.events import RuntimeEvent
 
 
 def _make_event(plan_id: str = "p1", event_type: str = "node_started") -> RuntimeEvent:
@@ -33,7 +33,7 @@ def _make_event(plan_id: str = "p1", event_type: str = "node_started") -> Runtim
 
 def _make_bus(mock_redis=None, mock_repo=None):
     """构造 RedisEventBus，mock _get_redis 返回预置 client。"""
-    from app.adapters.events.redis_event_bus import RedisEventBus
+    from agent_worker.app.agent.events.redis_bus import RedisEventBus
 
     mock_pool = MagicMock()
     repo = mock_repo or MagicMock(append=AsyncMock())
@@ -86,7 +86,7 @@ class TestRedisEventBusEmit:
         mock_redis = MagicMock(publish=AsyncMock())
         mock_repo = MagicMock(append=AsyncMock())
 
-        from app.adapters.events.redis_event_bus import RedisEventBus
+        from agent_worker.app.agent.events.redis_bus import RedisEventBus
 
         mock_pool = MagicMock()
         bus = RedisEventBus(pool=mock_pool, repository=mock_repo)
@@ -94,7 +94,7 @@ class TestRedisEventBusEmit:
         # Before emit, _redis is None
         assert bus._redis is None
 
-        with patch("app.adapters.events.redis_event_bus.aioredis.Redis", return_value=mock_redis) as mock_redis_cls:
+        with patch("agent_worker.app.agent.events.redis_bus.aioredis.Redis", return_value=mock_redis) as mock_redis_cls:
             asyncio.run(bus.emit(_make_event()))
 
         # Now _redis is set

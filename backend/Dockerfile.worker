@@ -37,7 +37,7 @@ COPY . .
 
 # Agent 是 IO 密集型（LLM HTTP + Marketplace HTTP + PostgreSQL）
 # 使用 gevent pool 兼容 LangGraph 全链路 async/await
-CMD ["uv", "run", "celery", "-A", "app.celery_app", "worker", "--pool=gevent", "--concurrency=100", "-Q", "agent", "-l", "info"]
+CMD ["uv", "run", "celery", "-A", "marketplace.app.celery_app", "worker", "--pool=gevent", "--concurrency=100", "-Q", "agent", "-l", "info"]
 
 
 # ===== Production Stage =====
@@ -66,4 +66,4 @@ USER appuser
 
 # Agent 是 IO 密集型（LLM HTTP + Marketplace HTTP + PostgreSQL）
 # 使用 gevent pool 兼容 LangGraph 全链路 async/await
-CMD ["uv", "run", "celery", "-A", "app.celery_app", "worker", "--pool=gevent", "--concurrency=100", "-Q", "agent", "-l", "info"]
+CMD ["uv", "run", "celery", "-A", "marketplace.app.celery_app", "worker", "--pool=gevent", "--concurrency=100", "-Q", "agent", "-l", "info"]

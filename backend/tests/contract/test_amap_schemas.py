@@ -14,11 +14,9 @@ Date: 2026-05-19
 import json
 from pathlib import Path
 
-import pytest
-
-from app.adapters.schemas.poi import AmapPoiResponse
-from app.adapters.schemas.route import AmapRouteResponse
-from app.adapters.schemas.geocode import AmapGeoResponse
+from marketplace.app.adapters.amap.schemas.geocode import AmapGeoResponse
+from marketplace.app.adapters.amap.schemas.poi import AmapPoiResponse
+from marketplace.app.adapters.amap.schemas.route import AmapRouteResponse
 
 SNAPSHOT_DIR = Path(__file__).parent / "snapshots"
 

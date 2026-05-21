@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import asyncio
 
-import pytest
 import httpx
+import pytest
 
 MOCK_URL = "http://localhost:8001"
 

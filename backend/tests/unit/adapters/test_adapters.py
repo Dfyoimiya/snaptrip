@@ -13,18 +13,18 @@
 
 import pytest
 
-from app.adapters.adapters.district_adapter import AmapDistrictAdapter
-from app.adapters.adapters.geocode_adapter import AmapGeocodeAdapter, AmapReGeocodeAdapter
-from app.adapters.adapters.poi_adapter import AmapPoiAdapter
-from app.adapters.adapters.route_adapter import AmapRouteAdapter
-from app.adapters.base import BaseAmapAdapter
-from app.schemas.tool import ToolInvocation, ToolResult
+from agent_worker.app.agent.schemas.tool import ToolInvocation, ToolResult
+from marketplace.app.adapters.amap.base import BaseAmapAdapter
+from marketplace.app.adapters.amap.district_adapter import AmapDistrictAdapter
+from marketplace.app.adapters.amap.geocode_adapter import AmapGeocodeAdapter, AmapReGeocodeAdapter
+from marketplace.app.adapters.amap.poi_adapter import AmapPoiAdapter
+from marketplace.app.adapters.amap.route_adapter import AmapRouteAdapter
 
 
 @pytest.fixture(autouse=True)
 def reset_amap_client_singleton():
     """每个测试前重置 AmapApiClient 单例, 确保 respx mock 生效。"""
-    import app.adapters.amap_client as mod
+    import marketplace.app.adapters.amap.client as mod
     mod._amap_client = None
     yield
     mod._amap_client = None

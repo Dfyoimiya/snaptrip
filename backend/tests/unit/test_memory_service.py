@@ -11,7 +11,7 @@ import uuid
 
 import pytest
 
-from app.services.memory_service import MemoryService
+from agent_worker.app.agent.memory.service import MemoryService
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6380/0")
 

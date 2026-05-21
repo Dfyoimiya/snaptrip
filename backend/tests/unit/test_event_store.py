@@ -7,8 +7,8 @@ from datetime import UTC, datetime
 
 import pytest
 
-from app.agent_runtime.event_store import RuntimeEventStore
-from app.schemas.agent.events import RuntimeEvent
+from agent_worker.app.agent.events.store import RuntimeEventStore
+from agent_worker.app.agent.schemas.events import RuntimeEvent
 
 
 def _event(event_id: str, event_type: str = "node_started") -> RuntimeEvent:

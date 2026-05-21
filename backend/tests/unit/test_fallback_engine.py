@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from app.agents.fallback_engine import FallbackEngine
-from app.schemas.plan import (
+from agent_worker.app.agent.engines.fallback_engine import FallbackEngine
+from shared.schemas.plan import (
     POI,
     ExecutionResult,
     FailedSlot,
@@ -47,7 +47,7 @@ def draft_with_shadow():
 
 class TestRippleReschedule:
     def test_basic_shift(self, fallback, draft_with_shadow, sample_slots):
-        from app.schemas.plan import PlanSlot as PS  # noqa: N817
+        from shared.schemas.plan import PlanSlot as PS  # noqa: N817
         slots = [
             PS(sequence=0, poi=POI(**sample_slots[0].poi.model_dump()),
                time_range=TimeRange(start=datetime(2026, 5, 13, 14, 0),

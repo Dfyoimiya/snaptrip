@@ -14,10 +14,10 @@ Date: 2026-05-18
 
 from __future__ import annotations
 
-import json
 import asyncio
+import json
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 EVAL_DIR = Path(__file__).parent
@@ -52,8 +52,8 @@ def eval_intent(golden_path: Path | None = None) -> IntentMetrics:
     path = golden_path or EVAL_DIR / "golden_intent.json"
     cases = json.loads(path.read_text(encoding="utf-8"))
 
-    from app.agents.intent_parser import IntentParser
-    from app.agents.protocol import AgentContext
+    from agent_worker.app.agent.engines.intent_parser import IntentParser
+    from agent_worker.app.agent.protocol import AgentContext
 
     parser = IntentParser()
     m = IntentMetrics(total=len(cases))
@@ -131,10 +131,10 @@ def eval_plan(golden_path: Path | None = None) -> PlanMetrics:
     path = golden_path or EVAL_DIR / "golden_plan.json"
     cases = json.loads(path.read_text(encoding="utf-8"))
 
-    from app.agents.intent_parser import IntentParser
-    from app.agents.planning_engine import PlanningEngine
-    from app.agents.retrieval_engine import RetrievalEngine
-    from app.agents.protocol import AgentContext, AgentResult
+    from agent_worker.app.agent.engines.intent_parser import IntentParser
+    from agent_worker.app.agent.engines.planning_engine import PlanningEngine
+    from agent_worker.app.agent.engines.retrieval_engine import RetrievalEngine
+    from agent_worker.app.agent.protocol import AgentContext, AgentResult
 
     parser = IntentParser()
     planner = PlanningEngine()
@@ -229,7 +229,7 @@ def main():
         + pm.type_cover_rate * 0.10
         + pm.budget_ok_rate * 0.10
     )
-    print(f"\n--- 综合分数 ---")
+    print("\n--- 综合分数 ---")
     print(f"  Overall:      {overall:.1%}")
     print("=" * 60)
 

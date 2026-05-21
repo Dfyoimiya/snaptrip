@@ -6,20 +6,15 @@ Date: 2026-05-17
 
 from __future__ import annotations
 
-import uuid
-
 import pytest
 from jose import jwt
 
-from app.core.security import (
+from shared.core.security import (
     create_access_token,
-    create_refresh_token,
     hash_password,
     verify_password,
     verify_token,
 )
-from app.models.refresh_token import RefreshToken
-from app.models.users import User
 
 
 class TestPasswordHashing:
