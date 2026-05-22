@@ -23,6 +23,7 @@ class TestUserSchemas:
 
     def test_plan_list_out(self):
         from datetime import datetime
+
         now = datetime.now(UTC)
         p = PlanListOut(id=str(uuid.uuid4()), title="Test", status="draft", group_type="solo", created_at=now)
         assert p.status == "draft"
@@ -31,8 +32,16 @@ class TestUserSchemas:
 
     def test_plan_slot_out(self):
         from datetime import datetime
+
         now = datetime.now(UTC)
-        s = PlanSlotOut(id=str(uuid.uuid4()), poi_id="bj-001", time_start=now, time_end=now, slot_status="tentative", buffer_minutes=15)
+        s = PlanSlotOut(
+            id=str(uuid.uuid4()),
+            poi_id="bj-001",
+            time_start=now,
+            time_end=now,
+            slot_status="tentative",
+            buffer_minutes=15,
+        )
         assert s.poi_id == "bj-001"
         assert s.slot_status == "tentative"
         assert s.buffer_minutes == 15

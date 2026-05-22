@@ -12,7 +12,6 @@ Author: SnapTrip Team
 Date: 2026-05-19
 """
 
-
 import pytest
 
 from shared.core.config import settings
@@ -165,8 +164,10 @@ class TestRealAmapAPI:
         inv = ToolInvocation(
             tool_name="calculate_route",
             params={
-                "from_lat": 39.908, "from_lng": 116.397,  # 故宫
-                "to_lat": 39.937, "to_lng": 116.403,  # 南锣鼓巷
+                "from_lat": 39.908,
+                "from_lng": 116.397,  # 故宫
+                "to_lat": 39.937,
+                "to_lng": 116.403,  # 南锣鼓巷
                 "mode": "walking",
             },
         )
@@ -207,9 +208,7 @@ class TestErrorHandlingIntegration:
         from agent_worker.app.agent.schemas.tool import ToolInvocation
         from marketplace.app.adapters.amap.poi_adapter import AmapPoiAdapter
 
-        respx_mock.get("https://restapi.amap.com/v3/place/text").mock(
-            side_effect=httpx.TimeoutException("timeout")
-        )
+        respx_mock.get("https://restapi.amap.com/v3/place/text").mock(side_effect=httpx.TimeoutException("timeout"))
 
         adapter = AmapPoiAdapter()
         inv = ToolInvocation(

@@ -133,9 +133,7 @@ class TestWorkerAgentServiceCache:
         plan_tasks._worker_agent_service = None
 
         svc = _mock_service()
-        with patch(
-            "agent_worker.app.tasks.plan_tasks._build_worker_agent_service", return_value=svc
-        ) as mock_build:
+        with patch("agent_worker.app.tasks.plan_tasks._build_worker_agent_service", return_value=svc) as mock_build:
             first = plan_tasks._get_worker_agent_service()
             second = plan_tasks._get_worker_agent_service()
 

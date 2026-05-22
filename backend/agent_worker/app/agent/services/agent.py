@@ -86,7 +86,7 @@ class AgentService:
         state = await self._graph.aget_state(config)  # type: ignore[arg-type]
         if state is None or not state.values:
             return None
-        return state.values
+        return state.values  # type: ignore[no-any-return]
 
     # ------------------------------------------------------------------
     # internal

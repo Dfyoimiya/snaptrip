@@ -165,9 +165,13 @@ class TestCrossProcessSSE:
         mock_pubsub.subscribe = AsyncMock()
         mock_pubsub.unsubscribe = AsyncMock()
         # No messages after subscribe — generator keeps waiting (test exits)
-        mock_pubsub.listen = MagicMock(return_value=_async_iter([
-            _mock_pubsub_message("subscribe", "", "subscribe"),
-        ]))
+        mock_pubsub.listen = MagicMock(
+            return_value=_async_iter(
+                [
+                    _mock_pubsub_message("subscribe", "", "subscribe"),
+                ]
+            )
+        )
         mock_redis.pubsub = MagicMock(return_value=mock_pubsub)
 
         from marketplace.app.api.v1.session import _event_generator
@@ -204,7 +208,9 @@ class TestSSEEventMapping:
 
 def _async_iter(items: list):
     """Convert a list to an async iterator."""
+
     async def gen():
         for item in items:
             yield item
+
     return gen().__aiter__()

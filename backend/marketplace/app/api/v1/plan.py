@@ -72,6 +72,7 @@ def _state_to_response(state: dict, query_text: str) -> PlanResponse:
 def _get_agent_service(request: Request) -> AgentService:
     if not hasattr(request.app.state, "_agent_service") or request.app.state._agent_service is None:
         from agent_worker.app.agent.graph import build_plan_graph
+
         request.app.state._agent_service = AgentService(build_plan_graph())
     return request.app.state._agent_service  # type: ignore[no-any-return]
 

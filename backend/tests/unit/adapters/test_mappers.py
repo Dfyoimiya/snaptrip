@@ -135,9 +135,7 @@ class TestPoiMapper:
         assert pois[1].type == "scenery"
 
     def test_mood_tags_generated(self):
-        amap_poi = AmapPoiItem(
-            id="p1", name="某咖啡馆", typecode="050100", location="116.40,39.92", cityname="北京"
-        )
+        amap_poi = AmapPoiItem(id="p1", name="某咖啡馆", typecode="050100", location="116.40,39.92", cityname="北京")
         poi = PoiMapper.to_internal(amap_poi)
         assert len(poi.mood_tags) > 0
         assert "聚餐" in poi.mood_tags or "美食" in poi.mood_tags
@@ -146,16 +144,19 @@ class TestPoiMapper:
 class TestGeoMapper:
     def test_normal_parse(self):
         from marketplace.app.adapters.amap.geo_mapper import GeoMapper
+
         lat, lng = GeoMapper.parse_location("116.397,39.908")
         assert lat == 39.908
         assert lng == 116.397
 
     def test_format_location(self):
         from marketplace.app.adapters.amap.geo_mapper import GeoMapper
+
         assert GeoMapper.format_location(39.908, 116.397) == "116.397000,39.908000"
 
     def test_valid_coordinates(self):
         from marketplace.app.adapters.amap.geo_mapper import GeoMapper
+
         assert GeoMapper.is_valid_coordinate(39.9, 116.4) is True
         assert GeoMapper.is_valid_coordinate(91.0, 0.0) is False
         assert GeoMapper.is_valid_coordinate(0.0, 181.0) is False
@@ -163,6 +164,7 @@ class TestGeoMapper:
 
     def test_build_origin_dest(self):
         from marketplace.app.adapters.amap.geo_mapper import GeoMapper
+
         origin, dest = GeoMapper.build_origin_dest(39.908, 116.397, 39.92, 116.40)
         assert origin == "116.397000,39.908000"
         assert dest == "116.400000,39.920000"

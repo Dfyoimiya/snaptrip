@@ -123,8 +123,10 @@ class TestToolInvocationToAdapter:
         inv = ToolInvocation(
             tool_name="calculate_route",
             params={
-                "from_lat": 39.908, "from_lng": 116.397,
-                "to_lat": 39.92, "to_lng": 116.40,
+                "from_lat": 39.908,
+                "from_lng": 116.397,
+                "to_lat": 39.92,
+                "to_lng": 116.40,
                 "mode": "walking",
             },
         )

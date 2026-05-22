@@ -392,8 +392,12 @@ class TestGraphNoGlobals:
         from agent_worker.app.agent.graph import set_v3_dependencies
 
         set_v3_dependencies(
-            tool_adapter=None, cb_registry=None, idempotency=None,
-            saga=None, confirmator=None, redis=None,
+            tool_adapter=None,
+            cb_registry=None,
+            idempotency=None,
+            saga=None,
+            confirmator=None,
+            redis=None,
         )
 
 

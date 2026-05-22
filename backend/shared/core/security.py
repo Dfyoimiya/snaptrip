@@ -33,11 +33,11 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=F
 
 
 def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+    return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")  # type: ignore[no-any-return]
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+    return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))  # type: ignore[no-any-return]
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
@@ -68,7 +68,7 @@ async def verify_refresh_token(raw_token: str, db: AsyncSession) -> RefreshToken
         await db.delete(rt)
         await db.flush()
         return None
-    return rt
+    return rt  # type: ignore[no-any-return]
 
 
 async def revoke_refresh_token(raw_token: str, db: AsyncSession) -> None:
@@ -121,4 +121,4 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户不存在或已禁用",
         )
-    return user
+    return user  # type: ignore[no-any-return]

@@ -7,6 +7,7 @@ Date: 2026-05-17
 from __future__ import annotations
 
 import pytest
+from fastapi import HTTPException
 from jose import jwt
 
 from shared.core.security import (
@@ -45,15 +46,16 @@ class TestJWT:
 
     def test_expired_token(self):
         from datetime import timedelta
+
         token = create_access_token({"sub": "x"}, expires_delta=timedelta(seconds=-1))
-        with pytest.raises(Exception):
+        with pytest.raises(HTTPException):
             verify_token(token)
 
     def test_invalid_token(self):
-        with pytest.raises(Exception):
+        with pytest.raises(HTTPException):
             verify_token("invalid.token.here")
 
     def test_wrong_secret(self):
         token = jwt.encode({"sub": "x"}, "wrong-secret", algorithm="HS256")
-        with pytest.raises(Exception):
+        with pytest.raises(HTTPException):
             verify_token(token)

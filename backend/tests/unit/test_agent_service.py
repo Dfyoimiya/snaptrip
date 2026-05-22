@@ -44,9 +44,7 @@ class TestAgentServiceInvoke:
         result = await svc.invoke({"plan_id": "p1"}, "p1")
 
         assert result == {"status": "completed", "plan_id": "p1"}
-        mock_graph.ainvoke.assert_awaited_once_with(
-            {"plan_id": "p1"}, {"configurable": {"thread_id": "p1"}}
-        )
+        mock_graph.ainvoke.assert_awaited_once_with({"plan_id": "p1"}, {"configurable": {"thread_id": "p1"}})
 
     @pytest.mark.asyncio
     async def test_invoke_raises_interrupted(self):
@@ -105,9 +103,7 @@ class TestAgentServiceGetState:
     async def test_get_state_returns_dict(self):
         """checkpoint 存在 → 返回 state.values dict。"""
         mock_graph = MagicMock()
-        mock_graph.aget_state = AsyncMock(
-            return_value=_mock_state_snapshot({"status": "interrupted", "plan_id": "p5"})
-        )
+        mock_graph.aget_state = AsyncMock(return_value=_mock_state_snapshot({"status": "interrupted", "plan_id": "p5"}))
 
         svc = AgentService(mock_graph)
         result = await svc.get_state("p5")

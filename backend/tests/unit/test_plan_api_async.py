@@ -47,9 +47,7 @@ class TestCreatePlanAsync:
     @pytest.mark.asyncio
     async def test_create_returns_202(self, mock_celery, async_client):
         """POST /create → 202 Accepted + plan_id + status=queued。"""
-        with patch(
-            "marketplace.app.api.v1.plan.SQLPlanRunRepository"
-        ) as mock_repo_cls:
+        with patch("marketplace.app.api.v1.plan.SQLPlanRunRepository") as mock_repo_cls:
             mock_repo = mock_repo_cls.return_value
             mock_repo.insert_run = AsyncMock()
 
@@ -80,9 +78,7 @@ class TestConfirmPlanAsync:
         """POST /confirm → 202 Accepted。"""
         plan_id = "550e8400-e29b-41d4-a716-446655440000"
 
-        with patch(
-            "marketplace.app.api.v1.plan._get_agent_service"
-        ) as mock_svc_fn:
+        with patch("marketplace.app.api.v1.plan._get_agent_service") as mock_svc_fn:
             mock_svc = mock_svc_fn.return_value
             mock_svc.get_state = AsyncMock(return_value={"status": "awaiting_confirmation"})
 
@@ -107,17 +103,11 @@ class TestGetPlanStatus:
         """GET /status → 返回 plan_run 状态。"""
         plan_id = "550e8400-e29b-41d4-a716-446655440000"
 
-        with patch(
-            "marketplace.app.api.v1.plan.SQLPlanRunRepository"
-        ) as mock_repo_cls:
+        with patch("marketplace.app.api.v1.plan.SQLPlanRunRepository") as mock_repo_cls:
             mock_repo = mock_repo_cls.return_value
-            mock_repo.get_by_plan_id = AsyncMock(
-                return_value={"plan_id": plan_id, "status": "running"}
-            )
+            mock_repo.get_by_plan_id = AsyncMock(return_value={"plan_id": plan_id, "status": "running"})
 
-            response = await async_client.get(
-                f"/api/v1/plan/{plan_id}/status"
-            )
+            response = await async_client.get(f"/api/v1/plan/{plan_id}/status")
 
         assert response.status_code == 200
         data = response.json()
@@ -135,9 +125,7 @@ class TestGetPlanUnchanged:
         """GET /{plan_id} 仍然从 checkpoint 读取（行为不变）。"""
         plan_id = "550e8400-e29b-41d4-a716-446655440000"
 
-        with patch(
-            "marketplace.app.api.v1.plan._get_agent_service"
-        ) as mock_svc_fn:
+        with patch("marketplace.app.api.v1.plan._get_agent_service") as mock_svc_fn:
             mock_svc = mock_svc_fn.return_value
             mock_svc.get_state = AsyncMock(return_value=None)
 

@@ -49,6 +49,7 @@ services:
       dockerfile: Dockerfile.gateway
       target: ${BUILD_TARGET:-production}
     container_name: snaptrip-marketplace
+    init: true
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DEV_DB:-snaptrip_dev}
       REDIS_URL: redis://redis:6379/0
@@ -82,7 +83,7 @@ services:
       start_period: 15s
     restart: unless-stopped
     command: >
-      sh -c "cd /app && uv run alembic upgrade head && uv run uvicorn marketplace.app.main:app --host 0.0.0.0 --port 8000"
+      sh -c "cd /app && alembic upgrade head && uvicorn marketplace.app.main:app --host 0.0.0.0 --port 8000"
 
   # ===== Agent Worker (Celery) — LangGraph 异步执行 =====
   agent-worker:
@@ -91,6 +92,7 @@ services:
       dockerfile: Dockerfile.worker
       target: ${BUILD_TARGET:-production}
     container_name: snaptrip-agent-worker
+    init: true
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DEV_DB:-snaptrip_dev}
       REDIS_URL: redis://redis:6379/0
@@ -115,6 +117,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A marketplace.app.celery_app inspect ping -d celery@$$HOSTNAME 2>/dev/null || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped
 
   # ===== Celery Beat — 定时任务调度 =====
@@ -124,6 +132,7 @@ services:
       dockerfile: Dockerfile.worker
       target: ${BUILD_TARGET:-production}
     container_name: snaptrip-agent-beat
+    init: true
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DEV_DB:-snaptrip_dev}
       REDIS_URL: redis://redis:6379/0
@@ -133,7 +142,7 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
-    command: uv run celery -A marketplace.app.celery_app beat -l info
+    command: celery -A marketplace.app.celery_app beat -l info
 
   # ===== Mock API 服务 (dev/CI) =====
   mock-server:
@@ -165,8 +174,15 @@ services:
       - "5174:5173"
     depends_on:
       - marketplace
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:5173/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     restart: unless-stopped
     profiles:
+      - dev
       - full
 
 volumes:

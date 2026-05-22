@@ -27,7 +27,7 @@ down: ## 停止全栈
 	docker compose down
 
 dev: ## 启动开发环境（热重载）
-	BUILD_TARGET=development docker compose -f docker-compose.yml -f docker-compose.override.yml up --build
+	BUILD_TARGET=development docker compose --profile dev -f docker-compose.yml -f docker-compose.override.yml up --build
 
 build: ## 构建所有镜像
 	docker compose build

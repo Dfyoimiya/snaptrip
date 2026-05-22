@@ -19,4 +19,4 @@ class JinjaPromptAdapter(PromptPort):
         template_path = self._base_dir / template_name
         with template_path.open(encoding="utf-8") as f:
             template = Template(f.read())
-        return template.render(**context)
+        return template.render(**context)  # type: ignore[no-any-return]
