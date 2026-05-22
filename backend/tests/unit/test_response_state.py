@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.agent_runtime.response_state import state_to_response
+from agent_worker.app.agent.state.response import state_to_response
 
 
 def test_state_to_response_prefers_revised_draft_and_notification():

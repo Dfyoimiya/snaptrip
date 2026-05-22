@@ -4,9 +4,9 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from app.agents.planning_engine import PlanningEngine
-from app.data.seed_pois import SEED_POIS
-from app.schemas.plan import POI, IntentSchema
+from agent_worker.app.agent.engines.planning_engine import PlanningEngine
+from marketplace.app.data.seed_pois import SEED_POIS
+from shared.schemas.plan import POI, IntentSchema
 
 
 @pytest.fixture
@@ -17,7 +17,9 @@ def planning():
 @pytest.fixture
 def beijing_intent():
     return IntentSchema(
-        city="北京", guest_count=2, budget=300,
+        city="北京",
+        guest_count=2,
+        budget=300,
         type_prefs=["restaurant", "cafe"],
         mood_prefs=["安静", "治愈"],
     )
@@ -31,15 +33,23 @@ def beijing_pois():
 class TestPhase1HardFilter:
     def test_returns_max_10(self, planning, beijing_intent, beijing_pois):
         result = planning._phase1_hard_filter(
-            beijing_pois, beijing_intent, 39.9, 116.4,
-            datetime.now(), datetime.now() + timedelta(hours=4),
+            beijing_pois,
+            beijing_intent,
+            39.9,
+            116.4,
+            datetime.now(),
+            datetime.now() + timedelta(hours=4),
         )
         assert len(result) <= 10
 
     def test_type_pref_boosts_score(self, planning, beijing_intent, beijing_pois):
         result = planning._phase1_hard_filter(
-            beijing_pois, beijing_intent, 39.9, 116.4,
-            datetime.now(), datetime.now() + timedelta(hours=4),
+            beijing_pois,
+            beijing_intent,
+            39.9,
+            116.4,
+            datetime.now(),
+            datetime.now() + timedelta(hours=4),
         )
         types = [p.type for p in result]
         assert "restaurant" in types or "cafe" in types
@@ -47,15 +57,23 @@ class TestPhase1HardFilter:
     def test_budget_filter_downgrades(self, planning, beijing_intent, beijing_pois):
         beijing_intent.budget = 50
         result = planning._phase1_hard_filter(
-            beijing_pois, beijing_intent, 39.9, 116.4,
-            datetime.now(), datetime.now() + timedelta(hours=4),
+            beijing_pois,
+            beijing_intent,
+            39.9,
+            116.4,
+            datetime.now(),
+            datetime.now() + timedelta(hours=4),
         )
         assert len(result) <= len(beijing_pois)
 
     def test_empty_candidates_returns_empty(self, planning, beijing_intent):
         result = planning._phase1_hard_filter(
-            [], beijing_intent, 39.9, 116.4,
-            datetime.now(), datetime.now() + timedelta(hours=4),
+            [],
+            beijing_intent,
+            39.9,
+            116.4,
+            datetime.now(),
+            datetime.now() + timedelta(hours=4),
         )
         assert result == []
 

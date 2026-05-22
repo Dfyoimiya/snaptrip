@@ -1,212 +1,162 @@
-"""Integration — Plan API 全链路 + SSE 流 + Interrupt/Resume + Fallback exhaustion"""
+"""Integration — Plan API 全链路 (Phase 3a: 异步 Celery 派发)
+
+Phase 3a 变更：
+  - POST /create 和 /confirm 改为 Celery 异步派发，返回 202
+  - 新增 GET /status 查询 plan_run 审计记录
+  - Celery task 调用被 mock（无真实 broker），深层测试 skip
+"""
+
+from unittest.mock import MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.main import app
+from marketplace.app.main import app
 
 
 @pytest.fixture
-async def client():
-    # Manually trigger lifespan so app.state is fully initialized
+def mock_celery():
+    """Mock Celery task 调用，避免连接真实 broker。"""
+    with (
+        patch("marketplace.app.api.v1.plan.celery_submit") as mock_submit,
+        patch("marketplace.app.api.v1.plan.celery_confirm") as mock_confirm,
+    ):
+        mock_submit.delay = MagicMock()
+        mock_confirm.delay = MagicMock()
+        yield
+
+
+@pytest.fixture
+async def client(mock_celery):
     from contextlib import asynccontextmanager
 
     @asynccontextmanager
     async def _managed_client():
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
-            # Ensure lifespan events are sent if not already
             if not hasattr(app.state, "runtime_events"):
-                from app.adapters.persistence.runtime_event_repository import SQLRuntimeEventRepository
-                from app.agent_runtime import RuntimeEventStore
+                from agent_worker.app.agent.adapters.persistence.runtime_event import SQLRuntimeEventRepository
+                from agent_worker.app.agent.events.store import RuntimeEventStore
+
                 app.state.runtime_events = RuntimeEventStore(repository=SQLRuntimeEventRepository())
-            if not hasattr(app.state, "plan_graph") or app.state.plan_graph is None:
-                from app.agent_runtime.graph import build_plan_graph
-                app.state.plan_graph = build_plan_graph()
-            # Sync the graph's event sink with the current runtime_events instance
-            from app.agents.graph import set_event_sink
-            set_event_sink(app.state.runtime_events)
+            if not hasattr(app.state, "_agent_service") or app.state._agent_service is None:
+                from agent_worker.app.agent.graph import build_plan_graph
+                from agent_worker.app.agent.services.agent import AgentService
+
+                app.state._agent_service = AgentService(build_plan_graph())
             yield c
 
     async with _managed_client() as c:
         yield c
 
 
+# ===== Phase 3a: 异步 API 表面测试 =====
+
+
 @pytest.mark.asyncio
-async def test_create_plan_returns_200(client):
-    resp = await client.post("/api/v1/plan/create", json={
-        "user_input": "周末想去北京798看展然后吃烤鸭",
-        "lat": 39.9, "lng": 116.4,
-    })
-    assert resp.status_code == 200
+async def test_create_plan_returns_202(client):
+    """POST /create → 202 Accepted + plan_id + status=queued。"""
+    resp = await client.post(
+        "/api/v1/plan/create",
+        json={
+            "user_input": "周末想去北京798看展然后吃烤鸭",
+            "lat": 39.9,
+            "lng": 116.4,
+        },
+    )
+    assert resp.status_code == 202
     payload = resp.json()
     assert payload["code"] == 0
     data = payload["data"]
     assert "plan_id" in data
-    assert data["status"] in ("done", "confirming", "executing")
+    assert data["status"] == "queued"
 
 
 @pytest.mark.asyncio
-async def test_create_plan_has_slots(client):
-    resp = await client.post("/api/v1/plan/create", json={
-        "user_input": "想去北京故宫逛逛",
-        "lat": 39.9, "lng": 116.4,
-    })
-    payload = resp.json()
-    data = payload["data"]
-    assert len(data["slots"]) > 0
-    for slot in data["slots"]:
-        assert "poi" in slot
-        assert "action" in slot
-
-
-@pytest.mark.asyncio
-async def test_get_plan_by_id(client):
-    resp = await client.post("/api/v1/plan/create", json={
-        "user_input": "想去喝咖啡",
-        "lat": 39.9, "lng": 116.4,
-    })
-    plan_id = resp.json()["data"]["plan_id"]
-
-    resp2 = await client.get(f"/api/v1/plan/{plan_id}")
-    assert resp2.status_code == 200
-    assert resp2.json()["data"]["plan_id"] == plan_id
-
-
-@pytest.mark.asyncio
-async def test_sse_stream_contains_events(client):
-    """Test that plan creation emits expected runtime events to the store."""
-    resp = await client.post("/api/v1/plan/create", json={
-        "user_input": "想去北京798看展",
-        "lat": 39.9, "lng": 116.4,
-    })
-    plan_id = resp.json()["data"]["plan_id"]
-
-    events = await app.state.runtime_events.list_by_plan(plan_id)
-    event_types = [e.event_type for e in events]
-
-    assert "node_started" in event_types
-    assert "node_succeeded" in event_types
-
-
-@pytest.mark.asyncio
-async def test_confirm_plan_interrupt_resume(client):
-    """人机协同：创建计划后通过 confirm API 恢复图执行到完成。"""
-    resp = await client.post("/api/v1/plan/create", json={
-        "user_input": "想去北京798看展然后喝咖啡",
-        "lat": 39.9, "lng": 116.4,
-    })
-    assert resp.status_code == 200
-    plan_id = resp.json()["data"]["plan_id"]
-
-    # Confirm the plan to resume execution
-    confirm_resp = await client.post(
-        f"/api/v1/plan/{plan_id}/confirm",
-        json={"decision": "confirmed", "locked_slots": [0]},
-    )
-    assert confirm_resp.status_code == 200
-    data = confirm_resp.json()["data"]
-    assert data["plan_id"] == plan_id
-    # After confirmation the graph should proceed to execution / notify
-    assert data["status"] in ("done", "executing", "confirming")
-
-
-@pytest.mark.asyncio
-async def test_confirm_plan_partial_change(client):
-    """人机协同：用户局部修改（拒绝某个 slot）后重规划。"""
-    resp = await client.post("/api/v1/plan/create", json={
-        "user_input": "想去北京798看展然后喝咖啡",
-        "lat": 39.9, "lng": 116.4,
-    })
-    assert resp.status_code == 200
-    plan_id = resp.json()["data"]["plan_id"]
-    slots = resp.json()["data"]["slots"]
-    assert len(slots) > 0
-
-    # Reject the last slot to trigger replan
-    reject_idx = len(slots) - 1
-    confirm_resp = await client.post(
-        f"/api/v1/plan/{plan_id}/confirm",
+async def test_create_plan_response_has_no_slots(client):
+    """POST /create 异步派发 → 202 响应不含 slots（slots 在 worker 执行后产生）。"""
+    resp = await client.post(
+        "/api/v1/plan/create",
         json={
-            "decision": "partial_change",
-            "rejected_slots": [reject_idx],
-            "instruction": "换一个类似的",
+            "user_input": "想去北京故宫逛逛",
+            "lat": 39.9,
+            "lng": 116.4,
         },
     )
-    assert confirm_resp.status_code == 200
-    data = confirm_resp.json()["data"]
-    assert data["plan_id"] == plan_id
-    # Partial change should return a revised plan (still confirming or done)
-    assert data["status"] in ("confirming", "done", "executing")
+    assert resp.status_code == 202
+    data = resp.json()["data"]
+    assert "slots" not in data
 
 
 @pytest.mark.asyncio
-async def test_confirm_plan_rejected(client):
-    """人机协同：用户拒绝计划，返回到 planning_engine 重新生成。"""
-    resp = await client.post("/api/v1/plan/create", json={
-        "user_input": "想去北京798看展然后喝咖啡",
-        "lat": 39.9, "lng": 116.4,
-    })
-    assert resp.status_code == 200
+async def test_get_plan_status_returns_run(client):
+    """GET /status → 查询 plan_runs 审计记录。"""
+    resp = await client.post(
+        "/api/v1/plan/create",
+        json={
+            "user_input": "想去喝咖啡",
+            "lat": 39.9,
+            "lng": 116.4,
+        },
+    )
     plan_id = resp.json()["data"]["plan_id"]
 
-    confirm_resp = await client.post(
-        f"/api/v1/plan/{plan_id}/confirm",
-        json={"decision": "rejected", "instruction": "预算太低了，重新规划"},
+    resp2 = await client.get(f"/api/v1/plan/{plan_id}/status")
+    assert resp2.status_code == 200
+    payload = resp2.json()
+    assert payload["code"] == 0
+    assert payload["data"]["plan_id"] == plan_id
+
+
+@pytest.mark.asyncio
+@pytest.mark.skip(reason="Phase 3a: /confirm 需要 Celery Worker 先执行 graph 写入 checkpoint")
+async def test_confirm_plan_returns_202(client): ...
+
+
+@pytest.mark.asyncio
+async def test_confirm_plan_not_found(client):
+    """POST /confirm 对不存在的 plan_id → 404。"""
+    resp = await client.post(
+        "/api/v1/plan/nonexistent-id/confirm",
+        json={"decision": "confirmed"},
     )
-    assert confirm_resp.status_code == 200
-    data = confirm_resp.json()["data"]
-    assert data["plan_id"] == plan_id
-    # Rejected plan routes back to planning_engine
-    assert data["status"] in ("confirming", "done", "executing")
+    assert resp.status_code == 404
 
 
-# @pytest.mark.asyncio
-# async def test_fallback_exhaustion_ends_graph(client, monkeypatch):
-#     """跳过：fallback 重试耗尽路由与当前图架构未对齐，需后续修复。"""
-#     from app.core.constants import FALLBACK_MAX_RETRY
-#
-#     # Monkeypatch FALLBACK_MAX_RETRY to 1 so exhaustion happens quickly
-#     monkeypatch.setattr("app.agents.graph.FALLBACK_MAX_RETRY", 1)
-#     monkeypatch.setattr("app.core.constants.FALLBACK_MAX_RETRY", 1)
-#
-#     # Monkeypatch execution_engine_node to always return partial_success
-#     async def _fake_execution_node(state):
-#         return {
-#             "execution": {
-#                 "plan_id": state["plan_id"],
-#                 "status": "partial_success",
-#                 "confirmed_bookings": {},
-#                 "failed_slots": [{"slot_index": 0, "tool_name": "mock_tool", "error_code": "MOCK_FAIL", "error_message": "Mock failure for testing", "poi_id": ""}],
-#             },
-#             "execution_state": {"status": "partial_success", "failed_slot_indices": [0]},
-#             "status": "executing",
-#         }
-#
-#     import app.agents.graph as graph_mod
-#     orig_exec = graph_mod.execution_engine_node
-#     graph_mod.execution_engine_node = _fake_execution_node
-#
-#     # Rebuild graph so the patched node is picked up
-#     from app.agent_runtime.graph import build_plan_graph
-#     app.state.plan_graph = build_plan_graph()
-#
-#     try:
-#         resp = await client.post("/api/v1/plan/create", json={
-#             "user_input": "想去北京798看展然后喝咖啡",
-#             "lat": 39.9, "lng": 116.4,
-#         })
-#         assert resp.status_code == 200
-#         plan_id = resp.json()["data"]["plan_id"]
-#
-#         # Confirm to enter execution
-#         confirm_resp = await client.post(
-#             f"/api/v1/plan/{plan_id}/confirm",
-#             json={"decision": "confirmed"},
-#         )
-#         assert confirm_resp.status_code == 200
-#         data = confirm_resp.json()["data"]
-#         assert data["plan_id"] == plan_id
-#         # With exhausted fallback the graph should end (done or failed)
-#         assert data["status"] in ("done", "failed")
-#     finally:
-#         graph_mod.execution_engine_node = orig_exec
+@pytest.mark.asyncio
+async def test_get_plan_status_not_found(client):
+    """GET /status 对不存在的 plan_id → 404。"""
+    resp = await client.get("/api/v1/plan/nonexistent-id/status")
+    assert resp.status_code == 404
+
+
+# ===== 需要 Celery Worker 的深层测试（跳过） =====
+
+
+@pytest.mark.asyncio
+@pytest.mark.skip(reason="Phase 3a: /create 返回 202，slots 需要 Celery Worker 执行 graph 后才能在 checkpoint 中看到")
+async def test_create_plan_has_slots(client): ...
+
+
+@pytest.mark.asyncio
+@pytest.mark.skip(reason="Phase 3a: checkpoint 由 Celery Worker 创建，GET /{plan_id} 需要 Worker 先执行")
+async def test_get_plan_by_id(client): ...
+
+
+@pytest.mark.asyncio
+@pytest.mark.skip(reason="Phase 3a: SSE 事件由 Celery Worker 通过 Redis Pub/Sub 推送")
+async def test_sse_stream_contains_events(client): ...
+
+
+@pytest.mark.asyncio
+@pytest.mark.skip(reason="Phase 3a: confirm dispatch 后状态由 Celery Worker 更新")
+async def test_confirm_plan_interrupt_resume(client): ...
+
+
+@pytest.mark.asyncio
+@pytest.mark.skip(reason="Phase 3a: 局部修改需要 Celery Worker 执行 re-plan")
+async def test_confirm_plan_partial_change(client): ...
+
+
+@pytest.mark.asyncio
+@pytest.mark.skip(reason="Phase 3a: 拒绝计划需要 Celery Worker 重新规划")
+async def test_confirm_plan_rejected(client): ...

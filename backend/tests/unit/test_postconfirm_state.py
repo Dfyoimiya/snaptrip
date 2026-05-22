@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.agent_runtime.postconfirm_state import (
+from agent_worker.app.agent.state.postconfirm import (
     build_repair_state,
     confirmation_from_resume,
     maybe_apply_confirmation_replan,

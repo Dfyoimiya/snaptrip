@@ -13,18 +13,19 @@
 
 import pytest
 
-from app.adapters.adapters.district_adapter import AmapDistrictAdapter
-from app.adapters.adapters.geocode_adapter import AmapGeocodeAdapter, AmapReGeocodeAdapter
-from app.adapters.adapters.poi_adapter import AmapPoiAdapter
-from app.adapters.adapters.route_adapter import AmapRouteAdapter
-from app.adapters.base import BaseAmapAdapter
-from app.schemas.tool import ToolInvocation, ToolResult
+from agent_worker.app.agent.schemas.tool import ToolInvocation, ToolResult
+from marketplace.app.adapters.amap.base import BaseAmapAdapter
+from marketplace.app.adapters.amap.district_adapter import AmapDistrictAdapter
+from marketplace.app.adapters.amap.geocode_adapter import AmapGeocodeAdapter, AmapReGeocodeAdapter
+from marketplace.app.adapters.amap.poi_adapter import AmapPoiAdapter
+from marketplace.app.adapters.amap.route_adapter import AmapRouteAdapter
 
 
 @pytest.fixture(autouse=True)
 def reset_amap_client_singleton():
     """每个测试前重置 AmapApiClient 单例, 确保 respx mock 生效。"""
-    import app.adapters.amap_client as mod
+    import marketplace.app.adapters.amap.client as mod
+
     mod._amap_client = None
     yield
     mod._amap_client = None
@@ -94,12 +95,22 @@ async def test_keyword_search(respx_mock):
             "info": "OK",
             "count": "2",
             "pois": [
-                {"id": "B001", "name": "故宫", "typecode": "110100",
-                 "location": "116.397,39.908", "cityname": "北京",
-                 "biz_ext": {"rating": "4.8", "cost": "60"}},
-                {"id": "B002", "name": "南锣咖啡", "typecode": "050100",
-                 "location": "116.40,39.94", "cityname": "北京",
-                 "biz_ext": {"rating": "4.5", "cost": "45"}},
+                {
+                    "id": "B001",
+                    "name": "故宫",
+                    "typecode": "110100",
+                    "location": "116.397,39.908",
+                    "cityname": "北京",
+                    "biz_ext": {"rating": "4.8", "cost": "60"},
+                },
+                {
+                    "id": "B002",
+                    "name": "南锣咖啡",
+                    "typecode": "050100",
+                    "location": "116.40,39.94",
+                    "cityname": "北京",
+                    "biz_ext": {"rating": "4.5", "cost": "45"},
+                },
             ],
         }
     )
@@ -128,13 +139,15 @@ async def test_walking_route(respx_mock):
             "route": {
                 "origin": "116.397,39.908",
                 "destination": "116.40,39.92",
-                "paths": [{
-                    "distance": "1500",
-                    "duration": "900",
-                    "steps": [],
-                    "tolls": "0",
-                    "traffic_lights": "0",
-                }],
+                "paths": [
+                    {
+                        "distance": "1500",
+                        "duration": "900",
+                        "steps": [],
+                        "tolls": "0",
+                        "traffic_lights": "0",
+                    }
+                ],
             },
         }
     )
@@ -143,8 +156,10 @@ async def test_walking_route(respx_mock):
     inv = ToolInvocation(
         tool_name="calculate_route",
         params={
-            "from_lat": 39.908, "from_lng": 116.397,
-            "to_lat": 39.92, "to_lng": 116.40,
+            "from_lat": 39.908,
+            "from_lng": 116.397,
+            "to_lat": 39.92,
+            "to_lng": 116.40,
             "mode": "walking",
         },
     )
@@ -164,15 +179,17 @@ async def test_geocode_address(respx_mock):
             "infocode": "10000",
             "info": "OK",
             "count": "1",
-            "geocodes": [{
-                "formatted_address": "北京市东城区故宫",
-                "country": "中国",
-                "province": "北京市",
-                "city": "北京市",
-                "district": "东城区",
-                "location": "116.397,39.908",
-                "level": "兴趣点",
-            }],
+            "geocodes": [
+                {
+                    "formatted_address": "北京市东城区故宫",
+                    "country": "中国",
+                    "province": "北京市",
+                    "city": "北京市",
+                    "district": "东城区",
+                    "location": "116.397,39.908",
+                    "level": "兴趣点",
+                }
+            ],
         }
     )
 
@@ -235,8 +252,16 @@ async def test_search_district(respx_mock):
             "infocode": "10000",
             "info": "OK",
             "count": "1",
-            "districts": [{"citycode": "010", "adcode": "110000", "name": "北京市",
-                           "center": "116.407,39.904", "level": "city", "districts": []}],
+            "districts": [
+                {
+                    "citycode": "010",
+                    "adcode": "110000",
+                    "name": "北京市",
+                    "center": "116.407,39.904",
+                    "level": "city",
+                    "districts": [],
+                }
+            ],
         }
     )
 

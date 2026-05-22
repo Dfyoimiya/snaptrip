@@ -1,5 +1,5 @@
-# ===== Development Stage =====
-FROM python:3.11-slim AS development
+# ===== Shared Base Stage =====
+FROM python:3.11-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
@@ -13,35 +13,26 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 WORKDIR /app
 
 ENV UV_LINK_MODE=copy
+# venv 放到 /app 外面，避免 dev bind mount 覆盖
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 COPY pyproject.toml uv.lock* ./
 RUN uv sync --no-dev
+
+# ===== Development Stage =====
+FROM base AS development
 
 COPY . .
 
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "marketplace.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 
 # ===== Production Stage =====
-FROM python:3.11-slim AS production
-
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
-
-WORKDIR /app
-
-ENV UV_LINK_MODE=copy
-
-COPY pyproject.toml uv.lock* ./
-RUN uv sync --no-dev
+FROM base AS production
 
 COPY . .
 
@@ -50,4 +41,4 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "marketplace.app.main:app", "--host", "0.0.0.0", "--port", "8000"]

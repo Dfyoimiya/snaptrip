@@ -1,0 +1,56 @@
+# ===== Agent Worker 生产镜像 =====
+# Phase 3-5: Celery Worker 异步执行 LangGraph
+#
+# 职责:
+#   - submit_plan  — 异步运行全链路 Agent (9 节点)
+#   - confirm_plan — 人机协同恢复执行
+#   - OrphanReaper — 定时清理孤儿资源（Phase 5 RedBeat）
+#
+# 启动:
+#   celery -A app.celery_app worker --pool=gevent --concurrency=100 -Q agent
+#
+# 环境变量:
+#   MARKETPLACE_MODE  — mock | live | hybrid
+#   SNAPTRIP_MARKETPLACE_URL  — Marketplace API base URL
+#   REDIS_URL  — Celery broker + result backend
+
+# ===== Shared Base Stage =====
+FROM python:3.11-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+WORKDIR /app
+
+ENV UV_LINK_MODE=copy
+# venv 放到 /app 外面，避免 dev bind mount 覆盖
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv
+ENV VIRTUAL_ENV=/opt/venv
+ENV PATH="/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+COPY pyproject.toml uv.lock* ./
+RUN uv sync --no-dev
+
+# ===== Development Stage =====
+FROM base AS development
+
+COPY . .
+
+CMD ["celery", "-A", "marketplace.app.celery_app", "worker", "--pool=gevent", "--concurrency=100", "-Q", "agent", "-l", "info"]
+
+
+# ===== Production Stage =====
+FROM base AS production
+
+COPY . .
+
+RUN useradd --create-home appuser && chown -R appuser:appuser /app
+USER appuser
+
+CMD ["celery", "-A", "marketplace.app.celery_app", "worker", "--pool=gevent", "--concurrency=100", "-Q", "agent", "-l", "info"]

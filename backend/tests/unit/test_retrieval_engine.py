@@ -1,6 +1,6 @@
 """Retrieval Engine — haversine 距离 + 城市过滤"""
 
-from app.agents.retrieval_engine import haversine
+from agent_worker.app.agent.engines.retrieval_engine import haversine
 
 
 class TestHaversine:

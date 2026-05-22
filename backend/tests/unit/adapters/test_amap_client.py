@@ -10,11 +10,11 @@
 使用 respx 隔离 HTTP, 无需真实高德 API Key。
 """
 
-import pytest
 import httpx
+import pytest
 
-from app.adapters.amap_client import AmapApiClient
-from app.core.exceptions import AdapterTimeoutError, AmapApiError, AmapAuthError, AmapRateLimitError
+from marketplace.app.adapters.amap.client import AmapApiClient
+from shared.core.exceptions import AdapterTimeoutError, AmapApiError, AmapAuthError, AmapRateLimitError
 
 
 class TestAmapApiClientSigning:
@@ -37,6 +37,7 @@ class TestAmapApiClientSigning:
     @pytest.mark.anyio
     async def test_params_and_key_merged(self, respx_mock):
         from urllib.parse import unquote
+
         client = AmapApiClient(api_key="abc", base_url="https://restapi.amap.com")
         route = respx_mock.get("https://restapi.amap.com/v3/geocode/geo").respond(
             json={"status": "1", "infocode": "10000", "info": "OK", "count": "0", "geocodes": []}
@@ -57,9 +58,7 @@ class TestAmapApiClientErrors:
     @pytest.mark.anyio
     async def test_timeout_raises_adapter_timeout(self, respx_mock):
         client = AmapApiClient(api_key="key", base_url="https://restapi.amap.com", timeout=1)
-        respx_mock.get("https://restapi.amap.com/v3/place/text").mock(
-            side_effect=httpx.TimeoutException("timeout")
-        )
+        respx_mock.get("https://restapi.amap.com/v3/place/text").mock(side_effect=httpx.TimeoutException("timeout"))
 
         with pytest.raises(AdapterTimeoutError) as exc:
             await client.get("/v3/place/text", params={})
@@ -139,8 +138,9 @@ class TestAmapApiClientSuccess:
 
     @pytest.mark.anyio
     async def test_get_amap_client_singleton(self):
-        from app.adapters.amap_client import get_amap_client, _amap_client
-        import app.adapters.amap_client as mod
+        import marketplace.app.adapters.amap.client as mod
+        from marketplace.app.adapters.amap.client import get_amap_client
+
         mod._amap_client = None
         client1 = get_amap_client()
         client2 = get_amap_client()

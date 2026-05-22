@@ -8,7 +8,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DEV_DB:-snaptrip_dev}
 
-  backend:
+  marketplace:
     build:
       target: development
     volumes:
@@ -17,7 +17,18 @@ services:
       APP_ENV: development
       APP_DEBUG: "true"
       LOG_LEVEL: DEBUG
-    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn marketplace.app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  agent-worker:
+    build:
+      target: development
+    volumes:
+      - ./backend:/app
+    environment:
+      APP_ENV: development
+      APP_DEBUG: "true"
+      LOG_LEVEL: DEBUG
+    command: celery -A marketplace.app.celery_app worker --pool=gevent --concurrency=100 -Q agent -l info
 
   frontend:
     build:
@@ -32,9 +43,4 @@ services:
   mock-server:
     volumes:
       - ./mock_server:/app
-    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
-
-  celery-worker:
-    volumes:
-      - ./backend:/app
-    command: uv run celery -A app.celery_app worker -l info
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload

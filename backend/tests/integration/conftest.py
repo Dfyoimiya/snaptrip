@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.core.exceptions import LLMError
+from shared.core.exceptions import LLMError
 
 
 @pytest.fixture(autouse=True)
@@ -27,6 +27,6 @@ def _mock_llm_adapter(monkeypatch):
         raise LLMError("LLM mocked for fast integration testing")
 
     monkeypatch.setattr(
-        "app.adapters.llm.llm_adapter.LLMAdapter.chat_json",
+        "agent_worker.app.agent.adapters.llm.LLMAdapter.chat_json",
         _fast_fail,
     )

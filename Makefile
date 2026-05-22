@@ -21,13 +21,13 @@ docker-compose.override.yml:
 # ===== Docker =====
 
 up: ## 启动全栈（production 模式）
-	docker compose up -d --build
+	docker compose --profile full up -d --build
 
 down: ## 停止全栈
 	docker compose down
 
 dev: ## 启动开发环境（热重载）
-	BUILD_TARGET=development docker compose -f docker-compose.yml -f docker-compose.override.yml up --build
+	BUILD_TARGET=development docker compose --profile dev -f docker-compose.yml -f docker-compose.override.yml up --build
 
 build: ## 构建所有镜像
 	docker compose build
@@ -38,17 +38,17 @@ logs: ## 查看日志
 # ===== 后端 =====
 
 backend-dev: ## 仅启动后端（本地）
-	cd backend && uv run uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
+	cd backend && uv run uvicorn marketplace.app.main:app --host 0.0.0.0 --port 8080 --reload
 
-backend-shell: ## 进入后端容器
-	docker compose exec backend bash
+backend-shell: ## 进入 Marketplace 容器
+	docker compose exec marketplace bash
 
 # ===== 测试 =====
 
 TEST_ENV = APP_ENV=test DATABASE_TEST_URL=postgresql+asyncpg://snaptrip:snaptrip_dev_pass@localhost:5433/snaptrip_test REDIS_URL=redis://localhost:6380/0 APP_SECRET_KEY=test-secret JWT_SECRET_KEY=test-jwt-secret OPENROUTER_API_KEY=placeholder MOCK_FAULT_RATE=0 MOCK_DELAY_RATE=0
 
 test-unit: ## 运行单元测试
-	cd backend && uv sync --extra dev && $(TEST_ENV) uv run pytest tests/unit/ -v --cov=app --cov-report=xml --cov-report=term
+	cd backend && uv sync --extra dev && $(TEST_ENV) uv run pytest tests/unit/ -v --cov=marketplace --cov=agent_worker --cov=shared --cov-report=xml --cov-report=term
 
 test-integration: ## 运行集成测试
 	cd backend && uv sync --extra dev && $(TEST_ENV) uv run pytest tests/integration/ -v
@@ -71,13 +71,13 @@ mock-up: ## 启动 Mock 服务（本地）
 # ===== 代码质量 =====
 
 lint: ## 代码检查（ruff + mypy）
-	cd backend && uv sync --extra dev && uv run ruff check app/ && uv run mypy app/
+	cd backend && uv sync --extra dev && uv run ruff check marketplace/ agent_worker/ shared/ tests/ && uv run mypy marketplace/ agent_worker/ shared/
 
 lint-frontend: ## 前端类型检查
 	cd frontend && npx -p typescript tsc --noEmit
 
 format: ## 代码格式化
-	cd backend && uv sync --extra dev && uv run ruff format app/
+	cd backend && uv sync --extra dev && uv run ruff format marketplace/ agent_worker/ shared/ tests/
 
 # ===== 数据库 =====
 
