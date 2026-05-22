@@ -27,6 +27,7 @@ def upgrade() -> None:
     注意: 此迁移仅创建 schema，不移动表。
     表迁移在后续迁移中通过 ALTER TABLE ... SET SCHEMA 完成。
     """
+    op.execute("CREATE EXTENSION IF NOT EXISTS vector")
     op.execute("CREATE SCHEMA IF NOT EXISTS agent")
     op.execute("CREATE SCHEMA IF NOT EXISTS marketplace")
     op.execute("CREATE SCHEMA IF NOT EXISTS langgraph")
