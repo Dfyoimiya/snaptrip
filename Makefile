@@ -6,8 +6,8 @@ help: ## 显示帮助信息
 # ===== 初始化 =====
 
 init: .env docker-compose.override.yml ## 初始化项目（复制配置、安装依赖）
-	@echo "==> 安装后端依赖..."
-	cd backend && uv sync --extra dev
+	@echo "==> 安装后端依赖 (workspace)..."
+	uv sync --extra dev
 	@echo "==> 安装前端依赖..."
 	cd frontend && npm install
 	@echo "==> 初始化完成! 运行 make dev 启动开发环境"
@@ -48,10 +48,10 @@ backend-shell: ## 进入 Marketplace 容器
 TEST_ENV = APP_ENV=test DATABASE_TEST_URL=postgresql+asyncpg://snaptrip:snaptrip_dev_pass@localhost:5433/snaptrip_test REDIS_URL=redis://localhost:6380/0 APP_SECRET_KEY=test-secret JWT_SECRET_KEY=test-jwt-secret OPENROUTER_API_KEY=placeholder MOCK_FAULT_RATE=0 MOCK_DELAY_RATE=0
 
 test-unit: ## 运行单元测试
-	cd backend && uv sync --extra dev && $(TEST_ENV) uv run pytest tests/unit/ -v --cov=marketplace --cov=agent_worker --cov=shared --cov-report=xml --cov-report=term
+	cd backend && $(TEST_ENV) uv run pytest tests/unit/ -v --cov=marketplace --cov=agent_worker --cov=shared --cov-report=xml --cov-report=term
 
 test-integration: ## 运行集成测试
-	cd backend && uv sync --extra dev && $(TEST_ENV) uv run pytest tests/integration/ -v
+	cd backend && $(TEST_ENV) uv run pytest tests/integration/ -v
 
 test-backend: test-unit test-integration ## 运行全部后端测试
 
@@ -71,13 +71,14 @@ mock-up: ## 启动 Mock 服务（本地）
 # ===== 代码质量 =====
 
 lint: ## 代码检查（ruff + mypy）
-	cd backend && uv sync --extra dev && uv run ruff check marketplace/ agent_worker/ shared/ tests/ && uv run mypy marketplace/ agent_worker/ shared/
+	cd backend && uv run ruff check marketplace/ agent_worker/ shared/ tests/
+	cd backend && uv run mypy marketplace/ agent_worker/ shared/
 
 lint-frontend: ## 前端类型检查
 	cd frontend && npx -p typescript tsc --noEmit
 
 format: ## 代码格式化
-	cd backend && uv sync --extra dev && uv run ruff format marketplace/ agent_worker/ shared/ tests/
+	cd backend && uv run ruff format marketplace/ agent_worker/ shared/ tests/
 
 # ===== 数据库 =====
 

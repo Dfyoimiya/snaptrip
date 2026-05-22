@@ -10,8 +10,9 @@ venv/
 *.so
 .Python
 
-# uv
-uv.lock
+# uv (root uv.lock IS committed — it's the workspace unified lock file)
+backend/uv.lock
+mock_server/uv.lock
 
 # Node / Frontend
 node_modules/
