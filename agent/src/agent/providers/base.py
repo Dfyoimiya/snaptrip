@@ -39,7 +39,9 @@ class BaseLLMProvider(ABC):
 
     provider_name: str = ""
 
-    def __init__(self, api_key: str = "", base_url: str = "", timeout: float = 30.0) -> None:
+    def __init__(
+        self, api_key: str = "", base_url: str = "", timeout: float = 30.0
+    ) -> None:
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
@@ -97,7 +99,9 @@ class BaseLLMProvider(ABC):
             if "content" not in msg:
                 raise LLMError(f"messages[{i}] 缺少 'content' 字段")
         if not (0.0 <= temperature <= 2.0):
-            raise LLMError(f"temperature 必须在 [0.0, 2.0] 范围内，当前值: {temperature}")
+            raise LLMError(
+                f"temperature 必须在 [0.0, 2.0] 范围内，当前值: {temperature}"
+            )
         if max_tokens < 1:
             raise LLMError(f"max_tokens 必须 >= 1，当前值: {max_tokens}")
 
@@ -134,16 +138,30 @@ class BaseLLMProvider(ABC):
         for attempt in range(_MAX_RETRIES + 1):
             try:
                 async with httpx.AsyncClient(timeout=timeout) as client:
-                    resp = await client.post(url, headers=self._build_headers(), json=payload)
+                    resp = await client.post(
+                        url, headers=self._build_headers(), json=payload
+                    )
             except httpx.TimeoutException:
                 last_exception = LLMTimeoutError(
-                    details={"provider": self.provider_name, "url": url, "attempt": attempt + 1},
+                    details={
+                        "provider": self.provider_name,
+                        "url": url,
+                        "attempt": attempt + 1,
+                    },
                 )
-                logger.warning("llm_timeout provider=%s attempt=%d", self.provider_name, attempt + 1)
+                logger.warning(
+                    "llm_timeout provider=%s attempt=%d",
+                    self.provider_name,
+                    attempt + 1,
+                )
             except httpx.RequestError as e:
                 last_exception = LLMError(
                     f"网络错误: {e}",
-                    details={"provider": self.provider_name, "url": url, "attempt": attempt + 1},
+                    details={
+                        "provider": self.provider_name,
+                        "url": url,
+                        "attempt": attempt + 1,
+                    },
                 )
                 logger.warning(
                     "llm_network_error provider=%s error=%s attempt=%d",
@@ -158,9 +176,17 @@ class BaseLLMProvider(ABC):
 
                 if resp.status_code == 429:
                     last_exception = LLMRateLimitError(
-                        details={"provider": self.provider_name, "http_status": 429, "attempt": attempt + 1},
+                        details={
+                            "provider": self.provider_name,
+                            "http_status": 429,
+                            "attempt": attempt + 1,
+                        },
                     )
-                    logger.warning("llm_rate_limited provider=%s attempt=%d", self.provider_name, attempt + 1)
+                    logger.warning(
+                        "llm_rate_limited provider=%s attempt=%d",
+                        self.provider_name,
+                        attempt + 1,
+                    )
                 elif resp.status_code >= 500:
                     last_exception = LLMError(
                         f"{self.provider_name} API 返回 {resp.status_code}: {resp.text[:300]}",
@@ -180,13 +206,21 @@ class BaseLLMProvider(ABC):
                     # 4xx (非 429)：不重试，立即抛出
                     raise LLMError(
                         f"{self.provider_name} API 返回 {resp.status_code}: {resp.text[:500]}",
-                        details={"provider": self.provider_name, "http_status": resp.status_code},
+                        details={
+                            "provider": self.provider_name,
+                            "http_status": resp.status_code,
+                        },
                     )
 
             # 还有重试次数
             if attempt < _MAX_RETRIES:
                 delay = _RETRY_BASE_DELAY * (2**attempt)  # 1s, 2s
-                logger.info("llm_retry provider=%s attempt=%d delay=%.1fs", self.provider_name, attempt + 1, delay)
+                logger.info(
+                    "llm_retry provider=%s attempt=%d delay=%.1fs",
+                    self.provider_name,
+                    attempt + 1,
+                    delay,
+                )
                 await asyncio.sleep(delay)
 
         raise last_exception  # type: ignore[misc]
@@ -200,8 +234,11 @@ class BaseLLMProvider(ABC):
         }
 
     @staticmethod
-    def _calculate_cost(pricing: ModelPricing, prompt_tokens: int, completion_tokens: int) -> float:
+    def _calculate_cost(
+        pricing: ModelPricing, prompt_tokens: int, completion_tokens: int
+    ) -> float:
         """根据定价和用量计算成本（USD）"""
         prompt_cost = (prompt_tokens / 1000) * pricing.prompt_per_1k
         completion_cost = (completion_tokens / 1000) * pricing.completion_per_1k
-        return round(prompt_cost + completion_cost, 8)
+        result: float = round(prompt_cost + completion_cost, 8)
+        return result

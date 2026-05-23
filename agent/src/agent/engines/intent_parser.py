@@ -77,13 +77,21 @@ class IntentParser(BaseAgent):
         Returns:
             AgentResult.data["intent"] = IntentSchema
         """
-        logger.info("intent_parser_started", user_id=context.user_id, plan_id=context.plan_id)
+        logger.info(
+            "intent_parser_started", user_id=context.user_id, plan_id=context.plan_id
+        )
         try:
-            result = await asyncio.wait_for(self._parse_via_llm(context), timeout=INTENT_TIMEOUT_S)
-            logger.info("intent_parser_completed", source="llm", plan_id=context.plan_id)
+            result = await asyncio.wait_for(
+                self._parse_via_llm(context), timeout=INTENT_TIMEOUT_S
+            )
+            logger.info(
+                "intent_parser_completed", source="llm", plan_id=context.plan_id
+            )
             return result
         except (TimeoutError, Exception):
-            logger.info("intent_parser_fallback", source="keyword", plan_id=context.plan_id)
+            logger.info(
+                "intent_parser_fallback", source="keyword", plan_id=context.plan_id
+            )
             return await self._parse_via_keywords(context)
 
     async def _parse_via_llm(self, context: AgentContext) -> AgentResult:
@@ -116,13 +124,19 @@ class IntentParser(BaseAgent):
                 max_tokens=512,
             )
         except Exception:
-            logger.warning("intent_parser_llm_failed", plan_id=context.plan_id, exc_info=True)
+            logger.warning(
+                "intent_parser_llm_failed", plan_id=context.plan_id, exc_info=True
+            )
             return await self._parse_via_keywords(context)
 
         intent = IntentSchema(
             time_window=TimeRange(
-                start=parsed.get("time_window", {}).get("start", datetime.now().isoformat()),
-                end=parsed.get("time_window", {}).get("end", (datetime.now() + timedelta(hours=4)).isoformat()),
+                start=parsed.get("time_window", {}).get(
+                    "start", datetime.now().isoformat()
+                ),
+                end=parsed.get("time_window", {}).get(
+                    "end", (datetime.now() + timedelta(hours=4)).isoformat()
+                ),
             )
             if parsed.get("time_window")
             else None,
@@ -161,9 +175,13 @@ class IntentParser(BaseAgent):
                 city = c
                 break
 
-        type_prefs = [t for t, kws in TYPE_KEYWORDS.items() if any(kw in text for kw in kws)]
+        type_prefs = [
+            t for t, kws in TYPE_KEYWORDS.items() if any(kw in text for kw in kws)
+        ]
 
-        mood_prefs = [m for m, kws in MOOD_KEYWORDS.items() if any(kw in text for kw in kws)]
+        mood_prefs = [
+            m for m, kws in MOOD_KEYWORDS.items() if any(kw in text for kw in kws)
+        ]
 
         budget = None
         m = re.search(r"预算(\d+)", text) or re.search(r"人均(\d+)", text)

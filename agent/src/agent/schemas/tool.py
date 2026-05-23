@@ -68,7 +68,9 @@ class ToolDefinition(BaseModel):
     dependencies: list[str] = Field(default_factory=list)  # DAG 依赖（LLM 不可见）
     is_idempotent: bool = True  # ExecutionEngine 使用
     default_timeout_ms: int = 3000
-    fallback_policy: Literal["abort", "degrade", "continue"] = "abort"  # ExecutionEngine 使用
+    fallback_policy: Literal["abort", "degrade", "continue"] = (
+        "abort"  # ExecutionEngine 使用
+    )
     physical_impact: bool = False  # 标记物理操作（LLM 不可见）
 
 
@@ -87,7 +89,11 @@ TOOL_REGISTRY: dict[str, ToolDefinition] = {
                 "category": {"type": "string", "description": "POI 类别"},
                 "lat": {"type": "number", "description": "中心纬度"},
                 "lng": {"type": "number", "description": "中心经度"},
-                "radius_km": {"type": "number", "description": "搜索半径(km)", "default": 15},
+                "radius_km": {
+                    "type": "number",
+                    "description": "搜索半径(km)",
+                    "default": 15,
+                },
             },
             "required": ["city"],
         },

@@ -32,24 +32,36 @@ def state_to_response(state: Mapping[str, Any], query_text: str = "") -> PlanRes
 
 
 def _draft_from_state(state: Mapping[str, Any]) -> dict[str, Any] | None:
-    repair = state.get("repair") or {}
-    revised = repair.get("revised_draft")
+    repair: dict[str, Any] = state.get("repair") or {}
+    revised: object = repair.get("revised_draft")
     if revised:
         if isinstance(revised, PlanDraft):
-            return revised.model_dump()
-        return revised  # type: ignore[no-any-return]
+            revised_data: dict[str, Any] = revised.model_dump()
+            return revised_data
+        if isinstance(revised, dict):
+            return revised
+        return None
 
-    draft = state.get("draft")
+    draft: object = state.get("draft")
     if isinstance(draft, PlanDraft):
-        return draft.model_dump()
-    return draft
+        draft_data: dict[str, Any] = draft.model_dump()
+        return draft_data
+    if isinstance(draft, dict):
+        return draft
+    return None
 
 
 def _share_card_from_state(state: Mapping[str, Any]) -> dict[str, Any] | None:
-    notification = state.get("notification") or {}
-    typed_share_card = notification.get("share_card")
+    notification: dict[str, Any] = state.get("notification") or {}
+    typed_share_card: object = notification.get("share_card")
     if typed_share_card:
         if isinstance(typed_share_card, ShareCard):
-            return typed_share_card.model_dump()
-        return typed_share_card  # type: ignore[no-any-return]
-    return state.get("share_card")
+            d: dict[str, Any] = typed_share_card.model_dump()
+            return d
+        if isinstance(typed_share_card, dict):
+            return typed_share_card
+        return None
+    sc: object = state.get("share_card")
+    if isinstance(sc, dict):
+        return sc
+    return None

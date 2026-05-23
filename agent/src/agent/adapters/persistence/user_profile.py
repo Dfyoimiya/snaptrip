@@ -39,10 +39,14 @@ class UserProfileRepository:
 
         try:
             async with AsyncSessionLocal() as db:
-                result = await db.execute(select(UserProfile).where(UserProfile.user_id == uid))
+                result = await db.execute(
+                    select(UserProfile).where(UserProfile.user_id == uid)
+                )
                 profile = result.scalar_one_or_none()
         except Exception:
-            logger.warning("user_profile_repo_db_failed user_id=%s", user_id, exc_info=True)
+            logger.warning(
+                "user_profile_repo_db_failed user_id=%s", user_id, exc_info=True
+            )
             return None
 
         if profile is None:

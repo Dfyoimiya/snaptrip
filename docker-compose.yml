@@ -55,8 +55,8 @@ services:
   # ===== Marketplace :8080 — FastAPI + Celery Beat =====
   marketplace:
     build:
-      context: ./backend
-      dockerfile: Dockerfile.gateway
+      context: .
+      dockerfile: backend/Dockerfile.gateway
       target: ${BUILD_TARGET:-production}
     container_name: snaptrip-marketplace
     init: true
@@ -103,8 +103,8 @@ services:
   # ===== Agent Worker (Celery) — LangGraph 异步执行 =====
   agent-worker:
     build:
-      context: ./backend
-      dockerfile: Dockerfile.worker
+      context: .
+      dockerfile: backend/Dockerfile.worker
       target: ${BUILD_TARGET:-production}
     container_name: snaptrip-agent-worker
     init: true
@@ -148,8 +148,8 @@ services:
   # ===== Celery Beat — 定时任务调度 =====
   agent-beat:
     build:
-      context: ./backend
-      dockerfile: Dockerfile.worker
+      context: .
+      dockerfile: backend/Dockerfile.worker
       target: ${BUILD_TARGET:-production}
     container_name: snaptrip-agent-beat
     init: true

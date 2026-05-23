@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from typing import Any
 
 from agent.adapters.mock_gateway import MockAPIGateway
 from agent.adapters.persistence.plan_run import SQLPlanRunRepository
@@ -79,12 +80,17 @@ def submit_plan(self, initial_state: dict, plan_id: str) -> dict:
         final_state = asyncio.run(service.invoke(initial_state, plan_id))
     except InterruptError:
         _update_status(plan_id, "awaiting_confirmation")
-        return {"status": "awaiting_confirmation", "plan_id": plan_id, "task_id": self.request.id}
+        return {
+            "status": "awaiting_confirmation",
+            "plan_id": plan_id,
+            "task_id": self.request.id,
+        }
     except Exception as exc:
         _update_status(plan_id, "failed", error_message=str(exc))
         raise
     _update_status(plan_id, "completed")
-    return final_state
+    result: dict[Any, Any] = final_state
+    return result
 
 
 @celery_app.task(bind=True, name="plan.confirm")
@@ -96,12 +102,17 @@ def confirm_plan(self, resume_data: dict, plan_id: str) -> dict:
         final_state = asyncio.run(service.resume(resume_data, plan_id))
     except InterruptError:
         _update_status(plan_id, "awaiting_confirmation")
-        return {"status": "awaiting_confirmation", "plan_id": plan_id, "task_id": self.request.id}
+        return {
+            "status": "awaiting_confirmation",
+            "plan_id": plan_id,
+            "task_id": self.request.id,
+        }
     except Exception as exc:
         _update_status(plan_id, "failed", error_message=str(exc))
         raise
     _update_status(plan_id, "completed")
-    return final_state
+    result: dict[Any, Any] = final_state
+    return result
 
 
 # ====================================================================
@@ -110,7 +121,9 @@ def confirm_plan(self, resume_data: dict, plan_id: str) -> dict:
 
 
 @celery_app.task(bind=True, name="plan.create_async")
-def create_plan_async(self, user_input: str, user_id: str, lat: float, lng: float) -> dict:
+def create_plan_async(
+    self, user_input: str, user_id: str, lat: float, lng: float
+) -> dict:
     """[deprecated] 使用 submit_plan 替代。"""
     return {
         "task_id": self.request.id,

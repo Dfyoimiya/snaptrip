@@ -12,7 +12,7 @@ services:
     build:
       target: development
     volumes:
-      - ./backend:/app
+      - .:/app
     environment:
       APP_ENV: development
       APP_DEBUG: "true"
@@ -23,7 +23,7 @@ services:
     build:
       target: development
     volumes:
-      - ./backend:/app
+      - .:/app
     environment:
       APP_ENV: development
       APP_DEBUG: "true"

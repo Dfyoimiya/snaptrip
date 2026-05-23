@@ -17,7 +17,9 @@ def make_agent_result(agent_name: str, data: dict[str, Any]) -> AgentResult:
     return AgentResult(agent_name=agent_name, status="success", data=data)
 
 
-def context_from_state(state: Mapping[str, Any], history: list[AgentResult] | None = None) -> AgentContext:
+def context_from_state(
+    state: Mapping[str, Any], history: list[AgentResult] | None = None
+) -> AgentContext:
     """Build agent context from mixed legacy + typed runtime state."""
 
     request = state.get("request") or {}
@@ -49,15 +51,19 @@ def build_memory_features(enriched: Mapping[str, Any]) -> dict[str, Any]:
     """Derive a minimal typed memory feature view from enriched intent."""
 
     intent = enriched.get("intent", {}) if isinstance(enriched, dict) else {}
-    return MemoryFeatures(
+    result: dict[str, Any] = MemoryFeatures(
         dominant_scene=intent.get("scene_type"),
         boosted_type_prefs=intent.get("type_prefs", []),
         boosted_mood_prefs=intent.get("mood_prefs", []),
-        profile_vector=enriched.get("profile_vector", []) if isinstance(enriched, dict) else [],
+        profile_vector=enriched.get("profile_vector", [])
+        if isinstance(enriched, dict)
+        else [],
     ).model_dump()
+    return result
 
 
 def pending_confirmation() -> dict[str, Any]:
     """Create default pending confirmation state."""
 
-    return ConfirmationState(status="pending").model_dump()
+    result: dict[str, Any] = ConfirmationState(status="pending").model_dump()
+    return result

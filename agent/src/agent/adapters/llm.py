@@ -33,7 +33,9 @@ def _build_default_registry() -> ProviderRegistry:
     """从配置构建默认 ProviderRegistry。"""
     config_path = Path(settings.LLM_PROVIDER_CONFIG)
     if not config_path.is_absolute():
-        config_path = Path(__file__).resolve().parent.parent.parent / settings.LLM_PROVIDER_CONFIG
+        config_path = (
+            Path(__file__).resolve().parent.parent.parent / settings.LLM_PROVIDER_CONFIG
+        )
 
     model_registry = ModelRegistry(config_path)
     registry = ProviderRegistry(model_registry=model_registry)
@@ -118,7 +120,9 @@ class LLMAdapter(LLMPort):
         pricing = self._registry.model_registry.get_pricing(alias)
         cost_usd = 0.0
         if pricing is not None:
-            cost_usd = provider._calculate_cost(pricing, result.usage.prompt_tokens, result.usage.completion_tokens)
+            cost_usd = provider._calculate_cost(
+                pricing, result.usage.prompt_tokens, result.usage.completion_tokens
+            )
         await log_llm_usage(
             model_name=result.model,
             provider=result.provider,

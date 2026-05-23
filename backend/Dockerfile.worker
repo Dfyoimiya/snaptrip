@@ -7,12 +7,14 @@
 #   - OrphanReaper — 定时清理孤儿资源（Phase 5 RedBeat）
 #
 # 启动:
-#   celery -A app.celery_app worker --pool=gevent --concurrency=100 -Q agent
+#   celery -A marketplace.app.celery_app worker --pool=gevent --concurrency=100 -Q agent
 #
 # 环境变量:
 #   MARKETPLACE_MODE  — mock | live | hybrid
 #   SNAPTRIP_MARKETPLACE_URL  — Marketplace API base URL
 #   REDIS_URL  — Celery broker + result backend
+#
+# 构建上下文: repo root (monorepo workspace)
 
 # ===== Shared Base Stage =====
 FROM python:3.11-slim AS base
@@ -34,13 +36,27 @@ ENV UV_PROJECT_ENVIRONMENT=/opt/venv
 ENV VIRTUAL_ENV=/opt/venv
 ENV PATH="/opt/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
-COPY pyproject.toml uv.lock* ./
-RUN uv sync --no-dev
+# ── 依赖安装层（利用 Docker 缓存）──
+# 先复制 workspace 根配置 + lock file
+COPY pyproject.toml uv.lock ./
+
+# 复制各 workspace member 的 pyproject.toml + 源码（setuptools 构建需要完整源码）
+COPY backend/pyproject.toml backend/
+COPY backend/marketplace/ backend/marketplace/
+COPY shared/pyproject.toml shared/
+COPY shared/snaptrip_shared/ shared/snaptrip_shared/
+COPY agent/pyproject.toml agent/
+COPY agent/src/ agent/src/
+
+RUN uv sync --package snaptrip-backend --no-dev
 
 # ===== Development Stage =====
 FROM base AS development
 
-COPY . .
+# 复制全部源码（覆盖/补充依赖层已复制的部分）
+COPY backend/ backend/
+COPY shared/ shared/
+COPY agent/ agent/
 
 CMD ["celery", "-A", "marketplace.app.celery_app", "worker", "--pool=gevent", "--concurrency=100", "-Q", "agent", "-l", "info"]
 
@@ -48,7 +64,10 @@ CMD ["celery", "-A", "marketplace.app.celery_app", "worker", "--pool=gevent", "-
 # ===== Production Stage =====
 FROM base AS production
 
-COPY . .
+# 复制全部源码
+COPY backend/ backend/
+COPY shared/ shared/
+COPY agent/ agent/
 
 RUN useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser

@@ -81,7 +81,9 @@ class ToolProviderConfig(BaseModel):
     idempotency_ttl_sec: int = 3600
     circuit_breaker_threshold: int = 5
     circuit_recovery_s: int = 30
-    compensation: str | None = None  # 补偿策略名: "cancel_booking" | "cancel_ticket" | ...
+    compensation: str | None = (
+        None  # 补偿策略名: "cancel_booking" | "cancel_ticket" | ...
+    )
 
 
 # ===== Saga 补偿 =====

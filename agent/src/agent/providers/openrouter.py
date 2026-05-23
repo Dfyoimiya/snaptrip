@@ -116,15 +116,22 @@ class OpenRouterProvider(BaseLLMProvider):
         try:
             async with (
                 httpx.AsyncClient(timeout=timeout) as client,
-                client.stream("POST", url, headers=self._build_headers(), json=payload) as resp,
+                client.stream(
+                    "POST", url, headers=self._build_headers(), json=payload
+                ) as resp,
             ):
                 if resp.status_code == 429:
-                    raise LLMRateLimitError(details={"provider": "openrouter", "http_status": 429})
+                    raise LLMRateLimitError(
+                        details={"provider": "openrouter", "http_status": 429}
+                    )
                 if resp.status_code != 200:
                     body = await resp.aread()
                     raise LLMError(
                         f"OpenRouter API 返回 {resp.status_code}: {body.decode('utf-8', errors='replace')[:500]}",
-                        details={"provider": "openrouter", "http_status": resp.status_code},
+                        details={
+                            "provider": "openrouter",
+                            "http_status": resp.status_code,
+                        },
                     )
 
                 async for line in resp.aiter_lines():
@@ -140,13 +147,19 @@ class OpenRouterProvider(BaseLLMProvider):
                     delta = chunk.get("choices", [{}])[0].get("delta", {})
                     yield StreamChunk(
                         content=delta.get("content", ""),
-                        finish_reason=chunk.get("choices", [{}])[0].get("finish_reason"),
+                        finish_reason=chunk.get("choices", [{}])[0].get(
+                            "finish_reason"
+                        ),
                         model=chunk.get("model", model),
                     )
         except httpx.TimeoutException as e:
-            raise LLMError("OpenRouter 流式调用超时", details={"provider": "openrouter"}) from e
+            raise LLMError(
+                "OpenRouter 流式调用超时", details={"provider": "openrouter"}
+            ) from e
         except httpx.RequestError as e:
-            raise LLMError(f"OpenRouter 网络错误: {e}", details={"provider": "openrouter"}) from e
+            raise LLMError(
+                f"OpenRouter 网络错误: {e}", details={"provider": "openrouter"}
+            ) from e
 
     def get_pricing(self, model: str) -> ModelPricing:
         return ModelPricing(prompt_per_1k=0.0, completion_per_1k=0.0)

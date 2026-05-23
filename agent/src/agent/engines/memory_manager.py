@@ -55,13 +55,25 @@ class MemoryManager(BaseAgent):
             try:
                 prefs = await self._plan_repo.get_user_history(str(uid))
                 if prefs:
-                    enhanced.intent.type_prefs = _merge_prefs(enhanced.intent.type_prefs, prefs.get("types", []))
-                    enhanced.intent.mood_prefs = _merge_prefs(enhanced.intent.mood_prefs, prefs.get("moods", []))
+                    enhanced.intent.type_prefs = _merge_prefs(
+                        enhanced.intent.type_prefs, prefs.get("types", [])
+                    )
+                    enhanced.intent.mood_prefs = _merge_prefs(
+                        enhanced.intent.mood_prefs, prefs.get("moods", [])
+                    )
                     dominant_scene = prefs.get("dominant_scene")
-                    if isinstance(dominant_scene, str) and dominant_scene and enhanced.intent.scene_type == "solo":
+                    if (
+                        isinstance(dominant_scene, str)
+                        and dominant_scene
+                        and enhanced.intent.scene_type == "solo"
+                    ):
                         enhanced.intent.scene_type = dominant_scene
             except Exception:
-                logger.warning("memory_manager_repo_failed user_id=%s", context.user_id, exc_info=True)
+                logger.warning(
+                    "memory_manager_repo_failed user_id=%s",
+                    context.user_id,
+                    exc_info=True,
+                )
 
         return AgentResult(data={"enriched_intent": enhanced.model_dump()})
 

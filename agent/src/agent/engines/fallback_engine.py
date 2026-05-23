@@ -70,7 +70,9 @@ class FallbackEngine(BaseAgent):
         enriched = self._extract_enriched(context)
 
         if not execution_result or not draft:
-            return AgentResult(status="failed", error="Missing execution result or draft")
+            return AgentResult(
+                status="failed", error="Missing execution result or draft"
+            )
 
         revised = await self._repair(draft, execution_result, enriched)
 
@@ -97,7 +99,9 @@ class FallbackEngine(BaseAgent):
                 old = new_slots[failed.slot_index]
 
                 # ── v3 孤儿取消: 如果被替换的 Slot 有已确认预订，先取消 ──
-                await self._cancel_orphan_booking(failed.slot_index, old.action, result, cancelled_refs)
+                await self._cancel_orphan_booking(
+                    failed.slot_index, old.action, result, cancelled_refs
+                )
 
                 new_slots[failed.slot_index] = PlanSlot(
                     sequence=failed.slot_index,
@@ -244,10 +248,16 @@ class FallbackEngine(BaseAgent):
             if shadow:
                 return POI(**shadow.model_dump())
 
-        candidates = [p for p in SEED_POIS if p.type == original.poi.type and p.id != original.poi.id]
+        candidates = [
+            p
+            for p in SEED_POIS
+            if p.type == original.poi.type and p.id != original.poi.id
+        ]
         return random.choice(candidates) if candidates else None
 
-    def _retrieve_alternative(self, draft: PlanDraft, slot_index: int, enriched: EnrichedIntent | None) -> POI | None:
+    def _retrieve_alternative(
+        self, draft: PlanDraft, slot_index: int, enriched: EnrichedIntent | None
+    ) -> POI | None:
         return self._find_alternative(draft, slot_index)
 
     def _ripple_reschedule(self, slots: list[PlanSlot], changed_idx: int):

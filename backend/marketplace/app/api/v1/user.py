@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from typing import Any
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -61,7 +62,7 @@ async def get_profile(
     if profile is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户资料不存在")
 
-    return success(
+    data: dict[str, Any] = success(
         data=UserProfileOut(
             nickname=profile.nickname,
             avatar_url=profile.avatar_url,
@@ -71,6 +72,7 @@ async def get_profile(
             preference_embedding=profile.preference_embedding,
         ).model_dump()
     )
+    return data
 
 
 @router.put("/profile")
@@ -105,7 +107,7 @@ async def update_profile(
     if prefs_changed:
         trigger_preference_embedding_update(str(current_user.id))
 
-    return success(
+    data: dict[str, Any] = success(
         data=UserProfileOut(
             nickname=profile.nickname,
             avatar_url=profile.avatar_url,
@@ -116,6 +118,7 @@ async def update_profile(
         ).model_dump(),
         message="资料已更新",
     )
+    return data
 
 
 # ===== 计划列表 =====
@@ -158,7 +161,10 @@ async def list_plans(
         for p in plans
     ]
 
-    return success(data=PaginatedPlans(items=items, total=total, page=page, page_size=page_size).model_dump())
+    data: dict[str, Any] = success(
+        data=PaginatedPlans(items=items, total=total, page=page, page_size=page_size).model_dump()
+    )
+    return data
 
 
 # ===== 计划详情 =====
@@ -188,7 +194,7 @@ async def get_plan_detail(
     checkpoints = sorted(plan.checkpoints, key=lambda c: c.version)
     adjustments = sorted(plan.plan_adjustments, key=lambda a: a.created_at if a.created_at else _utc_min)
 
-    return success(
+    data: dict[str, Any] = success(
         data=PlanDetailOut(
             id=str(plan.id),
             title=plan.title,
@@ -231,6 +237,7 @@ async def get_plan_detail(
             ],
         ).model_dump()
     )
+    return data
 
 
 # ===== 计划克隆 =====
@@ -276,7 +283,8 @@ async def clone_plan(
 
     await db.commit()
 
-    return success(
+    data: dict[str, Any] = success(
         data={"plan_id": str(new_plan_id), "title": new_plan.title},
         message="计划克隆成功",
     )
+    return data

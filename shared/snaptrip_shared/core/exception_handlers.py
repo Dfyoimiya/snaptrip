@@ -67,7 +67,9 @@ def _make_response(
     return JSONResponse(status_code=exc.status_code, content=body)
 
 
-async def snap_trip_exception_handler(request: Request, exc: SnapTripException) -> JSONResponse:
+async def snap_trip_exception_handler(
+    request: Request, exc: SnapTripException
+) -> JSONResponse:
     """兜底: 所有 SnapTripException 子类统一处理。"""
     trace_id = str(uuid.uuid4())[:12]
     logger.error(
@@ -81,7 +83,9 @@ async def snap_trip_exception_handler(request: Request, exc: SnapTripException) 
     return _make_response(exc, trace_id)
 
 
-async def adapter_exception_handler(request: Request, exc: AdapterError) -> JSONResponse:
+async def adapter_exception_handler(
+    request: Request, exc: AdapterError
+) -> JSONResponse:
     """高德 API 适配异常 —— 标记为外部服务降级。"""
     trace_id = str(uuid.uuid4())[:12]
     logger.error(
@@ -123,7 +127,9 @@ async def validation_handler(request: Request, exc: ValidationError) -> JSONResp
     return _make_response(exc, trace_id)
 
 
-async def authentication_handler(request: Request, exc: AuthenticationError) -> JSONResponse:
+async def authentication_handler(
+    request: Request, exc: AuthenticationError
+) -> JSONResponse:
     """认证失败 —— 不暴露 details 中的敏感信息。"""
     trace_id = str(uuid.uuid4())[:12]
     logger.warning(
@@ -135,7 +141,9 @@ async def authentication_handler(request: Request, exc: AuthenticationError) -> 
     return _make_response(exc, trace_id, include_details=False)
 
 
-async def permission_denied_handler(request: Request, exc: PermissionDeniedError) -> JSONResponse:
+async def permission_denied_handler(
+    request: Request, exc: PermissionDeniedError
+) -> JSONResponse:
     trace_id = str(uuid.uuid4())[:12]
     logger.warning(
         "permission_denied",
@@ -146,7 +154,9 @@ async def permission_denied_handler(request: Request, exc: PermissionDeniedError
     return _make_response(exc, trace_id, include_details=False)
 
 
-async def not_found_handler(request: Request, exc: ResourceNotFoundError) -> JSONResponse:
+async def not_found_handler(
+    request: Request, exc: ResourceNotFoundError
+) -> JSONResponse:
     trace_id = str(uuid.uuid4())[:12]
     logger.debug(
         "resource_not_found",
@@ -157,7 +167,9 @@ async def not_found_handler(request: Request, exc: ResourceNotFoundError) -> JSO
     return _make_response(exc, trace_id, include_details=False)
 
 
-async def circuit_breaker_handler(request: Request, exc: CircuitBreakerOpenError) -> JSONResponse:
+async def circuit_breaker_handler(
+    request: Request, exc: CircuitBreakerOpenError
+) -> JSONResponse:
     """熔断器开启 —— 返回 503 并标记 degraded。"""
     trace_id = str(uuid.uuid4())[:12]
     logger.warning(

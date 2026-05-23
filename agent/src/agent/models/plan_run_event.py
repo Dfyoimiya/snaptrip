@@ -15,7 +15,9 @@ class PlanRunEvent(Base):
     __tablename__ = "plan_run_events"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    event_id: Mapped[str] = mapped_column(String(64), unique=True, index=True, nullable=False)
+    event_id: Mapped[str] = mapped_column(
+        String(64), unique=True, index=True, nullable=False
+    )
     run_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
     plan_id: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
     node_name: Mapped[str] = mapped_column(String(128), index=True, nullable=False)

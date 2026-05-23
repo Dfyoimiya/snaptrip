@@ -74,7 +74,9 @@ class PlanningEngine(BaseAgent):
         Returns:
             AgentResult.data["draft"] = PlanDraft
         """
-        logger.info("planning_engine_started", plan_id=context.plan_id, user_id=context.user_id)
+        logger.info(
+            "planning_engine_started", plan_id=context.plan_id, user_id=context.user_id
+        )
         enriched = self._extract_enriched(context)
         pool = self._extract_pool(context)
         intent = enriched.intent if enriched else IntentSchema()
@@ -87,7 +89,9 @@ class PlanningEngine(BaseAgent):
             start_time = intent.time_window.start
             end_time = intent.time_window.end
 
-        candidates = self._phase1_hard_filter(pool.candidates, intent, context.lat, context.lng, start_time, end_time)
+        candidates = self._phase1_hard_filter(
+            pool.candidates, intent, context.lat, context.lng, start_time, end_time
+        )
 
         matched_skills = match_skills(
             scene_type=intent.scene_type,
@@ -97,7 +101,15 @@ class PlanningEngine(BaseAgent):
 
         try:
             ranked = await asyncio.wait_for(
-                self._phase2_llm_sort(candidates, intent, start_time, end_time, skill_prompt, context.lat, context.lng),
+                self._phase2_llm_sort(
+                    candidates,
+                    intent,
+                    start_time,
+                    end_time,
+                    skill_prompt,
+                    context.lat,
+                    context.lng,
+                ),
                 timeout=PLANNING_PHASE2_TIMEOUT_S,
             )
         except TimeoutError:
@@ -117,11 +129,19 @@ class PlanningEngine(BaseAgent):
             confidence=0.7,
             version=1,
         )
-        logger.info("planning_engine_completed", plan_id=context.plan_id, slot_count=len(slots))
+        logger.info(
+            "planning_engine_completed", plan_id=context.plan_id, slot_count=len(slots)
+        )
         return AgentResult(data={"draft": draft.model_dump()})
 
     def _phase1_hard_filter(
-        self, candidates: list[POI], intent: IntentSchema, lat: float, lng: float, start: datetime, end: datetime
+        self,
+        candidates: list[POI],
+        intent: IntentSchema,
+        lat: float,
+        lng: float,
+        start: datetime,
+        end: datetime,
     ) -> list[POI]:
         """Phase 1: 硬约束过滤（纯代码，≤50ms）。
 
@@ -208,7 +228,9 @@ class PlanningEngine(BaseAgent):
                 result.append(poi_map[pid])
         return result or self._phase2_fallback_sort(candidates, intent)
 
-    def _phase2_fallback_sort(self, candidates: list[POI], intent: IntentSchema) -> list[POI]:
+    def _phase2_fallback_sort(
+        self, candidates: list[POI], intent: IntentSchema
+    ) -> list[POI]:
         """Phase 2 降级排序（纯代码，LLM 超时时使用）。
 
         按评分 + 心情标签匹配加权排序。
@@ -229,7 +251,9 @@ class PlanningEngine(BaseAgent):
         scored.sort(key=lambda x: -x[1])
         return [p for p, _ in scored]
 
-    def _generate_slots(self, pois: list[POI], start: datetime, end: datetime) -> list[PlanSlot]:
+    def _generate_slots(
+        self, pois: list[POI], start: datetime, end: datetime
+    ) -> list[PlanSlot]:
         """根据排序后的 POI 列表生成时间轴 Slots。
 
         最多 4 个 Slot，均匀分配时间窗口，含移动时间随机扰动。
@@ -248,7 +272,12 @@ class PlanningEngine(BaseAgent):
         cnt = min(len(pois), 4)
         dur = total_min / max(cnt, 1)
         cur = start
-        action_map = {"restaurant": "book_table", "cafe": "arrive", "attraction": "arrive", "activity": "book_ticket"}
+        action_map = {
+            "restaurant": "book_table",
+            "cafe": "arrive",
+            "attraction": "arrive",
+            "activity": "book_ticket",
+        }
 
         shadow_pool = [p for p in pois]
         for i, poi in enumerate(pois[:cnt]):

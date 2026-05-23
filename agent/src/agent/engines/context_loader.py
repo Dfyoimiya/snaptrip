@@ -47,11 +47,17 @@ class ContextLoader(BaseAgent):
         self._user_profile_repo = user_profile_repo
 
     async def execute(self, context: AgentContext) -> AgentResult:
-        intent_data = context.history[-1].data.get("intent", {}) if context.history else {}
+        intent_data = (
+            context.history[-1].data.get("intent", {}) if context.history else {}
+        )
         intent = IntentSchema(**intent_data) if intent_data else IntentSchema()
 
         uid = self._parse_user_id(context.user_id)
-        enriched = await self._load_profile(uid, intent) if uid else self._default(intent, context.user_id)
+        enriched = (
+            await self._load_profile(uid, intent)
+            if uid
+            else self._default(intent, context.user_id)
+        )
 
         return AgentResult(data={"enriched_intent": enriched.model_dump()})
 
@@ -59,14 +65,18 @@ class ContextLoader(BaseAgent):
     # profile loading
     # ------------------------------------------------------------------
 
-    async def _load_profile(self, user_id: uuid.UUID, intent: IntentSchema) -> EnrichedIntent:
+    async def _load_profile(
+        self, user_id: uuid.UUID, intent: IntentSchema
+    ) -> EnrichedIntent:
         if self._user_profile_repo is None:
             return self._default(intent, str(user_id))
 
         try:
             profile = await self._user_profile_repo.get_profile(str(user_id))
         except Exception:
-            logger.warning("context_loader_repo_failed user_id=%s", str(user_id), exc_info=True)
+            logger.warning(
+                "context_loader_repo_failed user_id=%s", str(user_id), exc_info=True
+            )
             return self._default(intent, str(user_id))
 
         if profile is None:

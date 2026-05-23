@@ -36,8 +36,12 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"
 
-    DATABASE_URL: str = "postgresql+asyncpg://snaptrip:snaptrip@localhost:5432/snaptrip_dev"
-    DATABASE_TEST_URL: str = "postgresql+asyncpg://snaptrip:snaptrip@localhost:5433/snaptrip_test"
+    DATABASE_URL: str = (
+        "postgresql+asyncpg://snaptrip:snaptrip@localhost:5432/snaptrip_dev"
+    )
+    DATABASE_TEST_URL: str = (
+        "postgresql+asyncpg://snaptrip:snaptrip@localhost:5433/snaptrip_test"
+    )
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 10
 

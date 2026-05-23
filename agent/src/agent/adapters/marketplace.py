@@ -99,7 +99,9 @@ class MarketplaceClient:
         try:
             return await self._get_profile(user_id)
         except Exception:
-            logger.warning("marketplace_get_profile_failed user_id=%s", user_id, exc_info=True)
+            logger.warning(
+                "marketplace_get_profile_failed user_id=%s", user_id, exc_info=True
+            )
             return None
 
     async def get_user_history(self, user_id: str) -> dict | None:
@@ -115,7 +117,9 @@ class MarketplaceClient:
         try:
             return await self._get_user_history(user_id)
         except Exception:
-            logger.warning("marketplace_get_history_failed user_id=%s", user_id, exc_info=True)
+            logger.warning(
+                "marketplace_get_history_failed user_id=%s", user_id, exc_info=True
+            )
             return None
 
     # ── HTTP 实现 (live / hybrid 模式) ──

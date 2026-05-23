@@ -28,7 +28,11 @@ def confirmation_from_resume(resume: dict[str, Any] | None) -> dict[str, Any]:
     change_requests = list(payload.get("change_requests") or [])
 
     reject_decisions = {"objection", "partial_change", "rejected"}
-    if slot_index is not None and slot_index not in rejected_slots and decision in reject_decisions:
+    if (
+        slot_index is not None
+        and slot_index not in rejected_slots
+        and decision in reject_decisions
+    ):
         rejected_slots.append(slot_index)
 
     if decision == "confirmed":
@@ -39,7 +43,8 @@ def confirmation_from_resume(resume: dict[str, Any] | None) -> dict[str, Any]:
         status = "rejected"
 
     normalized_requests = [
-        UserChangeRequest(**item).model_dump() if isinstance(item, dict) else item for item in change_requests
+        UserChangeRequest(**item).model_dump() if isinstance(item, dict) else item
+        for item in change_requests
     ]
     if instruction:
         normalized_requests.append(
@@ -50,18 +55,22 @@ def confirmation_from_resume(resume: dict[str, Any] | None) -> dict[str, Any]:
             ).model_dump()
         )
 
-    return ConfirmationState(
+    result: dict[str, Any] = ConfirmationState(
         status=status,
         locked_slots=locked_slots,
         rejected_slots=rejected_slots,
         user_change_requests=[
-            UserChangeRequest(**item) if isinstance(item, dict) else item for item in normalized_requests
+            UserChangeRequest(**item) if isinstance(item, dict) else item
+            for item in normalized_requests
         ],
         confirmed_at=datetime.utcnow() if status == "confirmed" else None,
     ).model_dump()
+    return result
 
 
-def route_from_confirmation(state: Mapping[str, Any]) -> Literal["execution_engine", "planning_engine", "end"]:
+def route_from_confirmation(
+    state: Mapping[str, Any],
+) -> Literal["execution_engine", "planning_engine", "end"]:
     """Resolve the next graph branch from confirmation state or legacy decision."""
 
     confirmation = state.get("confirmation") or {}
@@ -122,7 +131,8 @@ def maybe_apply_confirmation_replan(state: Mapping[str, Any]) -> dict[str, Any] 
 
     draft.total_cost = sum(slot.estimated_cost for slot in draft.slots)
     draft.version += 1
-    return draft.model_dump()
+    result: dict[str, Any] = draft.model_dump()
+    return result
 
 
 def build_repair_state(
@@ -138,7 +148,9 @@ def build_repair_state(
     revised_plan = RevisedPlan(**revision) if revision else None
     checkpoint = None
     if base_draft is not None:
-        mutable_slots = [idx for idx in range(len(base_draft.slots)) if idx not in locked_slots]
+        mutable_slots = [
+            idx for idx in range(len(base_draft.slots)) if idx not in locked_slots
+        ]
         checkpoint = CheckpointSnapshot(
             version=base_draft.version,
             locked_slots=locked_slots,
@@ -152,16 +164,19 @@ def build_repair_state(
         revised_draft = revised_plan.plan
         diffs = revised_plan.diff_patch
 
-    return RepairState(
+    result: dict[str, Any] = RepairState(
         retry_count=retry_count,
         checkpoint=checkpoint,
         revised_draft=revised_draft,
         diffs=diffs,
         exhausted=revised_draft is None,
     ).model_dump()
+    return result
 
 
-def notification_state_from_share_card(share_card: Mapping[str, Any] | None) -> dict[str, Any]:
+def notification_state_from_share_card(
+    share_card: Mapping[str, Any] | None,
+) -> dict[str, Any]:
     """Build typed notification state from legacy share card payload."""
 
     return {
@@ -179,7 +194,9 @@ def _find_replacement_poi(draft: PlanDraft, slot_index: int) -> POI | None:
         if shadow is not None:
             return POI(**shadow.model_dump())
 
-    candidates = [poi for poi in SEED_POIS if poi.type == slot.poi.type and poi.id != slot.poi.id]
+    candidates = [
+        poi for poi in SEED_POIS if poi.type == slot.poi.type and poi.id != slot.poi.id
+    ]
     if not candidates:
         return None
     return POI(**candidates[0].model_dump())

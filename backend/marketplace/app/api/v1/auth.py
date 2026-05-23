@@ -14,6 +14,7 @@ Date: 2026-05-17
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from snaptrip_shared.core.response import success
@@ -75,13 +76,14 @@ async def register(
     refresh_token = await create_refresh_token(user.id, db)
     await db.commit()
 
-    return success(
+    data: dict[str, Any] = success(
         data=TokenResponse(
             access_token=access_token,
             refresh_token=refresh_token,
         ).model_dump(),
         message="注册成功",
     )
+    return data
 
 
 @router.post("/login", response_model=dict)
@@ -106,13 +108,14 @@ async def login(
     refresh_token = await create_refresh_token(user.id, db)
     await db.commit()
 
-    return success(
+    data: dict[str, Any] = success(
         data=TokenResponse(
             access_token=access_token,
             refresh_token=refresh_token,
         ).model_dump(),
         message="登录成功",
     )
+    return data
 
 
 @router.post("/refresh", response_model=dict)
@@ -133,13 +136,14 @@ async def refresh(
     await db.delete(rt)
     await db.commit()
 
-    return success(
+    data: dict[str, Any] = success(
         data=TokenResponse(
             access_token=access_token,
             refresh_token=new_refresh_token,
         ).model_dump(),
         message="令牌刷新成功",
     )
+    return data
 
 
 @router.post("/logout", response_model=dict)
@@ -149,7 +153,8 @@ async def logout(
 ) -> dict:
     await revoke_refresh_token(body.refresh_token, db)
     await db.commit()
-    return success(message="已登出")
+    data: dict[str, Any] = success(message="已登出")
+    return data
 
 
 @router.get("/me", response_model=dict)
@@ -159,7 +164,7 @@ async def me(
 ) -> dict:
     result = await db.execute(select(UserProfile).where(UserProfile.user_id == current_user.id))
     profile = result.scalar_one_or_none()
-    return success(
+    data: dict[str, Any] = success(
         data=UserMeResponse(
             id=str(current_user.id),
             email=current_user.email,
@@ -167,3 +172,4 @@ async def me(
             avatar_url=profile.avatar_url if profile else None,
         ).model_dump(),
     )
+    return data

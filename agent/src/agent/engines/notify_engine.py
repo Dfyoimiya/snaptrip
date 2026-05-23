@@ -83,11 +83,14 @@ async def _render_card(
     execution: dict | None,
     message: str,
 ) -> str:
-    slots_data = [s.model_dump() if hasattr(s, "model_dump") else s for s in (draft.slots if draft else [])]
+    slots_data = [
+        s.model_dump() if hasattr(s, "model_dump") else s
+        for s in (draft.slots if draft else [])
+    ]
     booked_count = len(execution.get("confirmed_bookings", {})) if execution else 0
 
     try:
-        return await renderer.render(
+        result: str = await renderer.render(
             "notify.j2",
             {
                 "plan_id": plan_id,
@@ -98,6 +101,7 @@ async def _render_card(
                 "booked_count": booked_count,
             },
         )
+        return result
     except Exception:
         logger.warning("notify_render_failed", exc_info=True)
         return ""

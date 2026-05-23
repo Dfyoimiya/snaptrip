@@ -244,7 +244,10 @@ async def intent_parser_node(state: PlanState) -> dict[str, Any]:
         state,
         node_name="intent_parser",
         event_type="node_succeeded",
-        payload={"city": intent_data.get("city"), "confidence": intent_data.get("confidence")},
+        payload={
+            "city": intent_data.get("city"),
+            "confidence": intent_data.get("confidence"),
+        },
     )
     return {
         "intent": intent_data,
@@ -259,7 +262,9 @@ async def intent_parser_node(state: PlanState) -> dict[str, Any]:
 
 async def context_loader_node(state: PlanState) -> dict[str, Any]:
     await _emit_node_event(state, node_name="context_loader", event_type="node_started")
-    agent = ContextLoader(user_profile_repo=_runtime.user_profile_repo if _runtime else None)
+    agent = ContextLoader(
+        user_profile_repo=_runtime.user_profile_repo if _runtime else None
+    )
     history = [_ar("intent_parser", {"intent": state.get("intent", {})})]
     context = _context_from_state(state, history)
     result = await agent.execute(context)
@@ -310,7 +315,9 @@ async def memory_manager_node(state: PlanState) -> dict[str, Any]:
 
 
 async def retrieval_engine_node(state: PlanState) -> dict[str, Any]:
-    await _emit_node_event(state, node_name="retrieval_engine", event_type="node_started")
+    await _emit_node_event(
+        state, node_name="retrieval_engine", event_type="node_started"
+    )
     agent = RetrievalEngine()
     enriched = _context_profile_from_state(state)
     history = [
@@ -339,14 +346,19 @@ async def retrieval_engine_node(state: PlanState) -> dict[str, Any]:
 
 
 async def planning_engine_node(state: PlanState) -> dict[str, Any]:
-    await _emit_node_event(state, node_name="planning_engine", event_type="node_started")
+    await _emit_node_event(
+        state, node_name="planning_engine", event_type="node_started"
+    )
     revised_draft = maybe_apply_confirmation_replan(state)
     if revised_draft is not None:
         await _emit_node_event(
             state,
             node_name="planning_engine",
             event_type="node_succeeded",
-            payload={"slot_count": len(revised_draft.get("slots", [])), "source": "confirmation_replan"},
+            payload={
+                "slot_count": len(revised_draft.get("slots", [])),
+                "source": "confirmation_replan",
+            },
         )
         return {
             "draft": revised_draft,
@@ -372,7 +384,10 @@ async def planning_engine_node(state: PlanState) -> dict[str, Any]:
             state,
             node_name="planning_engine",
             event_type="node_succeeded",
-            payload={"slot_count": len(revised_dump.get("slots", [])), "source": "fallback_repair"},
+            payload={
+                "slot_count": len(revised_dump.get("slots", [])),
+                "source": "fallback_repair",
+            },
         )
         return {
             "draft": revised_dump,
@@ -395,7 +410,10 @@ async def planning_engine_node(state: PlanState) -> dict[str, Any]:
         state,
         node_name="planning_engine",
         event_type="node_succeeded",
-        payload={"slot_count": len(draft.get("slots", [])), "total_cost": draft.get("total_cost", 0)},
+        payload={
+            "slot_count": len(draft.get("slots", [])),
+            "total_cost": draft.get("total_cost", 0),
+        },
     )
     return {
         "draft": draft,
@@ -414,7 +432,9 @@ async def consensus_resolver_node(state: PlanState) -> dict[str, Any]:
 
     agent = ConsensusResolver()
     history = [
-        AgentResult(agent_name="planning_engine", status="success", data={"draft": draft}),
+        AgentResult(
+            agent_name="planning_engine", status="success", data={"draft": draft}
+        ),
     ]
     context = _context_from_state(state, history)
     resolver_result = await agent.execute(context)
@@ -438,8 +458,14 @@ async def consensus_resolver_node(state: PlanState) -> dict[str, Any]:
             "suggested_decision": resolver_result.data.get("decision"),
         }
     )
-    decision = user_choice.get("decision", "confirmed") if isinstance(user_choice, dict) else "confirmed"
-    confirmation = confirmation_from_resume(user_choice if isinstance(user_choice, dict) else {"decision": "confirmed"})
+    decision = (
+        user_choice.get("decision", "confirmed")
+        if isinstance(user_choice, dict)
+        else "confirmed"
+    )
+    confirmation = confirmation_from_resume(
+        user_choice if isinstance(user_choice, dict) else {"decision": "confirmed"}
+    )
     await _emit_node_event(
         state,
         node_name="consensus_resolver",
@@ -453,8 +479,11 @@ async def consensus_resolver_node(state: PlanState) -> dict[str, Any]:
     }
 
 
-def route_consensus(state: PlanState) -> Literal["execution_engine", "planning_engine", "end"]:
-    return route_from_confirmation(state)
+def route_consensus(
+    state: PlanState,
+) -> Literal["execution_engine", "planning_engine", "end"]:
+    result: Literal["execution_engine", "planning_engine", "end"] = route_from_confirmation(state)
+    return result
 
 
 # ====================================================================
@@ -463,7 +492,9 @@ def route_consensus(state: PlanState) -> Literal["execution_engine", "planning_e
 
 
 async def execution_engine_node(state: PlanState) -> dict[str, Any]:
-    await _emit_node_event(state, node_name="execution_engine", event_type="node_started")
+    await _emit_node_event(
+        state, node_name="execution_engine", event_type="node_started"
+    )
 
     # v3 安全管道: 优先使用 AgentRuntime，回退到旧版全局变量
     agent = ExecutionEngine(
@@ -477,7 +508,11 @@ async def execution_engine_node(state: PlanState) -> dict[str, Any]:
     )
 
     history = [
-        AgentResult(agent_name="planning_engine", status="success", data={"draft": state.get("draft", {})}),
+        AgentResult(
+            agent_name="planning_engine",
+            status="success",
+            data={"draft": state.get("draft", {})},
+        ),
     ]
     context = _context_from_state(state, history)
     result = await agent.execute(context)
@@ -487,7 +522,10 @@ async def execution_engine_node(state: PlanState) -> dict[str, Any]:
         state,
         node_name="execution_engine",
         event_type="node_succeeded",
-        payload={"status": exec_data.get("status", "unknown"), "failed_count": len(exec_data.get("failed_slots", []))},
+        payload={
+            "status": exec_data.get("status", "unknown"),
+            "failed_count": len(exec_data.get("failed_slots", [])),
+        },
     )
     return {
         "execution": exec_data,
@@ -496,12 +534,17 @@ async def execution_engine_node(state: PlanState) -> dict[str, Any]:
     }
 
 
-def route_execution(state: PlanState) -> Literal["notify_engine", "fallback_engine", "end"]:
+def route_execution(
+    state: PlanState,
+) -> Literal["notify_engine", "fallback_engine", "end"]:
     exec_data: dict[str, Any] = state.get("execution") or {}
     status = exec_data.get("status", "full_success")
     if status == "full_success":
         return "notify_engine"
-    if status == "partial_success" and state.get("fallback_count", 0) < FALLBACK_MAX_RETRY:
+    if (
+        status == "partial_success"
+        and state.get("fallback_count", 0) < FALLBACK_MAX_RETRY
+    ):
         return "fallback_engine"
     return "end"
 
@@ -512,7 +555,9 @@ def route_execution(state: PlanState) -> Literal["notify_engine", "fallback_engi
 
 
 async def fallback_engine_node(state: PlanState) -> dict[str, Any]:
-    await _emit_node_event(state, node_name="fallback_engine", event_type="node_started")
+    await _emit_node_event(
+        state, node_name="fallback_engine", event_type="node_started"
+    )
 
     # v3 孤儿取消: 注入 ToolAdapter + Saga（优先 AgentRuntime）
     agent = FallbackEngine(
@@ -521,8 +566,16 @@ async def fallback_engine_node(state: PlanState) -> dict[str, Any]:
     )
 
     history = [
-        AgentResult(agent_name="planning_engine", status="success", data={"draft": state.get("draft", {})}),
-        AgentResult(agent_name="execution_engine", status="success", data={"execution": state.get("execution", {})}),
+        AgentResult(
+            agent_name="planning_engine",
+            status="success",
+            data={"draft": state.get("draft", {})},
+        ),
+        AgentResult(
+            agent_name="execution_engine",
+            status="success",
+            data={"execution": state.get("execution", {})},
+        ),
     ]
     context = _context_from_state(state, history)
     result = await agent.execute(context)
@@ -565,8 +618,16 @@ async def notify_engine_node(state: PlanState) -> dict[str, Any]:
     await _emit_node_event(state, node_name="notify_engine", event_type="node_started")
     agent = NotifyEngine()
     history = [
-        AgentResult(agent_name="planning_engine", status="success", data={"draft": state.get("draft", {})}),
-        AgentResult(agent_name="execution_engine", status="success", data={"execution": state.get("execution", {})}),
+        AgentResult(
+            agent_name="planning_engine",
+            status="success",
+            data={"draft": state.get("draft", {})},
+        ),
+        AgentResult(
+            agent_name="execution_engine",
+            status="success",
+            data={"execution": state.get("execution", {})},
+        ),
     ]
     context = _context_from_state(state, history)
     result = await agent.execute(context)
@@ -695,7 +756,10 @@ async def planner_node(state: PlanState) -> dict[str, Any]:
             state,
             node_name="planner",
             event_type="node_succeeded",
-            payload={"slot_count": len(revised_draft.get("slots", [])), "source": "confirmation_replan"},
+            payload={
+                "slot_count": len(revised_draft.get("slots", [])),
+                "source": "confirmation_replan",
+            },
         )
         return {
             "draft": revised_draft,
@@ -721,7 +785,10 @@ async def planner_node(state: PlanState) -> dict[str, Any]:
             state,
             node_name="planner",
             event_type="node_succeeded",
-            payload={"slot_count": len(revised_dump.get("slots", [])), "source": "fallback_repair"},
+            payload={
+                "slot_count": len(revised_dump.get("slots", [])),
+                "source": "fallback_repair",
+            },
         )
         return {
             "draft": revised_dump,
@@ -739,8 +806,12 @@ async def planner_node(state: PlanState) -> dict[str, Any]:
     logger.info("planner_collapsed intent_parser done city=%s", intent_data.get("city"))
 
     # 2. Context Loader
-    ctx_loader = ContextLoader(user_profile_repo=_runtime.user_profile_repo if _runtime else None)
-    ctx_result = await ctx_loader.execute(_context_from_state(state, [_ar("intent_parser", {"intent": intent_data})]))
+    ctx_loader = ContextLoader(
+        user_profile_repo=_runtime.user_profile_repo if _runtime else None
+    )
+    ctx_result = await ctx_loader.execute(
+        _context_from_state(state, [_ar("intent_parser", {"intent": intent_data})])
+    )
     enriched = ctx_result.data.get("enriched_intent", {})
     logger.info("planner_collapsed context_loader done")
 
@@ -757,7 +828,10 @@ async def planner_node(state: PlanState) -> dict[str, Any]:
     )
     enhanced_enriched = mem_result.data.get("enriched_intent", enriched)
     memory_features = _build_memory_features(enhanced_enriched)
-    logger.info("planner_collapsed memory_manager done scene=%s", memory_features.get("dominant_scene"))
+    logger.info(
+        "planner_collapsed memory_manager done scene=%s",
+        memory_features.get("dominant_scene"),
+    )
 
     # 4. Retrieval Engine
     ret_agent = RetrievalEngine()
@@ -772,7 +846,10 @@ async def planner_node(state: PlanState) -> dict[str, Any]:
         )
     )
     candidates = ret_result.data.get("candidate_pool", {})
-    logger.info("planner_collapsed retrieval done count=%d", len(candidates.get("candidates", [])))
+    logger.info(
+        "planner_collapsed retrieval done count=%d",
+        len(candidates.get("candidates", [])),
+    )
 
     # 5. Planning Engine
     plan_agent = PlanningEngine()
@@ -794,7 +871,10 @@ async def planner_node(state: PlanState) -> dict[str, Any]:
         state,
         node_name="planner",
         event_type="node_succeeded",
-        payload={"slot_count": len(draft.get("slots", [])), "total_cost": draft.get("total_cost", 0)},
+        payload={
+            "slot_count": len(draft.get("slots", [])),
+            "total_cost": draft.get("total_cost", 0),
+        },
     )
 
     return {

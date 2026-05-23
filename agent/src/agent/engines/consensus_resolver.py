@@ -76,7 +76,9 @@ class ConsensusResolver(BaseAgent):
             "draft": draft.model_dump(),
             "message": rationale,
             "suggested_decision": decision,
-            "diff_slots": [d.model_dump() if hasattr(d, "model_dump") else d for d in diff_slots],
+            "diff_slots": [
+                d.model_dump() if hasattr(d, "model_dump") else d for d in diff_slots
+            ],
         }
 
         return AgentResult(
@@ -90,7 +92,9 @@ class ConsensusResolver(BaseAgent):
             }
         )
 
-    def _single_user_review(self, draft: PlanDraft, context: AgentContext) -> tuple[str, list, str]:
+    def _single_user_review(
+        self, draft: PlanDraft, context: AgentContext
+    ) -> tuple[str, list, str]:
         """单用户场景：预检查草案并给出建议决策。"""
         conflicts = []
 
@@ -116,7 +120,9 @@ class ConsensusResolver(BaseAgent):
 
         return "confirmed", [], "计划草案通过预检查，等待用户确认"
 
-    def _weighted_vote(self, draft: PlanDraft, votes: list[dict]) -> tuple[str, list, str]:
+    def _weighted_vote(
+        self, draft: PlanDraft, votes: list[dict]
+    ) -> tuple[str, list, str]:
         """多用户场景：加权投票（预留框架）。
 
         规则:
@@ -125,8 +131,14 @@ class ConsensusResolver(BaseAgent):
           - 反对票权重 > 赞成票权重时，降级为 partial_change
         """
         total_weight = sum(v.get("weight", 1.0) for v in votes)
-        confirm_weight = sum(v.get("weight", 1.0) for v in votes if v.get("decision") == "confirmed")
-        reject_weight = sum(v.get("weight", 1.0) for v in votes if v.get("decision") in {"rejected", "objection"})
+        confirm_weight = sum(
+            v.get("weight", 1.0) for v in votes if v.get("decision") == "confirmed"
+        )
+        reject_weight = sum(
+            v.get("weight", 1.0)
+            for v in votes
+            if v.get("decision") in {"rejected", "objection"}
+        )
 
         if total_weight == 0:
             return "confirmed", [], "无有效投票权重，默认通过"
@@ -145,4 +157,8 @@ class ConsensusResolver(BaseAgent):
             for idx in v.get("rejected_slots", []):
                 all_rejected.add(idx)
 
-        return "partial_change", [], f"共识未达成（赞成 {confirm_ratio:.0%}），建议局部调整"
+        return (
+            "partial_change",
+            [],
+            f"共识未达成（赞成 {confirm_ratio:.0%}），建议局部调整",
+        )

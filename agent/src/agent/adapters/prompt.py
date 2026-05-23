@@ -13,7 +13,9 @@ class JinjaPromptAdapter(PromptPort):
     """Loads prompts from the existing prompts directory."""
 
     def __init__(self, base_dir: Path | None = None) -> None:
-        self._base_dir = base_dir or Path(__file__).resolve().parents[2] / "agents" / "prompts"
+        self._base_dir = (
+            base_dir or Path(__file__).resolve().parents[2] / "agents" / "prompts"
+        )
 
     async def render(self, template_name: str, context: dict) -> str:
         template_path = self._base_dir / template_name

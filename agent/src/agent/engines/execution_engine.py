@@ -42,7 +42,11 @@ from agent.ports.tools import ToolGatewayPort
 from agent.protocol import AgentContext, AgentResult, BaseAgent
 from agent.schemas.state import ExecutionState, ToolExecutionRecord
 from agent.schemas.tool import TOOL_REGISTRY, ToolDefinition, ToolResult
-from agent.schemas.tool_provider import PhysicalActionState, SagaStep, ToolProviderResult
+from agent.schemas.tool_provider import (
+    PhysicalActionState,
+    SagaStep,
+    ToolProviderResult,
+)
 
 logger = get_logger(__name__)
 
@@ -121,7 +125,9 @@ class ExecutionEngine(BaseAgent):
         else:
             return await self._execute_timed(draft, context)
 
-    async def _execute_timed(self, draft: PlanDraft, context: AgentContext) -> AgentResult:
+    async def _execute_timed(
+        self, draft: PlanDraft, context: AgentContext
+    ) -> AgentResult:
         try:
             result = await asyncio.wait_for(
                 self._execute_dag(draft, context),
@@ -132,7 +138,9 @@ class ExecutionEngine(BaseAgent):
             if self._saga:
                 compensate_errors = await self._saga.compensate()
                 if compensate_errors:
-                    logger.error("execution_timeout_compensate_errors", errors=compensate_errors)
+                    logger.error(
+                        "execution_timeout_compensate_errors", errors=compensate_errors
+                    )
             return AgentResult(
                 status="timeout",
                 error=f"DAG execution exceeded {EXEC_TIMEOUT_TOTAL_S}s limit",
@@ -170,7 +178,9 @@ class ExecutionEngine(BaseAgent):
     # DAG orchestration
     # ------------------------------------------------------------------
 
-    async def _execute_dag(self, draft: PlanDraft, context: AgentContext) -> ExecutionResult:
+    async def _execute_dag(
+        self, draft: PlanDraft, context: AgentContext
+    ) -> ExecutionResult:
         slots = draft.slots
         slots_by_idx: dict[int, PlanSlot] = {i: s for i, s in enumerate(slots)}
 
@@ -207,10 +217,14 @@ class ExecutionEngine(BaseAgent):
                     )
                     continue
                 plan_slot = slots_by_idx.get(slot_i)
-                tasks.append(self._execute_single_tool(slot_i, tool, meta, plan_slot, context))
+                tasks.append(
+                    self._execute_single_tool(slot_i, tool, meta, plan_slot, context)
+                )
 
             try:
-                layer_results: list = await asyncio.gather(*tasks, return_exceptions=True)
+                layer_results: list = await asyncio.gather(
+                    *tasks, return_exceptions=True
+                )
             except Exception:
                 layer_results = []
 
@@ -254,7 +268,9 @@ class ExecutionEngine(BaseAgent):
             for r in items:
                 si = r.data.get("slot_index", -1) if r.data else -1
                 booking_ref_val = r.data.get("booking_ref") if r.data else None
-                physical_state_val = r.data.get("physical_state", "pending") if r.data else "pending"
+                physical_state_val = (
+                    r.data.get("physical_state", "pending") if r.data else "pending"
+                )
                 slot_result_map[si] = SlotExecutionResult(
                     slot_index=si,
                     tool_name=_tool_name_for_result(r, si),
@@ -296,7 +312,9 @@ class ExecutionEngine(BaseAgent):
         """
         # ── v3 安全管道路径 ──
         if self._tool_adapter is not None:
-            return await self._execute_via_adapter(slot_index, tool, meta, slot, context)
+            return await self._execute_via_adapter(
+                slot_index, tool, meta, slot, context
+            )
 
         # ── 旧版兼容路径 ──
         timeout_s = meta.default_timeout_ms / 1000.0
@@ -352,7 +370,9 @@ class ExecutionEngine(BaseAgent):
         # 3. 幂等键 (仅物理操作)
         idempotency_key: str | None = None
         if meta.physical_impact and self._idempotency:
-            idempotency_key = self._build_idempotency_key(context, tool, slot, slot_index)
+            idempotency_key = self._build_idempotency_key(
+                context, tool, slot, slot_index
+            )
 
         # 4. 调用 ToolAdapter (幂等检查内置于 adapter.call)
         try:
@@ -397,7 +417,11 @@ class ExecutionEngine(BaseAgent):
             self._saga.record_step(step)
 
         # 7. UNKNOWN 异步确认
-        if result.physical_state == PhysicalActionState.UNKNOWN and self._confirmator and result.booking_ref:
+        if (
+            result.physical_state == PhysicalActionState.UNKNOWN
+            and self._confirmator
+            and result.booking_ref
+        ):
             # 需要 record_id —— 这里用 booking_ref 作为临时标识
             # 正式集成时替换为 BookingRecord 的实际 ID
             await self._confirmator.schedule_confirmation(
@@ -413,7 +437,9 @@ class ExecutionEngine(BaseAgent):
             data={
                 "slot_index": slot_index,
                 "tool_name": tool,
-                "booking_id": result.booking_ref or result.data.get("booking_id") if result.data else None,
+                "booking_id": result.booking_ref or result.data.get("booking_id")
+                if result.data
+                else None,
                 "booking_ref": result.booking_ref,
                 "physical_state": result.physical_state.value
                 if isinstance(result.physical_state, PhysicalActionState)
@@ -440,7 +466,9 @@ class ExecutionEngine(BaseAgent):
         if slot and context:
             gateway = self._get_gateway()
             if gateway is not None:
-                return await self._call_via_gateway(gateway, slot_index, tool, slot, context)
+                return await self._call_via_gateway(
+                    gateway, slot_index, tool, slot, context
+                )
         return await self._call_mock_tool(slot_index, tool)
 
     async def _call_via_gateway(
@@ -468,7 +496,9 @@ class ExecutionEngine(BaseAgent):
             latency_ms=normalized.get("latency_ms", 0),
         )
 
-    def _build_tool_params(self, slot: PlanSlot | None, context: AgentContext | None) -> dict[str, object]:
+    def _build_tool_params(
+        self, slot: PlanSlot | None, context: AgentContext | None
+    ) -> dict[str, object]:
         if slot is None:
             return {}
         intent = self._extract_intent(context) if context else None
@@ -612,7 +642,8 @@ class ExecutionEngine(BaseAgent):
 
         for failed in result.failed_slots:
             if any(
-                record.slot_index == failed.slot_index and record.tool_name == failed.tool_name
+                record.slot_index == failed.slot_index
+                and record.tool_name == failed.tool_name
                 for record in tool_records
             ):
                 continue
@@ -651,7 +682,9 @@ class ExecutionEngine(BaseAgent):
         return self._gateway
 
     @staticmethod
-    def _normalize_gateway_response(tool: str, slot_index: int, resp: dict[str, Any]) -> dict[str, Any]:
+    def _normalize_gateway_response(
+        tool: str, slot_index: int, resp: dict[str, Any]
+    ) -> dict[str, Any]:
         """Normalize legacy gateway responses into ToolResult-compatible fields."""
 
         if "status" in resp:
@@ -691,7 +724,9 @@ class ExecutionEngine(BaseAgent):
         return "failure"
 
     @staticmethod
-    def _iter_slot_results(result: ExecutionResult) -> list[tuple[int, SlotExecutionResult]]:
+    def _iter_slot_results(
+        result: ExecutionResult,
+    ) -> list[tuple[int, SlotExecutionResult]]:
         layered_results: list[tuple[int, SlotExecutionResult]] = []
         for slot_result in result.slot_results.values():
             layer = -1

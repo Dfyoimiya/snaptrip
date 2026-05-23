@@ -45,12 +45,16 @@ class MemoryService:
     @property
     def client(self) -> Redis:
         if self._client is None:
-            raise RuntimeError("MemoryService not started. Call await service.start() first.")
+            raise RuntimeError(
+                "MemoryService not started. Call await service.start() first."
+            )
         return self._client
 
     # ===== 会话状态 =====
 
-    async def set_session_state(self, session_id: str, state: str, ttl: int = 3600) -> None:
+    async def set_session_state(
+        self, session_id: str, state: str, ttl: int = 3600
+    ) -> None:
         key = f"session:{session_id}:state"
         await self.client.set(key, state, ex=ttl)
 
@@ -60,7 +64,9 @@ class MemoryService:
 
     # ===== 对话历史 =====
 
-    async def push_dialogue(self, session_id: str, role: str, content: str, max_keep: int = 10) -> None:
+    async def push_dialogue(
+        self, session_id: str, role: str, content: str, max_keep: int = 10
+    ) -> None:
         key = f"session:{session_id}:dialogue"
         entry = json.dumps({"role": role, "content": content, "ts": time.time()})
         async with self.client.pipeline() as pipe:
@@ -75,7 +81,9 @@ class MemoryService:
 
     # ===== 热门 POI 缓存 =====
 
-    async def set_hot_pois(self, city: str, category: str, data: list[dict], ttl: int = 3600) -> None:
+    async def set_hot_pois(
+        self, city: str, category: str, data: list[dict], ttl: int = 3600
+    ) -> None:
         key = f"hot_pois:{city}:{category}"
         await self.client.set(key, json.dumps(data, ensure_ascii=False), ex=ttl)
 
@@ -101,7 +109,9 @@ class MemoryService:
 
     # ===== 事务状态 =====
 
-    async def set_transaction_status(self, txn_id: str, status: str, ttl: int = 3600) -> None:
+    async def set_transaction_status(
+        self, txn_id: str, status: str, ttl: int = 3600
+    ) -> None:
         key = f"txn:{txn_id}:status"
         await self.client.set(key, status, ex=ttl)
 
@@ -116,7 +126,9 @@ class MemoryService:
         return json.loads(raw) if raw else None
 
     async def cache_set(self, key: str, value: Any, ttl_s: int = 300) -> None:
-        await self.client.set(f"cache:{key}", json.dumps(value, ensure_ascii=False), ex=ttl_s)
+        await self.client.set(
+            f"cache:{key}", json.dumps(value, ensure_ascii=False), ex=ttl_s
+        )
 
     async def save(self, key: str, value: Any) -> None:
         await self.client.set(f"store:{key}", json.dumps(value, ensure_ascii=False))

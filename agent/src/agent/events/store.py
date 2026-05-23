@@ -36,7 +36,9 @@ class RuntimeEventStore(EventSinkPort):
                 return list(persisted)
         return []
 
-    async def wait_for_events(self, plan_id: str, after_index: int, timeout_s: float = 15.0) -> list[RuntimeEvent]:
+    async def wait_for_events(
+        self, plan_id: str, after_index: int, timeout_s: float = 15.0
+    ) -> list[RuntimeEvent]:
         current = self._events.get(plan_id, [])
         if len(current) > after_index:
             return current[after_index:]

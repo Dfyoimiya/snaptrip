@@ -63,8 +63,22 @@ tasks:
     cmds:
       - uv run pytest tests/unit/ -v --cov=marketplace --cov=agent --cov=snaptrip_shared --cov-report=xml --cov-report=term
 
+  test-up:
+    desc: 启动测试数据库
+    cmds:
+      - docker compose -f docker-compose.test.yml up -d
+      - sleep 3
+
+  migrate-test:
+    desc: 在测试数据库上运行 migration
+    deps: [test-up]
+    dir: backend
+    cmds:
+      - uv run alembic upgrade head
+
   test-integration:
     desc: 运行集成测试
+    deps: [migrate-test]
     dir: backend
     cmds:
       - uv run pytest tests/integration/ -v
@@ -79,11 +93,6 @@ tasks:
     desc: 运行全部测试 (别名)
     cmds:
       - task: test-backend
-
-  test-up:
-    desc: 启动测试数据库
-    cmds:
-      - docker compose -f docker-compose.test.yml up -d
 
   test-down:
     desc: 停止测试数据库
@@ -141,6 +150,14 @@ tasks:
       - cmd: uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload &
         platforms: [linux, darwin]
       - cmd: powershell -Command "Start-Process uv -ArgumentList 'run','uvicorn','app.main:app','--host','0.0.0.0','--port','8001','--reload' -NoNewWindow"
+        platforms: [windows]
+
+  mock-down:
+    desc: 停止 Mock 服务
+    cmds:
+      - cmd: lsof -ti:8001 | xargs kill 2>/dev/null || true
+        platforms: [linux, darwin]
+      - cmd: powershell -Command "Get-NetTCPConnection -LocalPort 8001 | Stop-Process"
         platforms: [windows]
 
   # ===== 后端开发 =====

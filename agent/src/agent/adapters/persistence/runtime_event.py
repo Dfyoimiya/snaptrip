@@ -46,7 +46,9 @@ class SQLRuntimeEventRepository(RuntimeEventRepositoryPort):
         try:
             async with AsyncSessionLocal() as db:
                 result = await db.execute(
-                    select(PlanRunEvent).where(PlanRunEvent.plan_id == plan_id).order_by(PlanRunEvent.created_at.asc())
+                    select(PlanRunEvent)
+                    .where(PlanRunEvent.plan_id == plan_id)
+                    .order_by(PlanRunEvent.created_at.asc())
                 )
                 rows = result.scalars().all()
         except Exception:
@@ -54,7 +56,9 @@ class SQLRuntimeEventRepository(RuntimeEventRepositoryPort):
 
         return [_row_to_event(row) for row in rows]
 
-    async def get_events_after(self, plan_id: str, after_timestamp: str) -> list[RuntimeEvent]:
+    async def get_events_after(
+        self, plan_id: str, after_timestamp: str
+    ) -> list[RuntimeEvent]:
         """返回指定 plan 在 after_timestamp 之后产生的所有事件（用于 SSE 断线重连回放）。"""
         try:
             from datetime import datetime

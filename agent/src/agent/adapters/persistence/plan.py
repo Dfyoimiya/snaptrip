@@ -52,7 +52,10 @@ class PlanRepository:
         try:
             async with AsyncSessionLocal() as db:
                 result = await db.execute(
-                    select(Plan).where(Plan.user_id == uid).order_by(Plan.created_at.desc()).limit(20)
+                    select(Plan)
+                    .where(Plan.user_id == uid)
+                    .order_by(Plan.created_at.desc())
+                    .limit(20)
                 )
                 plans = result.scalars().all()
         except Exception:

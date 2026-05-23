@@ -103,10 +103,14 @@ class KimiProvider(BaseLLMProvider):
         try:
             async with (
                 httpx.AsyncClient(timeout=timeout) as client,
-                client.stream("POST", url, headers=self._build_headers(), json=payload) as resp,
+                client.stream(
+                    "POST", url, headers=self._build_headers(), json=payload
+                ) as resp,
             ):
                 if resp.status_code == 429:
-                    raise LLMRateLimitError(details={"provider": "kimi", "http_status": 429})
+                    raise LLMRateLimitError(
+                        details={"provider": "kimi", "http_status": 429}
+                    )
                 if resp.status_code != 200:
                     body = await resp.aread()
                     raise LLMError(
@@ -127,7 +131,9 @@ class KimiProvider(BaseLLMProvider):
                     delta = chunk.get("choices", [{}])[0].get("delta", {})
                     yield StreamChunk(
                         content=delta.get("content", ""),
-                        finish_reason=chunk.get("choices", [{}])[0].get("finish_reason"),
+                        finish_reason=chunk.get("choices", [{}])[0].get(
+                            "finish_reason"
+                        ),
                         model=chunk.get("model", model),
                     )
         except httpx.TimeoutException as e:

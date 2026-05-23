@@ -35,9 +35,15 @@ def _parse_skill(text: str) -> dict[str, Any]:
 
     def _flush() -> None:
         if current_section == "triggers":
-            skill["triggers"] = [line.lstrip("- ").strip() for line in buffer if line.strip()]
+            skill["triggers"] = [
+                line.lstrip("- ").strip() for line in buffer if line.strip()
+            ]
         elif current_section == "steps":
-            skill["steps"] = [re.sub(r"^\d+\.\s*", "", line).strip() for line in buffer if line.strip()]
+            skill["steps"] = [
+                re.sub(r"^\d+\.\s*", "", line).strip()
+                for line in buffer
+                if line.strip()
+            ]
         elif current_section == "examples":
             skill["examples"] = [line for line in buffer if line.strip()]
 
@@ -70,7 +76,9 @@ def load_all_skills() -> list[dict[str, Any]]:
     return skills
 
 
-def match_skills(*, scene_type: str | None = None, type_prefs: list[str] | None = None) -> list[dict[str, Any]]:
+def match_skills(
+    *, scene_type: str | None = None, type_prefs: list[str] | None = None
+) -> list[dict[str, Any]]:
     """Return skills whose triggers match the given context.
 
     Matching rules (best-effort keyword search):

@@ -1,4 +1,4 @@
-.PHONY: help init dev up down build logs test test-backend test-unit test-integration lint format migrate migrate-up migrate-down mock-up test-up test-down clean
+.PHONY: help init dev up down build logs backend-dev backend-shell test test-backend test-unit test-integration lint lint-frontend format migrate migrate-up migrate-down mock-up mock-down test-up migrate-test test-down clean
 
 help: ## 显示帮助信息
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -7,7 +7,7 @@ help: ## 显示帮助信息
 
 init: .env docker-compose.override.yml ## 初始化项目（复制配置、安装依赖）
 	@echo "==> 安装后端依赖 (workspace)..."
-	uv sync --extra dev
+	cd backend && uv sync --extra dev
 	@echo "==> 安装前端依赖..."
 	cd frontend && npm install
 	@echo "==> 初始化完成! 运行 make dev 启动开发环境"
@@ -50,7 +50,7 @@ TEST_ENV = APP_ENV=test DATABASE_TEST_URL=postgresql+asyncpg://snaptrip:snaptrip
 test-unit: ## 运行单元测试
 	cd backend && $(TEST_ENV) uv run pytest tests/unit/ -v --cov=marketplace --cov=agent --cov=snaptrip_shared --cov-report=xml --cov-report=term
 
-test-integration: ## 运行集成测试
+test-integration: migrate-test ## 运行集成测试
 	cd backend && $(TEST_ENV) uv run pytest tests/integration/ -v
 
 test-backend: test-unit test-integration ## 运行全部后端测试
@@ -59,6 +59,11 @@ test: test-backend ## 运行全部测试
 
 test-up: ## 启动测试数据库
 	docker compose -f docker-compose.test.yml up -d
+	@echo "==> 等待测试数据库就绪..."
+	sleep 3
+
+migrate-test: test-up ## 在测试数据库上运行 migration
+	cd backend && $(TEST_ENV) uv run alembic upgrade head
 
 test-down: ## 停止测试数据库
 	docker compose -f docker-compose.test.yml down
@@ -68,15 +73,18 @@ test-down: ## 停止测试数据库
 mock-up: ## 启动 Mock 服务（本地）
 	cd mock-services/mock-meituan && uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload &
 
+mock-down: ## 停止 Mock 服务
+	lsof -ti:8001 | xargs kill 2>/dev/null || true
+
 # ===== 代码质量 =====
 
 lint: ## 代码检查（ruff + mypy）
 	cd backend && uv run ruff check marketplace/ tests/
-	cd backend && uv run mypy marketplace/
 	cd agent && uv run ruff check src/
-	cd agent && uv run mypy src/
 	cd shared && uv run ruff check snaptrip_shared/
-	cd shared && uv run mypy snaptrip_shared/
+	-cd backend && uv run mypy marketplace/
+	-cd agent && uv run mypy src/
+	-cd shared && uv run mypy snaptrip_shared/
 
 lint-frontend: ## 前端类型检查
 	cd frontend && npx -p typescript tsc --noEmit

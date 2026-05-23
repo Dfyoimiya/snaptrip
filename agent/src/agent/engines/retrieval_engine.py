@@ -36,7 +36,12 @@ def haversine(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     r = 6371.0
     dlat = math.radians(lat2 - lat1)
     dlng = math.radians(lng2 - lng1)
-    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlng / 2) ** 2
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(math.radians(lat1))
+        * math.cos(math.radians(lat2))
+        * math.sin(dlng / 2) ** 2
+    )
     return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
 
 
@@ -61,7 +66,11 @@ class RetrievalEngine(BaseAgent):
                 enriched_data = h.data["enriched_intent"]
                 break
 
-        intent = IntentSchema(**enriched_data.get("intent", {})) if enriched_data.get("intent") else IntentSchema()
+        intent = (
+            IntentSchema(**enriched_data.get("intent", {}))
+            if enriched_data.get("intent")
+            else IntentSchema()
+        )
 
         lat, lng = context.lat, context.lng
         if intent.city and intent.city in CITY_CENTERS:
@@ -69,7 +78,12 @@ class RetrievalEngine(BaseAgent):
 
         pois = [POI(**p.model_dump()) for p in SEED_POIS]
 
-        type_groups: dict[str, list[POI]] = {"restaurant": [], "cafe": [], "attraction": [], "activity": []}
+        type_groups: dict[str, list[POI]] = {
+            "restaurant": [],
+            "cafe": [],
+            "attraction": [],
+            "activity": [],
+        }
         for p in pois:
             if intent.city and p.city != intent.city:
                 continue

@@ -57,7 +57,10 @@ class SQLPlanRunRepository:
         try:
             async with AsyncSessionLocal() as db:
                 result = await db.execute(
-                    select(PlanRun).where(PlanRun.plan_id == plan_id).order_by(PlanRun.created_at.desc()).limit(1)
+                    select(PlanRun)
+                    .where(PlanRun.plan_id == plan_id)
+                    .order_by(PlanRun.created_at.desc())
+                    .limit(1)
                 )
                 run = result.scalar_one_or_none()
                 if run is not None:
@@ -73,7 +76,10 @@ class SQLPlanRunRepository:
         try:
             async with AsyncSessionLocal() as db:
                 result = await db.execute(
-                    select(PlanRun).where(PlanRun.plan_id == plan_id).order_by(PlanRun.created_at.desc()).limit(1)
+                    select(PlanRun)
+                    .where(PlanRun.plan_id == plan_id)
+                    .order_by(PlanRun.created_at.desc())
+                    .limit(1)
                 )
                 run = result.scalar_one_or_none()
                 if run is None:
@@ -82,7 +88,9 @@ class SQLPlanRunRepository:
                     "plan_id": run.plan_id,
                     "status": run.final_status,
                     "error_message": run.error_message,
-                    "created_at": run.created_at.isoformat() if run.created_at else None,
+                    "created_at": run.created_at.isoformat()
+                    if run.created_at
+                    else None,
                 }
         except Exception:
             logger.warning("plan_run_get_failed plan_id=%s", plan_id, exc_info=True)

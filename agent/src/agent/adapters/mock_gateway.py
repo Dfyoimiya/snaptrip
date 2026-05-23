@@ -64,7 +64,9 @@ class MockAPIGateway:
             if not self.client:
                 await self.start()
             assert self.client is not None
-            resp = await self.client.request(method=method, url=path, json=params, headers=headers)
+            resp = await self.client.request(
+                method=method, url=path, json=params, headers=headers
+            )
             resp.raise_for_status()
             result: dict[str, Any] = resp.json()
             return result

@@ -33,7 +33,11 @@ def setup_logging(level: str | None = None) -> None:
 
     is_json = settings.LOG_FORMAT == "json"
 
-    renderer = structlog.processors.JSONRenderer() if is_json else structlog.dev.ConsoleRenderer()
+    renderer = (
+        structlog.processors.JSONRenderer()
+        if is_json
+        else structlog.dev.ConsoleRenderer()
+    )
 
     structlog.configure(
         processors=[

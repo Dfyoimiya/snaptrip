@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from agent.adapters.mock_gateway import MockAPIGateway
 from agent.ports.tools import ToolGatewayPort
 
@@ -13,10 +15,14 @@ class MockToolGatewayAdapter(ToolGatewayPort):
         self._gateway = gateway or MockAPIGateway()
 
     async def call(self, tool_name: str, params: dict) -> dict:
-        return await self._gateway.call(tool_name, params)
+        result: dict[Any, Any] = await self._gateway.call(tool_name, params)
+        return result
 
-    async def call_idempotent(self, tool_name: str, params: dict, idempotency_key: str) -> dict:
-        return await self._gateway.call(tool_name, params)
+    async def call_idempotent(
+        self, tool_name: str, params: dict, idempotency_key: str
+    ) -> dict:
+        result: dict[Any, Any] = await self._gateway.call(tool_name, params)
+        return result
 
     async def cancel(self, tool_name: str, booking_ref: str) -> dict:
         return {"status": "success", "data": {"cancelled": booking_ref}}
