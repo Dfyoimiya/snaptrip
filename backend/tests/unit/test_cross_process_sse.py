@@ -18,8 +18,7 @@ from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
-from agent_worker.app.agent.schemas.events import RuntimeEvent
+from agent.schemas.events import RuntimeEvent
 
 
 def _make_event(

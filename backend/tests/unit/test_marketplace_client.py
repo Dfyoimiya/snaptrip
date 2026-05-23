@@ -20,7 +20,7 @@ import pytest
 class TestMarketplaceClientMock:
     def test_mock_mode_get_profile_returns_data(self):
         """mock 模式 get_profile → 返回预置画像数据。"""
-        from agent_worker.app.agent.adapters.marketplace import MarketplaceClient
+        from agent.adapters.marketplace import MarketplaceClient
 
         client = MarketplaceClient(mode="mock")
         result = client.get_profile_sync("user-1")
@@ -29,7 +29,7 @@ class TestMarketplaceClientMock:
 
     def test_mock_mode_get_profile_unknown_user(self):
         """mock 模式未知用户 → 返回默认画像。"""
-        from agent_worker.app.agent.adapters.marketplace import MarketplaceClient
+        from agent.adapters.marketplace import MarketplaceClient
 
         client = MarketplaceClient(mode="mock")
         result = client.get_profile_sync("unknown-user")
@@ -38,7 +38,7 @@ class TestMarketplaceClientMock:
 
     def test_mock_mode_get_history_returns_data(self):
         """mock 模式 get_user_history → 返回预置偏好聚合。"""
-        from agent_worker.app.agent.adapters.marketplace import MarketplaceClient
+        from agent.adapters.marketplace import MarketplaceClient
 
         client = MarketplaceClient(mode="mock")
         result = client.get_history_sync("user-1")
@@ -51,7 +51,7 @@ class TestMarketplaceClientHTTP:
     @pytest.mark.asyncio
     async def test_live_mode_get_profile_calls_api(self):
         """live 模式 get_profile → 调用 HTTP API。"""
-        from agent_worker.app.agent.adapters.marketplace import MarketplaceClient
+        from agent.adapters.marketplace import MarketplaceClient
 
         client = MarketplaceClient(mode="live", base_url="http://marketplace:8081")
 
@@ -64,7 +64,7 @@ class TestMarketplaceClientHTTP:
     @pytest.mark.asyncio
     async def test_live_mode_handles_network_error(self):
         """live 模式网络错误 → 返回 None，不抛异常。"""
-        from agent_worker.app.agent.adapters.marketplace import MarketplaceClient
+        from agent.adapters.marketplace import MarketplaceClient
 
         client = MarketplaceClient(mode="live", base_url="http://marketplace:8081")
 
@@ -77,14 +77,14 @@ class TestMarketplaceClientHTTP:
 class TestMarketplaceClientModeSwitch:
     def test_default_mode_is_mock(self):
         """默认模式为 mock。"""
-        from agent_worker.app.agent.adapters.marketplace import MarketplaceClient
+        from agent.adapters.marketplace import MarketplaceClient
 
         client = MarketplaceClient()
         assert client.mode == "mock"
 
     def test_live_mode_uses_configured_url(self):
         """live 模式使用配置的 base_url。"""
-        from agent_worker.app.agent.adapters.marketplace import MarketplaceClient
+        from agent.adapters.marketplace import MarketplaceClient
 
         client = MarketplaceClient(mode="live", base_url="http://custom:9999")
         assert client.base_url == "http://custom:9999"

@@ -20,21 +20,21 @@ Date: 2026-05-13 / Phase 2 2026-05-21 / Phase 3a 2026-05-21
 
 from __future__ import annotations
 
+from agent.adapters.persistence.plan_run import SQLPlanRunRepository
+from agent.adapters.persistence.runtime_event import SQLRuntimeEventRepository
+from agent.services.agent import AgentService
+from agent.state.builder import GRAPH_VERSION, build_initial_runtime_state
+from agent.state.response import state_to_response
+from agent.tasks.plan_tasks import confirm_plan as celery_confirm
+from agent.tasks.plan_tasks import submit_plan as celery_submit
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from snaptrip_shared.core.response import APIServiceError, success
+from snaptrip_shared.db.redis import get_redis_client
+from snaptrip_shared.schemas.plan import PlanCreateRequest, PlanResponse
 
-from agent_worker.app.agent.adapters.persistence.plan_run import SQLPlanRunRepository
-from agent_worker.app.agent.adapters.persistence.runtime_event import SQLRuntimeEventRepository
-from agent_worker.app.agent.services.agent import AgentService
-from agent_worker.app.agent.state.builder import GRAPH_VERSION, build_initial_runtime_state
-from agent_worker.app.agent.state.response import state_to_response
-from agent_worker.app.tasks.plan_tasks import confirm_plan as celery_confirm
-from agent_worker.app.tasks.plan_tasks import submit_plan as celery_submit
 from marketplace.app.api.v1.session import stream_plan
-from shared.core.response import APIServiceError, success
-from shared.db.redis import get_redis_client
-from shared.schemas.plan import PlanCreateRequest, PlanResponse
 
 router = APIRouter(prefix="/api/v1/plan", tags=["plan"])
 
@@ -71,7 +71,7 @@ def _state_to_response(state: dict, query_text: str) -> PlanResponse:
 
 def _get_agent_service(request: Request) -> AgentService:
     if not hasattr(request.app.state, "_agent_service") or request.app.state._agent_service is None:
-        from agent_worker.app.agent.graph import build_plan_graph
+        from agent.graph import build_plan_graph
 
         request.app.state._agent_service = AgentService(build_plan_graph())
     return request.app.state._agent_service  # type: ignore[no-any-return]

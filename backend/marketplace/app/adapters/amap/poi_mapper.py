@@ -29,8 +29,9 @@ from __future__ import annotations
 
 import contextlib
 
+from snaptrip_shared.schemas.plan import POI
+
 from marketplace.app.adapters.amap.schemas.poi import AmapPoiItem
-from shared.schemas.plan import POI
 
 AMAP_TYPE_MAP: dict[str, str] = {
     "05": "restaurant",

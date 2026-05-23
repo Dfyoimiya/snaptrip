@@ -15,10 +15,9 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from agent.services.agent import AgentService, InterruptError
 from langgraph.errors import GraphInterrupt
 from langgraph.types import Command
-
-from agent_worker.app.agent.services.agent import AgentService, InterruptError
 
 
 def _mock_state_snapshot(values: dict | None):

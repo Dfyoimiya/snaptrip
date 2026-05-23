@@ -14,14 +14,13 @@ Date: 2026-05-17
 from __future__ import annotations
 
 from celery import Celery
-
-from shared.core.config import settings
+from snaptrip_shared.core.config import settings
 
 celery_app = Celery(
     "snaptrip",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["agent_worker.app.tasks.plan_tasks"],
+    include=["agent.tasks.plan_tasks"],
 )
 
 celery_app.conf.update(

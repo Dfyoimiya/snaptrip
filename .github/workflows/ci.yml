@@ -17,12 +17,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-      - name: Install deps
-        working-directory: backend
+      - name: Install deps (workspace)
         run: uv sync --extra dev
       - name: make lint
-        working-directory: backend
-        run: uv run ruff check marketplace/ agent_worker/ shared/ && uv run mypy marketplace/ agent_worker/ shared/
+        run: |
+          uv run --directory backend ruff check marketplace/ tests/
+          uv run --directory backend mypy marketplace/
+          uv run --directory agent ruff check src/
+          uv run --directory agent mypy src/
+          uv run --directory shared ruff check snaptrip_shared/
+          uv run --directory shared mypy snaptrip_shared/
 
   lint-frontend:
     name: Lint (Frontend)
@@ -75,29 +79,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v3
-      - name: Install deps
-        working-directory: backend
+      - name: Install deps (workspace)
         run: uv sync --extra dev
       - name: make mock-up
         env:
           MOCK_FAULT_RATE: "0"
           MOCK_DELAY_RATE: "0"
         run: |
-          cd mock_server && uv sync
-          nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 &
+          cd mock-services/mock-meituan && nohup uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 &
           for i in $(seq 1 15); do
             curl -sf http://localhost:8001/health && break
             sleep 1
           done
       - name: make migrate-up
-        working-directory: backend
-        run: uv run alembic upgrade head
+        run: cd backend && uv run alembic upgrade head
       - name: make test-unit
-        working-directory: backend
-        run: uv run pytest tests/unit/ -v --cov=marketplace --cov=agent_worker --cov=shared --cov-report=xml --cov-report=term
+        run: cd backend && uv run pytest tests/unit/ -v --cov=marketplace --cov=agent --cov=snaptrip_shared --cov-report=xml --cov-report=term
       - name: make test-integration
-        working-directory: backend
-        run: uv run pytest tests/integration/ -v -m "not amap"
+        run: cd backend && uv run pytest tests/integration/ -v -m "not amap"
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:

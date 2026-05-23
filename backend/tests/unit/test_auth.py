@@ -9,8 +9,7 @@ from __future__ import annotations
 import pytest
 from fastapi import HTTPException
 from jose import jwt
-
-from shared.core.security import (
+from snaptrip_shared.core.security import (
     create_access_token,
     hash_password,
     verify_password,

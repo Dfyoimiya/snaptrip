@@ -17,16 +17,16 @@ from marketplace.app.main import app
 @pytest.fixture(scope="module")
 async def e2e_client():
     # Ensure app.state is fully initialized (lifespan may not have run in test)
-    from agent_worker.app.agent.adapters.persistence.runtime_event import SQLRuntimeEventRepository
-    from agent_worker.app.agent.events.store import RuntimeEventStore
+    from agent.adapters.persistence.runtime_event import SQLRuntimeEventRepository
+    from agent.events.store import RuntimeEventStore
 
     if not hasattr(app.state, "runtime_events"):
         app.state.runtime_events = RuntimeEventStore(repository=SQLRuntimeEventRepository())
     if not hasattr(app.state, "plan_graph") or app.state.plan_graph is None:
-        from agent_worker.app.agent.graph import build_plan_graph
+        from agent.graph import build_plan_graph
 
         app.state.plan_graph = build_plan_graph()
-    from agent_worker.app.agent.graph import set_event_sink
+    from agent.graph import set_event_sink
 
     set_event_sink(app.state.runtime_events)
 

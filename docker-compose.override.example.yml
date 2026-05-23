@@ -12,7 +12,7 @@ services:
     build:
       target: development
     volumes:
-      - ./backend:/app
+      - .:/app
     environment:
       APP_ENV: development
       APP_DEBUG: "true"
@@ -23,7 +23,7 @@ services:
     build:
       target: development
     volumes:
-      - ./backend:/app
+      - .:/app
     environment:
       APP_ENV: development
       APP_DEBUG: "true"
@@ -42,5 +42,5 @@ services:
 
   mock-server:
     volumes:
-      - ./mock_server:/app
+      - ./mock-services/mock-meituan:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload

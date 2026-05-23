@@ -15,8 +15,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-from agent_worker.app.agent.services.agent import InterruptError
+from agent.services.agent import InterruptError
 
 # ── helpers ──
 
@@ -38,13 +37,13 @@ def _mock_service(invoke_result=None, invoke_side_effect=None):
 class TestSubmitPlan:
     def test_submit_plan_success(self):
         """正常执行 → 返回 state dict，更新 status=completed。"""
-        from agent_worker.app.tasks.plan_tasks import submit_plan
+        from agent.tasks.plan_tasks import submit_plan
 
         svc = _mock_service(invoke_result={"status": "completed", "plan_id": "p1"})
 
         with (
-            patch("agent_worker.app.tasks.plan_tasks._get_worker_agent_service", return_value=svc),
-            patch("agent_worker.app.tasks.plan_tasks._update_status") as mock_update,
+            patch("agent.tasks.plan_tasks._get_worker_agent_service", return_value=svc),
+            patch("agent.tasks.plan_tasks._update_status") as mock_update,
         ):
             result = submit_plan({"plan_id": "p1"}, "p1")
 
@@ -54,13 +53,13 @@ class TestSubmitPlan:
 
     def test_submit_plan_interrupted(self):
         """InterruptError → status=awaiting_confirmation，任务正常结束。"""
-        from agent_worker.app.tasks.plan_tasks import submit_plan
+        from agent.tasks.plan_tasks import submit_plan
 
         svc = _mock_service(invoke_side_effect=InterruptError())
 
         with (
-            patch("agent_worker.app.tasks.plan_tasks._get_worker_agent_service", return_value=svc),
-            patch("agent_worker.app.tasks.plan_tasks._update_status") as mock_update,
+            patch("agent.tasks.plan_tasks._get_worker_agent_service", return_value=svc),
+            patch("agent.tasks.plan_tasks._update_status") as mock_update,
         ):
             result = submit_plan({"plan_id": "p2"}, "p2")
 
@@ -69,13 +68,13 @@ class TestSubmitPlan:
 
     def test_submit_plan_failure(self):
         """其他异常 → status=failed，re-raise。"""
-        from agent_worker.app.tasks.plan_tasks import submit_plan
+        from agent.tasks.plan_tasks import submit_plan
 
         svc = _mock_service(invoke_side_effect=RuntimeError("boom"))
 
         with (
-            patch("agent_worker.app.tasks.plan_tasks._get_worker_agent_service", return_value=svc),
-            patch("agent_worker.app.tasks.plan_tasks._update_status") as mock_update,
+            patch("agent.tasks.plan_tasks._get_worker_agent_service", return_value=svc),
+            patch("agent.tasks.plan_tasks._update_status") as mock_update,
             pytest.raises(RuntimeError, match="boom"),
         ):
             submit_plan({"plan_id": "p3"}, "p3")
@@ -91,13 +90,13 @@ class TestSubmitPlan:
 class TestConfirmPlan:
     def test_confirm_plan_success(self):
         """正常 resume → 返回 state dict。"""
-        from agent_worker.app.tasks.plan_tasks import confirm_plan
+        from agent.tasks.plan_tasks import confirm_plan
 
         svc = _mock_service(invoke_result={"status": "completed", "plan_id": "p4"})
 
         with (
-            patch("agent_worker.app.tasks.plan_tasks._get_worker_agent_service", return_value=svc),
-            patch("agent_worker.app.tasks.plan_tasks._update_status") as mock_update,
+            patch("agent.tasks.plan_tasks._get_worker_agent_service", return_value=svc),
+            patch("agent.tasks.plan_tasks._update_status") as mock_update,
         ):
             result = confirm_plan({"decision": "confirmed"}, "p4")
 
@@ -106,13 +105,13 @@ class TestConfirmPlan:
 
     def test_confirm_plan_interrupted(self):
         """resume InterruptError → status=awaiting_confirmation。"""
-        from agent_worker.app.tasks.plan_tasks import confirm_plan
+        from agent.tasks.plan_tasks import confirm_plan
 
         svc = _mock_service(invoke_side_effect=InterruptError())
 
         with (
-            patch("agent_worker.app.tasks.plan_tasks._get_worker_agent_service", return_value=svc),
-            patch("agent_worker.app.tasks.plan_tasks._update_status") as mock_update,
+            patch("agent.tasks.plan_tasks._get_worker_agent_service", return_value=svc),
+            patch("agent.tasks.plan_tasks._update_status") as mock_update,
         ):
             result = confirm_plan({"decision": "confirmed"}, "p5")
 
@@ -128,12 +127,12 @@ class TestConfirmPlan:
 class TestWorkerAgentServiceCache:
     def test_cache_reuses_instance(self):
         """模块级缓存：第二次调用返回同一实例。"""
-        from agent_worker.app.tasks import plan_tasks
+        from agent.tasks import plan_tasks
 
         plan_tasks._worker_agent_service = None
 
         svc = _mock_service()
-        with patch("agent_worker.app.tasks.plan_tasks._build_worker_agent_service", return_value=svc) as mock_build:
+        with patch("agent.tasks.plan_tasks._build_worker_agent_service", return_value=svc) as mock_build:
             first = plan_tasks._get_worker_agent_service()
             second = plan_tasks._get_worker_agent_service()
 

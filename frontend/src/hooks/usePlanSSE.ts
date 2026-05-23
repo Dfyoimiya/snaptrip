@@ -22,7 +22,6 @@ export function usePlanSSE(planId: string | null) {
   const setRunning = useAgentStore((s) => s.setRunning)
   const setAwaitingConfirm = useAgentStore((s) => s.setAwaitingConfirm)
   const setStatus = usePlanStore((s) => s.setStatus)
-  const setSlots = usePlanStore((s) => s.setSlots)
 
   useEffect(() => {
     if (!planId) return
@@ -76,5 +75,5 @@ export function usePlanSSE(planId: string | null) {
       es.close()
       setRunning(false)
     }
-  }, [planId, addLog, updateNode, setRunning, setAwaitingConfirm, setStatus, setSlots])
+  }, [planId, addLog, updateNode, setRunning, setAwaitingConfirm, setStatus])
 }

@@ -7,8 +7,7 @@ triggering fast keyword/template fallback paths.
 from __future__ import annotations
 
 import pytest
-
-from shared.core.exceptions import LLMError
+from snaptrip_shared.core.exceptions import LLMError
 
 
 @pytest.fixture(autouse=True)
@@ -27,6 +26,6 @@ def _mock_llm_adapter(monkeypatch):
         raise LLMError("LLM mocked for fast integration testing")
 
     monkeypatch.setattr(
-        "agent_worker.app.agent.adapters.llm.LLMAdapter.chat_json",
+        "agent.adapters.llm.LLMAdapter.chat_json",
         _fast_fail,
     )

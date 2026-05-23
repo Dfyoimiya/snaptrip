@@ -3,9 +3,16 @@
 from datetime import datetime, timedelta
 
 import pytest
-
-from agent_worker.app.agent.engines.execution_engine import ExecutionEngine
-from shared.schemas.plan import POI, ExecutionResult, FailedSlot, PlanDraft, PlanSlot, SlotExecutionResult, TimeRange
+from agent.engines.execution_engine import ExecutionEngine
+from snaptrip_shared.schemas.plan import (
+    POI,
+    ExecutionResult,
+    FailedSlot,
+    PlanDraft,
+    PlanSlot,
+    SlotExecutionResult,
+    TimeRange,
+)
 
 
 @pytest.fixture

@@ -13,8 +13,7 @@ Date: 2026-05-19
 """
 
 import pytest
-
-from shared.core.config import settings
+from snaptrip_shared.core.config import settings
 
 AMAP_INTEGRATION = len(settings.AMAP_API_KEY) >= 8
 _amap_skip = pytest.mark.skipif(not AMAP_INTEGRATION, reason="需要 AMAP_API_KEY")
@@ -32,7 +31,8 @@ class TestDegradationPath:
     async def test_search_poi_degraded_when_key_missing(self, monkeypatch):
         monkeypatch.setattr("marketplace.app.adapters.amap.registry.settings.AMAP_API_KEY", "")
 
-        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from agent.schemas.tool import ToolInvocation
+
         from marketplace.app.adapters.amap.registry import AdapterRouter
 
         router = AdapterRouter()
@@ -49,7 +49,8 @@ class TestDegradationPath:
     async def test_calculate_route_degraded_when_key_missing(self, monkeypatch):
         monkeypatch.setattr("marketplace.app.adapters.amap.registry.settings.AMAP_API_KEY", "")
 
-        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from agent.schemas.tool import ToolInvocation
+
         from marketplace.app.adapters.amap.registry import AdapterRouter
 
         router = AdapterRouter()
@@ -64,7 +65,8 @@ class TestDegradationPath:
 
     async def test_mock_tools_still_work(self):
         """Mock tools (book_table等) 不依赖高德, 即使 Key 缺失也能用 MockGateway"""
-        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from agent.schemas.tool import ToolInvocation
+
         from marketplace.app.adapters.amap.registry import AdapterRouter
 
         class MinimalMockGateway:
@@ -91,7 +93,8 @@ class TestRealAmapAPI:
     """真实高德 API 功能测试 (消耗配额, 需 Key 和网络)"""
 
     async def test_search_poi_real(self):
-        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from agent.schemas.tool import ToolInvocation
+
         from marketplace.app.adapters.amap.poi_adapter import AmapPoiAdapter
 
         adapter = AmapPoiAdapter()
@@ -109,7 +112,8 @@ class TestRealAmapAPI:
         assert any("故宫" in p["name"] for p in result.data["pois"])
 
     async def test_search_poi_by_category(self):
-        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from agent.schemas.tool import ToolInvocation
+
         from marketplace.app.adapters.amap.poi_adapter import AmapPoiAdapter
 
         adapter = AmapPoiAdapter()
@@ -125,7 +129,8 @@ class TestRealAmapAPI:
         assert len(result.data["pois"]) > 0
 
     async def test_geocode_real(self):
-        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from agent.schemas.tool import ToolInvocation
+
         from marketplace.app.adapters.amap.geocode_adapter import AmapGeocodeAdapter
 
         adapter = AmapGeocodeAdapter()
@@ -142,7 +147,8 @@ class TestRealAmapAPI:
         assert result.data["results"][0]["lng"] != 0.0
 
     async def test_reverse_geocode_real(self):
-        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from agent.schemas.tool import ToolInvocation
+
         from marketplace.app.adapters.amap.geocode_adapter import AmapReGeocodeAdapter
 
         adapter = AmapReGeocodeAdapter()
@@ -157,7 +163,8 @@ class TestRealAmapAPI:
         assert len(result.data["formatted_address"]) > 0
 
     async def test_walking_route_real(self):
-        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from agent.schemas.tool import ToolInvocation
+
         from marketplace.app.adapters.amap.route_adapter import AmapRouteAdapter
 
         adapter = AmapRouteAdapter()
@@ -179,7 +186,8 @@ class TestRealAmapAPI:
         assert result.data["duration_min"] > 0
 
     async def test_search_district_real(self):
-        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from agent.schemas.tool import ToolInvocation
+
         from marketplace.app.adapters.amap.district_adapter import AmapDistrictAdapter
 
         adapter = AmapDistrictAdapter()
@@ -204,8 +212,8 @@ class TestErrorHandlingIntegration:
 
     async def test_adapter_timeout_propagates(self, respx_mock):
         import httpx
+        from agent.schemas.tool import ToolInvocation
 
-        from agent_worker.app.agent.schemas.tool import ToolInvocation
         from marketplace.app.adapters.amap.poi_adapter import AmapPoiAdapter
 
         respx_mock.get("https://restapi.amap.com/v3/place/text").mock(side_effect=httpx.TimeoutException("timeout"))
@@ -221,7 +229,8 @@ class TestErrorHandlingIntegration:
         assert "ADAPTERTIMEOUTERROR" in result.error_code or "timeout" in result.error_message.lower()
 
     async def test_invalid_key_handling(self, respx_mock):
-        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from agent.schemas.tool import ToolInvocation
+
         from marketplace.app.adapters.amap.poi_adapter import AmapPoiAdapter
 
         respx_mock.get("https://restapi.amap.com/v3/place/text").respond(
@@ -239,7 +248,8 @@ class TestErrorHandlingIntegration:
         assert "AMAPAUTHERROR" in result.error_code or "KEY" in result.error_message
 
     async def test_router_graceful_unknown_tool(self):
-        from agent_worker.app.agent.schemas.tool import ToolInvocation
+        from agent.schemas.tool import ToolInvocation
+
         from marketplace.app.adapters.amap.registry import AdapterRouter
 
         router = AdapterRouter()

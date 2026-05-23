@@ -17,22 +17,17 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
+from agent.adapters.marketplace import MarketplaceClient
+from agent.adapters.mock_gateway import MockAPIGateway
+from agent.adapters.persistence.runtime_event import SQLRuntimeEventRepository
+from agent.events.store import RuntimeEventStore
+from agent.graph import build_plan_graph
+from agent.memory.service import MemoryService
+from agent.runtime import AgentRuntime
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.exceptions import HTTPException as StarletteHTTPException
-
-from agent_worker.app.agent.adapters.marketplace import MarketplaceClient
-from agent_worker.app.agent.adapters.mock_gateway import MockAPIGateway
-from agent_worker.app.agent.adapters.persistence.runtime_event import SQLRuntimeEventRepository
-from agent_worker.app.agent.events.store import RuntimeEventStore
-from agent_worker.app.agent.graph import build_plan_graph
-from agent_worker.app.agent.memory.service import MemoryService
-from agent_worker.app.agent.runtime import AgentRuntime
-from marketplace.app.api.v1.auth import router as auth_router
-from marketplace.app.api.v1.plan import router as plan_router
-from marketplace.app.api.v1.user import router as user_router
-from shared.core.exception_handlers import (
+from snaptrip_shared.core.exception_handlers import (
     adapter_exception_handler,
     authentication_handler,
     circuit_breaker_handler,
@@ -42,7 +37,7 @@ from shared.core.exception_handlers import (
     snap_trip_exception_handler,
     validation_handler,
 )
-from shared.core.exceptions import (
+from snaptrip_shared.core.exceptions import (
     AdapterError,
     AmapRateLimitError,
     AuthenticationError,
@@ -52,14 +47,19 @@ from shared.core.exceptions import (
     SnapTripException,
     ValidationError,
 )
-from shared.core.response import (
+from snaptrip_shared.core.response import (
     APIServiceError,
     api_exception_handler,
     http_exception_handler,
     unhandled_exception_handler,
     validation_exception_handler,
 )
-from shared.db.redis import close_redis_pool, get_redis_pool
+from snaptrip_shared.db.redis import close_redis_pool, get_redis_pool
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from marketplace.app.api.v1.auth import router as auth_router
+from marketplace.app.api.v1.plan import router as plan_router
+from marketplace.app.api.v1.user import router as user_router
 
 
 @asynccontextmanager

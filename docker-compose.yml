@@ -28,6 +28,11 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
 
   # ===== 缓存 / 消息队列 =====
   redis:
@@ -41,12 +46,17 @@ services:
       timeout: 3s
       retries: 5
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
 
   # ===== Marketplace :8080 — FastAPI + Celery Beat =====
   marketplace:
     build:
-      context: ./backend
-      dockerfile: Dockerfile.gateway
+      context: .
+      dockerfile: backend/Dockerfile.gateway
       target: ${BUILD_TARGET:-production}
     container_name: snaptrip-marketplace
     init: true
@@ -82,14 +92,19 @@ services:
       retries: 3
       start_period: 15s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
     command: >
-      sh -c "cd /app && alembic upgrade head && uvicorn marketplace.app.main:app --host 0.0.0.0 --port 8000"
+      sh -c "alembic upgrade head && uvicorn marketplace.app.main:app --host 0.0.0.0 --port 8000"
 
   # ===== Agent Worker (Celery) — LangGraph 异步执行 =====
   agent-worker:
     build:
-      context: ./backend
-      dockerfile: Dockerfile.worker
+      context: .
+      dockerfile: backend/Dockerfile.worker
       target: ${BUILD_TARGET:-production}
     container_name: snaptrip-agent-worker
     init: true
@@ -111,7 +126,7 @@ services:
       APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      AGENT_TIMEOUT: "300"
+      AGENT_TIMEOUT: ${AGENT_TIMEOUT:-300}
     depends_on:
       postgres:
         condition: service_healthy
@@ -124,12 +139,17 @@ services:
       retries: 3
       start_period: 30s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
 
   # ===== Celery Beat — 定时任务调度 =====
   agent-beat:
     build:
-      context: ./backend
-      dockerfile: Dockerfile.worker
+      context: .
+      dockerfile: backend/Dockerfile.worker
       target: ${BUILD_TARGET:-production}
     container_name: snaptrip-agent-beat
     init: true
@@ -137,17 +157,24 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DEV_DB:-snaptrip_dev}
       REDIS_URL: redis://redis:6379/0
       APP_ENV: ${APP_ENV:-production}
+      APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     depends_on:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
     command: celery -A marketplace.app.celery_app beat -l info
 
   # ===== Mock API 服务 (dev/CI) =====
   mock-server:
     build:
-      context: ./mock_server
+      context: ./mock-services/mock-meituan
       dockerfile: Dockerfile
     container_name: snaptrip-mock
     ports:
@@ -159,6 +186,11 @@ services:
       retries: 3
       start_period: 5s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
     profiles:
       - dev
       - full
@@ -181,6 +213,11 @@ services:
       retries: 3
       start_period: 5s
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
     profiles:
       - dev
       - full

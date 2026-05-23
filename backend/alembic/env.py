@@ -1,35 +1,50 @@
-"""Alembic 异步迁移环境配置。
+"""Alembic 迁移环境配置。
 
-支持 asyncpg + SQLAlchemy 2.0 异步引擎。
-迁移脚本通过 run_sync 桥接同步执行。
+从 app.core.config.settings 读取数据库 URL，自动导入所有模型
+以支持 --autogenerate 检测 schema 变更。
 
 Author: SnapTrip Team
-Date: 2026-05-17
+Date: 2026-05-22
 """
 
 from __future__ import annotations
 
-import asyncio
 from logging.config import fileConfig
 
+from sqlalchemy import engine_from_config, pool
+
 from alembic import context
-from sqlalchemy.ext.asyncio import create_async_engine
+from snaptrip_shared.core.config import settings
 
-from shared.core.config import settings
-from marketplace.app.models import Base
-
+# ── Alembic Config ──
 config = context.config
+config.set_main_option("sqlalchemy.url", settings.effective_database_url.replace("+asyncpg", "+psycopg2"))
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+# ── 导入所有模型以支持 autogenerate ──
+from marketplace.app.models.base import Base  # noqa: E402
+from agent.models.checkpoint import Checkpoint  # noqa: E402, F401
+from agent.models.llm_usage_log import LLMUsageLog  # noqa: E402, F401
+from marketplace.app.models.plan import Plan  # noqa: E402, F401
+from marketplace.app.models.plan_adjustment import PlanAdjustment  # noqa: E402, F401
+from agent.models.plan_run import PlanRun  # noqa: E402, F401
+from agent.models.plan_run_event import PlanRunEvent  # noqa: E402, F401
+from marketplace.app.models.plan_slot import PlanSlot  # noqa: E402, F401
+from marketplace.app.models.poi import POI  # noqa: E402, F401
+from marketplace.app.models.refresh_token import RefreshToken  # noqa: E402, F401
+from agent.models.runtime_checkpoint import RuntimeCheckpoint  # noqa: E402, F401
+from marketplace.app.models.user_profile import UserProfile  # noqa: E402, F401
+from marketplace.app.models.users import User  # noqa: E402, F401
 
 target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
-    """离线模式：生成 SQL 脚本而不连接数据库。"""
+    url = config.get_main_option("sqlalchemy.url")
     context.configure(
-        url=settings.effective_database_url,
+        url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -38,27 +53,16 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def do_run_migrations(connection):
-    """在同步连接上执行迁移。"""
-    context.configure(connection=connection, target_metadata=target_metadata)
-    with context.begin_transaction():
-        context.run_migrations()
-
-
-async def run_async_migrations() -> None:
-    """在线模式：使用异步引擎 + run_sync 桥接。"""
-    connectable = create_async_engine(
-        settings.effective_database_url,
-        echo=settings.APP_DEBUG,
-    )
-    async with connectable.connect() as connection:
-        await connection.run_sync(do_run_migrations)
-    await connectable.dispose()
-
-
 def run_migrations_online() -> None:
-    """在线模式入口：包装异步函数。"""
-    asyncio.run(run_async_migrations())
+    connectable = engine_from_config(
+        config.get_section(config.config_ini_section, {}),
+        prefix="sqlalchemy.",
+        poolclass=pool.NullPool,
+    )
+    with connectable.connect() as connection:
+        context.configure(connection=connection, target_metadata=target_metadata)
+        with context.begin_transaction():
+            context.run_migrations()
 
 
 if context.is_offline_mode():
