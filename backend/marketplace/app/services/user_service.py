@@ -13,7 +13,7 @@ def trigger_preference_embedding_update(user_id: str) -> str | None:
     如果 Celery 可用，入队任务；否则返回 None（Worker 未启动时优雅降级）。
     """
     try:
-        from agent_worker.app.tasks.plan_tasks import rebuild_user_preference_embedding
+        from agent.tasks.plan_tasks import rebuild_user_preference_embedding
 
         task = rebuild_user_preference_embedding.delay(user_id)
         return task.id  # type: ignore[no-any-return]

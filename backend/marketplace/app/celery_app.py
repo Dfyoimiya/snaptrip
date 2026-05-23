@@ -20,7 +20,7 @@ celery_app = Celery(
     "snaptrip",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["agent_worker.app.tasks.plan_tasks"],
+    include=["agent.tasks.plan_tasks"],
 )
 
 celery_app.conf.update(

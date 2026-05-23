@@ -34,13 +34,13 @@ async def client(mock_celery):
     async def _managed_client():
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
             if not hasattr(app.state, "runtime_events"):
-                from agent_worker.app.agent.adapters.persistence.runtime_event import SQLRuntimeEventRepository
-                from agent_worker.app.agent.events.store import RuntimeEventStore
+                from agent.adapters.persistence.runtime_event import SQLRuntimeEventRepository
+                from agent.events.store import RuntimeEventStore
 
                 app.state.runtime_events = RuntimeEventStore(repository=SQLRuntimeEventRepository())
             if not hasattr(app.state, "_agent_service") or app.state._agent_service is None:
-                from agent_worker.app.agent.graph import build_plan_graph
-                from agent_worker.app.agent.services.agent import AgentService
+                from agent.graph import build_plan_graph
+                from agent.services.agent import AgentService
 
                 app.state._agent_service = AgentService(build_plan_graph())
             yield c

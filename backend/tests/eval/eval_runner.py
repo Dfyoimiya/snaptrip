@@ -53,8 +53,8 @@ def eval_intent(golden_path: Path | None = None) -> IntentMetrics:
     path = golden_path or EVAL_DIR / "golden_intent.json"
     cases = json.loads(path.read_text(encoding="utf-8"))
 
-    from agent_worker.app.agent.engines.intent_parser import IntentParser
-    from agent_worker.app.agent.protocol import AgentContext
+    from agent.engines.intent_parser import IntentParser
+    from agent.protocol import AgentContext
 
     parser = IntentParser()
     m = IntentMetrics(total=len(cases))
@@ -132,10 +132,10 @@ def eval_plan(golden_path: Path | None = None) -> PlanMetrics:
     path = golden_path or EVAL_DIR / "golden_plan.json"
     cases = json.loads(path.read_text(encoding="utf-8"))
 
-    from agent_worker.app.agent.engines.intent_parser import IntentParser
-    from agent_worker.app.agent.engines.planning_engine import PlanningEngine
-    from agent_worker.app.agent.engines.retrieval_engine import RetrievalEngine
-    from agent_worker.app.agent.protocol import AgentContext, AgentResult
+    from agent.engines.intent_parser import IntentParser
+    from agent.engines.planning_engine import PlanningEngine
+    from agent.engines.retrieval_engine import RetrievalEngine
+    from agent.protocol import AgentContext, AgentResult
 
     parser = IntentParser()
     planner = PlanningEngine()

@@ -9,8 +9,8 @@
 """
 
 import pytest
+from agent.schemas.tool import ToolInvocation, ToolResult
 
-from agent_worker.app.agent.schemas.tool import ToolInvocation, ToolResult
 from marketplace.app.adapters.amap.registry import AMAP_TOOL_NAMES, AdapterRegistry, AdapterRouter
 
 

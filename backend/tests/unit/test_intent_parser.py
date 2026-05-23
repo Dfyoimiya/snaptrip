@@ -1,9 +1,8 @@
 """Intent Parser 关键词解析测试"""
 
 import pytest
-
-from agent_worker.app.agent.engines.intent_parser import IntentParser
-from agent_worker.app.agent.protocol import AgentContext
+from agent.engines.intent_parser import IntentParser
+from agent.protocol import AgentContext
 
 
 @pytest.mark.asyncio

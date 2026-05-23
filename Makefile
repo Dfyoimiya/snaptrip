@@ -71,14 +71,20 @@ mock-up: ## 启动 Mock 服务（本地）
 # ===== 代码质量 =====
 
 lint: ## 代码检查（ruff + mypy）
-	cd backend && uv run ruff check marketplace/ agent_worker/ shared/ tests/
-	cd backend && uv run mypy marketplace/ agent_worker/ shared/
+	cd backend && uv run ruff check marketplace/ tests/
+	cd backend && uv run mypy marketplace/
+	cd agent && uv run ruff check src/
+	cd agent && uv run mypy src/
+	cd shared && uv run ruff check snaptrip_shared/
+	cd shared && uv run mypy snaptrip_shared/
 
 lint-frontend: ## 前端类型检查
 	cd frontend && npx -p typescript tsc --noEmit
 
 format: ## 代码格式化
-	cd backend && uv run ruff format marketplace/ agent_worker/ shared/ tests/
+	cd backend && uv run ruff format marketplace/ tests/
+	cd agent && uv run ruff format src/
+	cd shared && uv run ruff format snaptrip_shared/
 
 # ===== 数据库 =====
 

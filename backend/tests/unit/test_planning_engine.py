@@ -3,9 +3,9 @@
 from datetime import datetime, timedelta
 
 import pytest
+from agent.engines.planning_engine import PlanningEngine
 from snaptrip_shared.schemas.plan import POI, IntentSchema
 
-from agent_worker.app.agent.engines.planning_engine import PlanningEngine
 from marketplace.app.data.seed_pois import SEED_POIS
 
 

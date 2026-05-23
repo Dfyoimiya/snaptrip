@@ -25,16 +25,16 @@ if config.config_file_name is not None:
 
 # ── 导入所有模型以支持 autogenerate ──
 from marketplace.app.models.base import Base  # noqa: E402
-from agent_worker.app.agent.models.checkpoint import Checkpoint  # noqa: E402, F401
-from agent_worker.app.agent.models.llm_usage_log import LLMUsageLog  # noqa: E402, F401
+from agent.models.checkpoint import Checkpoint  # noqa: E402, F401
+from agent.models.llm_usage_log import LLMUsageLog  # noqa: E402, F401
 from marketplace.app.models.plan import Plan  # noqa: E402, F401
 from marketplace.app.models.plan_adjustment import PlanAdjustment  # noqa: E402, F401
-from agent_worker.app.agent.models.plan_run import PlanRun  # noqa: E402, F401
-from agent_worker.app.agent.models.plan_run_event import PlanRunEvent  # noqa: E402, F401
+from agent.models.plan_run import PlanRun  # noqa: E402, F401
+from agent.models.plan_run_event import PlanRunEvent  # noqa: E402, F401
 from marketplace.app.models.plan_slot import PlanSlot  # noqa: E402, F401
 from marketplace.app.models.poi import POI  # noqa: E402, F401
 from marketplace.app.models.refresh_token import RefreshToken  # noqa: E402, F401
-from agent_worker.app.agent.models.runtime_checkpoint import RuntimeCheckpoint  # noqa: E402, F401
+from agent.models.runtime_checkpoint import RuntimeCheckpoint  # noqa: E402, F401
 from marketplace.app.models.user_profile import UserProfile  # noqa: E402, F401
 from marketplace.app.models.users import User  # noqa: E402, F401
 

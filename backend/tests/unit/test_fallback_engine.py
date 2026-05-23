@@ -3,6 +3,7 @@
 from datetime import datetime, timedelta
 
 import pytest
+from agent.engines.fallback_engine import FallbackEngine
 from snaptrip_shared.schemas.plan import (
     POI,
     ExecutionResult,
@@ -11,8 +12,6 @@ from snaptrip_shared.schemas.plan import (
     PlanSlot,
     TimeRange,
 )
-
-from agent_worker.app.agent.engines.fallback_engine import FallbackEngine
 
 
 @pytest.fixture

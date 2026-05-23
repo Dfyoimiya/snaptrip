@@ -16,11 +16,10 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from agent.engines.context_loader import ContextLoader
+from agent.engines.memory_manager import MemoryManager
+from agent.protocol import AgentContext, AgentResult
 from snaptrip_shared.schemas.plan import EnrichedIntent, IntentSchema
-
-from agent_worker.app.agent.engines.context_loader import ContextLoader
-from agent_worker.app.agent.engines.memory_manager import MemoryManager
-from agent_worker.app.agent.protocol import AgentContext, AgentResult
 
 # ── 固定有效 UUID ──
 _USER_ID = "550e8400-e29b-41d4-a716-446655440000"
@@ -100,7 +99,7 @@ class TestAgentRuntime:
 
     def test_create_minimal_runtime(self):
         """AgentRuntime 无参数构造——所有字段为 None。"""
-        from agent_worker.app.agent.runtime import AgentRuntime
+        from agent.runtime import AgentRuntime
 
         rt = AgentRuntime()
         assert rt.gateway is None
@@ -116,7 +115,7 @@ class TestAgentRuntime:
 
     def test_create_full_runtime(self):
         """AgentRuntime 全量依赖注入。"""
-        from agent_worker.app.agent.runtime import AgentRuntime
+        from agent.runtime import AgentRuntime
 
         mock_gateway = MagicMock()
         mock_event_sink = AsyncMock()
@@ -356,8 +355,8 @@ class TestGraphNoGlobals:
 
     def test_build_plan_graph_with_runtime(self):
         """build_plan_graph(runtime=...) 接受 AgentRuntime 且不抛异常。"""
-        from agent_worker.app.agent.graph import build_plan_graph
-        from agent_worker.app.agent.runtime import AgentRuntime
+        from agent.graph import build_plan_graph
+        from agent.runtime import AgentRuntime
 
         rt = AgentRuntime()
         graph = build_plan_graph(runtime=rt)
@@ -365,8 +364,8 @@ class TestGraphNoGlobals:
 
     def test_build_single_agent_graph_with_runtime(self):
         """build_single_agent_graph(runtime=...) 接受 AgentRuntime 且不抛异常。"""
-        from agent_worker.app.agent.graph import build_single_agent_graph
-        from agent_worker.app.agent.runtime import AgentRuntime
+        from agent.graph import build_single_agent_graph
+        from agent.runtime import AgentRuntime
 
         rt = AgentRuntime()
         graph = build_single_agent_graph(runtime=rt)
@@ -374,14 +373,14 @@ class TestGraphNoGlobals:
 
     def test_build_plan_graph_without_runtime_still_works(self):
         """向后兼容：build_plan_graph() 无参数仍可调用（使用全局变量兜底）。"""
-        from agent_worker.app.agent.graph import build_plan_graph
+        from agent.graph import build_plan_graph
 
         graph = build_plan_graph()
         assert graph is not None
 
     def test_set_gateway_and_set_event_sink_still_exist(self):
         """向后兼容：set_gateway / set_event_sink 函数仍然可调用（deprecation path）。"""
-        from agent_worker.app.agent.graph import set_event_sink, set_gateway
+        from agent.graph import set_event_sink, set_gateway
 
         # 不抛异常即可
         set_gateway(None)
@@ -389,7 +388,7 @@ class TestGraphNoGlobals:
 
     def test_set_v3_dependencies_still_exist(self):
         """向后兼容：set_v3_dependencies 函数仍然可调用（deprecation path）。"""
-        from agent_worker.app.agent.graph import set_v3_dependencies
+        from agent.graph import set_v3_dependencies
 
         set_v3_dependencies(
             tool_adapter=None,

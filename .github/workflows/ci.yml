@@ -21,8 +21,12 @@ jobs:
         run: uv sync --extra dev
       - name: make lint
         run: |
-          cd backend && uv run ruff check marketplace/ agent_worker/ shared/
-          cd backend && uv run mypy marketplace/ agent_worker/ shared/
+          cd backend && uv run ruff check marketplace/ tests/
+          cd backend && uv run mypy marketplace/
+          cd agent && uv run ruff check src/
+          cd agent && uv run mypy src/
+          cd shared && uv run ruff check snaptrip_shared/
+          cd shared && uv run mypy snaptrip_shared/
 
   lint-frontend:
     name: Lint (Frontend)

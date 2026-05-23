@@ -18,10 +18,9 @@ import json
 from collections.abc import AsyncGenerator
 from contextlib import suppress
 
+from agent.ports.repositories import RuntimeEventRepositoryPort
+from agent.schemas.events import RuntimeEvent
 from sse_starlette.sse import EventSourceResponse
-
-from agent_worker.app.agent.ports.repositories import RuntimeEventRepositoryPort
-from agent_worker.app.agent.schemas.events import RuntimeEvent
 
 EVENT_NAME_MAP: dict[tuple[str, str], str] = {
     ("intent_parser", "node_started"): "intent",

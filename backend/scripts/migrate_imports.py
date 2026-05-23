@@ -72,99 +72,99 @@ REPLACEMENTS = [
     (r'from app\.data\.seed_pois import', 'from marketplace.app.data.seed_pois import'),
 
     # ── agent_worker core ──
-    (r'from app\.agent\.runtime import', 'from agent_worker.app.agent.runtime import'),
-    (r'from app\.agents\.graph import', 'from agent_worker.app.agent.graph import'),
-    (r'from app\.agents\.protocol import', 'from agent_worker.app.agent.protocol import'),
+    (r'from app\.agent\.runtime import', 'from agent.runtime import'),
+    (r'from app\.agents\.graph import', 'from agent.graph import'),
+    (r'from app\.agents\.protocol import', 'from agent.protocol import'),
 
     # ── agent engines ──
-    (r'from app\.agents\.intent_parser import', 'from agent_worker.app.agent.engines.intent_parser import'),
-    (r'from app\.agents\.context_loader import', 'from agent_worker.app.agent.engines.context_loader import'),
-    (r'from app\.agents\.memory_manager import', 'from agent_worker.app.agent.engines.memory_manager import'),
-    (r'from app\.agents\.retrieval_engine import', 'from agent_worker.app.agent.engines.retrieval_engine import'),
-    (r'from app\.agents\.planning_engine import', 'from agent_worker.app.agent.engines.planning_engine import'),
-    (r'from app\.agents\.consensus_resolver import', 'from agent_worker.app.agent.engines.consensus_resolver import'),
-    (r'from app\.agents\.execution_engine import', 'from agent_worker.app.agent.engines.execution_engine import'),
-    (r'from app\.agents\.fallback_engine import', 'from agent_worker.app.agent.engines.fallback_engine import'),
-    (r'from app\.agents\.notify_engine import', 'from agent_worker.app.agent.engines.notify_engine import'),
+    (r'from app\.agents\.intent_parser import', 'from agent.engines.intent_parser import'),
+    (r'from app\.agents\.context_loader import', 'from agent.engines.context_loader import'),
+    (r'from app\.agents\.memory_manager import', 'from agent.engines.memory_manager import'),
+    (r'from app\.agents\.retrieval_engine import', 'from agent.engines.retrieval_engine import'),
+    (r'from app\.agents\.planning_engine import', 'from agent.engines.planning_engine import'),
+    (r'from app\.agents\.consensus_resolver import', 'from agent.engines.consensus_resolver import'),
+    (r'from app\.agents\.execution_engine import', 'from agent.engines.execution_engine import'),
+    (r'from app\.agents\.fallback_engine import', 'from agent.engines.fallback_engine import'),
+    (r'from app\.agents\.notify_engine import', 'from agent.engines.notify_engine import'),
 
     # ── agent state ──
-    (r'from app\.agent_runtime\.state import', 'from agent_worker.app.agent.state.builder import'),
-    (r'from app\.agent_runtime\.events import', 'from agent_worker.app.agent.state.events import'),
-    (r'from app\.agent_runtime\.preconfirm_state import', 'from agent_worker.app.agent.state.preconfirm import'),
-    (r'from app\.agent_runtime\.postconfirm_state import', 'from agent_worker.app.agent.state.postconfirm import'),
-    (r'from app\.agent_runtime\.response_state import', 'from agent_worker.app.agent.state.response import'),
+    (r'from app\.agent_runtime\.state import', 'from agent.state.builder import'),
+    (r'from app\.agent_runtime\.events import', 'from agent.state.events import'),
+    (r'from app\.agent_runtime\.preconfirm_state import', 'from agent.state.preconfirm import'),
+    (r'from app\.agent_runtime\.postconfirm_state import', 'from agent.state.postconfirm import'),
+    (r'from app\.agent_runtime\.response_state import', 'from agent.state.response import'),
 
     # ── agent events ──
-    (r'from app\.agent_runtime\.event_store import', 'from agent_worker.app.agent.events.store import'),
-    (r'from app\.adapters\.events\.redis_event_bus import', 'from agent_worker.app.agent.events.redis_bus import'),
+    (r'from app\.agent_runtime\.event_store import', 'from agent.events.store import'),
+    (r'from app\.adapters\.events\.redis_event_bus import', 'from agent.events.redis_bus import'),
 
     # ── agent checkpointer ──
-    (r'from app\.agent_runtime\.checkpointer import', 'from agent_worker.app.agent.checkpointer.builder import'),
+    (r'from app\.agent_runtime\.checkpointer import', 'from agent.checkpointer.builder import'),
 
     # ── agent providers ──
-    (r'from app\.providers\.base import', 'from agent_worker.app.agent.providers.base import'),
-    (r'from app\.providers\.deepseek import', 'from agent_worker.app.agent.providers.deepseek import'),
-    (r'from app\.providers\.kimi import', 'from agent_worker.app.agent.providers.kimi import'),
-    (r'from app\.providers\.openrouter import', 'from agent_worker.app.agent.providers.openrouter import'),
-    (r'from app\.providers\.registry import', 'from agent_worker.app.agent.providers.registry import'),
+    (r'from app\.providers\.base import', 'from agent.providers.base import'),
+    (r'from app\.providers\.deepseek import', 'from agent.providers.deepseek import'),
+    (r'from app\.providers\.kimi import', 'from agent.providers.kimi import'),
+    (r'from app\.providers\.openrouter import', 'from agent.providers.openrouter import'),
+    (r'from app\.providers\.registry import', 'from agent.providers.registry import'),
 
     # ── agent memory ──
-    (r'from app\.services\.memory_service import', 'from agent_worker.app.agent.memory.service import'),
+    (r'from app\.services\.memory_service import', 'from agent.memory.service import'),
 
     # ── agent services ──
-    (r'from app\.services\.agent_service import', 'from agent_worker.app.agent.services.agent import'),
-    (r'from app\.services\.llm_gateway import', 'from agent_worker.app.agent.services.llm_gateway import'),
+    (r'from app\.services\.agent_service import', 'from agent.services.agent import'),
+    (r'from app\.services\.llm_gateway import', 'from agent.services.llm_gateway import'),
 
     # ── agent adapters ──
-    (r'from app\.adapters\.llm\.llm_adapter import', 'from agent_worker.app.agent.adapters.llm import'),
-    (r'from app\.adapters\.tools\.marketplace_client import', 'from agent_worker.app.agent.adapters.marketplace import'),
-    (r'from app\.adapters\.tools\.mock_gateway import', 'from agent_worker.app.agent.adapters.mock_tool_gateway import'),
-    (r'from app\.services\.mock_gateway import', 'from agent_worker.app.agent.adapters.mock_gateway import'),
-    (r'from app\.adapters\.prompt\.jinja import', 'from agent_worker.app.agent.adapters.prompt import'),
+    (r'from app\.adapters\.llm\.llm_adapter import', 'from agent.adapters.llm import'),
+    (r'from app\.adapters\.tools\.marketplace_client import', 'from agent.adapters.marketplace import'),
+    (r'from app\.adapters\.tools\.mock_gateway import', 'from agent.adapters.mock_tool_gateway import'),
+    (r'from app\.services\.mock_gateway import', 'from agent.adapters.mock_gateway import'),
+    (r'from app\.adapters\.prompt\.jinja import', 'from agent.adapters.prompt import'),
 
     # ── agent persistence ──
-    (r'from app\.adapters\.persistence\.plan_run_repository import', 'from agent_worker.app.agent.adapters.persistence.plan_run import'),
-    (r'from app\.adapters\.persistence\.runtime_event_repository import', 'from agent_worker.app.agent.adapters.persistence.runtime_event import'),
-    (r'from app\.adapters\.persistence\.checkpoint_repository import', 'from agent_worker.app.agent.adapters.persistence.checkpoint import'),
-    (r'from app\.adapters\.persistence\.plan_repository import', 'from agent_worker.app.agent.adapters.persistence.plan import'),
-    (r'from app\.adapters\.persistence\.user_profile_repository import', 'from agent_worker.app.agent.adapters.persistence.user_profile import'),
+    (r'from app\.adapters\.persistence\.plan_run_repository import', 'from agent.adapters.persistence.plan_run import'),
+    (r'from app\.adapters\.persistence\.runtime_event_repository import', 'from agent.adapters.persistence.runtime_event import'),
+    (r'from app\.adapters\.persistence\.checkpoint_repository import', 'from agent.adapters.persistence.checkpoint import'),
+    (r'from app\.adapters\.persistence\.plan_repository import', 'from agent.adapters.persistence.plan import'),
+    (r'from app\.adapters\.persistence\.user_profile_repository import', 'from agent.adapters.persistence.user_profile import'),
 
     # ── agent models ──
-    (r'from app\.models\.plan_run import', 'from agent_worker.app.agent.models.plan_run import'),
-    (r'from app\.models\.plan_run_event import', 'from agent_worker.app.agent.models.plan_run_event import'),
-    (r'from app\.models\.checkpoint import', 'from agent_worker.app.agent.models.checkpoint import'),
-    (r'from app\.models\.runtime_checkpoint import', 'from agent_worker.app.agent.models.runtime_checkpoint import'),
-    (r'from app\.models\.llm_usage_log import', 'from agent_worker.app.agent.models.llm_usage_log import'),
+    (r'from app\.models\.plan_run import', 'from agent.models.plan_run import'),
+    (r'from app\.models\.plan_run_event import', 'from agent.models.plan_run_event import'),
+    (r'from app\.models\.checkpoint import', 'from agent.models.checkpoint import'),
+    (r'from app\.models\.runtime_checkpoint import', 'from agent.models.runtime_checkpoint import'),
+    (r'from app\.models\.llm_usage_log import', 'from agent.models.llm_usage_log import'),
 
     # ── agent schemas ──
-    (r'from app\.schemas\.agent\.events import', 'from agent_worker.app.agent.schemas.events import'),
-    (r'from app\.schemas\.agent\.runtime import', 'from agent_worker.app.agent.schemas.runtime import'),
-    (r'from app\.schemas\.agent\.state import', 'from agent_worker.app.agent.schemas.state import'),
-    (r'from app\.schemas\.tool import', 'from agent_worker.app.agent.schemas.tool import'),
-    (r'from app\.schemas\.tool_provider import', 'from agent_worker.app.agent.schemas.tool_provider import'),
-    (r'from app\.schemas\.checkpoint import', 'from agent_worker.app.agent.schemas.checkpoint import'),
-    (r'from app\.schemas\.llm import', 'from agent_worker.app.agent.schemas.llm import'),
+    (r'from app\.schemas\.agent\.events import', 'from agent.schemas.events import'),
+    (r'from app\.schemas\.agent\.runtime import', 'from agent.schemas.runtime import'),
+    (r'from app\.schemas\.agent\.state import', 'from agent.schemas.state import'),
+    (r'from app\.schemas\.tool import', 'from agent.schemas.tool import'),
+    (r'from app\.schemas\.tool_provider import', 'from agent.schemas.tool_provider import'),
+    (r'from app\.schemas\.checkpoint import', 'from agent.schemas.checkpoint import'),
+    (r'from app\.schemas\.llm import', 'from agent.schemas.llm import'),
 
     # ── agent ports ──
-    (r'from app\.ports\.events import', 'from agent_worker.app.agent.ports.events import'),
-    (r'from app\.ports\.llm import', 'from agent_worker.app.agent.ports.llm import'),
-    (r'from app\.ports\.prompt import', 'from agent_worker.app.agent.ports.prompt import'),
-    (r'from app\.ports\.repositories import', 'from agent_worker.app.agent.ports.repositories import'),
-    (r'from app\.ports\.tools import', 'from agent_worker.app.agent.ports.tools import'),
+    (r'from app\.ports\.events import', 'from agent.ports.events import'),
+    (r'from app\.ports\.llm import', 'from agent.ports.llm import'),
+    (r'from app\.ports\.prompt import', 'from agent.ports.prompt import'),
+    (r'from app\.ports\.repositories import', 'from agent.ports.repositories import'),
+    (r'from app\.ports\.tools import', 'from agent.ports.tools import'),
 
     # ── agent tasks ──
-    (r'from app\.tasks\.plan_tasks import', 'from agent_worker.app.tasks.plan_tasks import'),
+    (r'from app\.tasks\.plan_tasks import', 'from agent.tasks.plan_tasks import'),
 
     # ── agent_runtime lazy imports from __init__ ──
     (r'from app\.agent_runtime import (GRAPH_VERSION|RuntimeEventStore|build_plan_graph|build_initial_runtime_state|build_request_envelope)',
      lambda m: _handle_agent_runtime_import(m)),
 
     # ── broad agent_runtime (catch remaining) ──
-    (r'from app\.agent_runtime import', 'from agent_worker.app.agent.state.builder import'),
+    (r'from app\.agent_runtime import', 'from agent.state.builder import'),
 
     # ── app.agents.skills ──
-    (r'from app\.agents\.skills', 'from agent_worker.app.agent.skills'),
-    (r'from app\.agents\.prompts', 'from agent_worker.app.agent.prompts'),
+    (r'from app\.agents\.skills', 'from agent.skills'),
+    (r'from app\.agents\.prompts', 'from agent.prompts'),
 ]
 
 def _handle_agent_runtime_import(m):
@@ -177,13 +177,13 @@ def _handle_agent_runtime_import(m):
             # GRAPH_VERSION is defined in graph.py
             pass  # handled by specific patterns
         elif name == 'RuntimeEventStore':
-            lines.append(f'from agent_worker.app.agent.events.store import RuntimeEventStore')
+            lines.append(f'from agent.events.store import RuntimeEventStore')
         elif name == 'build_plan_graph':
-            lines.append(f'from agent_worker.app.agent.graph import build_plan_graph')
+            lines.append(f'from agent.graph import build_plan_graph')
         elif name == 'build_initial_runtime_state':
-            lines.append(f'from agent_worker.app.agent.state.builder import build_initial_runtime_state')
+            lines.append(f'from agent.state.builder import build_initial_runtime_state')
         elif name == 'build_request_envelope':
-            lines.append(f'from agent_worker.app.agent.state.builder import build_request_envelope')
+            lines.append(f'from agent.state.builder import build_request_envelope')
     return '\n'.join(lines) if lines else m.group(0)
 
 def migrate_file(filepath):

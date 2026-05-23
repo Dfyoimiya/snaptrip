@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import agent_worker.app.agent.state.preconfirm as preconfirm_state
+import agent.state.preconfirm as preconfirm_state
 
 
 def test_context_from_state_prefers_request_envelope():
