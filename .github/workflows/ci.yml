@@ -98,7 +98,7 @@ jobs:
       - name: make test-integration
         run: cd backend && uv run pytest tests/integration/ -v -m "not amap"
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
           file: backend/coverage.xml
           flags: backend
