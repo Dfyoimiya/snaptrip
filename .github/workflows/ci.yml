@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v3
+      - uses: astral-sh/setup-uv@v7
       - name: Install deps (workspace)
         run: uv sync --extra dev
       - name: make lint
@@ -78,7 +78,7 @@ jobs:
       DEEPSEEK_API_KEY: placeholder
     steps:
       - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v3
+      - uses: astral-sh/setup-uv@v7
       - name: Install deps (workspace)
         run: uv sync --extra dev
       - name: make mock-up
