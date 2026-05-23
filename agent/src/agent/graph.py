@@ -482,7 +482,9 @@ async def consensus_resolver_node(state: PlanState) -> dict[str, Any]:
 def route_consensus(
     state: PlanState,
 ) -> Literal["execution_engine", "planning_engine", "end"]:
-    result: Literal["execution_engine", "planning_engine", "end"] = route_from_confirmation(state)
+    result: Literal["execution_engine", "planning_engine", "end"] = (
+        route_from_confirmation(state)
+    )
     return result
 
 
