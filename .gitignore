@@ -57,9 +57,15 @@ tmp/
 temp/
 backend/.venv/
 
+# Cache
+**/.mypy_cache/
+**/.pytest_cache/
+**/.ruff_cache/
+
 # Coverage reports
 coverage.xml
 .coverage
+htmlcov/
 
 
 .claude/

@@ -39,6 +39,16 @@ tasks:
     cmds:
       - docker compose down
 
+  build:
+    desc: 构建所有镜像
+    cmds:
+      - docker compose build
+
+  logs:
+    desc: 查看日志
+    cmds:
+      - docker compose logs -f
+
   dev:
     desc: 启动开发环境（热重载）
     cmds:
@@ -64,6 +74,11 @@ tasks:
     cmds:
       - task: test-unit
       - task: test-integration
+
+  test:
+    desc: 运行全部测试 (别名)
+    cmds:
+      - task: test-backend
 
   test-up:
     desc: 启动测试数据库
@@ -112,12 +127,21 @@ tasks:
     cmds:
       - uv run alembic upgrade head
 
+  migrate-down:
+    desc: 回滚数据库迁移
+    dir: backend
+    cmds:
+      - uv run alembic downgrade -1
+
   # ===== Mock 服务 =====
   mock-up:
-    desc: 启动 Mock 服务（本地）
+    desc: 启动 Mock 服务（本地，后台运行）
     dir: mock-services/mock-meituan
     cmds:
-      - uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+      - cmd: uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload &
+        platforms: [linux, darwin]
+      - cmd: powershell -Command "Start-Process uv -ArgumentList 'run','uvicorn','app.main:app','--host','0.0.0.0','--port','8001','--reload' -NoNewWindow"
+        platforms: [windows]
 
   # ===== 后端开发 =====
   backend-dev:

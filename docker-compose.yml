@@ -98,7 +98,7 @@ services:
           memory: 512M
           cpus: "1.0"
     command: >
-      sh -c "cd /app && alembic upgrade head && uvicorn marketplace.app.main:app --host 0.0.0.0 --port 8000"
+      sh -c "alembic upgrade head && uvicorn marketplace.app.main:app --host 0.0.0.0 --port 8000"
 
   # ===== Agent Worker (Celery) — LangGraph 异步执行 =====
   agent-worker:
@@ -126,7 +126,7 @@ services:
       APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      AGENT_TIMEOUT: "300"
+      AGENT_TIMEOUT: ${AGENT_TIMEOUT:-300}
     depends_on:
       postgres:
         condition: service_healthy
@@ -157,6 +157,8 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DEV_DB:-snaptrip_dev}
       REDIS_URL: redis://redis:6379/0
       APP_ENV: ${APP_ENV:-production}
+      APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     depends_on:
       redis:

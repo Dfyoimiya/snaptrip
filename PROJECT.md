@@ -288,14 +288,8 @@ snaptrip/
     │   └── 05-agent-architecture.md
     ├── api/
     │   └── plan.md
-    ├── meetings/
-    │   ├── 01-team-division.md
-    │   ├── 02-dev-timeline.md
-    │   └── 03-decisions-log.md
-    └── skills/
-        ├── plan-fallback.md
-        ├── restaurant-recommend.md
-        └── time-negotiation.md
+    └── meetings/
+        └── 03-decisions-log.md
 ```
 
 ---

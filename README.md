@@ -20,10 +20,10 @@
 
 | 层级 | 技术 |
 |------|------|
-| Agent 框架 | Hermes Agent (NousResearch) |
+| Agent 框架 | LangGraph (StateGraph + PostgresSaver) |
 | LLM 网关 | OpenRouter (DeepSeek-V3 / Claude-3.5-Sonnet) |
 | 后端 | FastAPI + Pydantic v2 + SQLAlchemy 2.0 |
-| 数据库 | PostgreSQL 15 + pgvector |
+| 数据库 | PostgreSQL 16 + pgvector |
 | 缓存/队列 | Redis + Celery |
 | 前端 | React 18 + TypeScript + Tailwind + Vite |
 | Mock 服务 | FastAPI 子服务（模拟美团 API） |
@@ -74,17 +74,18 @@ make migrate        # 生成数据库迁移
 
 ```
 snaptrip/
-├── backend/          # FastAPI 核心后端
-│   ├── app/
-│   │   ├── agents/   # Agent 层（Intent/Planning/Execution）
-│   │   ├── api/      # REST API 路由
-│   │   ├── models/   # SQLAlchemy 模型
-│   │   ├── services/ # 业务逻辑层
-│   │   └── schemas/  # Pydantic 数据模型
-│   └── tests/        # 单测 + 集成测试
-├── frontend/         # React 18 三栏观测台
-├── mock-services/    # Mock 美团 API 服务
-├── docs/             # 设计文档
+├── backend/              # FastAPI API 网关
+│   ├── marketplace/      # 业务代码 (api/models/services)
+│   ├── alembic/          # 数据库迁移
+│   └── tests/            # 单元 + 集成测试
+├── agent/                # LangGraph Agent 引擎
+│   └── src/agent/        # engines/adapters/tasks
+├── shared/               # 共享库 (config/db/schemas)
+│   └── snaptrip_shared/
+├── mock-services/        # Mock 外部 API
+│   └── mock-meituan/     # 模拟美团 API
+├── frontend/             # React 19 前端
+├── docs/                 # 架构文档
 ├── docker-compose.yml
 └── Makefile
 ```
