@@ -15,7 +15,7 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from shared.core.config import settings
+from snaptrip_shared.core.config import settings
 from marketplace.app.models import Base
 
 config = context.config

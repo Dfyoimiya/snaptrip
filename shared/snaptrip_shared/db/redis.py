@@ -3,7 +3,7 @@
 提供模块级连接池，避免每次 SSE 连接或事件发布新建 TCP 连接。
 
 用法:
-    from shared.db.redis import get_redis_client
+    from snaptrip_shared.db.redis import get_redis_client
 
     client = await get_redis_client()
     await client.publish("channel", "message")
@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import redis.asyncio as aioredis
 
-from shared.core.config import settings
+from snaptrip_shared.core.config import settings
 
 _pool: aioredis.ConnectionPool | None = None
 

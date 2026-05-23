@@ -26,8 +26,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from marketplace.app.models.refresh_token import RefreshToken
 from marketplace.app.models.users import User
-from shared.core.config import settings
-from shared.db.session import get_db
+from snaptrip_shared.core.config import settings
+from snaptrip_shared.db.session import get_db
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 

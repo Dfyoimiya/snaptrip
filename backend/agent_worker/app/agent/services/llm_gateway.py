@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import logging
 
+from snaptrip_shared.db.session import AsyncSessionLocal
+
 from agent_worker.app.agent.models.llm_usage_log import LLMUsageLog
-from shared.db.session import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 

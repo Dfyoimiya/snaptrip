@@ -6,13 +6,14 @@ from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Literal
 
+from snaptrip_shared.schemas.plan import POI, PlanDraft, PlanSlot, RevisedPlan, SlotDiff
+
 from agent_worker.app.agent.schemas.state import (
     CheckpointSnapshot,
     ConfirmationState,
     RepairState,
     UserChangeRequest,
 )
-from shared.schemas.plan import POI, PlanDraft, PlanSlot, RevisedPlan, SlotDiff
 
 
 def confirmation_from_resume(resume: dict[str, Any] | None) -> dict[str, Any]:

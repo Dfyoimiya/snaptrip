@@ -20,9 +20,10 @@ from __future__ import annotations
 import math
 import random
 
+from snaptrip_shared.schemas.plan import POI, CandidatePool, IntentSchema
+
 from agent_worker.app.agent.protocol import AgentContext, AgentResult, BaseAgent
 from marketplace.app.data.seed_pois import SEED_POIS
-from shared.schemas.plan import POI, CandidatePool, IntentSchema
 
 CITY_CENTERS: dict[str, tuple[float, float]] = {
     "北京": (39.9042, 116.4074),

@@ -33,7 +33,7 @@ def _build_worker_agent_service() -> AgentService:
     事件通过 Redis PUBLISH 跨进程推送到 Gateway SSE。
     RedisEventBus 接受 ConnectionPool（lazy client），避免跨 asyncio.run() 的 event loop 绑定。
     """
-    from shared.db.redis import get_redis_pool
+    from snaptrip_shared.db.redis import get_redis_pool
 
     gateway = MockAPIGateway()
     asyncio.run(gateway.start())

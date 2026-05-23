@@ -5,9 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from snaptrip_shared.core.constants import PlanStatus
+
 from agent_worker.app.agent.protocol import AgentContext, AgentResult
 from agent_worker.app.agent.schemas.state import ConfirmationState, MemoryFeatures
-from shared.core.constants import PlanStatus
 
 
 def make_agent_result(agent_name: str, data: dict[str, Any]) -> AgentResult:

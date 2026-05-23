@@ -25,8 +25,9 @@ Date: 2026-05-13 / Production refactor 2026-05-19
 
 from __future__ import annotations
 
+from snaptrip_shared.schemas.plan import PlanDraft
+
 from agent_worker.app.agent.protocol import AgentContext, AgentResult, BaseAgent
-from shared.schemas.plan import PlanDraft
 
 
 def _extract_draft(context: AgentContext) -> PlanDraft | None:

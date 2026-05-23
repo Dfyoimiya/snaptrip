@@ -9,8 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 
 import pytest
-
-from shared.schemas.plan import (
+from snaptrip_shared.schemas.plan import (
     POI,
     IntentSchema,
     PlanDraft,

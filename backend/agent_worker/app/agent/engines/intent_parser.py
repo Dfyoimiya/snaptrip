@@ -21,12 +21,13 @@ import asyncio
 import re
 from datetime import datetime, timedelta
 
+from snaptrip_shared.core.constants import INTENT_TIMEOUT_S
+from snaptrip_shared.core.logging import get_logger
+from snaptrip_shared.schemas.plan import IntentSchema, TimeRange
+
 from agent_worker.app.agent.ports.llm import LLMPort
 from agent_worker.app.agent.ports.prompt import PromptPort
 from agent_worker.app.agent.protocol import AgentContext, AgentResult, BaseAgent
-from shared.core.constants import INTENT_TIMEOUT_S
-from shared.core.logging import get_logger
-from shared.schemas.plan import IntentSchema, TimeRange
 
 CITY_KEYWORDS: dict[str, list[str]] = {
     "北京": ["北京", "朝阳", "海淀", "东城", "故宫", "长城", "三里屯", "798", "簋街"],
@@ -105,7 +106,7 @@ class IntentParser(BaseAgent):
                     "current_time": datetime.now().isoformat(),
                 },
             )
-            from shared.core.config import settings
+            from snaptrip_shared.core.config import settings
 
             parsed = await self._get_llm().chat_json(
                 prompt=prompt,

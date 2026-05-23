@@ -19,7 +19,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from shared.core.logging import get_logger
+from snaptrip_shared.core.logging import get_logger
 
 logger = get_logger(__name__)
 

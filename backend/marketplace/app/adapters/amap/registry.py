@@ -27,13 +27,14 @@ from __future__ import annotations
 
 from typing import Any
 
+from snaptrip_shared.core.config import settings
+
 from agent_worker.app.agent.schemas.tool import ToolInvocation, ToolResult
 from marketplace.app.adapters.amap.base import BaseAmapAdapter
 from marketplace.app.adapters.amap.district_adapter import AmapDistrictAdapter
 from marketplace.app.adapters.amap.geocode_adapter import AmapGeocodeAdapter, AmapReGeocodeAdapter
 from marketplace.app.adapters.amap.poi_adapter import AmapPoiAdapter
 from marketplace.app.adapters.amap.route_adapter import AmapRouteAdapter
-from shared.core.config import settings
 
 AMAP_TOOL_NAMES: set[str] = {
     "search_poi",

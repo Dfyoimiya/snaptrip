@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import logging
 
+from snaptrip_shared.db.session import AsyncSessionLocal
 from sqlalchemy import select
 
 from agent_worker.app.agent.models.plan_run import PlanRun
-from shared.db.session import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 

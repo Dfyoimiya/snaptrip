@@ -17,8 +17,7 @@ import uuid
 from typing import Any
 
 from redis.asyncio import Redis
-
-from shared.core.config import settings
+from snaptrip_shared.core.config import settings
 
 
 class MemoryService:

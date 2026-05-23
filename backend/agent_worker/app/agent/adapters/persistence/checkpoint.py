@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+from snaptrip_shared.db.session import AsyncSessionLocal
 from sqlalchemy import select
 
 from agent_worker.app.agent.models.runtime_checkpoint import RuntimeCheckpoint
 from agent_worker.app.agent.ports.repositories import CheckpointRepositoryPort
 from agent_worker.app.agent.schemas.state import CheckpointSnapshot
-from shared.db.session import AsyncSessionLocal
 
 
 class SQLRuntimeCheckpointRepository(CheckpointRepositoryPort):

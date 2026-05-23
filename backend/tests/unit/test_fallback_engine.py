@@ -3,9 +3,7 @@
 from datetime import datetime, timedelta
 
 import pytest
-
-from agent_worker.app.agent.engines.fallback_engine import FallbackEngine
-from shared.schemas.plan import (
+from snaptrip_shared.schemas.plan import (
     POI,
     ExecutionResult,
     FailedSlot,
@@ -13,6 +11,8 @@ from shared.schemas.plan import (
     PlanSlot,
     TimeRange,
 )
+
+from agent_worker.app.agent.engines.fallback_engine import FallbackEngine
 
 
 @pytest.fixture
@@ -58,7 +58,7 @@ def draft_with_shadow():
 
 class TestRippleReschedule:
     def test_basic_shift(self, fallback, draft_with_shadow, sample_slots):
-        from shared.schemas.plan import PlanSlot as PS  # noqa: N817
+        from snaptrip_shared.schemas.plan import PlanSlot as PS  # noqa: N817
 
         slots = [
             PS(

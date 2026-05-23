@@ -12,9 +12,9 @@
 
 import httpx
 import pytest
+from snaptrip_shared.core.exceptions import AdapterTimeoutError, AmapApiError, AmapAuthError, AmapRateLimitError
 
 from marketplace.app.adapters.amap.client import AmapApiClient
-from shared.core.exceptions import AdapterTimeoutError, AmapApiError, AmapAuthError, AmapRateLimitError
 
 
 class TestAmapApiClientSigning:

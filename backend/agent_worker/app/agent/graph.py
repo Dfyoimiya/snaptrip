@@ -25,6 +25,7 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import interrupt
+from snaptrip_shared.core.constants import FALLBACK_MAX_RETRY, PlanStatus
 
 from agent_worker.app.agent.engines.consensus_resolver import ConsensusResolver
 from agent_worker.app.agent.engines.context_loader import ContextLoader
@@ -65,7 +66,6 @@ from agent_worker.app.agent.state.preconfirm import (
 from agent_worker.app.agent.state.preconfirm import (
     pending_confirmation,
 )
-from shared.core.constants import FALLBACK_MAX_RETRY, PlanStatus
 
 logger = logging.getLogger(__name__)
 

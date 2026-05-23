@@ -15,6 +15,9 @@ import time
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+from snaptrip_shared.core.config import settings
+from snaptrip_shared.core.exceptions import LLMError
+
 from agent_worker.app.agent.ports.llm import LLMPort
 from agent_worker.app.agent.providers.deepseek import DeepSeekProvider
 from agent_worker.app.agent.providers.kimi import KimiProvider
@@ -22,8 +25,6 @@ from agent_worker.app.agent.providers.openrouter import OpenRouterProvider
 from agent_worker.app.agent.providers.registry import ModelRegistry, ProviderRegistry
 from agent_worker.app.agent.schemas.llm import StreamChunk
 from agent_worker.app.agent.services.llm_gateway import log_llm_usage
-from shared.core.config import settings
-from shared.core.exceptions import LLMError
 
 logger = logging.getLogger(__name__)
 

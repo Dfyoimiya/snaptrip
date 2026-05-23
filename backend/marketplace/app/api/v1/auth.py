@@ -16,6 +16,17 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from snaptrip_shared.core.response import success
+from snaptrip_shared.core.security import (
+    create_access_token,
+    create_refresh_token,
+    get_current_user,
+    hash_password,
+    revoke_refresh_token,
+    verify_password,
+    verify_refresh_token,
+)
+from snaptrip_shared.db.session import get_db
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,17 +40,6 @@ from marketplace.app.schemas.auth import (
     TokenResponse,
     UserMeResponse,
 )
-from shared.core.response import success
-from shared.core.security import (
-    create_access_token,
-    create_refresh_token,
-    get_current_user,
-    hash_password,
-    revoke_refresh_token,
-    verify_password,
-    verify_refresh_token,
-)
-from shared.db.session import get_db
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 

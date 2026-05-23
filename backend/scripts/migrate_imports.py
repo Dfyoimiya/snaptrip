@@ -11,17 +11,17 @@ BACKEND = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Order matters: more specific patterns first
 REPLACEMENTS = [
     # ── shared layer ──
-    (r'from app\.core\.config import', 'from shared.core.config import'),
-    (r'from app\.core\.constants import', 'from shared.core.constants import'),
-    (r'from app\.core\.exceptions import', 'from shared.core.exceptions import'),
-    (r'from app\.core\.exception_handlers import', 'from shared.core.exception_handlers import'),
-    (r'from app\.core\.logging import', 'from shared.core.logging import'),
-    (r'from app\.core\.rate_limit import', 'from shared.core.rate_limit import'),
-    (r'from app\.core\.response import', 'from shared.core.response import'),
-    (r'from app\.core\.security import', 'from shared.core.security import'),
-    (r'from app\.db\.session import', 'from shared.db.session import'),
-    (r'from app\.db\.redis import', 'from shared.db.redis import'),
-    (r'from app\.schemas\.plan import', 'from shared.schemas.plan import'),
+    (r'from app\.core\.config import', 'from snaptrip_shared.core.config import'),
+    (r'from app\.core\.constants import', 'from snaptrip_shared.core.constants import'),
+    (r'from app\.core\.exceptions import', 'from snaptrip_shared.core.exceptions import'),
+    (r'from app\.core\.exception_handlers import', 'from snaptrip_shared.core.exception_handlers import'),
+    (r'from app\.core\.logging import', 'from snaptrip_shared.core.logging import'),
+    (r'from app\.core\.rate_limit import', 'from snaptrip_shared.core.rate_limit import'),
+    (r'from app\.core\.response import', 'from snaptrip_shared.core.response import'),
+    (r'from app\.core\.security import', 'from snaptrip_shared.core.security import'),
+    (r'from app\.db\.session import', 'from snaptrip_shared.db.session import'),
+    (r'from app\.db\.redis import', 'from snaptrip_shared.db.redis import'),
+    (r'from app\.schemas\.plan import', 'from snaptrip_shared.schemas.plan import'),
 
     # ── marketplace main ──
     (r'from app\.main import', 'from marketplace.app.main import'),

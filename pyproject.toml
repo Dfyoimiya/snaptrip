@@ -10,7 +10,7 @@
 #   agent/       — Agent 核心引擎 (snaptrip-agent)
 
 [tool.uv.workspace]
-members = ["backend", "mock_server"]
+members = ["backend", "shared", "mock_server"]
 
 # ── 全 workspace 统一的 dev 依赖 ──
 # 不在根 [project] 中定义，但通过 workspace 继承 dev extras

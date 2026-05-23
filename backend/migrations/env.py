@@ -14,7 +14,7 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-from shared.core.config import settings
+from snaptrip_shared.core.config import settings
 
 # ── Alembic Config ──
 config = context.config

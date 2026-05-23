@@ -23,9 +23,9 @@ from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 
 import httpx
+from snaptrip_shared.core.exceptions import LLMError, LLMRateLimitError, LLMTimeoutError
 
 from agent_worker.app.agent.schemas.llm import ChatResult, ModelPricing, StreamChunk
-from shared.core.exceptions import LLMError, LLMRateLimitError, LLMTimeoutError
 
 logger = logging.getLogger(__name__)
 

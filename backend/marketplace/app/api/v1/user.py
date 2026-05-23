@@ -18,6 +18,9 @@ from datetime import UTC, datetime
 
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from snaptrip_shared.core.response import success
+from snaptrip_shared.core.security import get_current_user
+from snaptrip_shared.db.session import get_db
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -35,9 +38,6 @@ from marketplace.app.schemas.user import (
     UserProfileUpdateIn,
 )
 from marketplace.app.services.user_service import trigger_preference_embedding_update
-from shared.core.response import success
-from shared.core.security import get_current_user
-from shared.db.session import get_db
 
 router = APIRouter(prefix="/api/v1/user", tags=["user"])
 

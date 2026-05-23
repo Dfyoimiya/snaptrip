@@ -22,8 +22,7 @@ import random
 from datetime import timedelta
 from typing import Any
 
-from agent_worker.app.agent.protocol import AgentContext, AgentResult, BaseAgent
-from shared.schemas.plan import (
+from snaptrip_shared.schemas.plan import (
     POI,
     EnrichedIntent,
     ExecutionResult,
@@ -33,6 +32,8 @@ from shared.schemas.plan import (
     SlotDiff,
     TimeRange,
 )
+
+from agent_worker.app.agent.protocol import AgentContext, AgentResult, BaseAgent
 
 
 class FallbackEngine(BaseAgent):

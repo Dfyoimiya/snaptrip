@@ -19,7 +19,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
-from shared.core.config import settings
+from snaptrip_shared.core.config import settings
 
 _engine_kwargs: dict[str, Any] = {
     "echo": settings.APP_DEBUG,

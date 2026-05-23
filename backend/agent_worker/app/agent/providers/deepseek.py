@@ -14,10 +14,10 @@ import time
 from collections.abc import AsyncIterator
 
 import httpx
+from snaptrip_shared.core.exceptions import LLMError, LLMRateLimitError
 
 from agent_worker.app.agent.providers.base import BaseLLMProvider
 from agent_worker.app.agent.schemas.llm import ChatResult, ModelPricing, StreamChunk, TokenUsage
-from shared.core.exceptions import LLMError, LLMRateLimitError
 
 logger = logging.getLogger(__name__)
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from shared.schemas.plan import PlanDraft, PlanResponse, PlanSlot, ShareCard
+from snaptrip_shared.schemas.plan import PlanDraft, PlanResponse, PlanSlot, ShareCard
 
 
 def state_to_response(state: Mapping[str, Any], query_text: str = "") -> PlanResponse:

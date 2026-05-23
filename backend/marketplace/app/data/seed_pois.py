@@ -9,7 +9,7 @@ Author: SnapTrip Team
 Date: 2026-05-13
 """
 
-from shared.schemas.plan import POI
+from snaptrip_shared.schemas.plan import POI
 
 SEED_POIS: list[POI] = [
     # ===== 北京 =====

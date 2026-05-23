@@ -13,8 +13,7 @@ Date: 2026-05-19
 """
 
 import pytest
-
-from shared.core.config import settings
+from snaptrip_shared.core.config import settings
 
 AMAP_INTEGRATION = len(settings.AMAP_API_KEY) >= 8
 _amap_skip = pytest.mark.skipif(not AMAP_INTEGRATION, reason="需要 AMAP_API_KEY")

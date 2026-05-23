@@ -12,10 +12,10 @@ import logging
 from collections import Counter
 from uuid import UUID
 
+from snaptrip_shared.db.session import AsyncSessionLocal
 from sqlalchemy import select
 
 from marketplace.app.models.plan import Plan
-from shared.db.session import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 

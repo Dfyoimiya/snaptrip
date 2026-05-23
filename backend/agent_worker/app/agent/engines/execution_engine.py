@@ -27,14 +27,9 @@ from collections import defaultdict
 from datetime import UTC, datetime
 from typing import Any
 
-from agent_worker.app.agent.ports.tools import ToolGatewayPort
-from agent_worker.app.agent.protocol import AgentContext, AgentResult, BaseAgent
-from agent_worker.app.agent.schemas.state import ExecutionState, ToolExecutionRecord
-from agent_worker.app.agent.schemas.tool import TOOL_REGISTRY, ToolDefinition, ToolResult
-from agent_worker.app.agent.schemas.tool_provider import PhysicalActionState, SagaStep, ToolProviderResult
-from shared.core.constants import EXEC_TIMEOUT_TOTAL_S
-from shared.core.logging import get_logger
-from shared.schemas.plan import (
+from snaptrip_shared.core.constants import EXEC_TIMEOUT_TOTAL_S
+from snaptrip_shared.core.logging import get_logger
+from snaptrip_shared.schemas.plan import (
     ExecutionResult,
     FailedSlot,
     IntentSchema,
@@ -42,6 +37,12 @@ from shared.schemas.plan import (
     PlanSlot,
     SlotExecutionResult,
 )
+
+from agent_worker.app.agent.ports.tools import ToolGatewayPort
+from agent_worker.app.agent.protocol import AgentContext, AgentResult, BaseAgent
+from agent_worker.app.agent.schemas.state import ExecutionState, ToolExecutionRecord
+from agent_worker.app.agent.schemas.tool import TOOL_REGISTRY, ToolDefinition, ToolResult
+from agent_worker.app.agent.schemas.tool_provider import PhysicalActionState, SagaStep, ToolProviderResult
 
 logger = get_logger(__name__)
 

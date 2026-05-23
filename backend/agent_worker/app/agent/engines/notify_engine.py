@@ -15,9 +15,10 @@ from __future__ import annotations
 
 import logging
 
+from snaptrip_shared.schemas.plan import PlanDraft, ShareCard
+
 from agent_worker.app.agent.ports.prompt import PromptPort
 from agent_worker.app.agent.protocol import AgentContext, AgentResult, BaseAgent
-from shared.schemas.plan import PlanDraft, ShareCard
 
 logger = logging.getLogger(__name__)
 

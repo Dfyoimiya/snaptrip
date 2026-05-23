@@ -16,11 +16,11 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
+from snaptrip_shared.schemas.plan import EnrichedIntent, IntentSchema
 
 from agent_worker.app.agent.engines.context_loader import ContextLoader
 from agent_worker.app.agent.engines.memory_manager import MemoryManager
 from agent_worker.app.agent.protocol import AgentContext, AgentResult
-from shared.schemas.plan import EnrichedIntent, IntentSchema
 
 # ── 固定有效 UUID ──
 _USER_ID = "550e8400-e29b-41d4-a716-446655440000"

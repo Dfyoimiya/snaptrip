@@ -5,9 +5,10 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
+from snaptrip_shared.schemas.plan import PlanCreateRequest
+
 from agent_worker.app.agent.schemas.runtime import PlanRequestEnvelope
 from agent_worker.app.agent.schemas.state import PlanRuntimeState
-from shared.schemas.plan import PlanCreateRequest
 
 GRAPH_VERSION = "v2-refactor-bootstrap"
 

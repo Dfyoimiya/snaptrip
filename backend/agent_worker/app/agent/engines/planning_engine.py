@@ -29,15 +29,11 @@ import asyncio
 import random
 from datetime import datetime, timedelta
 
-from agent_worker.app.agent.ports.llm import LLMPort
-from agent_worker.app.agent.ports.prompt import PromptPort
-from agent_worker.app.agent.protocol import AgentContext, AgentResult, BaseAgent
-from agent_worker.app.agent.skills import build_skill_prompt, match_skills
-from shared.core.constants import (
+from snaptrip_shared.core.constants import (
     PLANNING_PHASE2_TIMEOUT_S,
 )
-from shared.core.logging import get_logger
-from shared.schemas.plan import (
+from snaptrip_shared.core.logging import get_logger
+from snaptrip_shared.schemas.plan import (
     POI,
     CandidatePool,
     EnrichedIntent,
@@ -46,6 +42,11 @@ from shared.schemas.plan import (
     PlanSlot,
     TimeRange,
 )
+
+from agent_worker.app.agent.ports.llm import LLMPort
+from agent_worker.app.agent.ports.prompt import PromptPort
+from agent_worker.app.agent.protocol import AgentContext, AgentResult, BaseAgent
+from agent_worker.app.agent.skills import build_skill_prompt, match_skills
 
 logger = get_logger(__name__)
 
@@ -186,7 +187,7 @@ class PlanningEngine(BaseAgent):
                     "skill_prompt": skill_prompt,
                 },
             )
-            from shared.core.config import settings
+            from snaptrip_shared.core.config import settings
 
             parsed = await self._get_llm().chat_json(
                 prompt=prompt,

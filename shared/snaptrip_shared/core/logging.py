@@ -3,7 +3,7 @@
 替换项目中的 print() 调用，统一输出 JSON 格式的结构化日志。
 
 用法:
-  from shared.core.logging import get_logger
+  from snaptrip_shared.core.logging import get_logger
   logger = get_logger(__name__)
   logger.info("event_name", key1=value1, key2=value2)
 
@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from shared.core.config import settings
+from snaptrip_shared.core.config import settings
 
 try:
     import structlog

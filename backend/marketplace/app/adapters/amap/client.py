@@ -21,15 +21,14 @@ import time
 from typing import Any, NoReturn
 
 import httpx
-
-from shared.core.config import settings
-from shared.core.exceptions import (
+from snaptrip_shared.core.config import settings
+from snaptrip_shared.core.exceptions import (
     AdapterTimeoutError,
     AmapApiError,
     AmapAuthError,
     AmapRateLimitError,
 )
-from shared.core.logging import get_logger
+from snaptrip_shared.core.logging import get_logger
 
 logger = get_logger(__name__)
 

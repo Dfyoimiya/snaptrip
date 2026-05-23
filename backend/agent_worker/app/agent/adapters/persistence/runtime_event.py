@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+from snaptrip_shared.db.session import AsyncSessionLocal
 from sqlalchemy import select
 
 from agent_worker.app.agent.models.plan_run_event import PlanRunEvent
 from agent_worker.app.agent.ports.repositories import RuntimeEventRepositoryPort
 from agent_worker.app.agent.schemas.events import RuntimeEvent
-from shared.db.session import AsyncSessionLocal
 
 
 def _row_to_event(row: PlanRunEvent) -> RuntimeEvent:

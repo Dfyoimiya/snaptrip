@@ -23,7 +23,7 @@ import uuid
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from shared.core.exceptions import (
+from snaptrip_shared.core.exceptions import (
     AdapterError,
     AmapRateLimitError,
     AuthenticationError,
@@ -33,7 +33,7 @@ from shared.core.exceptions import (
     SnapTripException,
     ValidationError,
 )
-from shared.core.logging import get_logger
+from snaptrip_shared.core.logging import get_logger
 
 logger = get_logger(__name__)
 

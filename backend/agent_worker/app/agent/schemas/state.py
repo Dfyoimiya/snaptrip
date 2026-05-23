@@ -6,9 +6,7 @@ from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
-
-from agent_worker.app.agent.schemas.runtime import AgentError, PlanRequestEnvelope
-from shared.schemas.plan import (
+from snaptrip_shared.schemas.plan import (
     POI,
     CandidatePool,
     EnrichedIntent,
@@ -18,6 +16,8 @@ from shared.schemas.plan import (
     SlotDiff,
     TimeRange,
 )
+
+from agent_worker.app.agent.schemas.runtime import AgentError, PlanRequestEnvelope
 
 PlanRuntimeStatus = Literal[
     "created",

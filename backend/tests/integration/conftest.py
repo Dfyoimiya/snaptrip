@@ -7,8 +7,7 @@ triggering fast keyword/template fallback paths.
 from __future__ import annotations
 
 import pytest
-
-from shared.core.exceptions import LLMError
+from snaptrip_shared.core.exceptions import LLMError
 
 
 @pytest.fixture(autouse=True)

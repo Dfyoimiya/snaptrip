@@ -14,9 +14,10 @@ from __future__ import annotations
 import tomllib
 from pathlib import Path
 
+from snaptrip_shared.core.exceptions import LLMError
+
 from agent_worker.app.agent.providers.base import BaseLLMProvider
 from agent_worker.app.agent.schemas.llm import ModelConfig, ModelPricing
-from shared.core.exceptions import LLMError
 
 
 class ModelRegistry:

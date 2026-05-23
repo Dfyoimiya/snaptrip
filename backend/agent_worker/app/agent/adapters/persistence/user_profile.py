@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import logging
 
+from snaptrip_shared.db.session import AsyncSessionLocal
 from sqlalchemy import select
 
 from marketplace.app.models.user_profile import UserProfile
-from shared.db.session import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 

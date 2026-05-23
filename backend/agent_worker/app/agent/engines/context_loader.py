@@ -23,8 +23,9 @@ from __future__ import annotations
 import logging
 import uuid
 
+from snaptrip_shared.schemas.plan import EnrichedIntent, IntentSchema
+
 from agent_worker.app.agent.protocol import AgentContext, AgentResult, BaseAgent
-from shared.schemas.plan import EnrichedIntent, IntentSchema
 
 logger = logging.getLogger(__name__)
 

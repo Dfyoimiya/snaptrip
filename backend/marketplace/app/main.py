@@ -20,6 +20,34 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from snaptrip_shared.core.exception_handlers import (
+    adapter_exception_handler,
+    authentication_handler,
+    circuit_breaker_handler,
+    not_found_handler,
+    permission_denied_handler,
+    rate_limit_handler,
+    snap_trip_exception_handler,
+    validation_handler,
+)
+from snaptrip_shared.core.exceptions import (
+    AdapterError,
+    AmapRateLimitError,
+    AuthenticationError,
+    CircuitBreakerOpenError,
+    PermissionDeniedError,
+    ResourceNotFoundError,
+    SnapTripException,
+    ValidationError,
+)
+from snaptrip_shared.core.response import (
+    APIServiceError,
+    api_exception_handler,
+    http_exception_handler,
+    unhandled_exception_handler,
+    validation_exception_handler,
+)
+from snaptrip_shared.db.redis import close_redis_pool, get_redis_pool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from agent_worker.app.agent.adapters.marketplace import MarketplaceClient
@@ -32,34 +60,6 @@ from agent_worker.app.agent.runtime import AgentRuntime
 from marketplace.app.api.v1.auth import router as auth_router
 from marketplace.app.api.v1.plan import router as plan_router
 from marketplace.app.api.v1.user import router as user_router
-from shared.core.exception_handlers import (
-    adapter_exception_handler,
-    authentication_handler,
-    circuit_breaker_handler,
-    not_found_handler,
-    permission_denied_handler,
-    rate_limit_handler,
-    snap_trip_exception_handler,
-    validation_handler,
-)
-from shared.core.exceptions import (
-    AdapterError,
-    AmapRateLimitError,
-    AuthenticationError,
-    CircuitBreakerOpenError,
-    PermissionDeniedError,
-    ResourceNotFoundError,
-    SnapTripException,
-    ValidationError,
-)
-from shared.core.response import (
-    APIServiceError,
-    api_exception_handler,
-    http_exception_handler,
-    unhandled_exception_handler,
-    validation_exception_handler,
-)
-from shared.db.redis import close_redis_pool, get_redis_pool
 
 
 @asynccontextmanager

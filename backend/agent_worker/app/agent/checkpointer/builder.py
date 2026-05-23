@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
-
-from shared.core.config import settings
+from snaptrip_shared.core.config import settings
 
 
 def build_default_checkpointer():
