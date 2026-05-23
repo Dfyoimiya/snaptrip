@@ -1,0 +1,142 @@
+# https://taskfile.dev
+# SnapTrip monorepo task runner — 跨平台 (Mac / Linux / Windows)
+#
+# 安装: go install github.com/go-task/task/v3/cmd/task@latest
+# 使用: task <command>
+
+version: "3"
+
+env:
+  TEST_ENV: >-
+    APP_ENV=test
+    DATABASE_TEST_URL=postgresql+asyncpg://snaptrip:snaptrip_dev_pass@localhost:5433/snaptrip_test
+    REDIS_URL=redis://localhost:6380/0
+    APP_SECRET_KEY=test-secret
+    JWT_SECRET_KEY=test-jwt-secret
+    OPENROUTER_API_KEY=placeholder
+    MOCK_FAULT_RATE=0
+    MOCK_DELAY_RATE=0
+
+tasks:
+  # ===== 初始化 =====
+  init:
+    desc: 初始化项目（安装依赖）
+    cmds:
+      - cmd: echo "==> 安装后端依赖 (workspace)..."
+      - uv sync --extra dev
+      - cmd: echo "==> 安装前端依赖..."
+      - cd frontend && npm install
+      - cmd: echo "==> 初始化完成! 运行 task dev 启动开发环境"
+
+  # ===== Docker =====
+  up:
+    desc: 启动全栈（production 模式）
+    cmds:
+      - docker compose --profile full up -d --build
+
+  down:
+    desc: 停止全栈
+    cmds:
+      - docker compose down
+
+  dev:
+    desc: 启动开发环境（热重载）
+    cmds:
+      - docker compose --profile dev -f docker-compose.yml -f docker-compose.override.yml up --build
+    env:
+      BUILD_TARGET: development
+
+  # ===== 测试 =====
+  test-unit:
+    desc: 运行单元测试
+    dir: backend
+    cmds:
+      - uv run pytest tests/unit/ -v --cov=marketplace --cov=agent --cov=snaptrip_shared --cov-report=xml --cov-report=term
+
+  test-integration:
+    desc: 运行集成测试
+    dir: backend
+    cmds:
+      - uv run pytest tests/integration/ -v
+
+  test-backend:
+    desc: 运行全部后端测试
+    cmds:
+      - task: test-unit
+      - task: test-integration
+
+  test-up:
+    desc: 启动测试数据库
+    cmds:
+      - docker compose -f docker-compose.test.yml up -d
+
+  test-down:
+    desc: 停止测试数据库
+    cmds:
+      - docker compose -f docker-compose.test.yml down
+
+  # ===== 代码质量 =====
+  lint:
+    desc: 代码检查（ruff + mypy）
+    cmds:
+      - cd backend && uv run ruff check marketplace/ tests/
+      - cd backend && uv run mypy marketplace/
+      - cd agent && uv run ruff check src/
+      - cd agent && uv run mypy src/
+      - cd shared && uv run ruff check snaptrip_shared/
+      - cd shared && uv run mypy snaptrip_shared/
+
+  lint-frontend:
+    desc: 前端类型检查
+    dir: frontend
+    cmds:
+      - npx -p typescript tsc --noEmit
+
+  format:
+    desc: 代码格式化
+    cmds:
+      - cd backend && uv run ruff format marketplace/ tests/
+      - cd agent && uv run ruff format src/
+      - cd shared && uv run ruff format snaptrip_shared/
+
+  # ===== 数据库 =====
+  migrate:
+    desc: 生成数据库迁移
+    dir: backend
+    cmds:
+      - uv run alembic revision --autogenerate -m "auto"
+
+  migrate-up:
+    desc: 执行数据库迁移
+    dir: backend
+    cmds:
+      - uv run alembic upgrade head
+
+  # ===== Mock 服务 =====
+  mock-up:
+    desc: 启动 Mock 服务（本地）
+    dir: mock-services/mock-meituan
+    cmds:
+      - uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+
+  # ===== 后端开发 =====
+  backend-dev:
+    desc: 仅启动后端（本地）
+    dir: backend
+    cmds:
+      - uv run uvicorn marketplace.app.main:app --host 0.0.0.0 --port 8080 --reload
+
+  # ===== 清理 =====
+  clean:
+    desc: 清理临时文件
+    cmds:
+      - docker compose down -v 2>/dev/null || true
+      - docker compose -f docker-compose.test.yml down -v 2>/dev/null || true
+      - cmd: find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+        platforms: [linux, darwin]
+      - cmd: powershell -Command "Get-ChildItem -Recurse -Directory -Filter '__pycache__' | Remove-Item -Recurse -Force"
+        platforms: [windows]
+      - cmd: find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+        platforms: [linux, darwin]
+      - cmd: powershell -Command "Get-ChildItem -Recurse -Directory -Filter '.pytest_cache' | Remove-Item -Recurse -Force"
+        platforms: [windows]
