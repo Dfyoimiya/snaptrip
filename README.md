@@ -83,7 +83,7 @@ snaptrip/
 │   │   └── schemas/  # Pydantic 数据模型
 │   └── tests/        # 单测 + 集成测试
 ├── frontend/         # React 18 三栏观测台
-├── mock_server/      # Mock 美团 API 服务
+├── mock-services/    # Mock 美团 API 服务
 ├── docs/             # 设计文档
 ├── docker-compose.yml
 └── Makefile

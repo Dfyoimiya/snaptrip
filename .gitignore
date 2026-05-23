@@ -12,7 +12,7 @@ venv/
 
 # uv (root uv.lock IS committed — it's the workspace unified lock file)
 backend/uv.lock
-mock_server/uv.lock
+mock-services/uv.lock
 
 # Node / Frontend
 node_modules/

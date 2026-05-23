@@ -10,7 +10,7 @@ resolution-markers = [
 members = [
     "snaptrip-agent",
     "snaptrip-backend",
-    "snaptrip-mock-server",
+    "snaptrip-mock-meituan",
     "snaptrip-shared",
 ]
 
@@ -2149,9 +2149,9 @@ requires-dist = [
 provides-extras = ["dev"]
 
 [[package]]
-name = "snaptrip-mock-server"
+name = "snaptrip-mock-meituan"
 version = "0.1.0"
-source = { virtual = "mock_server" }
+source = { virtual = "mock-services/mock-meituan" }
 dependencies = [
     { name = "fastapi" },
     { name = "pydantic" },

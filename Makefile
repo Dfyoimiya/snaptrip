@@ -48,7 +48,7 @@ backend-shell: ## 进入 Marketplace 容器
 TEST_ENV = APP_ENV=test DATABASE_TEST_URL=postgresql+asyncpg://snaptrip:snaptrip_dev_pass@localhost:5433/snaptrip_test REDIS_URL=redis://localhost:6380/0 APP_SECRET_KEY=test-secret JWT_SECRET_KEY=test-jwt-secret OPENROUTER_API_KEY=placeholder MOCK_FAULT_RATE=0 MOCK_DELAY_RATE=0
 
 test-unit: ## 运行单元测试
-	cd backend && $(TEST_ENV) uv run pytest tests/unit/ -v --cov=marketplace --cov=agent_worker --cov=shared --cov-report=xml --cov-report=term
+	cd backend && $(TEST_ENV) uv run pytest tests/unit/ -v --cov=marketplace --cov=agent --cov=snaptrip_shared --cov-report=xml --cov-report=term
 
 test-integration: ## 运行集成测试
 	cd backend && $(TEST_ENV) uv run pytest tests/integration/ -v
@@ -66,7 +66,7 @@ test-down: ## 停止测试数据库
 # ===== Mock 服务 =====
 
 mock-up: ## 启动 Mock 服务（本地）
-	cd mock_server && uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload &
+	cd mock-services/mock-meituan && uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload &
 
 # ===== 代码质量 =====
 

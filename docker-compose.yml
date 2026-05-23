@@ -147,7 +147,7 @@ services:
   # ===== Mock API 服务 (dev/CI) =====
   mock-server:
     build:
-      context: ./mock_server
+      context: ./mock-services/mock-meituan
       dockerfile: Dockerfile
     container_name: snaptrip-mock
     ports:

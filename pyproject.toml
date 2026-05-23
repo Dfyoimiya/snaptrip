@@ -2,15 +2,13 @@
 # 本文件定义 monorepo 工作空间，不包含 Python 包本身（virtual workspace）。
 #
 # 成员:
-#   backend/     — Marketplace API 网关 + Agent Worker (snaptrip-backend)
-#   mock_server/ — Mock 第三方服务 (snaptrip-mock-server)
-#
-# 未来:
-#   shared/      — 共享库 (snaptrip-shared)
-#   agent/       — Agent 核心引擎 (snaptrip-agent)
+#   backend/                       — Marketplace API 网关 (snaptrip-backend)
+#   shared/                        — 共享库 (snaptrip-shared)
+#   agent/                         — Agent 核心引擎 (snaptrip-agent)
+#   mock-services/mock-meituan/    — Mock 美团 API (snaptrip-mock-meituan)
 
 [tool.uv.workspace]
-members = ["backend", "shared", "agent", "mock_server"]
+members = ["backend", "shared", "agent", "mock-services/mock-meituan"]
 
 # ── 全 workspace 统一的 dev 依赖 ──
 # 不在根 [project] 中定义，但通过 workspace 继承 dev extras

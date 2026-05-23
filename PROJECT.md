@@ -57,7 +57,7 @@ Mock API 层 (FastAPI :8001 / 真实 API)
 数据层 (PostgreSQL + pgvector + Redis + MinIO)
 ```
 
-**部署模式**：模块化单体 + 3 进程（backend :8080 / mock_server :8001 / frontend :5174），
+**部署模式**：模块化单体 + 3 进程（backend :8080 / mock-server :8001 / frontend :5174），
 非微服务架构。内部按目录分层（agents / services / models / api / tasks），
 各模块直接 import 通信，将来拆微服务时边界清晰、抽离代价低。
 
@@ -264,7 +264,8 @@ snaptrip/
 │   ├── package.json
 │   └── vite.config.ts
 │
-├── mock_server/
+├── mock-services/
+│   └── mock-meituan/
 │   ├── app/
 │   │   ├── main.py
 │   │   ├── routers/

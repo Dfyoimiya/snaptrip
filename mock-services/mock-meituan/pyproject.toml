@@ -1,7 +1,7 @@
 [project]
-name = "snaptrip-mock-server"
+name = "snaptrip-mock-meituan"
 version = "0.1.0"
-description = "SnapTrip Mock API service"
+description = "SnapTrip Mock Meituan API service"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",
