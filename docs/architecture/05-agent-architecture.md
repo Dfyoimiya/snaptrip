@@ -1,4 +1,10 @@
-# 05 —— Agent 架构：LangGraph 驱动的三域 Agent 系统
+# 05 —— Agent 架构：LangGraph 驱动的 Agent 系统
+
+> **文档状态**: 目标架构设计文档。描述理想的 15-Agent 系统设计。
+> 当前实际实现为 9 个竞赛核心 Agent（参见 [`00-architecture-reference.md`](./00-architecture-reference.md)）。
+> 课设扩展 5 Agent（Recommend/Review/Dispatch/Pricing/Quality）尚未实现。
+>
+> **实现状态图例**: ✅ 已实现 | 🚧 部分实现 | 📋 规划中
 
 ## 总体架构
 
@@ -216,46 +222,46 @@ app = graph.compile(checkpointer=checkpointer)
 
 ### 按认知层级分类
 
-| 分类 | Agent | 归属 | LLM? | 核心职责 | 输入 | 输出 |
-|------|-------|:---:|:---:|---------|------|------|
-| **感知** | IntentParser | 竞赛 | ✅ | 自然语言→结构化意图 | `raw_query` | `IntentSchema` |
-| **感知** | ContextLoader | 竞赛 | ❌ | 用户画像+历史偏好加载 | `IntentSchema + user_id` | `EnrichedIntent` |
-| **感知** | MemoryManager | 竞赛 | ❌ | 向量记忆检索+Skill匹配 | `EnrichedIntent` | 记忆增强向量 |
-| **认知** | RetrievalEngine | 竞赛 | ❌ | POI并行检索+硬约束过滤 | `EnrichedIntent` | `CandidatePool` |
-| **认知** | PlanningEngine | 竞赛 | ✅ | 两阶段规划(Phase1代码+Phase2 LLM) | `CandidatePool` | `PlanDraft` |
-| **认知** | RecommendAgent | 课设 | ✅ | 个性化推荐(协同过滤+语义) | `UserProfile + context` | `RecommendList` |
-| **协作** | ConsensusResolver | 竞赛 | ❌ | 多利益方共识(投票+帕累托补偿) | `votes[]` | `ConsensusDecision` |
-| **执行** | ExecutionEngine | 竞赛 | ❌ | Tool DAG编排+分层并行执行 | `PlanDraft` | `ExecutionResult` |
-| **执行** | DispatchAgent | 课设 | ✅ | 骑手智能调度+ETA预测 | `orders[]` | `DispatchPlan` |
-| **执行** | PricingAgent | 课设 | ✅ | 动态定价(供需+时段+天气) | `POI + demand` | `PriceDecision` |
-| **容错** | FallbackEngine | 竞赛 | ❌ | Shadow候选+涟漪重排 | `FailedSlot + Checkpoint` | `RevisedPlan` |
-| **输出** | NotifyEngine | 竞赛 | ❌ | 分享卡片生成(Playwright) | `PlanDraft + ExecutionResult` | `ShareCard` |
-| **分析** | ReviewAgent | 课设 | ✅ | 评价情感分析+自动摘要 | `reviews[]` | `ReviewSummary` |
-| **监控** | QualityAgent | 课设 | ❌ | 服务质量实时监控+异常告警 | `metrics[]` | `AlertDecision` |
+| 分类 | Agent | 归属 | LLM? | 核心职责 | 输入 | 输出 | 状态 |
+|------|-------|:---:|:---:|---------|------|------|:---:|
+| **感知** | IntentParser | 竞赛 | ✅ | 自然语言→结构化意图 | `raw_query` | `IntentSchema` | ✅ |
+| **感知** | ContextLoader | 竞赛 | ❌ | 用户画像+历史偏好加载 | `IntentSchema + user_id` | `EnrichedIntent` | ✅ |
+| **感知** | MemoryManager | 竞赛 | ❌ | 向量记忆检索+Skill匹配 | `EnrichedIntent` | 记忆增强向量 | ✅ |
+| **认知** | RetrievalEngine | 竞赛 | ❌ | POI并行检索+硬约束过滤 | `EnrichedIntent` | `CandidatePool` | ✅ |
+| **认知** | PlanningEngine | 竞赛 | ✅ | 两阶段规划(Phase1代码+Phase2 LLM) | `CandidatePool` | `PlanDraft` | ✅ |
+| **认知** | RecommendAgent | 课设 | ✅ | 个性化推荐(协同过滤+语义) | `UserProfile + context` | `RecommendList` | 📋 |
+| **协作** | ConsensusResolver | 竞赛 | ❌ | 多利益方共识(投票+帕累托补偿) | `votes[]` | `ConsensusDecision` | 🚧 |
+| **执行** | ExecutionEngine | 竞赛 | ❌ | Tool DAG编排+分层并行执行 | `PlanDraft` | `ExecutionResult` | ✅ |
+| **执行** | DispatchAgent | 课设 | ✅ | 骑手智能调度+ETA预测 | `orders[]` | `DispatchPlan` | 📋 |
+| **执行** | PricingAgent | 课设 | ✅ | 动态定价(供需+时段+天气) | `POI + demand` | `PriceDecision` | 📋 |
+| **容错** | FallbackEngine | 竞赛 | ❌ | Shadow候选+涟漪重排 | `FailedSlot + Checkpoint` | `RevisedPlan` | ✅ |
+| **输出** | NotifyEngine | 竞赛 | ❌ | 分享卡片生成(Playwright) | `PlanDraft + ExecutionResult` | `ShareCard` | ✅ |
+| **分析** | ReviewAgent | 课设 | ✅ | 评价情感分析+自动摘要 | `reviews[]` | `ReviewSummary` | 📋 |
+| **监控** | QualityAgent | 课设 | ❌ | 服务质量实时监控+异常告警 | `metrics[]` | `AlertDecision` | 📋 |
 
 ### 竞赛核心：9 Agent 链路
 
-| # | Agent | 超时 | 降级策略 |
-|---|-------|:---:|---------|
-| 1 | **Intent Parser** | 2s | LLM 超时 → 关键词匹配（confidence=0.4） |
-| 2 | **Context Loader** | 500ms | 超时 → 返回空 profile |
-| 3 | **Memory Manager** | — | 无历史 → 返回默认向量 |
-| 4 | **Retrieval Engine** | 1s | 超时 → Redis 缓存（TTL 1h） |
-| 5 | **Planning Engine** | 3.1s | Phase2 超时 → Phase1 评分排序 |
-| 6 | **Consensus Resolver** | 100ms | 单用户 → auto_confirm=true |
-| 7 | **Execution Engine** | 10s | 单 Tool 超时不阻塞同层 |
-| 8 | **Fallback Engine** | 2s | Shadow→重检索→Saga 补偿→最多2次 |
-| 9 | **Notify Engine** | 500ms | 失败不影响主流程 |
+| # | Agent | 超时 | 降级策略 | 状态 |
+|---|-------|:---:|---------|:---:|
+| 1 | **Intent Parser** | 2s | LLM 超时 → 关键词匹配（confidence=0.4） | ✅ |
+| 2 | **Context Loader** | 500ms | 超时 → 返回空 profile | ✅ |
+| 3 | **Memory Manager** | — | 无历史 → 返回默认向量 | ✅ |
+| 4 | **Retrieval Engine** | 1s | 超时 → Redis 缓存（TTL 1h） | ✅ |
+| 5 | **Planning Engine** | 3.1s | Phase2 超时 → Phase1 评分排序 | ✅ |
+| 6 | **Consensus Resolver** | 100ms | 单用户 → auto_confirm=true | 🚧 (单用户模式) |
+| 7 | **Execution Engine** | 10s | 单 Tool 超时不阻塞同层 | ✅ |
+| 8 | **Fallback Engine** | 2s | Shadow→重检索→Saga 补偿→最多2次 | ✅ |
+| 9 | **Notify Engine** | 500ms | 失败不影响主流程 | ✅ |
 
-### 课设扩展：5 Agent
+### 课设扩展：5 Agent（全部 📋 规划中）
 
-| # | Agent | 超时 | 降级策略 |
-|---|-------|:---:|---------|
-| 10 | **Recommend Agent** | 2s | LLM → 协同过滤规则 |
-| 11 | **Review Agent** | 1.5s | LLM → 评分统计 |
-| 12 | **Dispatch Agent** | 3s | LLM → 贪心调度 |
-| 13 | **Pricing Agent** | 1s | LLM → 固定定价策略 |
-| 14 | **Quality Agent** | 500ms | 规则引擎，无 LLM |
+| # | Agent | 超时 | 降级策略 | 状态 |
+|---|-------|:---:|---------|:---:|
+| 10 | **Recommend Agent** | 2s | LLM → 协同过滤规则 | 📋 |
+| 11 | **Review Agent** | 1.5s | LLM → 评分统计 | 📋 |
+| 12 | **Dispatch Agent** | 3s | LLM → 贪心调度 | 📋 |
+| 13 | **Pricing Agent** | 1s | LLM → 固定定价策略 | 📋 |
+| 14 | **Quality Agent** | 500ms | 规则引擎，无 LLM | 📋 |
 
 ---
 
@@ -427,7 +433,13 @@ def consensus_resolver_node(state: PlanState) -> dict:
 
 ---
 
-## SSE 事件流（10 种）
+## SSE 事件流
+
+> 注：早期设计定义 10 种事件。实际实现使用 8 种 `RuntimeEvent` 类型（定义于 `agent/state/events.py`），
+> 通过 Redis Pub/Sub 推送，再经 API 层映射为前端 SSE 事件。
+> 详见 [`00-architecture-reference.md`](./00-architecture-reference.md) 第 7 节。
+
+### 面向用户的 SSE 事件
 
 | 事件 | 状态 | 含义 | 数据字段 |
 |------|------|------|----------|
@@ -435,19 +447,25 @@ def consensus_resolver_node(state: PlanState) -> dict:
 | `retrieval` | DRAFTING→PLANNING | Retrieval Engine 返回候选池 | `{"query": "...", "count": 25}` |
 | `planning` | PLANNING | Planning Engine 执行中 | `{"status": "sorting", "candidates": 10}` |
 | `planning_done` | PLANNING→CONFIRMING | 规划草案就绪 | `{"plan": PlanResponse}` |
-| `consensus` | CONFIRMING | Consensus Resolver 等待/完成 | `{"decision": "pending"|"confirmed"|"objection"}` |
+| `consensus` | CONFIRMING | Consensus Resolver 等待/完成 | `{"decision": "pending"\|"confirmed"\|"objection"}` |
 | `execution` | CONFIRMING→EXECUTING | Tool DAG 执行中（逐工具） | `{"tool": "book_table", "status": "running"}` |
 | `execution_done` | EXECUTING | 全部 Tool 完成 | `{"success_count": 3, "failed_count": 0}` |
 | `fallback` | EXECUTING→CONFIRMING | Fallback Engine 局部替换 | `{"original": "...", "replacement": "..."}` |
 | `notify` | DONE | Notify Engine 分享链路 | `{"card_url": "https://..."}` |
 | `done` | DONE | 全流程结束 | `{"plan_id": "..."}` |
 
-**LangGraph 实现**：使用 `astream_events()` 替代手动 SSE 拼接：
-```python
-async for event in graph.astream_events(initial_state, config, version="v2"):
-    if event["event"] == "on_chain_end":
-        yield _sse(event["name"], event["data"]["output"])
-```
+### 底层 RuntimeEvent 类型（8 种）
+
+| 事件 | 含义 |
+|------|------|
+| `node_started` | Agent 节点开始执行 |
+| `node_succeeded` | Agent 节点执行成功 |
+| `node_failed` | Agent 节点执行失败 |
+| `interrupt_requested` | 人机协同中断（等待确认） |
+| `interrupt_resumed` | 人机协同恢复（用户确认/反对） |
+| `tool_called` | Tool 调用开始 |
+| `tool_finished` | Tool 调用完成 |
+| `plan_completed` | 全流程结束 |
 
 ---
 

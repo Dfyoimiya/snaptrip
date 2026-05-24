@@ -29,6 +29,13 @@ def _mock_service(invoke_result=None, invoke_side_effect=None):
     return svc
 
 
+def _mock_repo():
+    """构造 mock SQLPlanRunRepository，update_status 为 AsyncMock。"""
+    repo = MagicMock()
+    repo.update_status = AsyncMock()
+    return repo
+
+
 # ====================================================================
 # submit_plan
 # ====================================================================
@@ -40,46 +47,49 @@ class TestSubmitPlan:
         from agent.tasks.plan_tasks import submit_plan
 
         svc = _mock_service(invoke_result={"status": "completed", "plan_id": "p1"})
+        mock_repo = _mock_repo()
 
         with (
             patch("agent.tasks.plan_tasks._get_worker_agent_service", return_value=svc),
-            patch("agent.tasks.plan_tasks._update_status") as mock_update,
+            patch("agent.tasks.plan_tasks.SQLPlanRunRepository", return_value=mock_repo),
         ):
             result = submit_plan({"plan_id": "p1"}, "p1")
 
         assert result["status"] == "completed"
-        mock_update.assert_any_call("p1", "running")
-        mock_update.assert_any_call("p1", "completed")
+        mock_repo.update_status.assert_any_call("p1", "running")
+        mock_repo.update_status.assert_any_call("p1", "completed")
 
     def test_submit_plan_interrupted(self):
         """InterruptError → status=awaiting_confirmation，任务正常结束。"""
         from agent.tasks.plan_tasks import submit_plan
 
         svc = _mock_service(invoke_side_effect=InterruptError())
+        mock_repo = _mock_repo()
 
         with (
             patch("agent.tasks.plan_tasks._get_worker_agent_service", return_value=svc),
-            patch("agent.tasks.plan_tasks._update_status") as mock_update,
+            patch("agent.tasks.plan_tasks.SQLPlanRunRepository", return_value=mock_repo),
         ):
             result = submit_plan({"plan_id": "p2"}, "p2")
 
         assert result["status"] == "awaiting_confirmation"
-        mock_update.assert_any_call("p2", "awaiting_confirmation")
+        mock_repo.update_status.assert_any_call("p2", "awaiting_confirmation")
 
     def test_submit_plan_failure(self):
         """其他异常 → status=failed，re-raise。"""
         from agent.tasks.plan_tasks import submit_plan
 
         svc = _mock_service(invoke_side_effect=RuntimeError("boom"))
+        mock_repo = _mock_repo()
 
         with (
             patch("agent.tasks.plan_tasks._get_worker_agent_service", return_value=svc),
-            patch("agent.tasks.plan_tasks._update_status") as mock_update,
+            patch("agent.tasks.plan_tasks.SQLPlanRunRepository", return_value=mock_repo),
             pytest.raises(RuntimeError, match="boom"),
         ):
             submit_plan({"plan_id": "p3"}, "p3")
 
-        mock_update.assert_any_call("p3", "failed", error_message="boom")
+        mock_repo.update_status.assert_any_call("p3", "failed", error_message="boom")
 
 
 # ====================================================================
@@ -93,30 +103,32 @@ class TestConfirmPlan:
         from agent.tasks.plan_tasks import confirm_plan
 
         svc = _mock_service(invoke_result={"status": "completed", "plan_id": "p4"})
+        mock_repo = _mock_repo()
 
         with (
             patch("agent.tasks.plan_tasks._get_worker_agent_service", return_value=svc),
-            patch("agent.tasks.plan_tasks._update_status") as mock_update,
+            patch("agent.tasks.plan_tasks.SQLPlanRunRepository", return_value=mock_repo),
         ):
             result = confirm_plan({"decision": "confirmed"}, "p4")
 
         assert result["status"] == "completed"
-        mock_update.assert_any_call("p4", "completed")
+        mock_repo.update_status.assert_any_call("p4", "completed")
 
     def test_confirm_plan_interrupted(self):
         """resume InterruptError → status=awaiting_confirmation。"""
         from agent.tasks.plan_tasks import confirm_plan
 
         svc = _mock_service(invoke_side_effect=InterruptError())
+        mock_repo = _mock_repo()
 
         with (
             patch("agent.tasks.plan_tasks._get_worker_agent_service", return_value=svc),
-            patch("agent.tasks.plan_tasks._update_status") as mock_update,
+            patch("agent.tasks.plan_tasks.SQLPlanRunRepository", return_value=mock_repo),
         ):
             result = confirm_plan({"decision": "confirmed"}, "p5")
 
         assert result["status"] == "awaiting_confirmation"
-        mock_update.assert_any_call("p5", "awaiting_confirmation")
+        mock_repo.update_status.assert_any_call("p5", "awaiting_confirmation")
 
 
 # ====================================================================

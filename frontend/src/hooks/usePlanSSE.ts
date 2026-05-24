@@ -2,6 +2,7 @@ import { useEffect } from "react"
 import { sseUrl } from "../api/plan"
 import { useAgentStore } from "../stores/agentStore"
 import { usePlanStore } from "../stores/planStore"
+import { useAlertStore } from "../stores/alertStore"
 import type { SSEEvent, SSEPayload } from "../types/agent"
 
 const EVENT_NODE_MAP: Record<string, string> = {
@@ -14,6 +15,12 @@ const EVENT_NODE_MAP: Record<string, string> = {
   execution_done: "execution_engine",
   fallback: "fallback_engine",
   notify: "notify_engine",
+  // v4
+  context_loaded: "context_loader",
+  memory_loaded: "memory_manager",
+  monitor: "monitor_engine",
+  alert: "monitor_engine",
+  replan: "planning_engine",
 }
 
 export function usePlanSSE(planId: string | null) {
@@ -21,7 +28,12 @@ export function usePlanSSE(planId: string | null) {
   const updateNode = useAgentStore((s) => s.updateNode)
   const setRunning = useAgentStore((s) => s.setRunning)
   const setAwaitingConfirm = useAgentStore((s) => s.setAwaitingConfirm)
+  const setExecutionState = useAgentStore((s) => s.setExecutionState)
   const setStatus = usePlanStore((s) => s.setStatus)
+  const setReplanTrigger = usePlanStore((s) => s.setReplanTrigger)
+  const addAlert = useAlertStore((s) => s.addAlert)
+  const setRealtimeContext = useAlertStore((s) => s.setRealtimeContext)
+  const setMonitorPlan = useAlertStore((s) => s.setMonitorPlan)
 
   useEffect(() => {
     if (!planId) return
@@ -37,6 +49,7 @@ export function usePlanSSE(planId: string | null) {
 
         addLog(eventName, payload)
 
+        // Update pipeline node status
         const nodeId = EVENT_NODE_MAP[eventName]
         if (nodeId) {
           if (eventName.endsWith("_done")) {
@@ -46,6 +59,7 @@ export function usePlanSSE(planId: string | null) {
           }
         }
 
+        // v4: Multi-store dispatch based on event type
         switch (eventName) {
           case "planning_done":
             setStatus("confirming")
@@ -55,10 +69,29 @@ export function usePlanSSE(planId: string | null) {
             break
           case "execution_done":
             setStatus("executing")
+            if (payload.execution_state) {
+              setExecutionState(payload.execution_state)
+            }
             break
           case "done":
             setRunning(false)
             setStatus("done")
+            break
+          case "alert":
+            if (payload.alerts) {
+              payload.alerts.forEach((a) => addAlert(a))
+            }
+            break
+          case "monitor":
+            if (payload.realtime_context) {
+              setRealtimeContext(payload.realtime_context)
+            }
+            break
+          case "replan":
+            updateNode("planning_engine", "running")
+            if (payload.replan_trigger) {
+              setReplanTrigger(payload.replan_trigger)
+            }
             break
         }
       } catch {
@@ -75,5 +108,6 @@ export function usePlanSSE(planId: string | null) {
       es.close()
       setRunning(false)
     }
-  }, [planId, addLog, updateNode, setRunning, setAwaitingConfirm, setStatus])
+  }, [planId, addLog, updateNode, setRunning, setAwaitingConfirm, setStatus,
+      setExecutionState, setReplanTrigger, addAlert, setRealtimeContext, setMonitorPlan])
 }

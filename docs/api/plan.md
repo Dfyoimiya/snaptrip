@@ -1,8 +1,10 @@
 # Plan API
 
+> 最后验证: 2026-05-23 | 基于 `backend/marketplace/app/api/v1/plan.py` 实际代码
+
 ## POST /api/v1/plan/create
 
-创建新的活动计划。
+创建新的活动计划（Celery 异步派发）。
 
 ### Request
 
@@ -12,103 +14,135 @@
   "user_id": "u_001",
   "lat": 39.9219,
   "lng": 116.4435,
-  "options": {
-    "start_time": "2026-05-02T14:00:00",
-    "end_time": "2026-05-02T18:00:00",
-    "radius_km": 5.0
-  }
+  "start_time": "2026-05-02T14:00:00",
+  "end_time": "2026-05-02T18:00:00"
 }
 ```
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | `user_input` | string | 是 | 用户的自然语言输入 |
-| `user_id` | string | 是 | 用户标识 |
-| `lat` | float | 是 | 当前位置纬度 |
-| `lng` | float | 是 | 当前位置经度 |
-| `options.start_time` | datetime | 否 | 计划开始时间，默认当前时间后 1 小时 |
-| `options.end_time` | datetime | 否 | 计划结束时间，默认 4 小时后 |
-| `options.radius_km` | float | 否 | 搜索半径，默认 5.0 |
+| `user_id` | string | 否 | 用户标识，默认 "default" |
+| `lat` | float | 否 | 当前位置纬度，默认 39.9219（北京） |
+| `lng` | float | 否 | 当前位置经度，默认 116.4435（北京） |
+| `start_time` | datetime | 否 | 计划开始时间 |
+| `end_time` | datetime | 否 | 计划结束时间 |
 
 ### Response (HTTP 202 Accepted)
 
-接口立即返回 202，后续通过 SSE `/api/v1/plan/{plan_id}/stream` 获取实时结果：
-
-```json
-{
-  "code": 0,
-  "message": "accepted",
-  "data": {
-    "plan_id": "b3f1a2c4-..."
-  }
-}
-```
-
-### SSE Stream
-
-建立 SSE 连接后，依次收到以下事件：
-
-```
-event: intent
-data: {"intent_id": "i_001", "constraints": {"guest_count": 2, "budget": 300, "type_prefs": ["restaurant", "cafe"]}}
-
-event: retrieval
-data: {"query_id": "q_001", "poi_count": 25, "types": {"restaurant": 12, "cafe": 8, "activity": 5}}
-
-event: planning
-data: {"phase": "hard_filter", "candidates": 10}
-
-event: planning
-data: {"phase": "soft_sort", "status": "calling_llm"}
-
-event: planning_done
-data: {"plan": {"slots": [...], "total_cost": 266, "total_time": 180}}
-
-event: execution
-data: {"tool": "check_queue", "status": "running", "poi_name": "猫咪咖啡馆"}
-
-event: execution
-data: {"tool": "check_queue", "status": "success", "queue_minutes": 15}
-
-event: execution
-data: {"tool": "book_table", "status": "success", "booking_id": "bk_001"}
-
-event: execution_done
-data: {"success_count": 3, "failed_count": 0}
-
-event: notify
-data: {"card_url": "https://snaptrip.cn/cards/plan_b3f1a2c4"}
-
-event: done
-data: {"plan_id": "b3f1a2c4-..."}
-```
-
----
-
-## GET /api/v1/plan/{plan_id}
-
-获取已完成的计划详情。
-
-### Response
-
-注意：`plans` 与 `plan_slots` 为 1:N 关系，响应中嵌套展示。
+接口立即返回 202，Celery 异步执行 LangGraph 图：
 
 ```json
 {
   "code": 0,
   "message": "success",
   "data": {
-    "plan_id": "b3f1a2c4-...",
-    "user_id": "u_001",
+    "plan_id": "b3f1a2c4",
+    "status": "queued"
+  }
+}
+```
+
+---
+
+## POST /api/v1/plan/{plan_id}/confirm
+
+人机协同确认（Celery 异步恢复 LangGraph）。
+
+### Request
+
+```json
+{
+  "decision": "confirmed",
+  "locked_slots": [0, 1],
+  "rejected_slots": [],
+  "instruction": "",
+  "replace_only": false,
+  "change_requests": []
+}
+```
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `decision` | string | 是 | 决策: "confirmed" / "rejected" / "partial_change" |
+| `locked_slots` | int[] | 否 | 锁定的 slot index 列表 |
+| `rejected_slots` | int[] | 否 | 拒绝的 slot index 列表 |
+| `instruction` | string | 否 | 修改说明文本 |
+| `replace_only` | bool | 否 | 是否仅替换（不重规划） |
+| `change_requests` | dict[] | 否 | 结构化变更请求列表 |
+
+### Response (HTTP 202 Accepted)
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "plan_id": "b3f1a2c4",
+    "status": "accepted"
+  }
+}
+```
+
+### SSE Stream 示例
+
+```
+event: node_started
+data: {"node_name": "intent_parser", "plan_id": "b3f1a2c4"}
+
+event: node_succeeded
+data: {"node_name": "intent_parser", "intent_id": "i_001", "constraints": {"guest_count": 2, "budget": 300}}
+
+event: node_started
+data: {"node_name": "retrieval_engine", "plan_id": "b3f1a2c4"}
+
+event: node_succeeded
+data: {"node_name": "retrieval_engine", "query_id": "q_001", "poi_count": 25}
+
+event: node_started
+data: {"node_name": "planning_engine", "plan_id": "b3f1a2c4"}
+
+event: node_succeeded
+data: {"node_name": "planning_engine", "plan": {"slots": [...], "total_cost": 266, "total_time_min": 180}}
+
+event: interrupt_requested
+data: {"node_name": "consensus_resolver", "plan_id": "b3f1a2c4", "draft": {...}}
+
+event: interrupt_resumed
+data: {"node_name": "consensus_resolver", "decision": "confirmed"}
+
+event: tool_called
+data: {"tool_name": "book_table", "slot_index": 0, "poi_name": "猫咪咖啡馆"}
+
+event: tool_finished
+data: {"tool_name": "book_table", "status": "success", "booking_id": "bk_001"}
+
+event: plan_completed
+data: {"plan_id": "b3f1a2c4", "status": "done"}
+```
+
+---
+
+## GET /api/v1/plan/{plan_id}
+
+获取计划详情（从 LangGraph checkpoint 读取）。
+
+### Response
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "plan_id": "b3f1a2c4",
     "query_text": "今天下午想和朋友去朝阳区逛逛",
-    "status": "confirmed",
+    "status": "done",
     "total_cost": 266,
-    "created_at": "2026-05-02T13:05:00Z",
+    "total_time_min": 180,
     "slots": [
       {
-        "slot_id": "s1",
         "sequence": 0,
-        "time_range": ["2026-05-02T14:00:00", "2026-05-02T15:00:00"],
+        "time_range": {"start": "2026-05-02T14:00:00", "end": "2026-05-02T15:00:00"},
         "poi": {
           "id": "p1",
           "name": "猫咪咖啡馆",
@@ -120,11 +154,10 @@ data: {"plan_id": "b3f1a2c4-..."}
           "rating": 4.7
         },
         "action": "arrive",
-        "booking_status": "confirmed",
-        "booking_id": "bk_001",
         "estimated_cost": 48
       }
-    ]
+    ],
+    "share_card": null
   }
 }
 ```
@@ -133,7 +166,7 @@ data: {"plan_id": "b3f1a2c4-..."}
 
 ## GET /api/v1/plan/{plan_id}/status
 
-获取计划的实时状态（适合轮询）。
+查询 plan_run 执行状态（从 `plan_runs` 表读取）。
 
 ### Response
 
@@ -142,22 +175,35 @@ data: {"plan_id": "b3f1a2c4-..."}
   "code": 0,
   "message": "success",
   "data": {
-    "plan_id": "b3f1a2c4-...",
-    "status": "executing",
-    "progress": 0.6,
-    "current_step": "book_table",
-    "created_at": "2026-05-02T13:05:00Z"
+    "plan_id": "b3f1a2c4",
+    "status": "done",
+    "graph_version": "3.0.0",
+    "started_at": "2026-05-02T13:05:00Z",
+    "completed_at": "2026-05-02T13:05:05Z"
   }
 }
 ```
 
+---
+
+## GET /api/v1/plan/{plan_id}/stream
+
+SSE 流式推送（从 `RuntimeEventStore` 读取事件）。
+
+建立 SSE 连接后，前端依次收到事件。SSE 事件类型定义见 [`00-architecture-reference.md`](../architecture/00-architecture-reference.md#7-sse-事件类型)。
+
+---
+
 ## 状态码说明
+
+API 返回的 `status` 字段对应 `PlanStatus` 枚举（定义于 `snaptrip_shared/core/constants.py`）：
 
 | 状态 | 含义 |
 |------|------|
+| `idle` | 初始状态 |
 | `drafting` | 意图解析中 |
 | `planning` | 规划生成中 |
+| `confirming` | 等待用户确认（人机协同中断） |
 | `executing` | 预订执行中 |
-| `confirmed` | 全部预订成功 |
-| `partial_confirmed` | 部分成功，含失败项 |
+| `done` | 全部完成 |
 | `failed` | 规划失败 |

@@ -1,5 +1,17 @@
 # 06 —— Agent 生产化重构方案
 
+> **文档状态**: 生产化重构设计文档（2026-05-17）。
+>
+> **实施进度**:
+> - **Phase 1** (收敛运行入口): ✅ 已完成 — `AgentRuntime` DI 容器 + `ports/`/`adapters/` 分层 + 双模式 graph + `plan_service.py` 已移除
+> - **Phase 2** (typed runtime state): ✅ 已完成 — `PlanRuntimeState` + `RuntimeEvent` 等强类型 Schema 已就位
+> - **Phase 3** (统一外部出口): ✅ 已完成 — `LLMPort`/`ToolGatewayPort`/`PromptPort`/`EventSinkPort` Protocol 定义 + adapters 实现
+> - **Phase 4** (confirm/fallback/checkpoint 闭环): 🚧 部分完成 — `ConfirmationState` + `CheckpointSnapshot` 已定义，共识仍为单用户模式
+> - **Phase 5** (事件流与持久化): ✅ 已完成 — `MemorySaver`/`PostgresSaver` + `plan_run_events` + `RuntimeEventStore` + Redis Pub/Sub SSE
+> - **Phase 6** (补生产测试): 🚧 进行中
+>
+> 当前实际架构见 [`00-architecture-reference.md`](./00-architecture-reference.md)。
+
 ## 目标
 
 本方案面向 SnapTrip 当前 Agent 实现，目标不是继续扩充 Agent 数量，而是把现有链路从「可演示」收敛为「可上线、可回放、可观测、可演进」的生产级架构。

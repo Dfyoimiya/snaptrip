@@ -1,5 +1,9 @@
 # SnapTrip 项目结构审查与规范包结构定义
 
+> **文档状态**: 已被 [`00-architecture-reference.md`](./00-architecture-reference.md) 替代。
+> 本审查日期为 2026-05-19（monorepo 重构前），所描述的 `backend/app/` 单体结构已不适用。
+> 当前实际目录结构见 `00-architecture-reference.md` 第 8 节。
+>
 > 审查日期：2026-05-19  
 > 审查范围：backend / mock_server / frontend 全栈  
 > 基准文档：[PROJECT.md](../../PROJECT.md)

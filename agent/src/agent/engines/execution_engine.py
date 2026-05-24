@@ -6,15 +6,16 @@
   1. DAG 依赖感知: 上游 Tool 失败时，下游依赖 Tool 自动跳过 (SKIPPED)
   2. 分层超时: per-tool 3s / total DAG 10s
   3. 超时不阻塞同层: 单 Tool 超时不影响同层其他 Tool 并行执行
-  4. 安全管道 (v3): 幂等检查 → 双层熔断 → Provider 调用 → Saga 记录 → UNKNOWN 异步确认
-  5. 并发控制: Session/User 双层 Redis 锁
+  4. 安全管道 (v3): PreExecutionValidator → 幂等检查 → 双层熔断 → Provider 调用 → Saga 记录 → UNKNOWN 异步确认
+  5. 并发控制: Session/User/Resource 三层 Redis 锁
   6. 结构化日志: 每个 Tool 调用输出 JSON 格式日志供前端 AgentMonitor 渲染
+  7. 失败策略调度: 按失败类型选择 shadow_replacement / reorder / budget_alert / retry 等策略
 
 v3 更新: 注入 ToolAdapter + IdempotencyService + CircuitBreakerRegistry
-         + SagaCoordinator + PhysicalConfirmator + Redis 锁
+         + SagaCoordinator + PhysicalConfirmator + Redis 锁 + PreExecutionValidator
 
 Author: SnapTrip Team
-Date: 2026-05-13 / v3 update 2026-05-20
+Date: 2026-05-13 / v3 update 2026-05-20 / v4 update 2026-05-24
 """
 
 from __future__ import annotations
@@ -24,7 +25,9 @@ import random
 import time
 import uuid
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import Enum
 from typing import Any
 
 from snaptrip_shared.core.constants import EXEC_TIMEOUT_TOTAL_S
@@ -40,7 +43,11 @@ from snaptrip_shared.schemas.plan import (
 
 from agent.ports.tools import ToolGatewayPort
 from agent.protocol import AgentContext, AgentResult, BaseAgent
-from agent.schemas.state import ExecutionState, ToolExecutionRecord
+from agent.schemas.state import (
+    ExecutionState,
+    RealTimeContext,
+    ToolExecutionRecord,
+)
 from agent.schemas.tool import TOOL_REGISTRY, ToolDefinition, ToolResult
 from agent.schemas.tool_provider import (
     PhysicalActionState,
@@ -51,24 +58,262 @@ from agent.schemas.tool_provider import (
 logger = get_logger(__name__)
 
 
+# ── Pre-Execution Validator ────────────────────────────────────────
+
+
+class ValidationAction(Enum):
+    PROCEED = "proceed"
+    SHADOW_REPLACEMENT = "shadow_replacement"
+    ABORT = "abort"
+    KEEP_ORIGINAL = "keep_original"
+    USER_PROMPT = "user_prompt"
+
+
+@dataclass
+class ValidationResult:
+    """单个门禁的校验结果。"""
+
+    action: ValidationAction
+    gate: str = ""
+    reason: str = ""
+    suggested_poi_id: str | None = None
+
+
+class PreExecutionValidator:
+    """执行前置校验 —— 每次物理操作前的 5 道门禁。
+
+    门禁1: 可用性复查 —— 重新 check_availability
+    门禁2: 双重预订检查 —— 同POI+同时段+同用户
+    门禁3: 取消窗口检查 —— 原预订是否可取消（回退替换时）
+    门禁4: 容量检查 —— party_size ≤ venue_capacity
+    门禁5: 天气复查 —— 户外活动 outdoor_score < 0.3
+    """
+
+    def __init__(
+        self,
+        rt_context: RealTimeContext | None = None,
+        redis_client: Any | None = None,
+    ) -> None:
+        self._rt_context = rt_context
+        self._redis = redis_client
+
+    async def validate(
+        self,
+        tool: str,
+        slot: PlanSlot,
+        context: AgentContext,
+        *,
+        is_replacement: bool = False,
+        original_booking_ref: str | None = None,
+    ) -> ValidationResult:
+        """依次执行 5 道门禁，任一不通过则返回对应的 ValidationResult。
+
+        Args:
+            tool: 工具名
+            slot: 目标 slot
+            context: 执行上下文
+            is_replacement: 是否为回退替换（触发门禁3）
+            original_booking_ref: 被替换的原预订引用
+
+        Returns:
+            ValidationResult —— PROCEED 表示全部通过
+        """
+        # 门禁1: 可用性复查
+        if tool in ("book_table", "book_ticket"):
+            result = await self._gate_availability(slot)
+            if result.action != ValidationAction.PROCEED:
+                return result
+
+        # 门禁2: 双重预订检查
+        if tool in ("book_table", "book_ticket", "order"):
+            result = await self._gate_double_booking(slot, context)
+            if result.action != ValidationAction.PROCEED:
+                return result
+
+        # 门禁3: 取消窗口检查（仅替换场景）
+        if is_replacement and original_booking_ref:
+            result = await self._gate_cancellation_window(original_booking_ref)
+            if result.action != ValidationAction.PROCEED:
+                return result
+
+        # 门禁4: 容量检查
+        result = await self._gate_capacity(slot, context)
+        if result.action != ValidationAction.PROCEED:
+            return result
+
+        # 门禁5: 天气复查
+        result = self._gate_weather(slot)
+        if result.action != ValidationAction.PROCEED:
+            return result
+
+        return ValidationResult(ValidationAction.PROCEED)
+
+    # ── 各门禁实现 ──────────────────────────────────────────────
+
+    async def _gate_availability(self, slot: PlanSlot) -> ValidationResult:
+        """门禁1: 可用性复查。
+
+        真实实现应调用 check_availability Tool。
+        当前桩实现：假设种子 POI 始终可用。
+        """
+        # 桩: 种子 POI 始终可用
+        del slot  # unused in stub
+        return ValidationResult(ValidationAction.PROCEED)
+
+    async def _gate_double_booking(
+        self, slot: PlanSlot, context: AgentContext
+    ) -> ValidationResult:
+        """门禁2: 双重预订检查。
+
+        检查同 POI + 同时段 + 同用户是否已有预订。
+        """
+        if self._redis is None:
+            return ValidationResult(ValidationAction.PROCEED)
+
+        try:
+            date_str = slot.time_range.start.strftime("%Y-%m-%d")
+            key = f"booking_lock:{slot.poi.id}:{date_str}:{context.user_id}"
+            existing = await self._redis.get(key)
+            if existing:
+                return ValidationResult(
+                    ValidationAction.ABORT,
+                    gate="double_booking",
+                    reason=f"POI {slot.poi.name} 已有预订: {existing}",
+                )
+        except Exception:
+            pass  # Redis 不可用时降级放行
+
+        return ValidationResult(ValidationAction.PROCEED)
+
+    async def _gate_cancellation_window(self, booking_ref: str) -> ValidationResult:
+        """门禁3: 取消窗口检查。
+
+        检查原预订是否在可取消时间窗口内。
+        桩实现：假设始终可取消。
+        """
+        del booking_ref  # unused in stub
+        return ValidationResult(ValidationAction.PROCEED)
+
+    async def _gate_capacity(
+        self, slot: PlanSlot, context: AgentContext
+    ) -> ValidationResult:
+        """门禁4: 容量检查。
+
+        party_size ≤ venue_capacity。
+        当前使用 POIRealTimeStatus 中的 available_seats 字段。
+        """
+        del context, slot  # unused in stub
+        # 真实实现: 查询 POIRealTimeStatus
+        return ValidationResult(ValidationAction.PROCEED)
+
+    def _gate_weather(self, slot: PlanSlot) -> ValidationResult:
+        """门禁5: 天气复查。
+
+        户外 POI + outdoor_score < 0.3 → 提示用户。
+        """
+        if self._rt_context is None or self._rt_context.weather is None:
+            return ValidationResult(ValidationAction.PROCEED)
+
+        outdoor = {"attraction", "activity", "park", "sightseeing"}
+        if slot.poi.type in outdoor:
+            if self._rt_context.weather.outdoor_score < 0.3:
+                return ValidationResult(
+                    ValidationAction.USER_PROMPT,
+                    gate="weather",
+                    reason=(
+                        f"户外活动 {slot.poi.name} 当前天气不宜"
+                        f"（室外分={self._rt_context.weather.outdoor_score:.1f}）"
+                    ),
+                )
+
+        return ValidationResult(ValidationAction.PROCEED)
+
+
+# ── Failure Strategy Dispatch ──────────────────────────────────────
+
+
+@dataclass
+class FailureStrategy:
+    """失败策略调度条目。"""
+
+    action: str  # shadow_replacement / reorder_or_replace / budget_alert / alternative_transport / time_shift / retry_with_shadow / async_confirmation / abort_slot / keep_original / degrade_to_mock / indoor_substitution
+    auto: bool = False
+    user_visible: bool = True
+    retry_count: int = 0
+    max_retries: int = 3
+
+
+FAILURE_STRATEGIES: dict[str, FailureStrategy] = {
+    "poi_unavailable": FailureStrategy(
+        action="shadow_replacement", auto=True, user_visible=True
+    ),
+    "queue_too_long": FailureStrategy(
+        action="reorder_or_replace", auto=False, user_visible=True
+    ),
+    "price_surge": FailureStrategy(
+        action="budget_alert", auto=False, user_visible=True
+    ),
+    "route_blocked": FailureStrategy(
+        action="alternative_transport", auto=True, user_visible=True
+    ),
+    "severe_traffic": FailureStrategy(
+        action="time_shift", auto=True, user_visible=True
+    ),
+    "booking_rejected": FailureStrategy(
+        action="retry_with_shadow", auto=True, user_visible=True, max_retries=2
+    ),
+    "booking_timeout": FailureStrategy(
+        action="async_confirmation", auto=True, user_visible=False
+    ),
+    "booking_conflict": FailureStrategy(
+        action="abort_slot", auto=True, user_visible=True
+    ),
+    "cancellation_window_closed": FailureStrategy(
+        action="keep_original", auto=True, user_visible=True
+    ),
+    "provider_down": FailureStrategy(
+        action="degrade_to_mock", auto=True, user_visible=True
+    ),
+    "weather_deterioration": FailureStrategy(
+        action="indoor_substitution", auto=False, user_visible=True
+    ),
+}
+
+
+def get_failure_strategy(error_code: str) -> FailureStrategy:
+    """根据错误码返回对应的失败策略。未匹配时返回 abort_slot。"""
+    return FAILURE_STRATEGIES.get(
+        error_code,
+        FailureStrategy(action="abort_slot", auto=True, user_visible=True),
+    )
+
+
+# ── Execution Engine ───────────────────────────────────────────────
+
+
 class ExecutionEngine(BaseAgent):
     """Execution Engine —— 将 PlanDraft 编译为 DAG 并安全执行。
 
-    v3 安全管道:
-      1. 并发锁 (Session + User)
-      2. 双层熔断检查 (L1 Provider + L2 Tool)
-      3. 幂等键生成 + 获取
-      4. ToolAdapter.call()
-      5. Saga 步骤记录 (物理操作)
-      6. UNKNOWN → PhysicalConfirmator 异步确认
+    v4 安全管道:
+      1. 并发锁 (Session + User + Resource)
+      2. PreExecutionValidator (5 道门禁)
+      3. 双层熔断检查 (L1 Provider + L2 Tool)
+      4. 幂等键生成 + 获取
+      5. ToolAdapter.call()
+      6. Saga 步骤记录 (物理操作)
+      7. UNKNOWN → PhysicalConfirmator 异步确认
+      8. 失败策略调度 (FailureStrategy dispatch)
     """
 
     name = "execution_engine"
 
     def __init__(
         self,
+        # ── v4 新增依赖 ──
+        pre_execution_validator: PreExecutionValidator | None = None,
+        rt_context: RealTimeContext | None = None,
         # ── v3 安全管道依赖 ──
-        tool_adapter: Any | None = None,  # ToolAdapter (避免循环导入用 Any)
+        tool_adapter: Any | None = None,  # ToolAdapter
         circuit_breaker_registry: Any | None = None,  # CircuitBreakerRegistry
         idempotency: Any | None = None,  # IdempotencyService
         saga: Any | None = None,  # SagaCoordinator
@@ -78,6 +323,8 @@ class ExecutionEngine(BaseAgent):
         gateway: ToolGatewayPort | None = None,
     ) -> None:
         super().__init__()
+        self._pre_validator = pre_execution_validator
+        self._rt_context = rt_context
         self._tool_adapter = tool_adapter
         self._cb_registry = circuit_breaker_registry
         self._idempotency = idempotency
@@ -345,12 +592,30 @@ class ExecutionEngine(BaseAgent):
         slot: PlanSlot | None,
         context: AgentContext | None,
     ) -> ToolResult:
-        """v3 安全管道: 熔断 → 幂等 → 调用 → Saga → 确认"""
+        """v4 安全管道: 校验 → 锁 → 熔断 → 幂等 → 调用 → Saga → 确认"""
         # mypy 类型收窄: caller 保证 tool_adapter 非 None
         assert self._tool_adapter is not None, "tool_adapter required for v3 path"
 
         invocation_id = f"{tool}_{slot_index}"
         t_start = time.perf_counter()
+
+        # 0. PreExecutionValidator —— 5 道门禁
+        if self._pre_validator and slot and context:
+            val_result = await self._pre_validator.validate(tool, slot, context)
+            if val_result.action != ValidationAction.PROCEED:
+                return ToolResult(
+                    invocation_id=invocation_id,
+                    status="failure",
+                    data={
+                        "slot_index": slot_index,
+                        "tool_name": tool,
+                        "validation_action": val_result.action.value,
+                        "validation_reason": val_result.reason,
+                    },
+                    error_code=f"VALIDATION_{val_result.action.name}",
+                    error_message=val_result.reason,
+                    latency_ms=int((time.perf_counter() - t_start) * 1000),
+                )
 
         # 1. 双层熔断检查 (L1 Provider + L2 Tool)
         provider = self._get_provider_for_tool(tool)
@@ -364,35 +629,54 @@ class ExecutionEngine(BaseAgent):
                 latency_ms=0,
             )
 
-        # 2. 构建参数
-        params = self._build_tool_params(slot, context) if slot else {}
+        # 2. Resource 级 Redis 锁 (物理操作，Level 3 并发控制)
+        resource_lock_key: str | None = None
+        if meta.physical_impact and self._redis and slot:
+            resource_lock_key = self._build_resource_lock_key(slot)
+            if not await self._acquire_lock(resource_lock_key, invocation_id):
+                return ToolResult(
+                    invocation_id=invocation_id,
+                    status="failure",
+                    data={"slot_index": slot_index, "tool_name": tool},
+                    error_code="RESOURCE_LOCKED",
+                    error_message=f"资源 {slot.poi.name} 当前被其他请求锁定",
+                    latency_ms=int((time.perf_counter() - t_start) * 1000),
+                )
 
-        # 3. 幂等键 (仅物理操作)
-        idempotency_key: str | None = None
-        if meta.physical_impact and self._idempotency:
-            idempotency_key = self._build_idempotency_key(
-                context, tool, slot, slot_index
-            )
-
-        # 4. 调用 ToolAdapter (幂等检查内置于 adapter.call)
         try:
-            result: ToolProviderResult = await self._tool_adapter.call(
-                tool_name=tool,
-                params=params,
-                idempotency_key=idempotency_key,
-            )
-        except Exception as e:
-            logger.exception("tool_adapter_call_failed tool=%s", tool)
-            if self._cb_registry:
-                self._cb_registry.on_failure(tool, provider)
-            return ToolResult(
-                invocation_id=invocation_id,
-                status="failure",
-                data={"slot_index": slot_index, "tool_name": tool},
-                error_code="ADAPTER_ERROR",
-                error_message=str(e),
-                latency_ms=int((time.perf_counter() - t_start) * 1000),
-            )
+            # 3. 构建参数
+            params = self._build_tool_params(slot, context) if slot else {}
+
+            # 4. 幂等键 (仅物理操作)
+            idempotency_key: str | None = None
+            if meta.physical_impact and self._idempotency:
+                idempotency_key = self._build_idempotency_key(
+                    context, tool, slot, slot_index
+                )
+
+            # 5. 调用 ToolAdapter (幂等检查内置于 adapter.call)
+            try:
+                result: ToolProviderResult = await self._tool_adapter.call(
+                    tool_name=tool,
+                    params=params,
+                    idempotency_key=idempotency_key,
+                )
+            except Exception as e:
+                logger.exception("tool_adapter_call_failed tool=%s", tool)
+                if self._cb_registry:
+                    self._cb_registry.on_failure(tool, provider)
+                return ToolResult(
+                    invocation_id=invocation_id,
+                    status="failure",
+                    data={"slot_index": slot_index, "tool_name": tool},
+                    error_code="ADAPTER_ERROR",
+                    error_message=str(e),
+                    latency_ms=int((time.perf_counter() - t_start) * 1000),
+                )
+        finally:
+            # 释放 Resource 锁
+            if resource_lock_key:
+                await self._release_lock(resource_lock_key)
 
         latency_ms = int((time.perf_counter() - t_start) * 1000)
 
@@ -572,6 +856,11 @@ class ExecutionEngine(BaseAgent):
         plan_id = context.plan_id if context else "unknown"
         poi_id = slot.poi.id if slot else "unknown"
         return f"idempotent:{plan_id}:{tool}:{poi_id}:{slot_index}"
+
+    def _build_resource_lock_key(self, slot: PlanSlot) -> str:
+        """构建 Resource 级锁 key: booking_lock:{poi_id}:{date}"""
+        date_str = slot.time_range.start.strftime("%Y-%m-%d")
+        return f"booking_lock:{slot.poi.id}:{date_str}"
 
     @staticmethod
     def _normalize_provider_status(status: str) -> str:

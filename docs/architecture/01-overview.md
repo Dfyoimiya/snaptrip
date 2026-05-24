@@ -1,5 +1,8 @@
 # 01 —— 系统架构总览
 
+> **文档状态**: 概念架构概览。当前实际实现细节见 [`00-architecture-reference.md`](./00-architecture-reference.md)。
+> 本文档描述系统设计目标与架构理念，部分细节（如模块路径、部署进程数）已随 monorepo 重构变更。
+
 ## 架构目标
 
 构建一个**端到端的本地生活智能规划系统**，实现从自然语言输入到可执行时间轴方案的完整闭环。
@@ -8,8 +11,8 @@
 - **竞赛核心**：Hackathon 命题 1.6 — 本地短时活动规划与执行 Agent（规划→预订→自愈→分享）
 - **课设扩展**：传统本地生活服务 Agent 化（智能推荐、评价分析、配送调度、动态定价、质量监控）
 
-**部署模式**：**模块化单体 + 3 进程部署**（backend :8080 / mock-server :8001 / frontend :5174），内部按目录分层，
-非微服务架构。各模块直接 import，同一进程内内存传递，避免分布式复杂度。
+**部署模式**：**Monorepo (uv workspace) + 6 进程部署**（marketplace :8000 / agent-worker / agent-beat / mock-server :8001 / frontend :5173 / postgres :5432 / redis :6379），
+agent 与 marketplace 通过 Celery 异步解耦，shared 库跨包共享。
 
 **核心设计原则**：
 - **Agent 自治**：每个 Agent 独立决策，LangGraph 图引擎负责调度
@@ -85,21 +88,27 @@
 
 ---
 
-## 部署架构（模块化单体，3 进程）
+## 部署架构（Monorepo 6 进程）
 
 ```
                      docker compose up
 
 ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-│  backend :8080   │  │  mock-server:8001 │  │  frontend :5174  │
+│ marketplace :8000│  │ agent-worker     │  │ agent-beat       │
+│                  │  │ (Celery Worker)  │  │ (Celery Beat)    │
+│ FastAPI 网关      │  │ LangGraph 图引擎  │  │ 定时清理孤儿资源  │
+│ JWT + Rate Limit │  │ 9-Node Graph     │  │                  │
+│ Plan/Auth/User   │  │ PostgresSaver    │  │                  │
+│ API 路由          │  │                  │  │                  │
+└──────────────────┘  └──────────────────┘  └──────────────────┘
+         │                      │
+         ▼                      ▼
+┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
+│  mock-server:8001│  │  frontend :5173  │  │                  │
 │                  │  │                  │  │                  │
-│ FastAPI + Agents │  │ 模拟美团本地生活API  │  │ React SPA        │
-│ LangGraph 图引擎  │  │ poi/queue/booking │  │ Amap 地图集成     │
-│ Celery Worker    │  │ /order/delivery   │  │ SSE 流式渲染      │
-│ ──────────────── │  │ ──────────────── │  │ ─────────────── │
-│ 竞赛9Agent +     │  │ 5 Router         │  │ 三栏布局          │
-│ 课设5Agent       │  │ 50条种子POI       │  │ 计划/订单/商家     │
-│ 全部业务Services │  │                  │  │                  │
+│ 模拟美团本地生活API │  │ React 19 SPA     │  │                  │
+│ poi/queue/booking│  │ Amap 地图集成     │  │                  │
+│ /order/delivery  │  │ SSE 流式渲染      │  │                  │
 └──────────────────┘  └──────────────────┘  └──────────────────┘
          │                      │
          ▼                      ▼
@@ -110,14 +119,13 @@
 └──────────────┘       └──────────────┘
 ```
 
-**模块边界**：
-- `backend/app/agents/` —— Agent 层，共享 Hub
-- `backend/app/services/` —— 业务服务层，共享 DB 连接池 + Redis
-- `backend/app/models/` —— ORM，同一套表（Alembic 迁移）
-- `backend/app/api/v1/` —— 路由，同一 FastAPI app
-- `backend/app/tasks/` —— Celery，同一队列
+**Monorepo 包边界**（uv workspace）：
+- `shared/snaptrip_shared/` —— 共享库（config, db, schemas, exceptions, security）
+- `agent/src/agent/` —— Agent 编排引擎（LangGraph + 9 engines + ports/adapters）
+- `backend/marketplace/app/` —— API 网关（FastAPI routes + ORM models + Amap adapters）
+- `mock-services/mock-meituan/` —— Mock 美团服务
 
-各模块间直接 import（非 HTTP 调用），将来拆微服务时边界清晰、抽离代价低。
+Agent 与 Marketplace 通过 Celery 任务队列解耦，shared 库跨包 import。
 
 ---
 
@@ -125,14 +133,14 @@
 
 | 模块 | 竞赛核心 | 课设扩展 |
 |------|:---:|:---:|
-| **Agent 数量** | 9 个（规划执行全链路） | +5 个（业务智能） |
-| **API 路由** | plan + session | +auth/user/poi/order/delivery/merchant |
-| **业务服务** | plan_service + mock_gateway + memory | +user/poi/order/delivery/payment/notify |
-| **ORM 模型** | 0 个（当前全内存）→ 需补齐 | +user/plan/poi/order/delivery/review |
-| **前端页面** | PlanPage（三栏布局） | +OrdersPage/MerchantPage/LoginPage |
-| **Mock Server** | 5 Router + 50 POI | 可复用 |
-| **LangGraph Node** | 9 个竞赛 Agent Node | 5 个课设 Agent 作为独立子图 |
-| **LLM 调用** | 2 次/请求（intent + planning） | 3-5 次/请求（recommend/review/pricing） |
+| **Agent 数量** | 9 个（规划执行全链路）✅ | +5 个（规划中） |
+| **API 路由** | plan + session + auth + user ✅ | +poi/order/delivery/merchant（规划中） |
+| **业务服务** | agent_service + mock_gateway + memory ✅ | +user/poi/order/delivery/payment（规划中） |
+| **ORM 模型** | 9 表 ✅ (users, plans, plan_slots, pois, etc.) | +order/delivery/review（规划中） |
+| **前端页面** | PlanPage（三栏布局）✅ | +OrdersPage/MerchantPage/LoginPage（规划中） |
+| **Mock Server** | 6 Router + 50 POI ✅ | 可复用 |
+| **LangGraph Node** | 9 个竞赛 Agent Node ✅ | 5 个课设 Agent 作为独立子图（规划中） |
+| **LLM 调用** | 2 次/请求（intent + planning）✅ | 3-5 次/请求（recommend/review/pricing） |
 
 ---
 

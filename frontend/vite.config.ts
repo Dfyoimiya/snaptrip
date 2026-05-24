@@ -1,4 +1,4 @@
-/// <reference types="vitest/config" />
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
@@ -7,13 +7,15 @@ import tailwindcss from '@tailwindcss/vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    allowedHosts: ['frontend.snaptrip.orb.local'],
     proxy: {
       '/api': {
-        target: 'http://backend:8000',
+        target: 'http://marketplace:8000',
         changeOrigin: true,
       },
     },
   },
+  // @ts-expect-error vitest config augmentation
   test: {
     globals: true,
     environment: 'jsdom',

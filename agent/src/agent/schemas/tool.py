@@ -4,17 +4,20 @@
 - ToolInvocation: 单次工具调用请求
 - ToolResult: 工具调用结果
 - ToolDefinition: 工具元数据定义 (含 JSON Schema)
-- TOOL_REGISTRY: 10 个工具注册表
+- TOOL_REGISTRY: 17 个工具注册表
 
 Tool DAG 分层:
-  L0: search_poi / get_user_profile          —— 无依赖，可并行
-  L1: check_queue / check_availability       —— 依赖 search_poi
-      check_child_facility / calculate_route
-  L2: book_table / book_ticket / order       —— 依赖 L1 结果
-  L3: notify                                 —— 依赖 L2 全部完成
+  L0: search_poi / get_user_profile / get_weather / get_traffic_index / get_peak_hours
+      —— 无依赖，可并行
+  L1: check_queue / check_availability / check_child_facility / calculate_route
+      —— 依赖 L0 的 search_poi + context tools
+  L2: book_table / book_ticket / order / modify_booking / cancel_booking
+      —— 依赖 L1 结果，物理操作层
+  L3: notify / track_booking_status / check_plan_progress
+      —— 依赖 L2 全部完成
 
 Author: SnapTrip Team
-Date: 2026-05-17
+Date: 2026-05-17 / v2 update 2026-05-24
 """
 
 from __future__ import annotations
@@ -361,5 +364,213 @@ TOOL_REGISTRY: dict[str, ToolDefinition] = {
         is_idempotent=True,
         default_timeout_ms=1000,
         fallback_policy="continue",
+    ),
+    # ── v2 新增 L0 实时查询工具 ──
+    "get_weather": ToolDefinition(
+        name="get_weather",
+        human_readable_name="查询实时天气",
+        llm_description="查询指定坐标的实时天气状况、温度、户外适宜度评分(0-1)。用于判断户外活动是否合适。",
+        description="查询实时天气+户外适宜度",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "lat": {"type": "number", "description": "纬度"},
+                "lng": {"type": "number", "description": "经度"},
+            },
+            "required": ["lat", "lng"],
+        },
+        output_schema={
+            "type": "object",
+            "properties": {
+                "condition": {
+                    "type": "string",
+                    "enum": ["sunny", "cloudy", "rainy", "snowy", "stormy"],
+                },
+                "temperature_c": {"type": "number"},
+                "outdoor_score": {"type": "number"},
+                "report_time": {"type": "string"},
+            },
+        },
+        layer=0,
+        is_idempotent=True,
+        default_timeout_ms=800,
+        fallback_policy="degrade",
+    ),
+    "get_traffic_index": ToolDefinition(
+        name="get_traffic_index",
+        human_readable_name="查询实时交通",
+        llm_description="查询指定区域的实时交通拥堵指数(0-1)及主要道路通行状况。用于评估POI间移动时间是否需要buffer。",
+        description="查询实时交通拥堵指数",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "lat": {"type": "number", "description": "中心纬度"},
+                "lng": {"type": "number", "description": "中心经度"},
+                "radius_km": {
+                    "type": "number",
+                    "description": "查询半径",
+                    "default": 10,
+                },
+            },
+            "required": ["lat", "lng"],
+        },
+        output_schema={
+            "type": "object",
+            "properties": {
+                "overall": {"type": "number"},
+                "by_corridor": {"type": "object"},
+            },
+        },
+        layer=0,
+        is_idempotent=True,
+        default_timeout_ms=500,
+        fallback_policy="degrade",
+    ),
+    "get_peak_hours": ToolDefinition(
+        name="get_peak_hours",
+        human_readable_name="查询高峰时段",
+        llm_description="查询指定区域和日期的高峰时段价格倍率及特殊事件（节假日、演唱会等）。用于预算估算和人流避免。",
+        description="查询高峰时段+价格倍率+特殊事件",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "lat": {"type": "number", "description": "纬度"},
+                "lng": {"type": "number", "description": "经度"},
+                "date": {"type": "string", "description": "查询日期 (YYYY-MM-DD)"},
+            },
+            "required": ["lat", "lng"],
+        },
+        output_schema={
+            "type": "object",
+            "properties": {
+                "hourly_multipliers": {"type": "object"},
+                "special_events": {"type": "array", "items": {"type": "string"}},
+            },
+        },
+        layer=0,
+        is_idempotent=True,
+        default_timeout_ms=500,
+        fallback_policy="degrade",
+    ),
+    # ── v2 新增 L2 物理操作工具 ──
+    "modify_booking": ToolDefinition(
+        name="modify_booking",
+        human_readable_name="修改预订",
+        llm_description="修改已有预订的时间或人数。此操作影响真实预订记录，会触发库存变更。不可随意重试。",
+        description="修改已有预订的时间/人数",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "booking_id": {"type": "string", "description": "原预订ID"},
+                "new_time_slot": {"type": "string", "description": "新时间 HH:MM"},
+                "new_guest_count": {"type": "integer", "description": "新人数"},
+            },
+            "required": ["booking_id"],
+        },
+        output_schema={
+            "type": "object",
+            "properties": {
+                "booking_id": {"type": "string"},
+                "status": {"type": "string"},
+            },
+        },
+        layer=2,
+        dependencies=["book_table", "book_ticket"],
+        is_idempotent=False,
+        default_timeout_ms=2000,
+        fallback_policy="abort",
+        physical_impact=True,
+    ),
+    "cancel_booking": ToolDefinition(
+        name="cancel_booking",
+        human_readable_name="取消预订",
+        llm_description="取消已有预订并检查退款资格。此操作释放库存，影响真实预订记录。取消后不可撤销。",
+        description="取消已有预订（含退款检查）",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "booking_id": {"type": "string", "description": "预订ID"},
+                "reason": {"type": "string", "description": "取消原因"},
+            },
+            "required": ["booking_id"],
+        },
+        output_schema={
+            "type": "object",
+            "properties": {
+                "cancelled": {"type": "boolean"},
+                "refund_pct": {"type": "integer"},
+            },
+        },
+        layer=2,
+        dependencies=["book_table", "book_ticket"],
+        is_idempotent=True,
+        default_timeout_ms=1500,
+        fallback_policy="abort",
+        physical_impact=True,
+    ),
+    # ── v2 新增 L3 监控工具 ──
+    "track_booking_status": ToolDefinition(
+        name="track_booking_status",
+        human_readable_name="查询预订状态",
+        llm_description="查询指定预订的当前状态（已确认/已取消/进行中/已完成）。用于monitor_engine监控。",
+        description="查询预订当前状态",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "booking_id": {"type": "string", "description": "预订ID"},
+            },
+            "required": ["booking_id"],
+        },
+        output_schema={
+            "type": "object",
+            "properties": {
+                "booking_id": {"type": "string"},
+                "status": {"type": "string"},
+            },
+        },
+        layer=3,
+        dependencies=[
+            "book_table",
+            "book_ticket",
+            "order",
+            "modify_booking",
+            "cancel_booking",
+        ],
+        is_idempotent=True,
+        default_timeout_ms=1000,
+        fallback_policy="degrade",
+    ),
+    "check_plan_progress": ToolDefinition(
+        name="check_plan_progress",
+        human_readable_name="查询计划进度",
+        llm_description="查询整个计划的执行进度，包括已完成/进行中/待执行的slot及整体完成百分比。用于前端进度展示。",
+        description="查询整个计划的执行进度",
+        input_schema={
+            "type": "object",
+            "properties": {
+                "plan_id": {"type": "string", "description": "计划ID"},
+            },
+            "required": ["plan_id"],
+        },
+        output_schema={
+            "type": "object",
+            "properties": {
+                "plan_id": {"type": "string"},
+                "completed_slots": {"type": "integer"},
+                "total_slots": {"type": "integer"},
+                "progress_pct": {"type": "number"},
+            },
+        },
+        layer=3,
+        dependencies=[
+            "book_table",
+            "book_ticket",
+            "order",
+            "modify_booking",
+            "cancel_booking",
+        ],
+        is_idempotent=True,
+        default_timeout_ms=500,
+        fallback_policy="degrade",
     ),
 }
