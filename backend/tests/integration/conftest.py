@@ -26,6 +26,6 @@ def _mock_llm_adapter(monkeypatch):
         raise LLMError("LLM mocked for fast integration testing")
 
     monkeypatch.setattr(
-        "agent.adapters.llm.LLMAdapter.chat_json",
+        "agent.adapters.litellm_adapter.LiteLLMAdapter.chat_json",
         _fast_fail,
     )

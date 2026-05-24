@@ -153,9 +153,9 @@ class IntentParser(BaseAgent):
 
     def _get_llm(self) -> LLMPort:
         if self._llm is None:
-            from agent.adapters.llm import LLMAdapter
+            from agent.adapters.litellm_adapter import LiteLLMAdapter
 
-            self._llm = LLMAdapter()
+            self._llm = LiteLLMAdapter()
         return self._llm
 
     def _get_prompt_renderer(self) -> PromptPort:

@@ -8,16 +8,7 @@ Date: 2026-05-17
 
 from __future__ import annotations
 
-try:
-    from pydantic_settings import BaseSettings, SettingsConfigDict
-except ModuleNotFoundError:  # pragma: no cover - fallback for lightweight test envs
-    from pydantic import BaseModel
-
-    class BaseSettings(BaseModel):  # type: ignore[no-redef]
-        """Fallback settings base when pydantic-settings is unavailable."""
-
-    def SettingsConfigDict(**kwargs):  # type: ignore[no-redef]  # noqa: N802  # pragma: no cover
-        return kwargs
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -36,12 +27,8 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"
 
-    DATABASE_URL: str = (
-        "postgresql+asyncpg://snaptrip:snaptrip@localhost:5432/snaptrip_dev"
-    )
-    DATABASE_TEST_URL: str = (
-        "postgresql+asyncpg://snaptrip:snaptrip@localhost:5433/snaptrip_test"
-    )
+    DATABASE_URL: str = "postgresql+asyncpg://snaptrip:snaptrip@localhost:5432/snaptrip_dev"
+    DATABASE_TEST_URL: str = "postgresql+asyncpg://snaptrip:snaptrip@localhost:5433/snaptrip_test"
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 10
 
@@ -51,13 +38,7 @@ class Settings(BaseSettings):
     MOCK_API_BASE_URL: str = "http://localhost:8001"
     MOCK_API_TIMEOUT: int = 3
 
-    # ── LLM (LiteLLM Gateway) ──
-    LITELLM_BASE_URL: str = "http://litellm-proxy:4000/v1"
-    LITELLM_API_KEY: str = ""
     LLM_DEFAULT_MODEL: str = "deepseek-chat"
-    LLM_PROVIDER_CONFIG: str = "litellm/models.toml"
-    LLM_MAX_TOKENS: int = 2048
-    LLM_TEMPERATURE: float = 0.7
 
     AGENT_TIMEOUT: int = 300
     AGENT_MAX_RETRIES: int = 2
@@ -66,23 +47,11 @@ class Settings(BaseSettings):
     RATE_LIMIT_IP_PER_MIN: int = 100
     RATE_LIMIT_USER_PER_MIN: int = 300
 
-    AMAP_API_KEY: str = ""
-    AMAP_BASE_URL: str = "https://restapi.amap.com"
-    AMAP_TIMEOUT: int = 3
-    AMAP_GEOCODE_CACHE_TTL: int = 86400
-    AMAP_POI_CACHE_TTL: int = 3600
-    AMAP_QPS_LIMIT: int = 10
-    AMAP_DAILY_LIMIT: int = 5000
-
     @property
     def effective_database_url(self) -> str:
         if self.APP_ENV == "test":
             return self.DATABASE_TEST_URL
         return self.DATABASE_URL
-
-    @property
-    def amap_enabled(self) -> bool:
-        return bool(self.AMAP_API_KEY)
 
     COMPOSE_PROJECT_NAME: str = "snaptrip"
 
