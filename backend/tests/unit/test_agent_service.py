@@ -16,7 +16,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from agent.services.agent import AgentService, InterruptError
-from langgraph.errors import GraphInterrupt
+from langgraph.constants import INTERRUPT
 from langgraph.types import Command
 
 
@@ -47,9 +47,9 @@ class TestAgentServiceInvoke:
 
     @pytest.mark.asyncio
     async def test_invoke_raises_interrupted(self):
-        """GraphInterrupt → InterruptError。"""
+        """__interrupt__ 非空列表 → InterruptError。"""
         mock_graph = MagicMock()
-        mock_graph.ainvoke = AsyncMock(side_effect=GraphInterrupt("need confirm"))
+        mock_graph.ainvoke = AsyncMock(return_value={INTERRUPT: [MagicMock()]})
 
         svc = AgentService(mock_graph)
         with pytest.raises(InterruptError):
@@ -83,9 +83,9 @@ class TestAgentServiceResume:
 
     @pytest.mark.asyncio
     async def test_resume_raises_interrupted(self):
-        """resume 时 GraphInterrupt → InterruptError。"""
+        """resume 时 __interrupt__ 非空 → InterruptError。"""
         mock_graph = MagicMock()
-        mock_graph.ainvoke = AsyncMock(side_effect=GraphInterrupt("need confirm"))
+        mock_graph.ainvoke = AsyncMock(return_value={INTERRUPT: [MagicMock()]})
 
         svc = AgentService(mock_graph)
         with pytest.raises(InterruptError):
