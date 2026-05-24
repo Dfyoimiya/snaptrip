@@ -1,0 +1,92 @@
+# LiteLLM Proxy 网关配置
+# 供应商: DeepSeek + Kimi (Moonshot)
+# 模式: 数据库支持的虚拟密钥 + 消费追踪 + 速率限制
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  database_url: os.environ/LITELLM_DATABASE_URL
+
+litellm_settings:
+  drop_params: true
+  set_verbose: true
+  request_timeout: 60
+  cache: true                          
+  cache_params:
+    type: redis
+    host: os.environ/REDIS_HOST
+    port: os.environ/REDIS_PORT
+    password: os.environ/REDIS_PASSWORD
+    ttl: 300
+  num_retries: 2
+  # fallbacks: []
+  success_callback: ["langfuse"]       
+  failure_callback: ["langfuse"]
+  # service_callback: []               # 可选：自定义 Webhook
+
+model_list:
+  # ── DeepSeek V4 ──
+  - model_name: deepseek-v4-pro
+    litellm_params:
+      model: deepseek/deepseek-v4-pro      
+      api_key: os.environ/DEEPSEEK_API_KEY
+      rpm: 50                              
+      tpm: 200000
+    model_info:
+      mode: chat
+      max_tokens: 384000                   
+      input_cost_per_token: 0.00000174     # $1.74/M input
+      output_cost_per_token: 0.00000348  # $3.48/M output
+
+  - model_name: deepseek-v4-flash
+    litellm_params:
+      model: deepseek/deepseek-v4-flash    
+      api_key: os.environ/DEEPSEEK_API_KEY
+      rpm: 500                             
+      tpm: 500000
+    model_info:
+      mode: chat
+      max_tokens: 8192                     
+      input_cost_per_token: 0.00000014     
+      output_cost_per_token: 0.00000028    
+
+  # ── Kimi / Moonshot ──
+  - model_name: kimi-k2.6
+    litellm_params:
+      model: openai/kimi-k2.6              
+      api_base: https://api.moonshot.cn/v1  
+      api_key: os.environ/KIMI_API_KEY
+      rpm: 100
+      tpm: 300000
+    model_info:
+      mode: chat
+      max_tokens: 256000                   
+      input_cost_per_token: 0.00000095     
+      output_cost_per_token: 0.00000400   
+
+  - model_name: kimi-k2.5
+    litellm_params:
+      model: openai/kimi-k2.5              
+      api_base: https://api.moonshot.cn/v1
+      api_key: os.environ/KIMI_API_KEY
+      rpm: 150
+      tpm: 400000
+    model_info:
+      mode: chat
+      max_tokens: 256000
+      input_cost_per_token: 0.00000060
+      output_cost_per_token: 0.00000300   
+
+router_settings:
+  routing_strategy: usage-based-routing-v2
+  # enable_public_model_hub: false
+  allowed_fails: 3
+  num_retries: 2
+  fallbacks:
+    # 主模型故障时降级: Pro → Flash → K2.6
+    - deepseek-v4-pro: ["deepseek-v4-flash", "kimi-k2.6"]
+    - deepseek-v4-flash: ["kimi-k2.6", "kimi-k2.5"]
+    - kimi-k2.6: ["kimi-k2.5", "deepseek-v4-pro"]
+    - kimi-k2.5: ["deepseek-v4-pro", "deepseek-v4-flash"]
+  optional_pre_call_checks:
+    - enforce_model_rate_limits
+    - enforce_virtual_key_rate_limits

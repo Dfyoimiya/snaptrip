@@ -9,6 +9,26 @@ matches-ignore:
     match: snaptrip
     path: docker-compose.yml
 
+  # docker-compose.yml — REDIS_URL 中的 env var 引用，非硬编码密码
+  - name: REDIS_URL env var reference
+    match: redis://:${REDIS_PASSWORD}@redis:6379/0
+    path: docker-compose.yml
+
+  # docker-compose.yml — LITELLM_DATABASE_URL 中的 env var 引用
+  - name: LITELLM_DATABASE_URL env var reference
+    match: postgresql://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?}@postgres:5432/${LITELLM_DB:-snaptrip_litellm}
+    path: docker-compose.yml
+
+  # docker-compose.yml — DATABASE_URL 中的 env var 引用（3 处）
+  - name: DATABASE_URL env var reference
+    match: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DEV_DB:-snaptrip_dev}
+    path: docker-compose.yml
+
+  # docker-compose.yml — HEALTHCHECK 中的 localhost URL（非凭据）
+  - name: litellm healthcheck localhost
+    match: http://localhost:4000/health/liveliness
+    path: docker-compose.yml
+
   # .env.example — 显式占位符，非真实凭据
   - name: env example placeholders
     match: <set-your-db-password>
@@ -23,3 +43,41 @@ matches-ignore:
   - name: env example openrouter placeholder
     match: <sk-or-your-openrouter-key>
     path: .env.example
+
+  # .env.example — LiteLLM 迁移新增占位符
+  - name: env example litellm placeholder
+    match: <sk-your-deepseek-key>
+    path: .env.example
+
+  - name: env example kimi placeholder
+    match: <sk-your-kimi-key>
+    path: .env.example
+
+  - name: env example litellm admin placeholder
+    match: <sk-litellm-admin-xxx>
+    path: .env.example
+
+  - name: env example langfuse placeholder
+    match: <your-langfuse-public-key>
+    path: .env.example
+
+  - name: env example langfuse secret placeholder
+    match: <your-langfuse-secret-key>
+    path: .env.example
+
+  # .env.test — 测试环境凭据（仅本地测试用，非生产密钥）
+  - name: test db password
+    match: snaptrip_dev_pass
+    path: .env.test
+
+  - name: test secret key
+    match: test-secret-key-not-for-prod
+    path: .env.test
+
+  - name: test jwt key
+    match: test-jwt-secret-key-not-for-prod
+    path: .env.test
+
+  - name: test litellm placeholder
+    match: sk-litellm-test-placeholder
+    path: .env.test
