@@ -9,6 +9,8 @@ matches-ignore:
     match: snaptrip
     path: docker-compose.yml
 
+  # docker-compose.yml — 其余 env var 引用使用 inline # ggignore 注释
+
   # .env.example — 显式占位符，非真实凭据
   - name: env example placeholders
     match: <set-your-db-password>
@@ -19,7 +21,40 @@ matches-ignore:
     match: <generate-with-openssl-rand-hex-32>
     path: .env.example
 
-  # .env.example — 显式占位符
-  - name: env example openrouter placeholder
-    match: <sk-or-your-openrouter-key>
+  # .env.example — LiteLLM 迁移新增占位符
+  - name: env example litellm placeholder
+    match: <sk-your-deepseek-key>
     path: .env.example
+
+  - name: env example kimi placeholder
+    match: <sk-your-kimi-key>
+    path: .env.example
+
+  - name: env example litellm admin placeholder
+    match: <sk-litellm-admin-xxx>
+    path: .env.example
+
+  - name: env example langfuse placeholder
+    match: <your-langfuse-public-key>
+    path: .env.example
+
+  - name: env example langfuse secret placeholder
+    match: <your-langfuse-secret-key>
+    path: .env.example
+
+  # .env.test — 测试环境凭据（仅本地测试用，非生产密钥）
+  - name: test db password
+    match: snaptrip_dev_pass
+    path: .env.test
+
+  - name: test secret key
+    match: test-secret-key-not-for-prod
+    path: .env.test
+
+  - name: test jwt key
+    match: test-jwt-secret-key-not-for-prod
+    path: .env.test
+
+  - name: test litellm placeholder
+    match: sk-litellm-test-placeholder
+    path: .env.test
