@@ -1,6 +1,9 @@
 # SnapTrip 全架构审核报告
 
 > 日期: 2026-05-22 | 审核人: 系统架构师 | 范围: 全栈 Monorepo
+>
+> **后续行动**: 审核中建议的 monorepo 重构已在 [PR #33](https://github.com/Dfyoimiya/snaptrip/pull/33) 完成。
+> 当前详细的架构参考文档见 [`00-architecture-reference.md`](./00-architecture-reference.md)（2026-05-23）。
 
 ---
 

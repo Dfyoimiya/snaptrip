@@ -33,11 +33,13 @@ def _build_worker_agent_service() -> AgentService:
     Phase 3b: 使用 RedisEventBus 替代 in-memory RuntimeEventStore，
     事件通过 Redis PUBLISH 跨进程推送到 Gateway SSE。
     RedisEventBus 接受 ConnectionPool（lazy client），避免跨 asyncio.run() 的 event loop 绑定。
+
+    gateway.start() 不在此时调用 —— MockAPIGateway.call() 内部有 lazy init，
+    会在首次 call() 时于正确的 event loop 中创建 httpx.AsyncClient。
     """
     from snaptrip_shared.db.redis import get_redis_pool
 
     gateway = MockAPIGateway()
-    asyncio.run(gateway.start())
 
     event_bus = RedisEventBus(
         pool=get_redis_pool(),
@@ -56,10 +58,52 @@ def _get_worker_agent_service() -> AgentService:
     return _worker_agent_service
 
 
-def _update_status(plan_id: str, status: str, error_message: str | None = None) -> None:
-    """同步 wrapper：在 Celery sync task 中调用 async DB 写入。"""
+async def _async_submit_plan(initial_state: dict, plan_id: str, task_id: str) -> dict:
+    """所有异步操作在单一 event loop 内完成。
+
+    将 graph 执行 + DB 状态更新放在同一个 asyncio.run() 中，
+    避免多个 event loop 之间的 SQLAlchemy/httpx 连接冲突。
+    """
     repo = SQLPlanRunRepository()
-    asyncio.run(repo.update_status(plan_id, status, error_message))
+    await repo.update_status(plan_id, "running")
+    service = _get_worker_agent_service()
+    try:
+        final_state = await service.invoke(initial_state, plan_id)
+    except InterruptError:
+        await repo.update_status(plan_id, "awaiting_confirmation")
+        return {
+            "status": "awaiting_confirmation",
+            "plan_id": plan_id,
+            "task_id": task_id,
+        }
+    except Exception as exc:
+        await repo.update_status(plan_id, "failed", error_message=str(exc))
+        raise
+    await repo.update_status(plan_id, "completed")
+    result: dict[Any, Any] = final_state
+    return result
+
+
+async def _async_confirm_plan(resume_data: dict, plan_id: str, task_id: str) -> dict:
+    """confirm_plan 的 async 实现 —— 所有操作在单一 event loop 内完成。"""
+    repo = SQLPlanRunRepository()
+    await repo.update_status(plan_id, "running")
+    service = _get_worker_agent_service()
+    try:
+        final_state = await service.resume(resume_data, plan_id)
+    except InterruptError:
+        await repo.update_status(plan_id, "awaiting_confirmation")
+        return {
+            "status": "awaiting_confirmation",
+            "plan_id": plan_id,
+            "task_id": task_id,
+        }
+    except Exception as exc:
+        await repo.update_status(plan_id, "failed", error_message=str(exc))
+        raise
+    await repo.update_status(plan_id, "completed")
+    result: dict[Any, Any] = final_state
+    return result
 
 
 # ====================================================================
@@ -74,45 +118,13 @@ def submit_plan(self, initial_state: dict, plan_id: str) -> dict:
     Worker 进程调用 AgentService.invoke() 运行全链路 Agent。
     InterruptError 视为正常状态（人机协同等待确认）。
     """
-    _update_status(plan_id, "running")
-    service = _get_worker_agent_service()
-    try:
-        final_state = asyncio.run(service.invoke(initial_state, plan_id))
-    except InterruptError:
-        _update_status(plan_id, "awaiting_confirmation")
-        return {
-            "status": "awaiting_confirmation",
-            "plan_id": plan_id,
-            "task_id": self.request.id,
-        }
-    except Exception as exc:
-        _update_status(plan_id, "failed", error_message=str(exc))
-        raise
-    _update_status(plan_id, "completed")
-    result: dict[Any, Any] = final_state
-    return result
+    return asyncio.run(_async_submit_plan(initial_state, plan_id, self.request.id))
 
 
 @celery_app.task(bind=True, name="plan.confirm")
 def confirm_plan(self, resume_data: dict, plan_id: str) -> dict:
     """从中断点恢复图执行（人机协同确认）。"""
-    _update_status(plan_id, "running")
-    service = _get_worker_agent_service()
-    try:
-        final_state = asyncio.run(service.resume(resume_data, plan_id))
-    except InterruptError:
-        _update_status(plan_id, "awaiting_confirmation")
-        return {
-            "status": "awaiting_confirmation",
-            "plan_id": plan_id,
-            "task_id": self.request.id,
-        }
-    except Exception as exc:
-        _update_status(plan_id, "failed", error_message=str(exc))
-        raise
-    _update_status(plan_id, "completed")
-    result: dict[Any, Any] = final_state
-    return result
+    return asyncio.run(_async_confirm_plan(resume_data, plan_id, self.request.id))
 
 
 # ====================================================================

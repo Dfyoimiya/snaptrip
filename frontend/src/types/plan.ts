@@ -18,6 +18,12 @@ export interface POI {
   rating: number
 }
 
+export interface SlotAlternative {
+  poi_id: string
+  prechecked: boolean
+  score: number
+}
+
 export interface PlanSlot {
   sequence: number
   poi: POI
@@ -27,6 +33,25 @@ export interface PlanSlot {
   move_time_min: number
   confidence: number
   shadow_id?: string
+  rationale?: string[]
+  alternatives?: SlotAlternative[]
+}
+
+export interface ConstraintEdge {
+  from_slot: number
+  to_slot: number
+  constraint_type: "travel_time" | "budget_cascade" | "time_window" | "type_diversity"
+  min_value: number
+  max_value: number
+  current_value: number
+}
+
+export interface SlotConfidence {
+  overall: number
+  availability_confidence: number
+  route_confidence: number
+  pricing_confidence: number
+  weather_confidence: number
 }
 
 export interface ShareCard {

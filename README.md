@@ -2,18 +2,18 @@
 
 > 美团 AI Hackathon 命题 1.6：本地场景短时活动规划与执行 Agent
 
-**一句话描述**：自然语言输入 → 多 Agent 协作 → 可执行时间轴方案 → Mock 预订 → 分享卡片
+**一句话描述**：自然语言输入 →  Agent 规划执行 → 可执行时间轴方案 → Mock 预订 → 订单展现
 
 ## 产品闭环
 
 ```
 用户输入"今天下午有空，想和朋友出去玩"
-  → 意图解析（Intent Agent）
-  → POI 检索（Retrieval Agent）
-  → 时空规划（Planning Agent）
-  → 自动预订（Execution Agent）
-  → 异常自愈（Fallback Agent）
-  → 分享通知（Notify Agent）
+  → 意图解析（Intent）
+  → POI 检索（Retrieval）
+  → 时空规划（Planning）
+  → 自动预订（Execution）
+  → 异常自愈（Fallback）
+  → 分享通知（Notify）
 ```
 
 ## 技术栈

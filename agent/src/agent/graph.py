@@ -1,8 +1,14 @@
 """LangGraph StateGraph —— 多 Agent 与 单 Agent 双模式编排图。
 
 模式:
-  - 多 Agent (build_plan_graph): 9 节点完整编排
-  - 单 Agent (build_single_agent_graph): 5 节点简化编排
+  - 多 Agent (build_plan_graph): 10 节点完整编排
+  - 单 Agent (build_single_agent_graph): 6 节点简化编排
+
+v4 多 Agent 模式:
+  intent_parser → context_loader → memory_manager
+  → retrieval_engine → planning_engine → consensus_resolver
+  → execution_engine → [fallback_engine] → notify_engine
+  → monitor_engine → [replan → planning_engine] → END
 
 v3 单 Agent 模式:
   planner (Intent+Context+Memory+Retrieval+Planning 折叠)
@@ -10,9 +16,10 @@ v3 单 Agent 模式:
   → execution (v3 安全管道: CB + 幂等 + Saga + UNKNOWN 确认)
   → [fallback] (v3 孤儿取消)
   → notify
+  → monitor (v4 新增: 执行后监控+告警)
 
 Author: SnapTrip Team
-Date: 2026-05-17 / v3 update 2026-05-21
+Date: 2026-05-17 / v3 update 2026-05-21 / v4 update 2026-05-24
 """
 
 from __future__ import annotations
@@ -33,6 +40,7 @@ from agent.engines.execution_engine import ExecutionEngine
 from agent.engines.fallback_engine import FallbackEngine
 from agent.engines.intent_parser import IntentParser
 from agent.engines.memory_manager import MemoryManager
+from agent.engines.monitor_engine import MonitorEngine
 from agent.engines.notify_engine import NotifyEngine
 from agent.engines.planning_engine import PlanningEngine
 from agent.engines.retrieval_engine import RetrievalEngine
@@ -199,6 +207,11 @@ class PlanState(TypedDict, total=False):
     user_decision: str | None
     fallback_count: int
     errors: list[dict[str, Any]]
+
+    # v4 monitor fields
+    monitor_plan: dict[str, Any] | None
+    alerts: list[dict[str, Any]]
+    replan_trigger: dict[str, Any] | None
 
 
 # ====================================================================
@@ -654,7 +667,76 @@ async def notify_engine_node(state: PlanState) -> dict[str, Any]:
 
 
 # ====================================================================
-# Graph: 9 节点多 Agent 模式 (向后兼容)
+# Node: monitor_engine (v4)
+# ====================================================================
+
+
+async def monitor_engine_node(state: PlanState) -> dict[str, Any]:
+    """执行后监控节点 —— 首次检查 + 构建 MonitorPlan。
+
+    在 notify_engine 之后运行，执行初始检查并构建监控计划。
+    后台监控循环 (run_monitor_loop) 由调用方在 graph 外部启动。
+    """
+    await _emit_node_event(state, node_name="monitor_engine", event_type="node_started")
+
+    agent = MonitorEngine(
+        rt_context_port=None,  # 桩: 真实实现从 AgentRuntime 注入
+        alert_sink=None,  # 桩: 真实实现注入 SSE sink
+    )
+
+    history = [
+        AgentResult(
+            agent_name="planning_engine",
+            status="success",
+            data={"draft": state.get("draft", {})},
+        ),
+        AgentResult(
+            agent_name="execution_engine",
+            status="success",
+            data={"execution": state.get("execution", {})},
+        ),
+    ]
+    context = _context_from_state(state, history)
+    result = await agent.execute(context)
+
+    monitor_plan = result.data.get("monitor_plan")
+    alerts_raw = result.data.get("alerts", [])
+    replan_trigger = result.data.get("replan_trigger")
+
+    await _emit_node_event(
+        state,
+        node_name="monitor_engine",
+        event_type="node_succeeded",
+        payload={
+            "alert_count": len(alerts_raw),
+            "has_replan_trigger": bool(replan_trigger),
+        },
+    )
+
+    return {
+        "monitor_plan": monitor_plan,
+        "alerts": alerts_raw,
+        "replan_trigger": replan_trigger,
+    }
+
+
+def route_monitor(
+    state: PlanState,
+) -> Literal["planning_engine", "end"]:
+    """monitor_engine 路由: 有 auto_replan 触发时返回 planning_engine。"""
+    trigger = state.get("replan_trigger") or {}
+    if trigger.get("auto_replan"):
+        logger.info(
+            "monitor_triggered_replan plan_id=%s scope=%s",
+            state.get("plan_id"),
+            trigger.get("scope"),
+        )
+        return "planning_engine"
+    return "end"
+
+
+# ====================================================================
+# Graph: 10 节点多 Agent 模式
 # ====================================================================
 
 
@@ -662,7 +744,7 @@ def build_plan_graph(
     checkpointer: BaseCheckpointSaver | None = None,
     runtime: AgentRuntime | None = None,
 ) -> CompiledStateGraph:
-    """构建 9 节点多 Agent 编排图。
+    """构建 10 节点多 Agent 编排图 (v4)。
 
     Args:
         checkpointer: LangGraph checkpoint 存储。
@@ -672,6 +754,7 @@ def build_plan_graph(
       intent_parser → context_loader → memory_manager
       → retrieval_engine → planning_engine → consensus_resolver
       → execution_engine → [fallback_engine] → notify_engine
+      → monitor_engine → [replan → planning_engine] → END
     """
     global _runtime
     if runtime is not None:
@@ -688,6 +771,7 @@ def build_plan_graph(
     graph.add_node("execution_engine", execution_engine_node)
     graph.add_node("fallback_engine", fallback_engine_node)
     graph.add_node("notify_engine", notify_engine_node)
+    graph.add_node("monitor_engine", monitor_engine_node)
 
     graph.set_entry_point("intent_parser")
     graph.add_edge("intent_parser", "context_loader")
@@ -725,7 +809,16 @@ def build_plan_graph(
         },
     )
 
-    graph.add_edge("notify_engine", END)
+    # v4: notify_engine → monitor_engine → [replan | END]
+    graph.add_edge("notify_engine", "monitor_engine")
+    graph.add_conditional_edges(
+        "monitor_engine",
+        route_monitor,
+        {
+            "planning_engine": "planning_engine",
+            "end": END,
+        },
+    )
 
     return graph.compile(checkpointer=checkpointer or MemorySaver())
 
@@ -943,24 +1036,40 @@ async def notify_node(state: PlanState) -> dict[str, Any]:
     return await notify_engine_node(state)
 
 
+async def monitor_node(state: PlanState) -> dict[str, Any]:
+    """单 Agent 模式的 monitor 节点（薄封装）。"""
+    return await monitor_engine_node(state)
+
+
+def route_single_monitor(state: PlanState) -> Literal["planner", "end"]:
+    """单 Agent 模式 monitor 路由。"""
+    result = route_monitor(state)
+    _map: dict[str, Literal["planner", "end"]] = {
+        "planning_engine": "planner",
+        "end": "end",
+    }
+    return _map[result]
+
+
 def build_single_agent_graph(
     checkpointer: BaseCheckpointSaver | None = None,
     runtime: AgentRuntime | None = None,
 ) -> CompiledStateGraph:
-    """构建 5 节点单 Agent 编排图 (v3)。
+    """构建 6 节点单 Agent 编排图 (v4)。
 
     Args:
         checkpointer: LangGraph checkpoint 存储。
         runtime: 依赖注入容器。为 None 时使用全局变量（向后兼容）。
 
     Node 清单:
-      planner → consensus → execution → [fallback] → notify
+      planner → consensus → execution → [fallback] → notify → monitor → [replan | END]
 
     相比 9 节点模式:
       - intent_parser + context_loader + memory_manager + retrieval_engine + planning_engine
         → 折叠为单个 planner 节点（减少状态传递和序列化开销）
-      - consensus + execution + fallback + notify 保持不变
-      - execution 节点自动使用 v3 安全管道（如果通过 AgentRuntime 或 set_v3_dependencies 注入了依赖）
+      - consensus + execution + fallback + notify + monitor 保持不变
+      - execution 节点自动使用 v3 安全管道
+      - monitor (v4 新增) 构建 MonitorPlan 并发出初始告警
     """
     global _runtime
     if runtime is not None:
@@ -973,6 +1082,7 @@ def build_single_agent_graph(
     graph.add_node("execution", execution_node)
     graph.add_node("fallback", fallback_node)
     graph.add_node("notify", notify_node)
+    graph.add_node("monitor", monitor_node)
 
     graph.set_entry_point("planner")
     graph.add_edge("planner", "consensus")
@@ -1006,13 +1116,22 @@ def build_single_agent_graph(
         },
     )
 
-    graph.add_edge("notify", END)
+    # v4: notify → monitor → [replan → planner | END]
+    graph.add_edge("notify", "monitor")
+    graph.add_conditional_edges(
+        "monitor",
+        route_single_monitor,
+        {
+            "planner": "planner",
+            "end": END,
+        },
+    )
 
     return graph.compile(checkpointer=checkpointer or MemorySaver())
 
 
 # ====================================================================
-# Module-level graph instances
+# Module-level graph instances (v4)
 # ====================================================================
 
 plan_graph = build_plan_graph()
