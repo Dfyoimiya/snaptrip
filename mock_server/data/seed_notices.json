@@ -1,0 +1,5 @@
+[
+  {"id":"n-001","title":"系统维护通知","content":"尊敬的用户，平台将于6月20日凌晨2:00-4:00进行系统升级维护，届时部分功能可能不可用，敬请谅解。","target_type":"ALL","status":"ACTIVE","created_at":"2024-06-18T10:00:00Z"},
+  {"id":"n-002","title":"新用户专享福利","content":"新注册用户首单立减10元！不限品类，全场通用。","target_type":"CUSTOMER","status":"ACTIVE","created_at":"2024-06-15T09:00:00Z"},
+  {"id":"n-003","title":"商家入驻政策更新","content":"即日起，新入驻商家需提供食品经营许可证电子版，审核周期缩短至2个工作日。","target_type":"MERCHANT","status":"ACTIVE","created_at":"2024-06-10T14:00:00Z"}
+]
