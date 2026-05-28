@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "snaptrip-commerce"
+version = "0.1.0"
+description = "SnapTrip Commerce API — shared FastAPI routers, ports, and mock service implementations"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.136",
+    "pydantic>=2",
+    "snaptrip-contracts",
+]
+
+[tool.setuptools.packages.find]
+include = ["commerce*", "routers*", "ports*", "services*"]

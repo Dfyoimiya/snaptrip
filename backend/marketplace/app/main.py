@@ -61,6 +61,10 @@ from marketplace.app.api.v1.auth import router as auth_router
 from marketplace.app.api.v1.plan import router as plan_router
 from marketplace.app.api.v1.user import router as user_router
 
+# ── 电商路由 (Commerce) ──
+from app.api.admin import admin_router
+from app.api.portal import portal_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -101,6 +105,10 @@ app.add_middleware(
 app.include_router(plan_router)
 app.include_router(auth_router)
 app.include_router(user_router)
+
+# ── 电商路由 —— Admin + Portal 统一前缀 /api/v1 ──
+app.include_router(admin_router, prefix="/api/v1")
+app.include_router(portal_router, prefix="/api/v1")
 
 app.add_exception_handler(APIServiceError, api_exception_handler)  # type: ignore[arg-type]
 app.add_exception_handler(StarletteHTTPException, http_exception_handler)  # type: ignore[arg-type]
