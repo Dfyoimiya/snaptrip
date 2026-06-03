@@ -18,6 +18,8 @@ mock-services/uv.lock
 node_modules/
 frontend/dist/
 frontend/.vite/
+mall-admin/dist/
+mall-admin/.vite/
 *.tsbuildinfo
 
 # Environment
