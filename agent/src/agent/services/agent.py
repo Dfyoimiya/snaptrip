@@ -122,4 +122,7 @@ class AgentService:
 
     @staticmethod
     def _config(plan_id: str) -> dict:
-        return {"configurable": {"thread_id": plan_id}}
+        return {
+            "configurable": {"thread_id": plan_id},
+            "recursion_limit": 15,
+        }

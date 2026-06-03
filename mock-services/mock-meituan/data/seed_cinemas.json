@@ -1,0 +1,132 @@
+[
+  {
+    "id": "cn-bj-001",
+    "name": "万达影城 (CBD店)",
+    "city": "北京",
+    "lat": 39.9087,
+    "lng": 116.4605,
+    "address": "朝阳区建国路93号万达广场3层",
+    "hall_count": 12,
+    "tags": ["IMAX", "杜比全景声", "4DX", "RealD 3D"],
+    "avg_rating": 4.6,
+    "halls": [
+      {"name": "1号IMAX厅", "type": "IMAX", "capacity": 380, "rows": 16, "cols": 24},
+      {"name": "2号杜比厅", "type": "杜比", "capacity": 260, "rows": 14, "cols": 19},
+      {"name": "3号4DX厅", "type": "4DX", "capacity": 120, "rows": 10, "cols": 12},
+      {"name": "4号激光厅", "type": "激光", "capacity": 180, "rows": 12, "cols": 15},
+      {"name": "5号激光厅", "type": "激光", "capacity": 150, "rows": 12, "cols": 13},
+      {"name": "6号标准厅", "type": "普通", "capacity": 140, "rows": 12, "cols": 12},
+      {"name": "7号标准厅", "type": "普通", "capacity": 130, "rows": 12, "cols": 11},
+      {"name": "8号VIP厅", "type": "VIP", "capacity": 60, "rows": 8, "cols": 8},
+      {"name": "9号标准厅", "type": "普通", "capacity": 120, "rows": 11, "cols": 11},
+      {"name": "10号标准厅", "type": "普通", "capacity": 110, "rows": 11, "cols": 10}
+    ]
+  },
+  {
+    "id": "cn-bj-002",
+    "name": "博纳国际影城 (朝阳大悦城)",
+    "city": "北京",
+    "lat": 39.9215,
+    "lng": 116.4703,
+    "address": "朝阳区朝阳北路101号朝阳大悦城8层",
+    "hall_count": 9,
+    "tags": ["IMAX", "杜比全景声", "ScreenX"],
+    "avg_rating": 4.5,
+    "halls": [
+      {"name": "1号IMAX厅", "type": "IMAX", "capacity": 350, "rows": 15, "cols": 24},
+      {"name": "2号ScreenX厅", "type": "ScreenX", "capacity": 220, "rows": 13, "cols": 17},
+      {"name": "3号杜比厅", "type": "杜比", "capacity": 240, "rows": 14, "cols": 18},
+      {"name": "4号激光厅", "type": "激光", "capacity": 160, "rows": 12, "cols": 14},
+      {"name": "5号激光厅", "type": "激光", "capacity": 150, "rows": 12, "cols": 13},
+      {"name": "6号标准厅", "type": "普通", "capacity": 130, "rows": 12, "cols": 11},
+      {"name": "7号标准厅", "type": "普通", "capacity": 120, "rows": 11, "cols": 11},
+      {"name": "8号情侣厅", "type": "情侣", "capacity": 80, "rows": 8, "cols": 10},
+      {"name": "9号标准厅", "type": "普通", "capacity": 100, "rows": 10, "cols": 10}
+    ]
+  },
+  {
+    "id": "cn-sh-001",
+    "name": "SFC上影影城 (港汇恒隆)",
+    "city": "上海",
+    "lat": 31.1950,
+    "lng": 121.4370,
+    "address": "徐汇区虹桥路1号港汇恒隆广场6层",
+    "hall_count": 8,
+    "tags": ["IMAX", "杜比全景声", "LUXE"],
+    "avg_rating": 4.7,
+    "halls": [
+      {"name": "1号IMAX厅", "type": "IMAX", "capacity": 400, "rows": 17, "cols": 24},
+      {"name": "2号LUXE厅", "type": "LUXE", "capacity": 280, "rows": 14, "cols": 20},
+      {"name": "3号杜比厅", "type": "杜比", "capacity": 250, "rows": 14, "cols": 18},
+      {"name": "4号激光厅", "type": "激光", "capacity": 170, "rows": 12, "cols": 15},
+      {"name": "5号激光厅", "type": "激光", "capacity": 160, "rows": 12, "cols": 14},
+      {"name": "6号标准厅", "type": "普通", "capacity": 140, "rows": 12, "cols": 12},
+      {"name": "7号标准厅", "type": "普通", "capacity": 120, "rows": 11, "cols": 11},
+      {"name": "8号VIP厅", "type": "VIP", "capacity": 50, "rows": 7, "cols": 8}
+    ]
+  },
+  {
+    "id": "cn-sh-002",
+    "name": "百丽宫影城 (环贸iapm)",
+    "city": "上海",
+    "lat": 31.2200,
+    "lng": 121.4550,
+    "address": "徐汇区淮海中路999号环贸iapm商场6层",
+    "hall_count": 7,
+    "tags": ["IMAX", "杜比全景声"],
+    "avg_rating": 4.6,
+    "halls": [
+      {"name": "1号IMAX厅", "type": "IMAX", "capacity": 360, "rows": 15, "cols": 24},
+      {"name": "2号杜比厅", "type": "杜比", "capacity": 240, "rows": 14, "cols": 18},
+      {"name": "3号激光厅", "type": "激光", "capacity": 170, "rows": 12, "cols": 15},
+      {"name": "4号激光厅", "type": "激光", "capacity": 150, "rows": 12, "cols": 13},
+      {"name": "5号标准厅", "type": "普通", "capacity": 130, "rows": 12, "cols": 11},
+      {"name": "6号标准厅", "type": "普通", "capacity": 120, "rows": 11, "cols": 11},
+      {"name": "7号情侣厅", "type": "情侣", "capacity": 70, "rows": 7, "cols": 10}
+    ]
+  },
+  {
+    "id": "cn-cq-001",
+    "name": "UME国际影城 (解放碑)",
+    "city": "重庆",
+    "lat": 29.5600,
+    "lng": 106.5750,
+    "address": "渝中区解放碑步行街国泰广场6层",
+    "hall_count": 8,
+    "tags": ["IMAX", "杜比全景声", "4K"],
+    "avg_rating": 4.5,
+    "halls": [
+      {"name": "1号IMAX厅", "type": "IMAX", "capacity": 370, "rows": 16, "cols": 24},
+      {"name": "2号杜比厅", "type": "杜比", "capacity": 250, "rows": 14, "cols": 18},
+      {"name": "3号激光厅", "type": "激光", "capacity": 170, "rows": 12, "cols": 15},
+      {"name": "4号激光厅", "type": "激光", "capacity": 150, "rows": 12, "cols": 13},
+      {"name": "5号标准厅", "type": "普通", "capacity": 140, "rows": 12, "cols": 12},
+      {"name": "6号标准厅", "type": "普通", "capacity": 120, "rows": 11, "cols": 11},
+      {"name": "7号标准厅", "type": "普通", "capacity": 110, "rows": 11, "cols": 10},
+      {"name": "8号VIP厅", "type": "VIP", "capacity": 55, "rows": 7, "cols": 8}
+    ]
+  },
+  {
+    "id": "cn-cq-002",
+    "name": "万达影城 (南坪万达)",
+    "city": "重庆",
+    "lat": 29.5300,
+    "lng": 106.5650,
+    "address": "南岸区江南大道8号万达广场4层",
+    "hall_count": 10,
+    "tags": ["IMAX", "杜比全景声", "ScreenX"],
+    "avg_rating": 4.4,
+    "halls": [
+      {"name": "1号IMAX厅", "type": "IMAX", "capacity": 360, "rows": 15, "cols": 24},
+      {"name": "2号杜比厅", "type": "杜比", "capacity": 250, "rows": 14, "cols": 18},
+      {"name": "3号ScreenX厅", "type": "ScreenX", "capacity": 220, "rows": 13, "cols": 17},
+      {"name": "4号激光厅", "type": "激光", "capacity": 170, "rows": 12, "cols": 15},
+      {"name": "5号激光厅", "type": "激光", "capacity": 150, "rows": 12, "cols": 13},
+      {"name": "6号标准厅", "type": "普通", "capacity": 140, "rows": 12, "cols": 12},
+      {"name": "7号标准厅", "type": "普通", "capacity": 130, "rows": 12, "cols": 11},
+      {"name": "8号标准厅", "type": "普通", "capacity": 120, "rows": 11, "cols": 11},
+      {"name": "9号标准厅", "type": "普通", "capacity": 110, "rows": 11, "cols": 10},
+      {"name": "10号VIP厅", "type": "VIP", "capacity": 50, "rows": 7, "cols": 8}
+    ]
+  }
+]

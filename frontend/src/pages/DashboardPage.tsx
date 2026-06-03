@@ -10,14 +10,16 @@ import { MonitorTab } from "./tabs/MonitorTab"
 import { ExecutionTab } from "./tabs/ExecutionTab"
 import { DebugTab } from "./tabs/DebugTab"
 import { usePlanSSE } from "../hooks/usePlanSSE"
+import { useGeolocation } from "../hooks/useGeolocation"
 import { useAgentStore } from "../stores/agentStore"
 import { usePlanStore } from "../stores/planStore"
 import { useAlertStore } from "../stores/alertStore"
-import type { PlanResponse } from "../types/plan"
+import type { PlanCreateRequest, PlanResponse } from "../types/plan"
 
 export function DashboardPage() {
   const [activeTab, setActiveTab] = useState<TabId>("plan")
   const [loading, setLoading] = useState(false)
+  const geo = useGeolocation()
 
   const planId = usePlanStore((s) => s.planId)
   const setPlan = usePlanStore((s) => s.setPlan)
@@ -39,7 +41,12 @@ export function DashboardPage() {
       setRunning(true)
 
       try {
-        const resp = await createPlan({ user_input: text, lat: 39.9219, lng: 116.4435 })
+        const req: PlanCreateRequest = { user_input: text }
+        if (geo.lat !== null && geo.lng !== null) {
+          req.lat = geo.lat
+          req.lng = geo.lng
+        }
+        const resp = await createPlan(req)
         const data = resp.data ?? resp
         if (data && data.slots) {
           setPlan(data as PlanResponse)

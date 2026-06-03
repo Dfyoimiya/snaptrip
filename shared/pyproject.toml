@@ -8,7 +8,6 @@ version = "0.1.0"
 description = "SnapTrip shared library — config, exceptions, db, schemas"
 requires-python = ">=3.11"
 dependencies = [
-    "snaptrip-agent",
     "pydantic>=2.0.0",
     "pydantic-settings>=2.0.0",
     "sqlalchemy[asyncio]>=2.0.30",
@@ -23,9 +22,6 @@ dependencies = [
     "sse-starlette>=2.0.0",
     "httpx>=0.27.0",
 ]
-
-[tool.uv.sources]
-snaptrip-agent = { workspace = true }
 
 [tool.setuptools.packages.find]
 include = ["snaptrip_shared*"]

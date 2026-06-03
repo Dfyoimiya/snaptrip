@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from fastapi import Depends, HTTPException, Request, status
 
-from agent.memory.service import MemoryService
+from app.services.memory_service import MemoryService
 from snaptrip_shared.core.config import settings
 
 WHITELIST_PREFIXES = (

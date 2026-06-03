@@ -81,7 +81,7 @@ export interface ConfirmRequest {
   slot_index?: number
   locked_slots?: number[]
   rejected_slots?: number[]
-  instruction?: string
+  modification_instructions?: string
   replace_only?: boolean
   change_requests?: Array<{
     slot_index?: number

@@ -6,6 +6,8 @@ export type SSEEvent =
   | "fallback" | "notify" | "done"
   | "context_loaded" | "memory_loaded"
   | "monitor" | "alert" | "replan"
+  // v5 HITL interrupt events
+  | "question" | "need_confirmation" | "confirm_booking"
 
 export interface SSEPayload {
   plan_id: string
@@ -109,7 +111,55 @@ export interface ReplanTrigger {
   auto_replan: boolean
 }
 
-// ===== React Flow Node Data =====
+// ===== HITL Interrupt =====
+
+export type InterruptType = "question" | "plan_confirm" | "booking_confirm"
+
+export interface OptionItem {
+  label: string
+  /** 选项值（不填则等于 label） */
+  value: string
+  /** 选项描述/副标题 */
+  description?: string | null
+}
+
+export interface PlanSlot {
+  time_start?: string
+  time_end?: string
+  action?: string
+  place?: string
+  estimated_cost?: number
+  note?: string
+}
+
+export interface PlanData {
+  summary?: string
+  total_cost?: number
+  slots?: PlanSlot[]
+}
+
+export interface BookingOrderItem {
+  order_type: string       // restaurant/activity/cake/flowers
+  poi_name: string
+  guest_count: number
+  time?: string | null
+  amount_cny: number
+  note?: string | null
+}
+
+export interface BookingData {
+  orders?: BookingOrderItem[]
+  total_amount?: number
+}
+
+export interface InterruptPayload {
+  type: InterruptType
+  message: string
+  /** 选项卡片列表（匹配后端 OptionItem） */
+  options: OptionItem[]
+  plan?: PlanData | null
+  booking?: BookingData | null
+}
 
 export interface PipelineNodeData extends Record<string, unknown> {
   label: string

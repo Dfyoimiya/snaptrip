@@ -1,4 +1,4 @@
-"""Runtime event sink interfaces."""
+"""事件端口。"""
 
 from __future__ import annotations
 
@@ -8,6 +8,4 @@ from agent.schemas.events import RuntimeEvent
 
 
 class EventSinkPort(Protocol):
-    """Sink used by runtime nodes to emit structured events."""
-
     async def emit(self, event: RuntimeEvent) -> None: ...

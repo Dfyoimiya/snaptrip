@@ -4,14 +4,18 @@ import { AgentMonitor } from "../components/agent/AgentMonitor"
 import { InputBar } from "../components/common/InputBar"
 import { MapView } from "../components/map/MapView"
 import { ConfirmPanel } from "../components/plan/ConfirmPanel"
+import { QuestionPanel } from "../components/plan/QuestionPanel"
+import { BookingConfirmPanel } from "../components/plan/BookingConfirmPanel"
 import { PlanCard } from "../components/plan/PlanCard"
 import { usePlanSSE } from "../hooks/usePlanSSE"
+import { useGeolocation } from "../hooks/useGeolocation"
 import { useAgentStore } from "../stores/agentStore"
 import { usePlanStore } from "../stores/planStore"
-import type { PlanResponse } from "../types/plan"
+import type { PlanCreateRequest, PlanResponse } from "../types/plan"
 
 export function PlanPage() {
   const [loading, setLoading] = useState(false)
+  const geo = useGeolocation()
   const planId = usePlanStore((s) => s.planId)
   const setPlan = usePlanStore((s) => s.setPlan)
   const setUserInput = usePlanStore((s) => s.setUserInput)
@@ -30,7 +34,12 @@ export function PlanPage() {
       setRunning(true)
 
       try {
-        const resp = await createPlan({ user_input: text, lat: 39.9219, lng: 116.4435 })
+        const req: PlanCreateRequest = { user_input: text }
+        if (geo.lat !== null && geo.lng !== null) {
+          req.lat = geo.lat
+          req.lng = geo.lng
+        }
+        const resp = await createPlan(req)
         const data = resp.data ?? resp
         if (data && data.slots) {
           setPlan(data as PlanResponse)
@@ -70,7 +79,9 @@ export function PlanPage() {
           <div className="flex-1 min-h-0 overflow-auto">
             <PlanCard />
           </div>
+          <QuestionPanel />
           <ConfirmPanel />
+          <BookingConfirmPanel />
         </div>
       </div>
 

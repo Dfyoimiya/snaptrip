@@ -20,7 +20,7 @@ from typing import Any
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from snaptrip_shared.core.response import success
-from snaptrip_shared.core.security import get_current_user
+from marketplace.app.core.security import get_current_user
 from snaptrip_shared.db.session import get_db
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession

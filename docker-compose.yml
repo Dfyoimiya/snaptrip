@@ -244,7 +244,7 @@ services:
     depends_on:
       - marketplace
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:5173/ || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5173/ || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 3

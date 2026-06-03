@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent.schemas.tool import ToolInvocation, ToolResult
+from app.schemas.tool import ToolInvocation, ToolResult
 from snaptrip_shared.core.config import settings
 
 from marketplace.app.adapters.amap.base import BaseAmapAdapter

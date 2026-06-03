@@ -1,8 +1,8 @@
 """SnapTrip API —— FastAPI 入口（Agent 架构版）。
 
 应用生命周期:
-- startup: 初始化 MemoryService + MockGateway + RuntimeEventStore
-- shutdown: 清理 MockGateway 连接
+- startup: 初始化 MemoryService + RedisEventBus + AgentRuntime
+- shutdown: 清理 Redis 连接池
 
 路由注册:
 - /api/v1/plan/*  —— 计划创建/查询/SSE流
@@ -18,15 +18,15 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 from agent.adapters.marketplace import MarketplaceClient
-from agent.adapters.mock_gateway import MockAPIGateway
 from agent.adapters.persistence.runtime_event import SQLRuntimeEventRepository
-from agent.events.store import RuntimeEventStore
-from agent.graph import build_plan_graph
-from agent.memory.service import MemoryService
+from agent.events.redis_bus import RedisEventBus
+from agent.graph import build_graph
+from app.services.memory_service import MemoryService
 from agent.runtime import AgentRuntime
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from snaptrip_shared.core.config import settings
 from snaptrip_shared.core.exception_handlers import (
     adapter_exception_handler,
     authentication_handler,
@@ -65,21 +65,17 @@ from marketplace.app.api.v1.user import router as user_router
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.memory = MemoryService()
-    app.state.mock_gateway = MockAPIGateway()
-    app.state.runtime_events = RuntimeEventStore(repository=SQLRuntimeEventRepository())
     app.state.redis_pool = get_redis_pool()
-    app.state.marketplace_client = MarketplaceClient(mode="mock")
+    app.state.marketplace_client = MarketplaceClient(mode=settings.MARKETPLACE_MODE)
 
-    runtime = AgentRuntime(
-        gateway=app.state.mock_gateway,
-        event_sink=app.state.runtime_events,
-        marketplace_client=app.state.marketplace_client,
+    event_bus = RedisEventBus(
+        pool=app.state.redis_pool,
+        repository=SQLRuntimeEventRepository(),
     )
-    app.state.plan_graph = build_plan_graph(runtime=runtime)
+    runtime = AgentRuntime(event_bus=event_bus)
+    app.state.plan_graph = await build_graph(runtime=runtime)
 
-    await app.state.mock_gateway.start()
     yield
-    await app.state.mock_gateway.stop()
     await app.state.memory.stop()
     await close_redis_pool()
 
