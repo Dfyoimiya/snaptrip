@@ -38,7 +38,40 @@ from agent.models.runtime_checkpoint import RuntimeCheckpoint  # noqa: E402, F40
 from marketplace.app.models.user_profile import UserProfile  # noqa: E402, F401
 from marketplace.app.models.users import User  # noqa: E402, F401
 
-target_metadata = Base.metadata
+# ── 电商模型 (Commerce) ──
+from app.models.base import CommerceBase  # noqa: E402
+from app.models.cms import CmsBanner, CmsHelp, CmsSubject  # noqa: E402, F401
+from app.models.member import UmsMemberAddress, UmsMemberFavorite  # noqa: E402, F401
+from app.models.order import (  # noqa: E402, F401
+    OmsCartItem,
+    OmsOrder,
+    OmsOrderItem,
+    OmsOrderOperateLog,
+)
+from app.models.product import (  # noqa: E402, F401
+    PmsBrand,
+    PmsCategory,
+    PmsProduct,
+    PmsProductAttribute,
+    PmsProductAttributeValue,
+    PmsSku,
+)
+from app.models.promotion import (  # noqa: E402, F401
+    SmsCoupon,
+    SmsCouponHistory,
+    SmsFlashPromotion,
+    SmsFlashPromotionProduct,
+    SmsFlashPromotionSession,
+)
+from app.models.rbac import Permission, Role, RolePermission, UserRole  # noqa: E402, F401
+
+# 合并 marketplace.Base 和 app.CommerceBase 的 metadata
+# 参见: https://alembic.sqlalchemy.org/en/latest/autogenerate.html#multiple-metadata-collections
+combined_metadata = Base.metadata
+for table in CommerceBase.metadata.tables.values():
+    table.tometadata(combined_metadata)
+
+target_metadata = combined_metadata
 
 
 def run_migrations_offline() -> None:
