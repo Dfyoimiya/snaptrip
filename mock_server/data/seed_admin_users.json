@@ -1,0 +1,6 @@
+[
+  {"id":"admin-001","username":"admin","password":"admin123","real_name":"超级管理员","phone":"13800001111","status":"ACTIVE","roles":["SUPER_ADMIN"],"permissions":["*"],"created_at":"2024-01-01T00:00:00Z"},
+  {"id":"admin-002","username":"zhangsan","password":"123456","real_name":"张三","phone":"13800002222","status":"ACTIVE","roles":["ADMIN"],"permissions":["employee:*","merchant:*","product:*","order:*","stats:*","upload:*"],"created_at":"2024-01-15T10:00:00Z"},
+  {"id":"admin-003","username":"lisi","password":"123456","real_name":"李四","phone":"13800003333","status":"ACTIVE","roles":["MERCHANT_MANAGER"],"permissions":["merchant:*","product:*","category:*"],"created_at":"2024-02-01T10:00:00Z"},
+  {"id":"admin-004","username":"wangwu","password":"123456","real_name":"王五","phone":"13800004444","status":"ACTIVE","roles":["ORDER_STAFF"],"permissions":["order:*","dashboard:view"],"created_at":"2024-03-01T10:00:00Z"}
+]

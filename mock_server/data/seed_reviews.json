@@ -1,0 +1,10 @@
+[
+  {"id":"r-001","user_id":"U-0001","user_nickname":"美食达人小王","user_avatar":null,"product_id":"p-001","order_id":"","rating":5,"content":"海底捞的麻辣锅底真的太正宗了！每次来必点，服务也一如既往的好。","images":["https://dummyimage.com/300x300/d63031/fff&text=Mala1"],"created_at":"2024-06-15T12:30:00Z"},
+  {"id":"r-002","user_id":"U-0002","user_nickname":"吃货小李","user_avatar":null,"product_id":"p-002","order_id":"","rating":5,"content":"肥牛卷肉质很好，涮8秒刚好，蘸麻酱绝了！","images":[],"created_at":"2024-06-14T18:20:00Z"},
+  {"id":"r-003","user_id":"U-0003","user_nickname":"茶饮控","user_avatar":null,"product_id":"p-008","order_id":"","rating":4,"content":"珍珠很Q弹，奶茶味道浓郁，就是全糖有点甜，建议七分糖。","images":[],"created_at":"2024-06-13T15:10:00Z"},
+  {"id":"r-004","user_id":"U-0004","user_nickname":"咖啡患者","user_avatar":null,"product_id":"p-006","order_id":"","rating":5,"content":"每天一杯拿铁续命，星巴克品质稳定，燕麦奶真的很香。","images":["https://dummyimage.com/300x300/dfe6e9/333&text=Latte","https://dummyimage.com/300x300/dfe6e9/333&text=Coffee"],"created_at":"2024-06-12T09:00:00Z"},
+  {"id":"r-005","user_id":"U-0005","user_nickname":"探秘者","user_avatar":null,"product_id":"p-011","order_id":"","rating":5,"content":"古墓迷踪真的太刺激了！NPC演技在线，谜题设计巧妙，强烈推荐四人组队！","images":[],"created_at":"2024-06-11T22:30:00Z"},
+  {"id":"r-006","user_id":"U-0006","user_nickname":"西贝铁粉","user_avatar":null,"product_id":"p-005","order_id":"","rating":4,"content":"莜面鱼鱼口感独特，就是量有点少，北方人感觉不够吃😂","images":[],"created_at":"2024-06-10T13:45:00Z"},
+  {"id":"r-007","user_id":"U-0007","user_nickname":"奶茶续命","user_avatar":null,"product_id":"p-013","order_id":"","rating":5,"content":"霸气草莓真的是真材实料！半斤草莓一点都不含糊，太好喝了！","images":["https://dummyimage.com/300x300/e17055/fff&text=Straw"],"created_at":"2024-06-09T16:30:00Z"},
+  {"id":"r-008","user_id":"U-0008","user_nickname":"家庭煮夫","user_avatar":null,"product_id":"p-017","order_id":"","rating":4,"content":"保洁阿姨很细心，两个小时的打扫非常彻底，家里焕然一新。","images":[],"created_at":"2024-06-08T11:00:00Z"}
+]
