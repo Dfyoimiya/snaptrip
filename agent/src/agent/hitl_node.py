@@ -36,16 +36,9 @@ from agent.schemas.events import (
     UserMessagePayload,
 )
 from agent.schemas.state import PlanState
+from agent.utils import get_event_bus
 
 logger = logging.getLogger(__name__)
-
-
-def _get_event_bus():
-    """获取 Runtime 中的 event_bus（可能为 None）。"""
-    from agent.graph import _runtime
-    if _runtime:
-        return _runtime.event_bus
-    return None
 
 
 async def _emit_interrupt_event(
@@ -57,7 +50,7 @@ async def _emit_interrupt_event(
 
     payload 已经过 Pydantic 校验，直接序列化发射。
     """
-    event_bus = _get_event_bus()
+    event_bus = get_event_bus()
     if event_bus is None:
         logger.debug("hitl_node: no event_bus, skipping SSE emit for %s", event_type)
         return

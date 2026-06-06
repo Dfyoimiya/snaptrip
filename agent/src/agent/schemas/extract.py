@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field
 
 
 class SceneType(StrEnum):
+    """场景类型"""
     FAMILY = "family"
     FRIENDS = "friends"
     COUPLE = "couple"
@@ -28,12 +29,14 @@ class SceneType(StrEnum):
 
 
 class TransportMode(StrEnum):
+    """交通方式"""
     WALK = "walk"
     TRANSIT = "transit"
     DRIVE = "drive"
 
 
 class BudgetPreference(StrEnum):
+    """预算偏好"""
     # TODO: 量化定义 
     ECONOMY = "economy"
     MID = "mid"
@@ -41,6 +44,7 @@ class BudgetPreference(StrEnum):
 
 
 class TravelPace(StrEnum):
+    """出行节奏"""
     # TODO: 量化定义
     RELAXED = "relaxed"
     BALANCED = "balanced"

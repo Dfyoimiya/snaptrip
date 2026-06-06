@@ -31,6 +31,7 @@ from agent.runtime import AgentRuntime
 from agent.schemas.extract import ExtractResult
 from agent.schemas.state import PlanState
 from agent.tool_node import tool_node
+from agent.utils import get_llm_adapter
 from snaptrip_shared.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -145,15 +146,8 @@ async def build_graph(runtime: AgentRuntime | None = None) -> CompiledStateGraph
 
     # ── 初始化 LLM adapter ──
     if runtime and runtime.llm_adapter is None:
-        adapter_type = getattr(settings, "LLM_ADAPTER", "pydanticai")
-        if adapter_type == "litellm":
-            from agent.adapters.litellm_adapter import LiteLLMAdapter
-            runtime.llm_adapter = LiteLLMAdapter()
-            logger.info("LiteLLMAdapter initialized (LLM_ADAPTER=litellm)")
-        else:
-            from agent.adapters.pydanticai_adapter import PydanticAIAdapter
-            runtime.llm_adapter = PydanticAIAdapter()
-            logger.info("PydanticAIAdapter initialized (default)")
+        runtime.llm_adapter = get_llm_adapter()
+        logger.info("LLM adapter initialized via get_llm_adapter()")
 
     # ── 构建 DAG ──
     graph = StateGraph(PlanState)

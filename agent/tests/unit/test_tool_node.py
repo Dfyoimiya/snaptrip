@@ -27,11 +27,11 @@ import pytest
 from agent.schemas.state import PlanState
 from agent.tool_node import (
     USER_FACING_NAMES,
-    _EXECUTION_NAMES,
     _apply_state_update,
     _parse_tool_call,
     tool_node,
 )
+from agent.utils import EXECUTION_NAMES
 
 
 def _make_last_msg(tool_calls: list[dict]) -> MagicMock:
@@ -669,10 +669,10 @@ class TestToolNode:
 
 
 class TestToolNameConstants:
-    """Sanity checks on the USER_FACING_NAMES and _EXECUTION_NAMES constants."""
+    """Sanity checks on the USER_FACING_NAMES and EXECUTION_NAMES constants."""
 
     def test_user_facing_names(self):
-        assert USER_FACING_NAMES == {"ask_user", "present_plan"}
+        assert USER_FACING_NAMES == {"ask_user", "present_plan", "present_booking"}
 
     def test_execution_names(self):
-        assert _EXECUTION_NAMES == {"mock_order_create", "mock_payment_charge"}
+        assert EXECUTION_NAMES == {"mock_order_create", "mock_payment_charge"}

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
+from langchain_core.messages import AIMessage
+
 
 class LLMPort(Protocol):
-    """Typed LLM adapter interface."""
+    """Typed LLM adapter interface. Returns AIMessage for chat."""
 
     async def chat(
         self,
@@ -20,7 +22,7 @@ class LLMPort(Protocol):
         reasoning_effort: str = "",
         enable_thinking: bool = False,
         stream: bool = True,
-    ) -> dict[str, Any]: ...
+    ) -> AIMessage: ...
 
     async def chat_json(
         self,

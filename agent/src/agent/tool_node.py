@@ -20,19 +20,19 @@ from langchain_core.messages import ToolMessage
 
 from agent.schemas.events import RuntimeEvent
 from agent.schemas.state import PlanState
+from agent.utils import (
+    EXECUTION_NAMES,
+    INTERNAL_NAMES,
+    USER_FACING_NAMES,
+    get_event_bus,
+    strip_none_values,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def _get_event_bus():
-    from agent.graph import _runtime
-    if _runtime:
-        return _runtime.event_bus
-    return None
-
-
 async def _emit_tool_event(plan_id: str, event_type: str, payload: dict[str, Any]) -> None:
-    event_bus = _get_event_bus()
+    event_bus = get_event_bus()
     if event_bus is None:
         return
     event = RuntimeEvent(
@@ -45,10 +45,6 @@ async def _emit_tool_event(plan_id: str, event_type: str, payload: dict[str, Any
         await event_bus.emit(event)
     except Exception:
         logger.warning("tool_node: failed to emit %s event", event_type, exc_info=True)
-
-USER_FACING_NAMES = {"ask_user", "present_plan", "present_booking"}
-INTERNAL_NAMES = {"update_intent", "update_profile", "update_itinerary", "update_extract_result"}
-_EXECUTION_NAMES = {"mock_order_create", "mock_payment_charge"}
 
 
 def _get_harness_and_session():
@@ -71,8 +67,9 @@ def _apply_state_update(state: PlanState, tool_name: str, args: dict[str, Any]) 
         if extract_result is None:
             extract_result = ExtractResult()
 
-        # 解析增量更新
-        update = UpdateExtractResultInput(**args)
+        # 递归剔除 None 值，避免 LLM 显式传 null 导致 Pydantic 校验失败
+        cleaned = strip_none_values(args)
+        update = UpdateExtractResultInput(**cleaned)
         changed = extract_result.apply_update(update)
         updates["extract_result"] = extract_result
         logger.debug("tool_node: update_extract_result → %s", changed)

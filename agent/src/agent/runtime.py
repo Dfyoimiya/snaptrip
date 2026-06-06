@@ -17,7 +17,7 @@ class AgentRuntime:
     所有字段均可选——缺省时使用兜底逻辑。
     """
 
-    # LLM 适配器（优先使用，否则自动创建 LiteLLMAdapter）
+    # LLM 适配器（优先使用，否则自动创建 LangChainAdapter）
     llm_adapter: Any = None
 
     # Redis 事件总线（SSE 跨进程推送）
