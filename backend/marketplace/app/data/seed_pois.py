@@ -62,6 +62,18 @@ SEED_POIS: list[POI] = [
         business_hours="10:00-18:00",
     ),
     POI(
+        id="bj-006",
+        name="朝阳公园皮划艇",
+        city="北京",
+        type="activity",
+        lat=39.9410,
+        lng=116.4780,
+        mood_tags=["运动", "亲子", "放松"],
+        avg_price=80,
+        rating=4.3,
+        business_hours="09:00-18:00",
+    ),
+    POI(
         id="bj-005",
         name="簋街胡大饭馆",
         city="北京",
