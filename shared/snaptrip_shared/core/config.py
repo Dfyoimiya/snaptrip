@@ -8,6 +8,8 @@ Date: 2026-05-17
 
 from __future__ import annotations
 
+from pathlib import Path
+
 try:
     from pydantic_settings import BaseSettings, SettingsConfigDict
 except ModuleNotFoundError:  # pragma: no cover - fallback for lightweight test envs
@@ -20,9 +22,13 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for lightweight test 
         return kwargs
 
 
+# 项目根目录 = shared/snaptrip_shared/core/config.py → 上 4 层
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(_PROJECT_ROOT / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -31,6 +37,7 @@ class Settings(BaseSettings):
     APP_DEBUG: bool = True
     APP_SECRET_KEY: str = "change-me-in-production"
     JWT_SECRET_KEY: str = "change-me-jwt-secret-key"
+    JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     LOG_LEVEL: str = "INFO"
@@ -46,18 +53,29 @@ class Settings(BaseSettings):
     DATABASE_MAX_OVERFLOW: int = 10
 
     REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_TEST_URL: str = "redis://localhost:6380/0"
+    REDIS_PASSWORD: str = ""
     REDIS_POOL_SIZE: int = 10
 
     MOCK_API_BASE_URL: str = "http://localhost:8001"
     MOCK_API_TIMEOUT: int = 3
+    MOCK_FAULT_RATE: float = 0.05
+    MOCK_DELAY_RATE: float = 0.10
+
+    MARKETPLACE_MODE: str = "mock"
+    SNAPTRIP_MARKETPLACE_URL: str = "http://marketplace:8081"
 
     # ── LLM (LiteLLM Gateway) ──
     LITELLM_BASE_URL: str = "http://litellm-proxy:4000/v1"
     LITELLM_API_KEY: str = ""
-    LLM_DEFAULT_MODEL: str = "deepseek-chat"
+    LLM_DEFAULT_MODEL: str = "deepseek-v4-pro"
     LLM_PROVIDER_CONFIG: str = "litellm/models.toml"
     LLM_MAX_TOKENS: int = 2048
     LLM_TEMPERATURE: float = 0.7
+    LLM_ENABLE_THINKING: bool = True
+    LLM_REASONING_EFFORT: str = "high"  # "high" | "max"
+    LLM_STRICT_MODE: bool = False  # DeepSeek Beta, 暂不默认开启
+    LLM_ADAPTER: str = "pydanticai"  # "pydanticai" | "litellm"
 
     AGENT_TIMEOUT: int = 300
     AGENT_MAX_RETRIES: int = 2
@@ -69,6 +87,7 @@ class Settings(BaseSettings):
     AMAP_API_KEY: str = ""
     AMAP_BASE_URL: str = "https://restapi.amap.com"
     AMAP_TIMEOUT: int = 3
+    AMAP_SSL_VERIFY: bool = True
     AMAP_GEOCODE_CACHE_TTL: int = 86400
     AMAP_POI_CACHE_TTL: int = 3600
     AMAP_QPS_LIMIT: int = 10

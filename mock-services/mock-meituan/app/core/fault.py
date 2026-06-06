@@ -5,6 +5,9 @@
   MOCK_DELAY_RATE  - 延迟注入概率（默认 0.10, CI 设为 0）
   /health 路由免除故障注入
 
+注意：此服务是独立 mock 服务，不依赖 snaptrip_shared，因此直接使用 os.getenv
+而非 Settings 类。这些环境变量在主应用 Settings 中也有对应字段。
+
 Author: SnapTrip Team
 Date: 2026-05-17
 """

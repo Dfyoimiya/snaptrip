@@ -17,7 +17,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from marketplace.app.models.base import Base
 
 if TYPE_CHECKING:
-    from agent.models.checkpoint import Checkpoint
+    from app.models.checkpoint import Checkpoint
 
     from marketplace.app.models.plan_adjustment import PlanAdjustment
     from marketplace.app.models.plan_slot import PlanSlot

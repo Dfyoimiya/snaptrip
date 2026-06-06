@@ -108,11 +108,6 @@ async def test_get_plan_status_returns_run(client):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skip(reason="Phase 3a: /confirm 需要 Celery Worker 先执行 graph 写入 checkpoint")
-async def test_confirm_plan_returns_202(client): ...
-
-
-@pytest.mark.asyncio
 async def test_confirm_plan_not_found(client):
     """POST /confirm 对不存在的 plan_id → 404。"""
     resp = await client.post(
@@ -129,34 +124,3 @@ async def test_get_plan_status_not_found(client):
     assert resp.status_code == 404
 
 
-# ===== 需要 Celery Worker 的深层测试（跳过） =====
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="Phase 3a: /create 返回 202，slots 需要 Celery Worker 执行 graph 后才能在 checkpoint 中看到")
-async def test_create_plan_has_slots(client): ...
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="Phase 3a: checkpoint 由 Celery Worker 创建，GET /{plan_id} 需要 Worker 先执行")
-async def test_get_plan_by_id(client): ...
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="Phase 3a: SSE 事件由 Celery Worker 通过 Redis Pub/Sub 推送")
-async def test_sse_stream_contains_events(client): ...
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="Phase 3a: confirm dispatch 后状态由 Celery Worker 更新")
-async def test_confirm_plan_interrupt_resume(client): ...
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="Phase 3a: 局部修改需要 Celery Worker 执行 re-plan")
-async def test_confirm_plan_partial_change(client): ...
-
-
-@pytest.mark.asyncio
-@pytest.mark.skip(reason="Phase 3a: 拒绝计划需要 Celery Worker 重新规划")
-async def test_confirm_plan_rejected(client): ...

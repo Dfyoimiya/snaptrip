@@ -18,7 +18,7 @@ from __future__ import annotations
 import time
 from abc import ABC, abstractmethod
 
-from agent.schemas.tool import ToolInvocation, ToolResult
+from app.schemas.tool import ToolInvocation, ToolResult
 
 
 class BaseAmapAdapter(ABC):

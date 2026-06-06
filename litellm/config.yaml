@@ -9,7 +9,7 @@ general_settings:
 litellm_settings:
   drop_params: true
   set_verbose: true
-  request_timeout: 60
+  request_timeout: 180
   cache: true                          
   cache_params:
     type: redis

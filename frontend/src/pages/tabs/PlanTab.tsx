@@ -1,6 +1,8 @@
 import { MapView } from "../../components/map/MapView"
 import { PlanCard } from "../../components/plan/PlanCard"
 import { ConfirmPanel } from "../../components/plan/ConfirmPanel"
+import { QuestionPanel } from "../../components/plan/QuestionPanel"
+import { BookingConfirmPanel } from "../../components/plan/BookingConfirmPanel"
 
 export function PlanTab() {
   return (
@@ -23,7 +25,9 @@ export function PlanTab() {
             <p>Tool execution tracking is shown in the <strong className="text-zinc-400">Execution</strong> tab.</p>
           </div>
         </div>
+        <QuestionPanel />
         <ConfirmPanel />
+        <BookingConfirmPanel />
       </div>
     </div>
   )

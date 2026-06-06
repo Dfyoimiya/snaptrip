@@ -20,11 +20,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from snaptrip_shared.core.response import success
 from snaptrip_shared.core.security import (
     create_access_token,
+    hash_password,
+    verify_password,
+)
+from marketplace.app.core.security import (
     create_refresh_token,
     get_current_user,
-    hash_password,
     revoke_refresh_token,
-    verify_password,
     verify_refresh_token,
 )
 from snaptrip_shared.db.session import get_db

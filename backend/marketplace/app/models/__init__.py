@@ -16,10 +16,8 @@ from marketplace.app.models.refresh_token import RefreshToken
 from marketplace.app.models.user_profile import UserProfile
 from marketplace.app.models.users import User
 
-# 跨包 relationship 解析 —— 必须在 marketplace 模型全部导入之后再 import agent 模型，
-# 否则 SQLAlchemy mapper 配置阶段会因找不到 "Checkpoint" 而失败。
-# ruff: noqa: I001  — import 顺序有意为之，不能打乱。
-from agent.models.checkpoint import Checkpoint  # noqa: F401, E402
+# Checkpoint 模型已迁移到 LangGraph AsyncPostgresSaver，不再使用自定义模型。
+# from app.models.checkpoint import Checkpoint  # noqa: F401, E402
 
 __all__ = [
     "Base",
