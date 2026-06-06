@@ -1,10 +1,12 @@
-"""电商 ORM 基类 —— CommerceBase + AuditMixin + SoftDeleteMixin。
+"""ORM 基类 —— Base + CommerceBase + AuditMixin + SoftDeleteMixin。
 
-所有电商模型继承 CommerceBase（独立 DeclarativeBase，避免与 marketplace 的 Base 混淆）。
+两套 DeclarativeBase:
+  - Base: 计划/用户等核心域模型
+  - CommerceBase: 电商域模型（独立元数据，避免混淆）
 需要审计字段的继承 AuditMixin，需要软删除的继承 SoftDeleteMixin。
 
 Author: SnapTrip Team
-Date: 2026-05-26
+Date: 2026-05-17 / 2026-05-26
 """
 
 from __future__ import annotations
@@ -19,6 +21,15 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 if TYPE_CHECKING:
     pass
+
+
+class Base(DeclarativeBase):
+    """核心域声明基类 —— plan/user/poi 等表使用。
+
+    与 CommerceBase 共享同一 metadata.schema，但保持独立继承树。
+    """
+
+    metadata: Any
 
 
 class CommerceBase(DeclarativeBase):

@@ -11,7 +11,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from snaptrip_shared.core.response import success
-from snaptrip_shared.core.security import get_current_user
+from marketplace.app.core.security import get_current_user
 from snaptrip_shared.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
