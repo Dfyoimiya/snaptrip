@@ -1,3 +1,10 @@
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║                        🔴 ARCHIVED — TRIP PLANNING AGENT                      ║
+# ║  Archived: 2026-06-07                                                        ║
+# ║  Reason: Agent repurposed from local trip planning to new domain             ║
+# ║  This file is preserved for reference but NOT imported by the framework.     ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
 """Agent Node —— LLM ReAct 推理主节点。
 
 LLM 持有全部工具，自主推理并决定下一步：

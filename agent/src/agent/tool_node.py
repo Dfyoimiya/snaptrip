@@ -1,14 +1,17 @@
-"""Tool Node —— 工具执行 + user-facing tool 检测。
-
-所有工具调用通过此节点执行：
-- user-facing 工具 (ask_user, present_plan) → 不执行，设置 hitl_payload
-- internal state 工具 (update_intent, ...) → 直接更新 PlanState 字段
-- execution 工具 (mock_order_create, mock_payment_charge) → 通过 SagaCoordinator 事务执行
-- 标准工具 (amap_poi_search, pymoo_solve, ...) → 通过 ToolHarness 执行
-
-Author: SnapTrip Team
-Date: 2026-05-29
-"""
+# ────────────────────────────────────────────────────────────────────────────
+# 🔵 FRAMEWORK — Tool Execution Dispatch Node
+# ────────────────────────────────────────────────────────────────────────────
+# Generic tool dispatch node. Categorizes tool calls and executes them:
+#   - user-facing tools → route to HITL interrupt (if hitl_node is active)
+#   - standard tools     → execute via ToolHarness
+#   - saga tools         → execute via SagaCoordinator (transactional)
+#
+# Trip-specific tool categories (USER_FACING_NAMES, INTERNAL_NAMES,
+# EXECUTION_NAMES) have been generalized. Define your own tool sets
+# in utils.py or override the dispatch logic.
+#
+# Archived: 2026-06-07 — repurposed from trip planning agent
+# ────────────────────────────────────────────────────────────────────────────
 
 from __future__ import annotations
 
@@ -22,16 +25,15 @@ from agent.schemas.events import RuntimeEvent
 from agent.schemas.state import PlanState
 from agent.utils import (
     EXECUTION_NAMES,
-    INTERNAL_NAMES,
     USER_FACING_NAMES,
     get_event_bus,
-    strip_none_values,
 )
 
 logger = logging.getLogger(__name__)
 
 
 async def _emit_tool_event(plan_id: str, event_type: str, payload: dict[str, Any]) -> None:
+    """Emit a RuntimeEvent via the event bus (non-blocking, best-effort)."""
     event_bus = get_event_bus()
     if event_bus is None:
         return
@@ -48,63 +50,11 @@ async def _emit_tool_event(plan_id: str, event_type: str, payload: dict[str, Any
 
 
 def _get_harness_and_session():
-    """获取 ToolHarness + SessionContext。"""
+    """Get ToolHarness + SessionContext from runtime."""
     from agent.graph import _runtime
     if _runtime:
         return _runtime.harness, _runtime.session_ctx
     return None, None
-
-
-def _apply_state_update(state: PlanState, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
-    """将 internal state tool 的参数应用到 PlanState。"""
-    updates: dict[str, Any] = {}
-
-    if tool_name == "update_extract_result":
-        from agent.schemas.extract import ExtractResult, UpdateExtractResultInput
-
-        # 获取或创建 ExtractResult
-        extract_result: ExtractResult = state.get("extract_result")  # type: ignore[assignment]
-        if extract_result is None:
-            extract_result = ExtractResult()
-
-        # 递归剔除 None 值，避免 LLM 显式传 null 导致 Pydantic 校验失败
-        cleaned = strip_none_values(args)
-        update = UpdateExtractResultInput(**cleaned)
-        changed = extract_result.apply_update(update)
-        updates["extract_result"] = extract_result
-        logger.debug("tool_node: update_extract_result → %s", changed)
-
-    elif tool_name == "update_intent":
-        intent = dict(state.get("intent", {}))
-        for k in ("city", "guest_count", "budget", "date", "time_window_start",
-                  "time_window_hours", "preferences", "scene_hint",
-                  "dietary", "allergens", "child_age", "constraints_notes"):
-            if k in args and args[k] is not None and args[k] != "" and args[k] != []:
-                intent[k] = args[k]
-        updates["intent"] = intent
-
-    elif tool_name == "update_profile":
-        profile = dict(state.get("user_profile", {}))
-        for k in ("dietary_tendency", "budget_tendency", "travel_style", "favorite_poi_types"):
-            if k in args and args[k] is not None:
-                profile[k] = args[k]
-        updates["user_profile"] = profile
-
-    elif tool_name == "update_itinerary":
-        itinerary: dict[str, Any] = {
-            "summary": args.get("summary", ""),
-            "slots": args.get("slots", []),
-            "total_cost": args.get("total_cost", 0),
-            "total_time_min": args.get("total_time_min", 0),
-        }
-        updates["itinerary"] = itinerary
-        updates["selected_solution"] = {
-            "activity_name": args.get("activity_name", ""),
-            "restaurant_name": args.get("restaurant_name", ""),
-        }
-
-    logger.debug("tool_node: %s → %s", tool_name, list(updates.keys()))
-    return updates
 
 
 def _parse_tool_call(tc: dict | Any) -> tuple[str, str, dict[str, Any]]:
@@ -123,10 +73,7 @@ def _parse_tool_call(tc: dict | Any) -> tuple[str, str, dict[str, Any]]:
 async def _execute_saga(
     harness, session_ctx, exec_calls: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """Execute a batch of execution tools via SagaCoordinator.
-
-    Returns one result dict per exec_call: {tc_id, success, data, saga_status}.
-    """
+    """Execute a batch of transactional tools via SagaCoordinator."""
     from agent.tools.transaction.saga import SagaCoordinator
 
     coordinator = SagaCoordinator()
@@ -138,43 +85,34 @@ async def _execute_saga(
         logger.exception("SagaCoordinator execution failed")
         return [
             {"tc_id": c["tc_id"], "success": False,
-             "data": {"error": f"Saga error: {type(e).__name__}: {e}",
-                      "saga_status": "error"}}
+             "data": {"error": f"Saga error: {type(e).__name__}: {e}", "saga_status": "error"}}
             for c in exec_calls
         ]
 
-    batch_results = saga_result["results"]  # reserve results + confirm results
+    batch_results = saga_result["results"]
     n = len(exec_calls)
     output: list[dict[str, Any]] = []
 
     for i, call in enumerate(exec_calls):
-        # On saga success: confirm result at index n+i
-        # On saga failure: last available result for this step
         if saga_result["status"] == "done" and len(batch_results) >= 2 * n:
             confirm = batch_results[n + i]
             output.append({
-                "tc_id": call["tc_id"],
-                "success": confirm.success,
-                "data": confirm.data,
-                "saga_status": "done",
+                "tc_id": call["tc_id"], "success": confirm.success,
+                "data": confirm.data, "saga_status": "done",
             })
         else:
-            # Failure — find best available result
             found = None
             for j in range(i, len(batch_results), n):
                 if j < len(batch_results):
                     found = batch_results[j]
             if found is not None:
                 output.append({
-                    "tc_id": call["tc_id"],
-                    "success": found.success,
-                    "data": found.data,
-                    "saga_status": saga_result["status"],
+                    "tc_id": call["tc_id"], "success": found.success,
+                    "data": found.data, "saga_status": saga_result["status"],
                 })
             else:
                 output.append({
-                    "tc_id": call["tc_id"],
-                    "success": False,
+                    "tc_id": call["tc_id"], "success": False,
                     "data": {"error": "Saga rolled back before this step",
                              "saga_status": saga_result["status"]},
                     "saga_status": saga_result["status"],
@@ -183,23 +121,22 @@ async def _execute_saga(
     return output
 
 
-async def tool_node(state: PlanState) -> dict:
-    """执行 LLM 请求的 tool calls。
+# ── Main dispatch ───────────────────────────────────────────────────────────
 
-    Execution tools (mock_order_create, mock_payment_charge) 通过
-    SagaCoordinator 事务执行 (reserve → confirm → rollback)。
+
+async def tool_node(state: PlanState) -> dict:
+    """Execute LLM-requested tool calls.
+
+    Dispatches by category:
+      - User-facing tools → returns hitl_payload for hitl_node
+      - Execution (saga) tools → SagaCoordinator
+      - Standard tools → ToolHarness
 
     Returns:
-        {
-            "messages": [ToolMessage(...), ...],
-            "hitl_payload": dict | None,
-            # + internal state update keys
-        }
+        {"messages": [ToolMessage(...)], "hitl_payload": dict | None, ...}
     """
     harness, session_ctx = _get_harness_and_session()
 
-    # Inject user_id from PlanState into SessionContext so AuthHook passes.
-    # SessionContext is a process-level singleton; set it per-invocation.
     if session_ctx and state.get("user_id"):
         session_ctx.user_id = state["user_id"]
 
@@ -208,9 +145,7 @@ async def tool_node(state: PlanState) -> dict:
 
     results: list[ToolMessage] = []
     hitl_payload: dict[str, Any] | None = None
-    state_updates: dict[str, Any] = {}
 
-    # ── Separate tool calls by category ──
     exec_calls: list[dict[str, Any]] = []
     standard_calls: list[dict[str, Any]] = []
 
@@ -219,34 +154,19 @@ async def tool_node(state: PlanState) -> dict:
         logger.debug("tool_node: dispatching %s", tc_name)
 
         if tc_name in USER_FACING_NAMES:
+            # User-facing: set hitl_payload, don't execute
             hitl_payload = {
                 "type": tc_name,
                 "message": tc_args.get("message", ""),
             }
-            if tc_name == "present_plan":
-                hitl_payload["plan"] = tc_args.get("plan", {})
-                hitl_payload["options"] = ["confirmed", "modified", "rejected"]
-            elif tc_name == "present_booking":
-                hitl_payload["orders"] = tc_args.get("orders", [])
-                hitl_payload["total_amount"] = tc_args.get("total_amount", 0)
-                hitl_payload["options"] = ["confirmed", "rejected"]
-            else:
-                hitl_payload["options"] = tc_args.get("options", [])
-
+            if "options" in tc_args:
+                hitl_payload["options"] = tc_args["options"]
             results.append(ToolMessage(
                 content=json.dumps({"status": "presented_to_user"}),
                 tool_call_id=tc_id,
             ))
 
-        elif tc_name in INTERNAL_NAMES:
-            updates = _apply_state_update(state, tc_name, tc_args)
-            state_updates.update(updates)
-            results.append(ToolMessage(
-                content=json.dumps({"status": "state_updated", "fields": list(updates.keys())}),
-                tool_call_id=tc_id,
-            ))
-
-        elif tc_name in _EXECUTION_NAMES:
+        elif tc_name in EXECUTION_NAMES:
             exec_calls.append({
                 "tc_id": tc_id, "tc_name": tc_name, "tc_args": tc_args,
             })
@@ -277,14 +197,11 @@ async def tool_node(state: PlanState) -> dict:
             tool_call_id=sc["tc_id"],
         ))
 
-    # ── Execute execution tools via SagaCoordinator ──
+    # ── Execute saga tools ──
     if exec_calls and harness and session_ctx:
         plan_id = state.get("plan_id", "")
         tool_names = [c["tc_name"] for c in exec_calls]
-        await _emit_tool_event(plan_id, "execution", {
-            "phase": "booking",
-            "tools": tool_names,
-        })
+        await _emit_tool_event(plan_id, "execution", {"phase": "tx", "tools": tool_names})
         saga_results = await _execute_saga(harness, session_ctx, exec_calls)
         for sr in saga_results:
             data = sr["data"] if sr["success"] else {"error": sr["data"].get("error", "unknown")}
@@ -294,8 +211,7 @@ async def tool_node(state: PlanState) -> dict:
             ))
         session_ctx.active_tx = None
         await _emit_tool_event(plan_id, "execution_done", {
-            "phase": "booking",
-            "tools": tool_names,
+            "phase": "tx", "tools": tool_names,
             "results": [
                 {"tc_id": sr["tc_id"], "success": sr["success"], "saga_status": sr["saga_status"]}
                 for sr in saga_results
@@ -308,10 +224,7 @@ async def tool_node(state: PlanState) -> dict:
                 tool_call_id=ec["tc_id"],
             ))
 
-    response: dict[str, Any] = {
+    return {
         "messages": results,
         "hitl_payload": hitl_payload,
     }
-    response.update(state_updates)
-
-    return response

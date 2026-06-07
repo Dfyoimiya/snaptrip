@@ -1,3 +1,10 @@
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║                        🔴 ARCHIVED — TRIP PLANNING AGENT                      ║
+# ║  Archived: 2026-06-07                                                        ║
+# ║  Reason: Agent repurposed from local trip planning to new domain             ║
+# ║  This file is preserved for reference but NOT imported by the framework.     ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
 """MockPaymentTool — payment processing with idempotency protection.
 
 Mutable tool: charges payment; compensation = refund.

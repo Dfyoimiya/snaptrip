@@ -1,3 +1,10 @@
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║                        🔴 ARCHIVED — TRIP PLANNING AGENT                      ║
+# ║  Archived: 2026-06-07                                                        ║
+# ║  Reason: Agent repurposed from local trip planning to new domain             ║
+# ║  This file is preserved for reference but NOT imported by the framework.     ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
 """MockOrderTool — restaurant reservations, activity tickets, delivery orders.
 
 Mutable tool: creates orders that can be compensated (cancelled) on rollback.

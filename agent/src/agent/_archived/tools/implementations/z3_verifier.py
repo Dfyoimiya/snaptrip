@@ -1,3 +1,10 @@
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║                        🔴 ARCHIVED — TRIP PLANNING AGENT                      ║
+# ║  Archived: 2026-06-07                                                        ║
+# ║  Reason: Agent repurposed from local trip planning to new domain             ║
+# ║  This file is preserved for reference but NOT imported by the framework.     ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
 """Z3VerifierTool —— 硬约束可行性预检工具。
 
 使用 Z3 SMT 求解器快速检查"给定候选 POI 和约束，是否存在至少一个可行解"。

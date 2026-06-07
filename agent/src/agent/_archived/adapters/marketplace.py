@@ -1,3 +1,10 @@
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║                        🔴 ARCHIVED — TRIP PLANNING AGENT                      ║
+# ║  Archived: 2026-06-07                                                        ║
+# ║  Reason: Agent repurposed from local trip planning to new domain             ║
+# ║  This file is preserved for reference but NOT imported by the framework.     ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
 """Marketplace HTTP Client —— Agent ↔ Marketplace 数据隔离边界。
 
 Agent 不直接 SELECT marketplace 表。所有用户画像 / 计划历史 / POI

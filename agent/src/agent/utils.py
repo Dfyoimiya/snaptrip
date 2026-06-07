@@ -1,11 +1,13 @@
-"""Agent shared utilities.
-
-Common functions shared across nodes and adapters.
-Extracted during cleanup to eliminate duplication.
-
-Author: SnapTrip Team
-Date: 2026-06-03
-"""
+# ────────────────────────────────────────────────────────────────────────────
+# 🔵 FRAMEWORK — Shared Utilities
+# ────────────────────────────────────────────────────────────────────────────
+# Common functions shared across nodes and adapters.
+#
+# Trip-specific constants (INTERNAL_NAMES, trip tool sets) have been removed.
+# Define your own tool name sets below.
+#
+# Archived: 2026-06-07 — repurposed from trip planning agent
+# ────────────────────────────────────────────────────────────────────────────
 
 from __future__ import annotations
 
@@ -17,19 +19,16 @@ from agent.ports.llm import LLMPort
 
 logger = logging.getLogger(__name__)
 
-# User-facing tool names (used by routing + tool_node)
-USER_FACING_NAMES: set[str] = {"ask_user", "present_plan", "present_booking"}
+# ── Tool name sets — customize for your domain ─────────────────────────────
 
-# Internal state tool names (used by tool_node)
-INTERNAL_NAMES: set[str] = {
-    "update_intent", "update_profile", "update_itinerary", "update_extract_result",
-}
+# Tool names that trigger HITL interrupt (don't execute, set hitl_payload)
+USER_FACING_NAMES: set[str] = set()
 
-# Execution tool names (used by tool_node)
-EXECUTION_NAMES: set[str] = {"mock_order_create", "mock_payment_charge"}
+# Tool names that execute via SagaCoordinator (reserve → confirm → rollback)
+EXECUTION_NAMES: set[str] = set()
 
 
-# ── Message utilities ────────────────────────────────────────
+# ── Message utilities ──────────────────────────────────────────────────────
 
 def strip_orphan_tool_calls(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Strip orphan tool_calls that have no corresponding ToolMessage.
@@ -38,9 +37,6 @@ def strip_orphan_tool_calls(messages: list[dict[str, Any]]) -> list[dict[str, An
     sends to hitl (user-facing takes priority), non-user-facing tool_calls are
     never executed — resulting in tool_calls without ToolMessage, which the API
     rejects.
-
-    Scans the message list and removes tool_call entries that have no matching
-    ToolMessage response.
     """
     responded_ids: set[str] = set()
     for m in messages:
@@ -74,7 +70,7 @@ def normalize_tool_calls_for_api(tool_calls: list[Any]) -> list[dict[str, Any]]:
     for tc in tool_calls:
         if isinstance(tc, dict):
             if "function" in tc:
-                result.append(tc)  # already in OpenAI format
+                result.append(tc)
             else:
                 name = tc.get("name", "")
                 args = tc.get("args", {})
@@ -142,7 +138,7 @@ def strip_none_values(o: Any) -> Any:
     return o
 
 
-# ── Infrastructure utilities ─────────────────────────────────
+# ── Infrastructure utilities ───────────────────────────────────────────────
 
 def get_event_bus():
     """Get the Runtime event_bus (may be None)."""

@@ -1,13 +1,16 @@
-"""SmartDay 工具层。
+# ────────────────────────────────────────────────────────────────────────────
+# 🔵 FRAMEWORK — Tool Layer Public API
+# ────────────────────────────────────────────────────────────────────────────
+#   harness/     — ToolHarness + hook chain (sole tool invocation entry point)
+#   registry/    — ToolRegistry + ToolManifest
+#   transaction/ — TransactionContext + CompensationRegistry + SagaCoordinator
+#   tracing/     — AuditStore + ToolTracer
+#   implementations/ — SmartDayBaseTool (base class for your tools)
+#
+# build_registry() has been archived. Create your own registry builder.
+# Archived: 2026-06-07
+# ────────────────────────────────────────────────────────────────────────────
 
-  harness/     — ToolHarness + hook chain (唯一工具调用入口)
-  registry/    — ToolRegistry + ToolManifest
-  transaction/ — TransactionContext + CompensationRegistry + SagaCoordinator
-  tracing/     — AuditStore + ToolTracer
-  implementations/ — SmartDayBaseTool 子类
-"""
-
-# ── 新架构导出 ──
 from agent.tools.implementations.base import SmartDayBaseTool, ToolResult
 from agent.tools.harness.harness import ToolHarness
 from agent.tools.harness.context import SessionContext, ToolExecutionContext
@@ -18,7 +21,6 @@ from agent.tools.transaction.compensation import CompensationAction, Compensatio
 from agent.tools.transaction.saga import SagaCoordinator
 from agent.tools.tracing.audit_log import AuditEntry, AuditStore
 from agent.tools.tracing.tracer import ToolTracer
-from agent.tools.bootstrap import build_registry
 
 __all__ = [
     "AuditEntry",
@@ -36,5 +38,4 @@ __all__ = [
     "ToolTracer",
     "TransactionContext",
     "TxStatus",
-    "build_registry",
 ]
