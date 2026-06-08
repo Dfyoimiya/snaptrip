@@ -48,15 +48,12 @@ async def client(mock_celery):
     async def _managed_client():
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
             if not hasattr(app.state, "runtime_events"):
-                from agent.adapters.persistence.runtime_event import SQLRuntimeEventRepository
-                from agent.events.store import RuntimeEventStore
-
-                app.state.runtime_events = RuntimeEventStore(repository=SQLRuntimeEventRepository())
+                app.state.runtime_events = MagicMock()
             if not hasattr(app.state, "_agent_service") or app.state._agent_service is None:
-                from agent.graph import build_plan_graph
+                from agent.graph import build_graph
                 from agent.services.agent import AgentService
 
-                app.state._agent_service = AgentService(build_plan_graph())
+                app.state._agent_service = AgentService(build_graph())
             yield c
 
     async with _managed_client() as c:

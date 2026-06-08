@@ -17,7 +17,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base
 
 if TYPE_CHECKING:
-    from app.models.plan import Plan
+    from marketplace.app.models.plan import Plan
 
 
 class Checkpoint(Base):
