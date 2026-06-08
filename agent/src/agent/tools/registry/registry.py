@@ -53,9 +53,7 @@ class ToolRegistry:
         with self._lock:
             if name not in self._tools:
                 available = list(self._tools)
-                raise KeyError(
-                    f"Tool '{name}' not registered. Available: {available}"
-                )
+                raise KeyError(f"Tool '{name}' not registered. Available: {available}")
             return self._tools[name]
 
     def list_manifests(self) -> list[ToolManifest]:

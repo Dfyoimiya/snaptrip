@@ -3,41 +3,46 @@ import type { PageParam } from '@/types/common'
 import type { SmsFlashPromotion } from '@/types/flash'
 import request from '@/utils/request'
 
+/** 秒杀活动列表 —— GET /admin/flash-promotions */
 export function getFlashListAPI(params: PageParam) {
   return request<CommonResult<CommonPage<SmsFlashPromotion>>>({
-    url: '/flash/list',
+    url: '/admin/flash-promotions',
     method: 'get',
     params,
   })
 }
 
+/** 创建秒杀活动 —— POST /admin/flash-promotions */
 export function flashCreateAPI(data: SmsFlashPromotion) {
   return request<CommonResult<number>>({
-    url: '/flash/create',
+    url: '/admin/flash-promotions',
     method: 'post',
     data,
   })
 }
 
+/** 编辑秒杀活动 —— PUT /admin/flash-promotions/{id} */
 export function flashUpdateByIdAPI(id: number, data: SmsFlashPromotion) {
   return request<CommonResult<number>>({
-    url: '/flash/update/' + id,
-    method: 'post',
+    url: '/admin/flash-promotions/' + id,
+    method: 'put',
     data,
   })
 }
 
+/** 删除秒杀活动 —— DELETE /admin/flash-promotions/{id} */
 export function flashDeleteByIdAPI(id: number) {
   return request<CommonResult<number>>({
-    url: '/flash/delete/' + id,
-    method: 'post',
+    url: '/admin/flash-promotions/' + id,
+    method: 'delete',
   })
 }
 
+/** 切换场次状态 —— PATCH /admin/flash-promotions/{promoId}/sessions/{sessionId}/status */
 export function flashUpdateStatusByIdAPI(id: number, params: { status: number }) {
   return request<CommonResult<number>>({
-    url: '/flash/update/status/' + id,
-    method: 'post',
+    url: '/admin/flash-promotions/' + id + '/sessions/status',
+    method: 'patch',
     params,
   })
 }

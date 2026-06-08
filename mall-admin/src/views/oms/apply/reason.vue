@@ -3,83 +3,95 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Tickets } from '@element-plus/icons-vue'
 import { formatDateTime } from '@/utils/datetime'
+import { getReturnReasonListAPI, returnReasonCreateAPI, returnReasonUpdateAPI, returnReasonDeleteByIdsAPI, returnReasonUpdateStatusAPI } from '@/apis/returnReason'
+import type { OmsOrderReturnReason } from '@/types/returnReason'
 
 const listQuery = ref({ pageNum: 1, pageSize: 10 })
 
-const allList = ref([
-  { id: 1, name: '质量问题', sort: 1, status: 1, createTime: '2024-01-01T00:00:00' },
-  { id: 2, name: '商品描述不符', sort: 2, status: 1, createTime: '2024-01-02T00:00:00' },
-  { id: 3, name: '不想要了', sort: 3, status: 1, createTime: '2024-01-03T00:00:00' },
-  { id: 4, name: '其他原因', sort: 4, status: 1, createTime: '2024-01-04T00:00:00' },
-  { id: 5, name: '价格问题', sort: 5, status: 0, createTime: '2024-01-05T00:00:00' },
-  { id: 6, name: '物流问题', sort: 6, status: 1, createTime: '2024-01-06T00:00:00' },
-  { id: 7, name: '颜色/尺码/规格不符', sort: 7, status: 1, createTime: '2024-01-07T00:00:00' },
-  { id: 8, name: '少件/漏发', sort: 8, status: 1, createTime: '2024-01-08T00:00:00' },
-  { id: 9, name: '包装破损', sort: 9, status: 1, createTime: '2024-01-09T00:00:00' },
-  { id: 10, name: '功能故障', sort: 10, status: 0, createTime: '2024-01-10T00:00:00' },
-])
-
-const list = ref([...allList.value])
-const total = ref(allList.value.length)
+const list = ref<OmsOrderReturnReason[]>([])
+const total = ref(0)
 const listLoading = ref(false)
-const multipleSelection = ref<any[]>([])
+const multipleSelection = ref<OmsOrderReturnReason[]>([])
 const operateType = ref<number>()
 
 const defaultReturnReason = { name: '', sort: 0, status: 1 }
 const dialogVisible = ref(false)
 const returnReason = ref(Object.assign({}, defaultReturnReason))
-const operateReasonId = ref<number>()
+const operateReasonId = ref<number | undefined>()
 const operateOptions = ref([{ label: '删除', value: 1 }])
 
-const getList = () => {
+const fetchData = async () => {
   listLoading.value = true
-  let result = [...allList.value]
-  total.value = result.length
-  const start = (listQuery.value.pageNum - 1) * listQuery.value.pageSize
-  list.value = result.slice(start, start + listQuery.value.pageSize)
-  listLoading.value = false
+  try {
+    const res = await getReturnReasonListAPI({
+      page: listQuery.value.pageNum,
+      page_size: listQuery.value.pageSize,
+    })
+    list.value = res.items || []
+    total.value = res.total || 0
+  } catch {
+    list.value = []
+    total.value = 0
+  } finally {
+    listLoading.value = false
+  }
 }
-onMounted(() => { getList() })
+
+onMounted(() => { fetchData() })
 
 const handleAdd = () => { dialogVisible.value = true; operateReasonId.value = undefined; returnReason.value = Object.assign({}, defaultReturnReason) }
 
-const handleConfirm = () => {
+const handleConfirm = async () => {
   if (!returnReason.value.name) { ElMessage({ message: '请输入原因类型', type: 'warning', duration: 1000 }); return }
-  if (!operateReasonId.value) {
-    allList.value.unshift({ ...returnReason.value, id: Date.now(), createTime: new Date().toISOString() })
-    ElMessage({ message: '添加成功！', type: 'success', duration: 1000 })
-  } else {
-    const idx = allList.value.findIndex(item => item.id === operateReasonId.value)
-    if (idx > -1) allList.value[idx] = { ...allList.value[idx], ...returnReason.value }
-    ElMessage({ message: '修改成功！', type: 'success', duration: 1000 })
+  try {
+    if (!operateReasonId.value) {
+      await returnReasonCreateAPI(returnReason.value)
+      ElMessage({ message: '添加成功！', type: 'success', duration: 1000 })
+    } else {
+      await returnReasonUpdateAPI(operateReasonId.value, returnReason.value)
+      ElMessage({ message: '修改成功！', type: 'success', duration: 1000 })
+    }
+    dialogVisible.value = false
+    operateReasonId.value = undefined
+    fetchData()
+  } catch {
+    ElMessage({ message: '操作失败', type: 'error', duration: 1000 })
   }
-  dialogVisible.value = false
-  operateReasonId.value = undefined
-  getList()
 }
 
-const handleUpdate = (_index: number, row: any) => { dialogVisible.value = true; operateReasonId.value = row.id; returnReason.value = { name: row.name, sort: row.sort, status: row.status } }
+const handleUpdate = (_index: number, row: OmsOrderReturnReason) => { dialogVisible.value = true; operateReasonId.value = row.id; returnReason.value = { name: row.name, sort: row.sort, status: row.status } }
 
-const handleDelete = (_index: number, row: any) => { deleteReasonMethod([row.id]) }
+const handleDelete = (_index: number, row: OmsOrderReturnReason) => { deleteReasonMethod([row.id!]) }
 
-const handleSelectionChange = (val: any[]) => { multipleSelection.value = val }
+const handleSelectionChange = (val: OmsOrderReturnReason[]) => { multipleSelection.value = val }
 
-const handleStatusChange = (_index: number, row: any) => { ElMessage({ message: '状态修改成功', type: 'success' }) }
+const handleStatusChange = async (_index: number, row: OmsOrderReturnReason) => {
+  try {
+    await returnReasonUpdateStatusAPI({ ids: String(row.id), status: row.status! })
+    ElMessage({ message: '状态修改成功', type: 'success' })
+  } catch {
+    ElMessage({ message: '状态修改失败', type: 'error' })
+  }
+}
 
 const handleBatchOperate = () => {
   if (!multipleSelection.value || multipleSelection.value.length < 1) { ElMessage({ message: '请选择要操作的条目', type: 'warning', duration: 1000 }); return }
-  if (operateType.value === 1) deleteReasonMethod(multipleSelection.value.map(item => item.id))
+  if (operateType.value === 1) deleteReasonMethod(multipleSelection.value.map(item => item.id!))
 }
 
-const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQuery.value.pageSize = val; getList() }
-const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; getList() }
+const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQuery.value.pageSize = val; fetchData() }
+const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; fetchData() }
 
 const deleteReasonMethod = async (ids: number[]) => {
   await ElMessageBox.confirm('是否要进行该删除操作?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
-  allList.value = allList.value.filter(item => !ids.includes(item.id))
-  listQuery.value.pageNum = 1
-  getList()
-  ElMessage({ message: '删除成功！', type: 'success', duration: 1000 })
+  try {
+    await returnReasonDeleteByIdsAPI({ ids: ids.join(',') })
+    listQuery.value.pageNum = 1
+    fetchData()
+    ElMessage({ message: '删除成功！', type: 'success', duration: 1000 })
+  } catch {
+    ElMessage({ message: '删除失败', type: 'error', duration: 1000 })
+  }
 }
 </script>
 

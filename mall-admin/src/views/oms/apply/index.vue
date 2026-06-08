@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Tickets } from '@element-plus/icons-vue'
 import { formatDateTime } from '@/utils/datetime'
+import { getReturnApplyListAPI, returnApplyDeleteByIdsAPI } from '@/apis/returnApply'
+import type { OmsOrderReturnApply } from '@/types/returnApply'
 
 const router = useRouter()
 
@@ -26,62 +28,64 @@ const listQuery = ref({
 
 const statusOptions = ref([...defaultStatusOptions])
 
-const allList = ref([
-  { id: 1, createTime: '2024-05-28T10:30:00', memberUsername: 'user_001', productRealPrice: 9999, productCount: 1, status: 0 },
-  { id: 2, createTime: '2024-05-27T14:20:00', memberUsername: 'user_002', productRealPrice: 6999, productCount: 1, status: 0 },
-  { id: 3, createTime: '2024-05-26T09:10:00', memberUsername: 'user_003', productRealPrice: 1899, productCount: 2, status: 1 },
-  { id: 4, createTime: '2024-05-25T16:45:00', memberUsername: 'user_004', productRealPrice: 5999, productCount: 1, status: 1 },
-  { id: 5, createTime: '2024-05-24T11:30:00', memberUsername: 'user_005', productRealPrice: 399, productCount: 3, status: 2 },
-  { id: 6, createTime: '2024-05-23T20:00:00', memberUsername: 'user_006', productRealPrice: 1299, productCount: 1, status: 2 },
-  { id: 7, createTime: '2024-05-22T08:15:00', memberUsername: 'user_007', productRealPrice: 899, productCount: 1, status: 3 },
-  { id: 8, createTime: '2024-05-21T13:40:00', memberUsername: 'user_008', productRealPrice: 1488, productCount: 2, status: 3 },
-  { id: 9, createTime: '2024-05-20T17:25:00', memberUsername: 'user_009', productRealPrice: 4799, productCount: 1, status: 0 },
-  { id: 10, createTime: '2024-05-19T22:10:00', memberUsername: 'user_010', productRealPrice: 2999, productCount: 1, status: 2 },
-])
-
-const list = ref([...allList.value])
-const total = ref(allList.value.length)
+const list = ref<OmsOrderReturnApply[]>([])
+const total = ref(0)
 const listLoading = ref(false)
-const multipleSelection = ref<any[]>([])
+const multipleSelection = ref<OmsOrderReturnApply[]>([])
 const operateType = ref<number>()
 
 const operateOptions = ref([{ label: '批量删除', value: 1 }])
 
 const formatStatus = (status?: number) => defaultStatusOptions.find(item => item.value === status)?.label || ''
-const formatReturnAmount = (row: any) => (row.productRealPrice || 0) * (row.productCount || 0)
+const formatReturnAmount = (row: OmsOrderReturnApply) => (row.productRealPrice || 0) * (row.productCount || 0)
 
-const handleSelectionChange = (val: any[]) => { multipleSelection.value = val }
+const handleSelectionChange = (val: OmsOrderReturnApply[]) => { multipleSelection.value = val }
 
-const getList = () => {
+const fetchData = async () => {
   listLoading.value = true
-  let result = [...allList.value]
-  if (listQuery.value.id !== undefined) result = result.filter(item => item.id === listQuery.value.id)
-  if (listQuery.value.status !== undefined) result = result.filter(item => item.status === listQuery.value.status)
-  total.value = result.length
-  const start = (listQuery.value.pageNum - 1) * listQuery.value.pageSize
-  list.value = result.slice(start, start + listQuery.value.pageSize)
-  listLoading.value = false
+  try {
+    const res = await getReturnApplyListAPI({
+      id: listQuery.value.id,
+      status: listQuery.value.status,
+      createTime: listQuery.value.createTime || undefined,
+      handleMan: listQuery.value.handleMan || undefined,
+      handleTime: listQuery.value.handleTime || undefined,
+      page: listQuery.value.pageNum,
+      page_size: listQuery.value.pageSize,
+    })
+    list.value = res.items || []
+    total.value = res.total || 0
+  } catch {
+    list.value = []
+    total.value = 0
+  } finally {
+    listLoading.value = false
+  }
 }
 
-onMounted(() => { getList() })
+onMounted(() => { fetchData() })
 
-const handleResetSearch = () => { listQuery.value = { id: undefined, status: undefined, createTime: '', handleMan: '', handleTime: '', pageNum: 1, pageSize: 10 }; getList() }
-const handleSearchList = () => { listQuery.value.pageNum = 1; getList() }
-const handleViewDetail = (_index: number, row: any) => { router.push({ path: '/oms/returnApplyDetail', query: { id: row.id } }) }
+const handleResetSearch = () => { listQuery.value = { id: undefined, status: undefined, createTime: '', handleMan: '', handleTime: '', pageNum: 1, pageSize: 10 }; fetchData() }
+const handleSearchList = () => { listQuery.value.pageNum = 1; fetchData() }
+const handleViewDetail = (_index: number, row: OmsOrderReturnApply) => { router.push({ path: '/oms/returnApplyDetail', query: { id: row.id } }) }
 
 const handleBatchOperate = async () => {
   if (!multipleSelection.value || multipleSelection.value.length < 1) { ElMessage({ message: '请选择要操作的申请', type: 'warning', duration: 1000 }); return }
   if (operateType.value === 1) {
     await ElMessageBox.confirm('是否要进行删除操作?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
-    const ids = multipleSelection.value.map(item => item.id)
-    allList.value = allList.value.filter(item => !ids.includes(item.id))
-    getList()
-    ElMessage({ type: 'success', message: '删除成功!' })
+    try {
+      const ids = multipleSelection.value.map(item => item.id!)
+      await returnApplyDeleteByIdsAPI({ ids: ids.join(',') })
+      ElMessage({ type: 'success', message: '删除成功!' })
+      fetchData()
+    } catch {
+      ElMessage({ type: 'error', message: '批量删除失败' })
+    }
   }
 }
 
-const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQuery.value.pageSize = val; getList() }
-const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; getList() }
+const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQuery.value.pageSize = val; fetchData() }
+const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; fetchData() }
 </script>
 
 <template>

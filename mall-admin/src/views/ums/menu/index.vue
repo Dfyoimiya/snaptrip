@@ -3,34 +3,35 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Bottom, Top } from '@element-plus/icons-vue'
 import { formatDateTime } from '@/utils/datetime'
+import {
+  getMenuTreeListAPI,
+  menuCreateAPI,
+  menuUpdateByIdAPI,
+  menuDeleteByIdAPI,
+  menuUpdateHiddenByIdAPI,
+} from '@/apis/menu'
+import type { UmsMenuNode, UmsMenu } from '@/types/menu'
 
 const listQuery = ref({ keyword: '' })
-const list = ref([
-  { id: 1, parentId: 0, title: '商品', name: 'pms', icon: 'Goods', level: 0, sort: 5, hidden: 0, createTime: '2024-01-01T00:00:00', children: [
-    { id: 2, parentId: 1, title: '商品列表', name: 'product', icon: 'List', level: 1, sort: 4, hidden: 0, createTime: '2024-01-01T00:00:00' },
-    { id: 3, parentId: 1, title: '添加商品', name: 'addProduct', icon: 'Plus', level: 1, sort: 3, hidden: 1, createTime: '2024-01-01T00:00:00' },
-    { id: 4, parentId: 1, title: '商品分类', name: 'productCate', icon: 'FolderOpened', level: 1, sort: 2, hidden: 0, createTime: '2024-01-01T00:00:00' },
-    { id: 5, parentId: 1, title: '商品类型', name: 'productAttr', icon: 'Collection', level: 1, sort: 1, hidden: 0, createTime: '2024-01-01T00:00:00' },
-    { id: 13, parentId: 1, title: '品牌管理', name: 'brand', icon: 'Trophy', level: 1, sort: 0, hidden: 0, createTime: '2024-01-01T00:00:00' },
-  ]},
-  { id: 6, parentId: 0, title: '订单', name: 'oms', icon: 'Document', level: 0, sort: 4, hidden: 0, createTime: '2024-01-01T00:00:00', children: [
-    { id: 7, parentId: 6, title: '订单列表', name: 'order', icon: 'List', level: 1, sort: 3, hidden: 0, createTime: '2024-01-01T00:00:00' },
-    { id: 8, parentId: 6, title: '订单设置', name: 'orderSetting', icon: 'Setting', level: 1, sort: 2, hidden: 0, createTime: '2024-01-01T00:00:00' },
-    { id: 9, parentId: 6, title: '退货申请', name: 'returnApply', icon: 'RefreshLeft', level: 1, sort: 1, hidden: 0, createTime: '2024-01-01T00:00:00' },
-    { id: 14, parentId: 6, title: '退货原因', name: 'returnReason', icon: 'Warning', level: 1, sort: 0, hidden: 0, createTime: '2024-01-01T00:00:00' },
-  ]},
-  { id: 10, parentId: 0, title: '会员', name: 'ums', icon: 'User', level: 0, sort: 3, hidden: 0, createTime: '2024-01-01T00:00:00', children: [
-    { id: 11, parentId: 10, title: '用户管理', name: 'admin', icon: 'UserFilled', level: 1, sort: 4, hidden: 0, createTime: '2024-01-01T00:00:00' },
-    { id: 12, parentId: 10, title: '角色管理', name: 'role', icon: 'Medal', level: 1, sort: 3, hidden: 0, createTime: '2024-01-01T00:00:00' },
-    { id: 15, parentId: 10, title: '菜单管理', name: 'menu', icon: 'Menu', level: 1, sort: 2, hidden: 0, createTime: '2024-01-01T00:00:00' },
-    { id: 16, parentId: 10, title: '资源管理', name: 'resource', icon: 'Collection', level: 1, sort: 1, hidden: 0, createTime: '2024-01-01T00:00:00' },
-  ]},
-])
+const list = ref<UmsMenuNode[]>([])
 const listLoading = ref(false)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
-const menu = ref<any>({ parentId: 0, title: '', name: '', icon: '', sort: 0, hidden: 0 })
+const menu = ref<UmsMenu>({ parentId: 0, title: '', name: '', icon: '', sort: 0, hidden: 0 })
 const parentOptions = ref([{ label: '无上级菜单', value: 0 }])
+
+async function fetchList() {
+  listLoading.value = true
+  try {
+    const data = await getMenuTreeListAPI()
+    list.value = data || []
+  } catch (err: any) {
+    ElMessage.error(err?.message || '获取菜单列表失败')
+  } finally {
+    listLoading.value = false
+  }
+}
+onMounted(() => { fetchList() })
 
 const levelFilter = (value: number) => value === 0 ? '一级' : value === 1 ? '二级' : '三级'
 const disableNextLevel = (value: number) => value >= 2
@@ -49,26 +50,50 @@ const extractParentOptions = (items: any[], level: number) => {
   })
 }
 
-const handleEdit = (row: any) => {
+const handleEdit = (row: UmsMenu) => {
   dialogVisible.value = true; isEdit.value = true
   parentOptions.value = [{ label: '无上级菜单', value: 0 }]
   extractParentOptions(list.value, 0)
   menu.value = { ...row }
 }
 
-const handleDelete = async (_index: number, row: any) => {
-  await ElMessageBox.confirm('是否要删除该菜单?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
-  ElMessage({ message: '删除成功', type: 'success', duration: 1000 })
+const handleDelete = async (_index: number, row: UmsMenu) => {
+  try {
+    await ElMessageBox.confirm('是否要删除该菜单?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
+    await menuDeleteByIdAPI(row.id!)
+    ElMessage({ message: '删除成功', type: 'success', duration: 1000 })
+    fetchList()
+  } catch (err: any) {
+    if (err !== 'cancel') ElMessage.error(err?.message || '删除失败')
+  }
 }
 
-const handleHiddenChange = (_index: number, row: any) => {
-  const label = row.hidden === 1 ? '隐藏' : '显示'
-  ElMessage({ message: `已${label}`, type: 'success' })
+const handleHiddenChange = async (_index: number, row: UmsMenu) => {
+  try {
+    await menuUpdateHiddenByIdAPI(row.id!, { hidden: row.hidden! })
+    const label = row.hidden === 1 ? '隐藏' : '显示'
+    ElMessage({ message: `已${label}`, type: 'success' })
+  } catch (err: any) {
+    ElMessage.error(err?.message || '状态更新失败')
+    fetchList()
+  }
 }
 
-const handleDialogConfirm = () => {
-  dialogVisible.value = false; isEdit.value = false
-  ElMessage({ message: isEdit.value ? '修改成功' : '添加成功', type: 'success', duration: 1000 })
+const handleDialogConfirm = async () => {
+  try {
+    const wasEdit = isEdit.value
+    if (wasEdit) {
+      await menuUpdateByIdAPI(menu.value.id!, menu.value as UmsMenu)
+    } else {
+      await menuCreateAPI(menu.value as UmsMenu)
+    }
+    dialogVisible.value = false
+    isEdit.value = false
+    ElMessage({ message: wasEdit ? '修改成功' : '添加成功', type: 'success', duration: 1000 })
+    fetchList()
+  } catch (err: any) {
+    ElMessage.error(err?.message || '保存失败')
+  }
 }
 
 const handleSearchList = () => {

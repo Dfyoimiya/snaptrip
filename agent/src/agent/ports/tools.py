@@ -22,15 +22,23 @@ class ToolPort(Protocol):
     # ── 搜索 ──────────────────────────────────────────────────
 
     async def search_pois_by_keyword(
-        self, keywords: str, city: str = "", types: str = "",
-        offset: int = 10, page: int = 1,
+        self,
+        keywords: str,
+        city: str = "",
+        types: str = "",
+        offset: int = 10,
+        page: int = 1,
     ) -> list[dict[str, Any]]:
         """关键词搜索 POI。"""
         ...
 
     async def search_pois_around(
-        self, location: str, radius: int = 5000,
-        keywords: str = "", types: str = "", offset: int = 10,
+        self,
+        location: str,
+        radius: int = 5000,
+        keywords: str = "",
+        types: str = "",
+        offset: int = 10,
     ) -> list[dict[str, Any]]:
         """周边搜索 POI。location="lng,lat"。"""
         ...
@@ -40,7 +48,10 @@ class ToolPort(Protocol):
         ...
 
     async def input_tips(
-        self, keywords: str, city: str = "", location: str = "",
+        self,
+        keywords: str,
+        city: str = "",
+        location: str = "",
     ) -> list[dict[str, Any]]:
         """输入提示 / 搜索自动补全。"""
         ...
@@ -52,7 +63,10 @@ class ToolPort(Protocol):
         ...
 
     async def reverse_geocode(
-        self, location: str, radius: int = 1000, with_pois: bool = False,
+        self,
+        location: str,
+        radius: int = 1000,
+        with_pois: bool = False,
     ) -> dict[str, Any]:
         """逆地理编码：经纬度 → 地址 + 周边 POI。"""
         ...
@@ -62,7 +76,9 @@ class ToolPort(Protocol):
         ...
 
     async def get_district(
-        self, keywords: str, subdistrict: int = 1,
+        self,
+        keywords: str,
+        subdistrict: int = 1,
     ) -> list[dict[str, Any]]:
         """行政区域查询。返回省市区 adcode/citycode/center。"""
         ...
@@ -70,7 +86,9 @@ class ToolPort(Protocol):
     # ── 天气 ──────────────────────────────────────────────────
 
     async def get_weather(
-        self, city_adcode: str, forecast: bool = False,
+        self,
+        city_adcode: str,
+        forecast: bool = False,
     ) -> dict[str, Any]:
         """天气查询。forecast=False 返回实况，True 返回预报。"""
         ...
@@ -78,15 +96,22 @@ class ToolPort(Protocol):
     # ── 路径规划 ──────────────────────────────────────────────
 
     async def estimate_travel_time(
-        self, origin: str, destination: str, mode: str = "driving",
+        self,
+        origin: str,
+        destination: str,
+        mode: str = "driving",
     ) -> dict[str, Any]:
         """估算两点间行程距离和时间。返回 {distance_km, duration_min}。"""
         ...
 
     async def get_route_plan(
-        self, origin: str, destination: str,
-        mode: str = "driving", strategy: int = 32,
-        city1: str = "", city2: str = "",
+        self,
+        origin: str,
+        destination: str,
+        mode: str = "driving",
+        strategy: int = 32,
+        city1: str = "",
+        city2: str = "",
     ) -> dict[str, Any]:
         """路径规划。返回 {distance, duration, steps, polyline, taxi_cost}。"""
         ...
@@ -94,7 +119,9 @@ class ToolPort(Protocol):
     # ── MCP 专属 ──────────────────────────────────────────────
 
     async def generate_custom_map(
-        self, title: str, daily_schedules: list[dict[str, Any]],
+        self,
+        title: str,
+        daily_schedules: list[dict[str, Any]],
     ) -> str:
         """生成高德专属地图，返回唤端链接。"""
         ...

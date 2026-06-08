@@ -79,7 +79,9 @@ class CompensationRegistry:
             if success:
                 self._executed_ids.add(action.action_id)
                 logger.info(
-                    "Compensated: %s (%s)", action.action_id, action.description,
+                    "Compensated: %s (%s)",
+                    action.action_id,
+                    action.description,
                 )
             else:
                 failed.append(action.action_id)
@@ -97,10 +99,14 @@ class CompensationRegistry:
                 await action.execute()
                 return True
             except Exception as exc:
-                wait = 2 ** attempt
+                wait = 2**attempt
                 logger.warning(
                     "Compensation %s attempt %d/%d failed: %s; retrying in %ds",
-                    action.action_id, attempt + 1, action.max_retries, exc, wait,
+                    action.action_id,
+                    attempt + 1,
+                    action.max_retries,
+                    exc,
+                    wait,
                 )
                 await asyncio.sleep(wait)
         return False

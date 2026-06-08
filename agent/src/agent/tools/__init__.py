@@ -17,7 +17,10 @@ from agent.tools.harness.context import SessionContext, ToolExecutionContext
 from agent.tools.registry.registry import ToolRegistry
 from agent.tools.registry.schema import ToolManifest
 from agent.tools.transaction.context import TransactionContext, TxStatus
-from agent.tools.transaction.compensation import CompensationAction, CompensationRegistry
+from agent.tools.transaction.compensation import (
+    CompensationAction,
+    CompensationRegistry,
+)
 from agent.tools.transaction.saga import SagaCoordinator
 from agent.tools.tracing.audit_log import AuditEntry, AuditStore
 from agent.tools.tracing.tracer import ToolTracer

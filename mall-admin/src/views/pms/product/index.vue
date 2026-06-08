@@ -1,8 +1,9 @@
 <script lang="ts" setup>
-import { ref, computed, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Tickets, Edit } from '@element-plus/icons-vue'
+import { getProductListAPI, productUpdatePublishStatusAPI, productUpdateNewStatusAPI, productUpdateRecommendStatusAPI, productUpdateDeleteStatusAPI } from '@/apis/product'
 
 const router = useRouter()
 
@@ -14,8 +15,8 @@ const listQuery = ref({
   brandId: undefined as number | undefined,
   publishStatus: undefined as number | undefined,
   verifyStatus: undefined as number | undefined,
-  pageNum: 1,
-  pageSize: 10,
+  page: 1,
+  page_size: 10,
 })
 
 const brandOptions = ref([
@@ -48,60 +49,56 @@ const cateOptions = ref([
 const publishStatusOptions = ref([{ value: 1, label: '上架' }, { value: 0, label: '下架' }])
 const verifyStatusOptions = ref([{ value: 1, label: '审核通过' }, { value: 0, label: '未审核' }])
 
-// ========== 原始数据 ==========
-const allData = ref([
-  { id: 1, pic: 'https://picsum.photos/seed/iphone/200/200', name: 'iPhone 15 Pro Max', productSn: 'APP-2024-001', brandName: 'Apple', productCategoryName: '手机', productAttributeCategoryId: 1, price: 9999, publishStatus: 1, newStatus: 1, recommandStatus: 1, sort: 100, sale: 528, verifyStatus: 1 },
-  { id: 2, pic: 'https://picsum.photos/seed/huawei/200/200', name: '华为 Mate 60 Pro', productSn: 'HW-2024-002', brandName: '华为', productCategoryName: '手机', productAttributeCategoryId: 1, price: 6999, publishStatus: 1, newStatus: 1, recommandStatus: 0, sort: 99, sale: 1024, verifyStatus: 1 },
-  { id: 3, pic: 'https://picsum.photos/seed/mi14/200/200', name: '小米14 Ultra', productSn: 'XM-2024-003', brandName: '小米', productCategoryName: '手机', productAttributeCategoryId: 1, price: 5999, publishStatus: 1, newStatus: 0, recommandStatus: 1, sort: 98, sale: 896, verifyStatus: 1 },
-  { id: 4, pic: 'https://picsum.photos/seed/macbook/200/200', name: 'MacBook Pro 14英寸', productSn: 'APP-2024-004', brandName: 'Apple', productCategoryName: '笔记本电脑', productAttributeCategoryId: 2, price: 14999, publishStatus: 1, newStatus: 0, recommandStatus: 0, sort: 97, sale: 234, verifyStatus: 1 },
-  { id: 5, pic: 'https://picsum.photos/seed/airpods/200/200', name: 'AirPods Pro 2', productSn: 'APP-2024-005', brandName: 'Apple', productCategoryName: '手机配件', productAttributeCategoryId: 1, price: 1899, publishStatus: 0, newStatus: 0, recommandStatus: 1, sort: 96, sale: 3456, verifyStatus: 0 },
-  { id: 6, pic: 'https://picsum.photos/seed/gt4/200/200', name: '华为 Watch GT 4', productSn: 'HW-2024-006', brandName: '华为', productCategoryName: '智能手表', productAttributeCategoryId: 1, price: 1488, publishStatus: 1, newStatus: 1, recommandStatus: 1, sort: 95, sale: 678, verifyStatus: 1 },
-  { id: 7, pic: 'https://picsum.photos/seed/ipad/200/200', name: 'iPad Air 5', productSn: 'APP-2024-007', brandName: 'Apple', productCategoryName: '平板电脑', productAttributeCategoryId: 1, price: 4799, publishStatus: 1, newStatus: 0, recommandStatus: 0, sort: 94, sale: 432, verifyStatus: 1 },
-  { id: 8, pic: 'https://picsum.photos/seed/miband/200/200', name: '小米手环8 Pro', productSn: 'XM-2024-008', brandName: '小米', productCategoryName: '智能手表', productAttributeCategoryId: 1, price: 399, publishStatus: 1, newStatus: 1, recommandStatus: 1, sort: 93, sale: 5678, verifyStatus: 1 },
-  { id: 9, pic: 'https://picsum.photos/seed/nike/200/200', name: 'Nike Air Max', productSn: 'NK-2024-009', brandName: 'Nike', productCategoryName: '运动鞋', productAttributeCategoryId: 4, price: 899, publishStatus: 1, newStatus: 0, recommandStatus: 0, sort: 92, sale: 3456, verifyStatus: 1 },
-  { id: 10, pic: 'https://picsum.photos/seed/adidas/200/200', name: 'Adidas Ultraboost', productSn: 'AD-2024-010', brandName: 'Adidas', productCategoryName: '运动鞋', productAttributeCategoryId: 4, price: 1299, publishStatus: 1, newStatus: 1, recommandStatus: 1, sort: 91, sale: 2100, verifyStatus: 1 },
-])
-
-// ========== 筛选逻辑 ==========
-const filteredList = computed(() => {
-  return allData.value.filter((item) => {
-    if (listQuery.value.keyword && !item.name.includes(listQuery.value.keyword)) return false
-    if (listQuery.value.productSn && !item.productSn.includes(listQuery.value.productSn)) return false
-    if (listQuery.value.brandId && item.brandName !== brandOptions.value.find(b => b.value === listQuery.value.brandId)?.label) return false
-    if (listQuery.value.publishStatus !== undefined && item.publishStatus !== listQuery.value.publishStatus) return false
-    if (listQuery.value.verifyStatus !== undefined && item.verifyStatus !== listQuery.value.verifyStatus) return false
-    return true
-  })
-})
-
-const list = computed(() => {
-  const start = (listQuery.value.pageNum - 1) * listQuery.value.pageSize
-  return filteredList.value.slice(start, start + listQuery.value.pageSize)
-})
-
-const total = computed(() => filteredList.value.length)
+// ========== 数据状态 ==========
+const list = ref<any[]>([])
+const total = ref(0)
 const listLoading = ref(false)
 const multipleSelection = ref<any[]>([])
 
+/** 加载商品列表 */
+async function fetchList() {
+  listLoading.value = true
+  try {
+    const res = await getProductListAPI(listQuery.value)
+    list.value = res.data.items || []
+    total.value = res.data.total || 0
+  } catch (error) {
+    console.error('获取商品列表失败:', error)
+    ElMessage.error('获取商品列表失败')
+    list.value = []
+    total.value = 0
+  } finally {
+    listLoading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchList()
+})
+
 // ========== 搜索 ==========
 function handleSearchList() {
-  listQuery.value.pageNum = 1
+  listQuery.value.page = 1
+  fetchList()
 }
 function handleResetSearch() {
   listQuery.value = {
     keyword: '', productSn: '', productCategoryId: undefined,
     brandId: undefined, publishStatus: undefined, verifyStatus: undefined,
-    pageNum: 1, pageSize: 10,
+    page: 1, page_size: 10,
   }
+  fetchList()
 }
 
 // ========== 分页 ==========
 function handleSizeChange(val: number) {
-  listQuery.value.pageNum = 1
-  listQuery.value.pageSize = val
+  listQuery.value.page = 1
+  listQuery.value.page_size = val
+  fetchList()
 }
 function handleCurrentChange(val: number) {
-  listQuery.value.pageNum = val
+  listQuery.value.page = val
+  fetchList()
 }
 
 // ========== 表格选择 ==========
@@ -110,14 +107,29 @@ function handleSelectionChange(val: any[]) {
 }
 
 // ========== 状态变更 ==========
-function handlePublishStatusChange(_index: number, row: any) {
-  ElMessage.success('上架状态已更新')
+async function handlePublishStatusChange(_index: number, row: any) {
+  try {
+    await productUpdatePublishStatusAPI({ ids: String(row.id), publishStatus: row.publishStatus })
+    ElMessage.success('上架状态已更新')
+  } catch {
+    ElMessage.error('上架状态更新失败')
+  }
 }
-function handleNewStatusChange(_index: number, row: any) {
-  ElMessage.success('新品状态已更新')
+async function handleNewStatusChange(_index: number, row: any) {
+  try {
+    await productUpdateNewStatusAPI({ ids: String(row.id), newStatus: row.newStatus })
+    ElMessage.success('新品状态已更新')
+  } catch {
+    ElMessage.error('新品状态更新失败')
+  }
 }
-function handleRecommendStatusChange(_index: number, row: any) {
-  ElMessage.success('推荐状态已更新')
+async function handleRecommendStatusChange(_index: number, row: any) {
+  try {
+    await productUpdateRecommendStatusAPI({ ids: String(row.id), recommendStatus: row.recommandStatus })
+    ElMessage.success('推荐状态已更新')
+  } catch {
+    ElMessage.error('推荐状态更新失败')
+  }
 }
 function verifyStatusFilter(value: number) {
   return value === 1 ? '审核通过' : '未审核'
@@ -131,9 +143,14 @@ function handleUpdateProduct(_index: number, row: any) {
   router.push({ path: '/pms/updateProduct', query: { id: row.id } })
 }
 function handleDelete(_index: number, row: any) {
-  ElMessageBox.confirm('是否要进行删除操作?', '提示', { type: 'warning' }).then(() => {
-    allData.value = allData.value.filter(item => item.id !== row.id)
-    ElMessage.success('删除成功')
+  ElMessageBox.confirm('是否要进行删除操作?', '提示', { type: 'warning' }).then(async () => {
+    try {
+      await productUpdateDeleteStatusAPI({ ids: String(row.id), deleteStatus: 1 })
+      ElMessage.success('删除成功')
+      fetchList()
+    } catch {
+      ElMessage.error('删除失败')
+    }
   })
 }
 function handleShowProduct(_index: number, row: any) {
@@ -159,7 +176,7 @@ const operates = ref([
 ])
 const operateType = ref<string>()
 
-function handleBatchOperate() {
+async function handleBatchOperate() {
   if (!operateType.value) {
     ElMessage({ message: '请选择操作类型', type: 'warning', duration: 1000 })
     return
@@ -168,33 +185,59 @@ function handleBatchOperate() {
     ElMessage({ message: '请选择要操作的商品', type: 'warning', duration: 1000 })
     return
   }
-  ElMessageBox.confirm('是否要进行该批量操作?', '提示', { type: 'warning' }).then(() => {
-    const ids = multipleSelection.value.map(item => item.id)
-    switch (operateType.value) {
-      case 'publishOn':
-        allData.value.filter(item => ids.includes(item.id)).forEach(item => item.publishStatus = 1)
-        break
-      case 'publishOff':
-        allData.value.filter(item => ids.includes(item.id)).forEach(item => item.publishStatus = 0)
-        break
-      case 'recommendOn':
-        allData.value.filter(item => ids.includes(item.id)).forEach(item => item.recommandStatus = 1)
-        break
-      case 'recommendOff':
-        allData.value.filter(item => ids.includes(item.id)).forEach(item => item.recommandStatus = 0)
-        break
-      case 'newOn':
-        allData.value.filter(item => ids.includes(item.id)).forEach(item => item.newStatus = 1)
-        break
-      case 'newOff':
-        allData.value.filter(item => ids.includes(item.id)).forEach(item => item.newStatus = 0)
-        break
-      case 'recycle':
-        allData.value = allData.value.filter(item => !ids.includes(item.id))
-        break
+  ElMessageBox.confirm('是否要进行该批量操作?', '提示', { type: 'warning' }).then(async () => {
+    try {
+      const ids = multipleSelection.value.map(item => item.id)
+      let status = 0
+      let action = ''
+      switch (operateType.value) {
+        case 'publishOn':
+          status = 1; action = '上架'
+          break
+        case 'publishOff':
+          status = 0; action = '下架'
+          break
+        case 'recommendOn':
+          status = 1; action = '推荐'
+          break
+        case 'recommendOff':
+          status = 0; action = '取消推荐'
+          break
+        case 'newOn':
+          status = 1; action = '设为新品'
+          break
+        case 'newOff':
+          status = 0; action = '取消新品'
+          break
+        case 'recycle':
+          // 逐个删除
+          for (const id of ids) {
+            await productUpdateDeleteStatusAPI({ ids: String(id), deleteStatus: 1 })
+          }
+          ElMessage.success('批量操作成功')
+          operateType.value = undefined
+          fetchList()
+          return
+        default:
+          ElMessage({ message: '暂不支持该操作', type: 'warning' })
+          return
+      }
+      // 逐个调用状态变更接口
+      for (const id of ids) {
+        if (operateType.value === 'publishOn' || operateType.value === 'publishOff') {
+          await productUpdatePublishStatusAPI({ ids: String(id), publishStatus: status })
+        } else if (operateType.value === 'recommendOn' || operateType.value === 'recommendOff') {
+          await productUpdateRecommendStatusAPI({ ids: String(id), recommendStatus: status })
+        } else if (operateType.value === 'newOn' || operateType.value === 'newOff') {
+          await productUpdateNewStatusAPI({ ids: String(id), newStatus: status })
+        }
+      }
+      ElMessage.success('批量操作成功')
+      operateType.value = undefined
+      fetchList()
+    } catch {
+      ElMessage.error('批量操作失败')
     }
-    ElMessage.success('批量操作成功')
-    operateType.value = undefined
   })
 }
 
@@ -234,12 +277,10 @@ function handleShowSkuEditDialog(_index: number, row: any) {
   editSkuInfo.productSn = row.productSn
   editSkuInfo.productAttributeCategoryId = row.productAttributeCategoryId
   editSkuInfo.keyword = undefined
-  // 模拟SKU数据
   const skus = skuMockData[row.id] || [
     { skuCode: `SKU-${String(row.id).padStart(3,'0')}-001`, spData: '[{"key":"颜色","value":"默认色"},{"key":"规格","value":"标准版"}]', price: row.price, stock: 100, lowStock: 10 },
   ]
   editSkuInfo.stockList = [...skus]
-  // 模拟属性列
   if (row.productAttributeCategoryId === 1) {
     editSkuInfo.productAttr = [{ id: 1, name: '颜色' }, { id: 2, name: '容量' }]
   } else if (row.productAttributeCategoryId === 4) {
@@ -320,18 +361,18 @@ function handleEditSkuConfirm() {
           <template #default="scope">{{ scope.row.id }}</template>
         </el-table-column>
         <el-table-column label="商品图片" width="120" align="center">
-          <template #default="scope"><img style="height: 80px" :src="scope.row.pic"></template>
+          <template #default="scope"><img style="height: 80px" :src="scope.row.pic || scope.row.image_url"></template>
         </el-table-column>
         <el-table-column label="商品名称" align="center">
           <template #default="scope">
             <p>{{ scope.row.name }}</p>
-            <p>品牌：{{ scope.row.brandName }}</p>
+            <p>品牌：{{ scope.row.brandName || scope.row.brand_name }}</p>
           </template>
         </el-table-column>
         <el-table-column label="价格/货号" width="140" align="center">
           <template #default="scope">
             <p>价格：￥{{ scope.row.price }}</p>
-            <p>货号：{{ scope.row.productSn }}</p>
+            <p>货号：{{ scope.row.productSn || scope.row.product_sn }}</p>
           </template>
         </el-table-column>
         <el-table-column label="标签" width="140" align="center">
@@ -356,7 +397,7 @@ function handleEditSkuConfirm() {
           </template>
         </el-table-column>
         <el-table-column label="销量" width="100" align="center">
-          <template #default="scope">{{ scope.row.sale }}</template>
+          <template #default="scope">{{ scope.row.sale || scope.row.sale_count }}</template>
         </el-table-column>
         <el-table-column label="审核状态" width="100" align="center">
           <template #default="scope">
@@ -390,8 +431,8 @@ function handleEditSkuConfirm() {
     <!-- 分页 -->
     <div class="pagination-container">
       <el-pagination background @size-change="handleSizeChange" @current-change="handleCurrentChange"
-        layout="total, sizes, prev, pager, next, jumper" :page-size="listQuery.pageSize" :page-sizes="[5, 10, 15]"
-        v-model:current-page="listQuery.pageNum" :total="total"></el-pagination>
+        layout="total, sizes, prev, pager, next, jumper" :page-size="listQuery.page_size" :page-sizes="[5, 10, 15]"
+        v-model:current-page="listQuery.page" :total="total"></el-pagination>
     </div>
 
     <!-- SKU库存编辑弹窗 -->

@@ -71,12 +71,14 @@ class SagaCoordinator:
             )
             results.append(result)
             if result.success:
-                reserved.append({
-                    "seq": i,
-                    "tool_name": tool_name,
-                    "args": step.get("args", {}),
-                    "reserve_result": result,
-                })
+                reserved.append(
+                    {
+                        "seq": i,
+                        "tool_name": tool_name,
+                        "args": step.get("args", {}),
+                        "reserve_result": result,
+                    }
+                )
             else:
                 logger.warning("Saga reserve failed for %s: %s", tool_name, result.data)
                 # Rollback whatever was reserved

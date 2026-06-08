@@ -38,12 +38,12 @@ logger = logging.getLogger(__name__)
 # Base Hook
 # ═══════════════════════════════════════════════════════════════
 
+
 class BaseHook(abc.ABC):
     """Base hook — subclass PreHook, PostHook, or ErrorHook, not this."""
 
     @abc.abstractmethod
-    async def execute(self, ctx: ToolExecutionContext) -> ToolExecutionContext:
-        ...
+    async def execute(self, ctx: ToolExecutionContext) -> ToolExecutionContext: ...
 
 
 class PreHook(BaseHook, abc.ABC):
@@ -61,6 +61,7 @@ class ErrorHook(BaseHook, abc.ABC):
 # ═══════════════════════════════════════════════════════════════
 # Pre-Hooks
 # ═══════════════════════════════════════════════════════════════
+
 
 class AuthHook(PreHook):
     """Validates that the session is authenticated."""
@@ -113,6 +114,7 @@ class SchemaHook(PreHook):
         # LangChain BaseTool.ainvoke already validates args_schema.
         # This hook ensures validation runs even if called outside ainvoke path.
         from agent.tools.registry.registry import ToolRegistry
+
         # Schema validation is handled by LangChain's Pydantic model
         # when the tool is invoked. Here we just verify required fields.
         return ctx
@@ -165,6 +167,7 @@ class TxBeginHook(PreHook):
 # ═══════════════════════════════════════════════════════════════
 # Post-Hooks
 # ═══════════════════════════════════════════════════════════════
+
 
 class CompRegHook(PostHook):
     """Registers the tool's compensation action with the active Tx's registry.
@@ -246,19 +249,21 @@ class TraceEndHook(PostHook):
 class AlertHook(PostHook):
     """Emits alerts for high-latency or error-flagged tool calls."""
 
-    LATENCY_WARN_MS = 30_000   # 30s
+    LATENCY_WARN_MS = 30_000  # 30s
 
     async def execute(self, ctx: ToolExecutionContext) -> ToolExecutionContext:
         latency = ctx.metadata.get("_latency_ms", 0)
         if latency > self.LATENCY_WARN_MS:
             logger.warning(
                 "High latency: %s took %dms",
-                ctx.tool_name, latency,
+                ctx.tool_name,
+                latency,
             )
         if ctx.error:
             logger.error(
                 "Tool error: %s — %s",
-                ctx.tool_name, str(ctx.error)[:200],
+                ctx.tool_name,
+                str(ctx.error)[:200],
             )
         return ctx
 
@@ -280,7 +285,8 @@ class SpendGuardHook(PostHook):
             if spent > budget:
                 logger.warning(
                     "Budget exceeded: spent ¥%.2f / ¥%.2f",
-                    spent, budget,
+                    spent,
+                    budget,
                 )
         return ctx
 
@@ -288,6 +294,7 @@ class SpendGuardHook(PostHook):
 # ═══════════════════════════════════════════════════════════════
 # Error Hooks
 # ═══════════════════════════════════════════════════════════════
+
 
 class ErrorAuditHook(ErrorHook):
     """Records tool errors in the audit store (always called, even without Tx)."""

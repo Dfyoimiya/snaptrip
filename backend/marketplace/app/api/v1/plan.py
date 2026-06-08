@@ -33,8 +33,8 @@ router = APIRouter(prefix="/api/v1/plan", tags=["plan"])
 
 
 class ConfirmRequest(BaseModel):
-    decision: str = "confirmed"      # "confirmed" | "modified" | "rejected"
-    modified_slots: list[int] = []   # 用户想修改的 slot 序号
+    decision: str = "confirmed"  # "confirmed" | "modified" | "rejected"
+    modified_slots: list[int] = []  # 用户想修改的 slot 序号
     modification_instructions: str = ""
 
 
@@ -64,9 +64,8 @@ def _get_agent_service(request: Request) -> AgentService:
             # Fallback: 使用 MemorySaver 的 graph 构建（同步）
             from agent.graph import build_graph as _sync_build
             import asyncio
-            request.app.state._agent_service = AgentService(
-                asyncio.get_event_loop().run_until_complete(_sync_build())
-            )
+
+            request.app.state._agent_service = AgentService(asyncio.get_event_loop().run_until_complete(_sync_build()))
     return request.app.state._agent_service
 
 
@@ -119,16 +118,18 @@ async def get_plan(plan_id: str, request: Request):
         raise APIServiceError(code=1001, message="plan not found", status_code=404)
 
     # 返回可用字段
-    return success(data={
-        "plan_id": state.get("plan_id"),
-        "status": state.get("status"),
-        "scene": state.get("scene"),
-        "intent": state.get("intent"),
-        "itinerary": state.get("itinerary"),
-        "bookings": state.get("bookings"),
-        "activity_candidates": state.get("scored_activities"),
-        "restaurant_candidates": state.get("scored_restaurants"),
-    })
+    return success(
+        data={
+            "plan_id": state.get("plan_id"),
+            "status": state.get("status"),
+            "scene": state.get("scene"),
+            "intent": state.get("intent"),
+            "itinerary": state.get("itinerary"),
+            "bookings": state.get("bookings"),
+            "activity_candidates": state.get("scored_activities"),
+            "restaurant_candidates": state.get("scored_restaurants"),
+        }
+    )
 
 
 @router.get("/{plan_id}/status")

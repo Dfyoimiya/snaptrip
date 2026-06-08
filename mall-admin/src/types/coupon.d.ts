@@ -46,8 +46,8 @@ export interface CouponProductCategoryRelation {
 export interface CouponQueryParam {
   name?: string
   type?: number
-  pageNum: number
-  pageSize: number
+  page: number
+  page_size: number
 }
 
 /** 优惠券商品选择项 */
@@ -62,6 +62,6 @@ export interface CouponHistoryQueryParam {
   couponId?: number
   useStatus?: number
   orderSn?: string
-  pageNum: number
-  pageSize: number
+  page: number
+  page_size: number
 }

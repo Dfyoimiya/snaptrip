@@ -2,65 +2,86 @@ import type { CommonResult, CommonPage } from '@/types/common'
 import type { PmsProduct, ProductQueryParam, PmsProductParam } from '@/types/product'
 import request from '@/utils/request'
 
+/** 映射前端查询参数 → 后端 snake_case 查询参数 */
+function mapProductParams(params: ProductQueryParam) {
+  return {
+    keyword: params.keyword,
+    product_sn: params.productSn,
+    category_id: params.productCategoryId,
+    brand_id: params.brandId,
+    publish_status: params.publishStatus,
+    verify_status: params.verifyStatus,
+    page: params.page,
+    page_size: params.page_size,
+  }
+}
+
+/** 商品分页列表 —— GET /admin/products */
 export function getProductListAPI(params: ProductQueryParam) {
   return request<CommonResult<CommonPage<PmsProduct>>>({
-    url: '/product/list',
+    url: '/admin/products',
     method: 'get',
-    params,
+    params: mapProductParams(params),
   })
 }
 
+/** 创建商品 —— POST /admin/products */
 export function createProductAPI(data: PmsProductParam) {
   return request<CommonResult<number>>({
-    url: '/product/create',
+    url: '/admin/products',
     method: 'post',
     data,
   })
 }
 
+/** 编辑商品 —— PUT /admin/products/{id} */
 export function updateProductAPI(id: number, data: PmsProductParam) {
   return request<CommonResult<number>>({
-    url: '/product/update/' + id,
-    method: 'post',
+    url: '/admin/products/' + id,
+    method: 'put',
     data,
   })
 }
 
+/** 商品详情 —— GET /admin/products/{id} */
 export function getProductAPI(id: number) {
   return request<CommonResult<PmsProductParam>>({
-    url: '/product/updateInfo/' + id,
+    url: '/admin/products/' + id,
     method: 'get',
   })
 }
 
+/** 删除商品 —— DELETE /admin/products/{id} */
 export function productUpdateDeleteStatusAPI(params: { ids: string; deleteStatus: number }) {
   return request<CommonResult<number>>({
-    url: '/product/update/deleteStatus',
-    method: 'post',
-    params,
+    url: '/admin/products/' + params.ids,
+    method: 'delete',
   })
 }
 
+/** 设为新品 —— PATCH /admin/products/{id}/new */
 export function productUpdateNewStatusAPI(params: { ids: string; newStatus: number }) {
   return request<CommonResult<number>>({
-    url: '/product/update/newStatus',
-    method: 'post',
-    params,
+    url: '/admin/products/' + params.ids + '/new',
+    method: 'patch',
+    params: { status: params.newStatus },
   })
 }
 
+/** 设为推荐 —— PATCH /admin/products/{id}/recommend */
 export function productUpdateRecommendStatusAPI(params: { ids: string; recommendStatus: number }) {
   return request<CommonResult<number>>({
-    url: '/product/update/recommendStatus',
-    method: 'post',
-    params,
+    url: '/admin/products/' + params.ids + '/recommend',
+    method: 'patch',
+    params: { status: params.recommendStatus },
   })
 }
 
+/** 上架/下架 —— PATCH /admin/products/{id}/status */
 export function productUpdatePublishStatusAPI(params: { ids: string; publishStatus: number }) {
   return request<CommonResult<number>>({
-    url: '/product/update/publishStatus',
-    method: 'post',
-    params,
+    url: '/admin/products/' + params.ids + '/status',
+    method: 'patch',
+    params: { status: params.publishStatus },
   })
 }

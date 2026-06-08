@@ -149,7 +149,9 @@ class ToolHarness:
             try:
                 ctx = await hook.execute(ctx)
             except Exception as e:
-                logger.exception("Pre-hook %s raised exception: %s", type(hook).__name__, e)
+                logger.exception(
+                    "Pre-hook %s raised exception: %s", type(hook).__name__, e
+                )
                 # Pre-hook exception = abort (rule: hooks must set ctx.aborted, not raise,
                 # but we guard against buggy hooks)
                 ctx.aborted = True
@@ -158,7 +160,8 @@ class ToolHarness:
             if ctx.aborted:
                 logger.warning(
                     "Tool call aborted by %s: %s",
-                    type(hook).__name__, ctx.abort_reason,
+                    type(hook).__name__,
+                    ctx.abort_reason,
                 )
                 return ToolResult(
                     success=False,
@@ -191,7 +194,9 @@ class ToolHarness:
                     ctx = await hook.execute(ctx)
                 except Exception as hook_exc:
                     logger.exception(
-                        "Error hook %s failed: %s", type(hook).__name__, hook_exc,
+                        "Error hook %s failed: %s",
+                        type(hook).__name__,
+                        hook_exc,
                     )
 
         # ── Post-hook chain (ALWAYS runs, even on error) ────────
@@ -200,7 +205,9 @@ class ToolHarness:
                 ctx = await hook.execute(ctx)
             except Exception as e:
                 logger.exception(
-                    "Post-hook %s failed: %s", type(hook).__name__, e,
+                    "Post-hook %s failed: %s",
+                    type(hook).__name__,
+                    e,
                 )
 
         return ctx.result or ToolResult(success=False, data={"error": "no result"})

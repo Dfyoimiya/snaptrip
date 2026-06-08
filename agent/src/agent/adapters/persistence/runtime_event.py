@@ -55,7 +55,9 @@ class SQLRuntimeEventRepository:
                     "plan_id": event.plan_id,
                     "node_name": event.node_name,
                     "event_type": event.event_type,
-                    "payload_json": json.dumps(event.model_dump(mode="json"), ensure_ascii=False),
+                    "payload_json": json.dumps(
+                        event.model_dump(mode="json"), ensure_ascii=False
+                    ),
                 },
             )
             await session.commit()
@@ -80,13 +82,15 @@ class SQLRuntimeEventRepository:
                 if isinstance(payload, dict):
                     events.append(RuntimeEvent(**payload))
                 else:
-                    events.append(RuntimeEvent(
-                        event_id=row["event_id"],
-                        plan_id=row["plan_id"],
-                        node_name=row["node_name"],
-                        event_type=row["event_type"],
-                        payload=payload,
-                    ))
+                    events.append(
+                        RuntimeEvent(
+                            event_id=row["event_id"],
+                            plan_id=row["plan_id"],
+                            node_name=row["node_name"],
+                            event_type=row["event_type"],
+                            payload=payload,
+                        )
+                    )
             return events
 
     async def get_events_after(self, plan_id: str, event_id: str) -> list[RuntimeEvent]:
@@ -113,11 +117,13 @@ class SQLRuntimeEventRepository:
                 if isinstance(payload, dict):
                     events.append(RuntimeEvent(**payload))
                 else:
-                    events.append(RuntimeEvent(
-                        event_id=row["event_id"],
-                        plan_id=row["plan_id"],
-                        node_name=row["node_name"],
-                        event_type=row["event_type"],
-                        payload=payload,
-                    ))
+                    events.append(
+                        RuntimeEvent(
+                            event_id=row["event_id"],
+                            plan_id=row["plan_id"],
+                            node_name=row["node_name"],
+                            event_type=row["event_type"],
+                            payload=payload,
+                        )
+                    )
             return events

@@ -5,6 +5,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Tickets } from '@element-plus/icons-vue'
 import { formatDateTime } from '@/utils/datetime'
 import { couponTypes } from '@/utils/constant'
+import { getCouponListAPI, deleteCouponByIdAPI } from '@/apis/coupon'
 
 const router = useRouter()
 
@@ -15,47 +16,38 @@ const listQuery = ref({
   pageSize: 10,
 })
 
-const allList = ref([
-  { id: 1, name: '全场满减券', type: 0, platform: 0, count: 1000, amount: 50, minPoint: 500, startTime: '2024-06-01T00:00:00', endTime: '2024-06-30T23:59:59', useType: 0, publishCount: 1000, useCount: 234, receiveCount: 567, enableTime: '2024-06-01T00:00:00' },
-  { id: 2, name: '新会员注册礼', type: 3, platform: 0, count: 999, amount: 20, minPoint: 100, startTime: '2024-05-01T00:00:00', endTime: '2024-12-31T23:59:59', useType: 0, publishCount: 999, useCount: 156, receiveCount: 890, enableTime: '2024-05-01T00:00:00' },
-  { id: 3, name: '618购物返券', type: 2, platform: 1, count: 500, amount: 30, minPoint: 300, startTime: '2024-06-10T00:00:00', endTime: '2024-06-20T23:59:59', useType: 0, publishCount: 500, useCount: 89, receiveCount: 234, enableTime: '2024-06-10T00:00:00' },
-  { id: 4, name: '手机品类券', type: 2, platform: 0, count: 300, amount: 100, minPoint: 1000, startTime: '2024-06-01T00:00:00', endTime: '2024-06-30T23:59:59', useType: 2, publishCount: 300, useCount: 45, receiveCount: 123, enableTime: '2024-06-01T00:00:00' },
-  { id: 5, name: '会员专享券', type: 1, platform: 0, count: 200, amount: 80, minPoint: 800, startTime: '2024-06-01T00:00:00', endTime: '2024-07-31T23:59:59', useType: 1, publishCount: 200, useCount: 34, receiveCount: 78, enableTime: '2024-06-01T00:00:00' },
-  { id: 6, name: '数码分类券', type: 2, platform: 2, count: 400, amount: 60, minPoint: 600, startTime: '2024-06-15T00:00:00', endTime: '2024-07-15T23:59:59', useType: 1, publishCount: 400, useCount: 67, receiveCount: 189, enableTime: '2024-06-15T00:00:00' },
-  { id: 7, name: '周年庆全场券', type: 0, platform: 0, count: 2000, amount: 100, minPoint: 1000, startTime: '2024-07-01T00:00:00', endTime: '2024-07-07T23:59:59', useType: 0, publishCount: 2000, useCount: 0, receiveCount: 0, enableTime: '2024-07-01T00:00:00' },
-  { id: 8, name: '新人立减券', type: 3, platform: 1, count: 999, amount: 10, minPoint: 50, startTime: '2024-05-01T00:00:00', endTime: '2024-12-31T23:59:59', useType: 0, publishCount: 999, useCount: 345, receiveCount: 678, enableTime: '2024-05-01T00:00:00' },
-])
-
-const list = ref([...allList.value])
-const total = ref(allList.value.length)
+const list = ref<any[]>([])
+const total = ref(0)
 const listLoading = ref(false)
 
-const getList = () => {
+async function fetchData() {
   listLoading.value = true
-  let result = [...allList.value]
-  if (listQuery.value.name) result = result.filter(item => item.name?.includes(listQuery.value.name))
-  if (listQuery.value.type !== undefined) result = result.filter(item => item.type === listQuery.value.type)
-  total.value = result.length
-  const start = (listQuery.value.pageNum - 1) * listQuery.value.pageSize
-  list.value = result.slice(start, start + listQuery.value.pageSize)
-  listLoading.value = false
+  try {
+    const res = await getCouponListAPI(listQuery.value)
+    list.value = res.list || []
+    total.value = res.total || 0
+  } finally {
+    listLoading.value = false
+  }
 }
-onMounted(() => { getList() })
+onMounted(() => { fetchData() })
 
 const formatType = (value?: number) => couponTypes.find(item => item.value === value)?.label || ''
 const formatPlatform = (value?: number) => value === 1 ? '移动平台' : value === 2 ? 'PC平台' : '全平台'
 const formatUseType = (value?: number) => value === 1 ? '指定分类' : value === 2 ? '指定商品' : '全场通用'
 
-const handleResetSearch = () => { listQuery.value = { name: '', type: undefined, pageNum: 1, pageSize: 10 }; getList() }
-const handleSearchList = () => { listQuery.value.pageNum = 1; getList() }
-const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQuery.value.pageSize = val; getList() }
-const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; getList() }
+const handleResetSearch = () => { listQuery.value = { name: '', type: undefined, pageNum: 1, pageSize: 10 }; fetchData() }
+const handleSearchList = () => { listQuery.value.pageNum = 1; fetchData() }
+const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQuery.value.pageSize = val; fetchData() }
+const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; fetchData() }
 const handleAdd = () => { router.push('/sms/addCoupon') }
 const handleView = (_index: number, row: any) => { router.push({ path: '/sms/couponDetail', query: { id: row.id } }) }
 const handleUpdate = (_index: number, row: any) => { router.push({ path: '/sms/updateCoupon', query: { id: row.id } }) }
 const handleDelete = async (_index: number, row: any) => {
   await ElMessageBox.confirm('是否要删除该优惠券?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
-  allList.value = allList.value.filter(item => item.id !== row.id); getList(); ElMessage.success('删除成功!')
+  await deleteCouponByIdAPI(row.id)
+  ElMessage.success('删除成功!')
+  fetchData()
 }
 </script>
 

@@ -1,17 +1,17 @@
-/** 通用分页参数 */
+/** 通用分页参数（匹配后端 snake_case） */
 export interface PageParam {
   keyword?: string
-  pageNum: number
-  pageSize: number
+  page: number
+  page_size: number
 }
 
-/** 通用分页结果 */
+/** 通用分页结果（匹配后端 PaginatedResponse） */
 export interface CommonPage<T> {
-  list: T[]
+  items: T[]
   total: number
-  pageNum: number
-  pageSize: number
-  totalPage: number
+  page: number
+  page_size: number
+  total_pages: number
 }
 
 /** 通用接口响应 */

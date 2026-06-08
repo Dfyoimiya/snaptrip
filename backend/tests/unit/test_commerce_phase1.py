@@ -15,6 +15,7 @@ import pytest
 #  1. Config 配置
 # ============================================================================
 
+
 class TestCommerceConfig:
     """验证 CommerceSettings 配置正确加载"""
 
@@ -44,6 +45,7 @@ class TestCommerceConfig:
 # ============================================================================
 #  2. 业务异常
 # ============================================================================
+
 
 class TestCommerceExceptions:
     """验证异常层级和属性"""
@@ -99,10 +101,18 @@ class TestCommerceExceptions:
         )
 
         all_exceptions = [
-            CommerceException, ProductNotFoundError, ProductOffShelfError,
-            InsufficientStockError, OrderError, OrderNotFoundError,
-            OrderStatusError, OrderPaymentError, CouponError,
-            CouponExpiredError, CouponExhaustedError, CouponAlreadyClaimedError,
+            CommerceException,
+            ProductNotFoundError,
+            ProductOffShelfError,
+            InsufficientStockError,
+            OrderError,
+            OrderNotFoundError,
+            OrderStatusError,
+            OrderPaymentError,
+            CouponError,
+            CouponExpiredError,
+            CouponExhaustedError,
+            CouponAlreadyClaimedError,
             CartError,
         ]
         for exc_cls in all_exceptions:
@@ -112,6 +122,7 @@ class TestCommerceExceptions:
 # ============================================================================
 #  3. 分页工具
 # ============================================================================
+
 
 class TestPagination:
     """验证分页参数和结果计算"""
@@ -158,6 +169,7 @@ class TestPagination:
 #  4. 通用 Schema
 # ============================================================================
 
+
 class TestCommonSchemas:
     """验证 Pydantic Schema 定义"""
 
@@ -203,6 +215,7 @@ class TestCommonSchemas:
 # ============================================================================
 #  5. ORM 模型定义 (不连数据库)
 # ============================================================================
+
 
 class TestCommerceBase:
     """验证 CommerceBase 和 Mixin 的字段定义"""
@@ -285,6 +298,7 @@ class TestRBACModels:
 #  6. OSS 客户端
 # ============================================================================
 
+
 class TestOSSClient:
     """验证 OSS 客户端工厂和 Mock 实现"""
 
@@ -313,6 +327,7 @@ class TestOSSClient:
 # ============================================================================
 #  7. ES 客户端 (不连接 ES)
 # ============================================================================
+
 
 class TestESSearchClient:
     """验证 ES 客户端结构和配置"""

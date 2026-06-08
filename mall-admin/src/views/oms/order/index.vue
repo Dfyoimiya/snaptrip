@@ -6,6 +6,7 @@ import { Search, Tickets } from '@element-plus/icons-vue'
 import LogisticsDialog from './components/logisticsDialog.vue'
 import { formatDateTime } from '@/utils/datetime'
 import type { OmsOrder } from '@/types/order'
+import { getOrderListAPI, orderUpdateCloseAPI, orderDeleteByIdsAPI } from '@/apis/order'
 
 const router = useRouter()
 
@@ -20,22 +21,8 @@ const listQuery = ref({
   pageSize: 10,
 })
 
-// 模拟订单数据
-const allList = ref<OmsOrder[]>([
-  { id: 1, orderSn: 'ORD-20240528001', createTime: '2024-05-28T10:30:00', memberUsername: 'user_001', totalAmount: 9999, payType: 1, sourceType: 0, status: 0, orderType: 0, receiverName: '张三', receiverPhone: '13800138001', receiverDetailAddress: '北京市海淀区中关村大街1号' },
-  { id: 2, orderSn: 'ORD-20240528002', createTime: '2024-05-28T09:15:00', memberUsername: 'user_002', totalAmount: 14999, payType: 2, sourceType: 1, status: 1, orderType: 0, receiverName: '李四', receiverPhone: '13800138002', receiverDetailAddress: '上海市浦东新区陆家嘴环路2号' },
-  { id: 3, orderSn: 'ORD-20240528003', createTime: '2024-05-28T08:45:00', memberUsername: 'user_003', totalAmount: 1899, payType: 1, sourceType: 0, status: 2, orderType: 0, receiverName: '王五', receiverPhone: '13800138003', receiverDetailAddress: '广州市天河区天河路3号' },
-  { id: 4, orderSn: 'ORD-20240527004', createTime: '2024-05-27T22:10:00', memberUsername: 'user_004', totalAmount: 4799, payType: 0, sourceType: 0, status: 0, orderType: 0, receiverName: '赵六', receiverPhone: '13800138004', receiverDetailAddress: '深圳市南山区科技园4号' },
-  { id: 5, orderSn: 'ORD-20240527005', createTime: '2024-05-27T18:30:00', memberUsername: 'user_005', totalAmount: 2999, payType: 2, sourceType: 1, status: 3, orderType: 0, receiverName: '钱七', receiverPhone: '13800138005', receiverDetailAddress: '杭州市西湖区文三路5号' },
-  { id: 6, orderSn: 'ORD-20240527006', createTime: '2024-05-27T16:00:00', memberUsername: 'user_006', totalAmount: 6999, payType: 1, sourceType: 0, status: 4, orderType: 0, receiverName: '孙八', receiverPhone: '13800138006', receiverDetailAddress: '成都市高新区天府大道6号' },
-  { id: 7, orderSn: 'ORD-20240526007', createTime: '2024-05-26T14:20:00', memberUsername: 'user_007', totalAmount: 5999, payType: 1, sourceType: 1, status: 1, orderType: 1, receiverName: '周九', receiverPhone: '13800138007', receiverDetailAddress: '武汉市洪山区光谷大道7号' },
-  { id: 8, orderSn: 'ORD-20240526008', createTime: '2024-05-26T11:00:00', memberUsername: 'user_008', totalAmount: 899, payType: 2, sourceType: 0, status: 2, orderType: 0, receiverName: '吴十', receiverPhone: '13800138008', receiverDetailAddress: '南京市鼓楼区中山路8号' },
-  { id: 9, orderSn: 'ORD-20240525009', createTime: '2024-05-25T20:00:00', memberUsername: 'user_009', totalAmount: 1299, payType: 1, sourceType: 1, status: 3, orderType: 0, receiverName: '郑十一', receiverPhone: '13800138009', receiverDetailAddress: '西安市雁塔区高新路9号' },
-  { id: 10, orderSn: 'ORD-20240525010', createTime: '2024-05-25T15:30:00', memberUsername: 'user_010', totalAmount: 399, payType: 0, sourceType: 0, status: 0, orderType: 0, receiverName: '陈十二', receiverPhone: '13800138010', receiverDetailAddress: '重庆市渝北区红锦大道10号' },
-])
-
-const list = ref<OmsOrder[]>([...allList.value])
-const total = ref(allList.value.length)
+const list = ref<OmsOrder[]>([])
+const total = ref(0)
 const listLoading = ref(false)
 const multipleSelection = ref<OmsOrder[]>([])
 const operateType = ref<number>()
@@ -89,30 +76,27 @@ const formatStatus = (value?: number) => {
   return '待付款'
 }
 
-const getList = () => {
+async function fetchData() {
   listLoading.value = true
-  let result = [...allList.value]
-  if (listQuery.value.orderSn) result = result.filter(item => item.orderSn?.includes(listQuery.value.orderSn!))
-  if (listQuery.value.receiverKeyword) result = result.filter(item => item.receiverName?.includes(listQuery.value.receiverKeyword!) || item.receiverPhone?.includes(listQuery.value.receiverKeyword!))
-  if (listQuery.value.status !== undefined) result = result.filter(item => item.status === listQuery.value.status)
-  if (listQuery.value.orderType !== undefined) result = result.filter(item => item.orderType === listQuery.value.orderType)
-  if (listQuery.value.sourceType !== undefined) result = result.filter(item => item.sourceType === listQuery.value.sourceType)
-  total.value = result.length
-  const start = (listQuery.value.pageNum - 1) * listQuery.value.pageSize
-  list.value = result.slice(start, start + listQuery.value.pageSize)
-  listLoading.value = false
+  try {
+    const res = await getOrderListAPI(listQuery.value)
+    list.value = res.list
+    total.value = res.total
+  } finally {
+    listLoading.value = false
+  }
 }
 
-onMounted(() => { getList() })
+onMounted(() => { fetchData() })
 
 const handleResetSearch = () => {
   listQuery.value = { orderSn: '', receiverKeyword: '', createTime: '', status: undefined, orderType: undefined, sourceType: undefined, pageNum: 1, pageSize: 10 }
-  getList()
+  fetchData()
 }
 
 const handleSearchList = () => {
   listQuery.value.pageNum = 1
-  getList()
+  fetchData()
 }
 
 const handleSelectionChange = (val: OmsOrder[]) => { multipleSelection.value = val }
@@ -136,8 +120,8 @@ const handleViewLogistics = (_index: number, _row: OmsOrder) => {
 
 const handleDeleteOrder = async (_index: number, row: OmsOrder) => {
   await ElMessageBox.confirm('是否要进行该删除操作?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
-  allList.value = allList.value.filter(item => item.id !== row.id)
-  getList()
+  await orderDeleteByIdsAPI({ ids: String(row.id) })
+  fetchData()
   ElMessage({ message: '删除成功！', type: 'success', duration: 1000 })
 }
 
@@ -162,22 +146,22 @@ const handleBatchOperate = async () => {
   }
 }
 
-const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQuery.value.pageSize = val; getList() }
-const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; getList() }
+const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQuery.value.pageSize = val; fetchData() }
+const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; fetchData() }
 
 const handleCloseOrderConfirm = async () => {
   if (!closeOrderData.value.content) { ElMessage({ message: '操作备注不能为空', type: 'warning', duration: 1000 }); return }
-  allList.value.filter(item => closeOrderData.value.orderIds.includes(item.id!)).forEach(item => { item.status = 4; item.note = closeOrderData.value.content })
+  await orderUpdateCloseAPI({ ids: closeOrderData.value.orderIds.join(','), note: closeOrderData.value.content })
   closeOrderData.value.dialogVisible = false
   closeOrderData.value.content = ''
-  getList()
+  fetchData()
   ElMessage({ message: '关闭成功', type: 'success', duration: 1000 })
 }
 
 const deleteOrderFn = async (ids: number[]) => {
   await ElMessageBox.confirm('是否要进行该删除操作?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
-  allList.value = allList.value.filter(item => !ids.includes(item.id!))
-  getList()
+  await orderDeleteByIdsAPI({ ids: ids.join(',') })
+  fetchData()
   ElMessage({ message: '删除成功！', type: 'success', duration: 1000 })
 }
 </script>

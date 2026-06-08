@@ -87,6 +87,7 @@ async def build_graph(runtime: AgentRuntime | None = None) -> CompiledStateGraph
 
         # Replace with your own tool registry builder
         from agent.tools.registry.registry import ToolRegistry
+
         runtime.harness = ToolHarness(registry=ToolRegistry())
         runtime.session_ctx = SessionContext()
         logger.info("ToolHarness initialized (empty registry — register your tools)")
@@ -119,6 +120,7 @@ async def build_graph(runtime: AgentRuntime | None = None) -> CompiledStateGraph
     db_url = settings.DATABASE_URL
     try:
         from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
         checkpointer = AsyncPostgresSaver.from_conn_string(db_url)
         await checkpointer.setup()
         logger.info("PostgresSaver initialized for graph checkpointing")

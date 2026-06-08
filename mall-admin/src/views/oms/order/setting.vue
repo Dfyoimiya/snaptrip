@@ -2,8 +2,10 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
+import { getOrderSettingByIdAPI, orderSettingUpdateByIdAPI } from '@/apis/orderSetting'
+import type { OmsOrderSetting } from '@/types/orderSetting'
 
-const defaultOrderSetting = {
+const defaultOrderSetting: OmsOrderSetting = {
   id: 1,
   flashOrderOvertime: 30,
   normalOrderOvertime: 60,
@@ -12,13 +14,13 @@ const defaultOrderSetting = {
   commentOvertime: 7,
 }
 
-const orderSetting = ref({ ...defaultOrderSetting })
+const orderSetting = ref<OmsOrderSetting>({ ...defaultOrderSetting })
 const orderSettingForm = ref<FormInstance>()
 
 const checkTime = (_rule: unknown, value: string, callback: (error?: Error) => void) => {
   if (!value) return callback(new Error('时间不能为空'))
-  const intValue = parseInt(value)
-  if (!Number.isInteger(intValue)) return callback(new Error('请输入数字值'))
+  const intValue = parseInt(value as string)
+  if (!Number.isInteger(intValue) || intValue <= 0) return callback(new Error('请输入正整数'))
   callback()
 }
 
@@ -39,11 +41,28 @@ const confirm = async () => {
       cancelButtonText: '取消',
       type: 'warning',
     })
-    ElMessage({
-      type: 'success',
-      message: '提交成功!',
-      duration: 1000,
-    })
+    try {
+      const data: OmsOrderSetting = {
+        id: orderSetting.value.id,
+        flashOrderOvertime: Number(orderSetting.value.flashOrderOvertime),
+        normalOrderOvertime: Number(orderSetting.value.normalOrderOvertime),
+        confirmOvertime: Number(orderSetting.value.confirmOvertime),
+        finishOvertime: Number(orderSetting.value.finishOvertime),
+        commentOvertime: Number(orderSetting.value.commentOvertime),
+      }
+      await orderSettingUpdateByIdAPI(orderSetting.value.id!, data)
+      ElMessage({
+        type: 'success',
+        message: '提交成功!',
+        duration: 1000,
+      })
+    } catch {
+      ElMessage({
+        type: 'error',
+        message: '提交失败',
+        duration: 1000,
+      })
+    }
   } else {
     ElMessage({
       message: '提交参数不合法',
@@ -51,6 +70,17 @@ const confirm = async () => {
     })
   }
 }
+
+onMounted(async () => {
+  try {
+    const data = await getOrderSettingByIdAPI(1)
+    if (data) {
+      orderSetting.value = { ...data }
+    }
+  } catch {
+    // keep defaults on error
+  }
+})
 </script>
 
 <template>

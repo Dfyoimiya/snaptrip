@@ -4,64 +4,89 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Tickets } from '@element-plus/icons-vue'
 import { formatDateTime } from '@/utils/datetime'
+import {
+  getRoleListAPI,
+  roleCreateAPI,
+  roleUpdateByIdAPI,
+  roleUpdateStatusAPI,
+  roleDeleteByIdsAPI,
+} from '@/apis/role'
+import type { UmsRole } from '@/types/role'
+import type { PageParam } from '@/types/common'
 
 const router = useRouter()
 const listQuery = ref({ pageNum: 1, pageSize: 10, keyword: '' })
 
-const allList = ref([
-  { id: 1, name: '超级管理员', description: '拥有所有权限', adminCount: 1, status: 1, createTime: '2024-01-01T00:00:00' },
-  { id: 2, name: '商品管理员', description: '负责商品管理模块', adminCount: 2, status: 1, createTime: '2024-01-02T00:00:00' },
-  { id: 3, name: '订单管理员', description: '负责订单管理模块', adminCount: 2, status: 1, createTime: '2024-01-03T00:00:00' },
-  { id: 4, name: '会员管理员', description: '负责会员管理模块', adminCount: 2, status: 1, createTime: '2024-01-04T00:00:00' },
-  { id: 5, name: '运营人员', description: '负责营销和内容管理', adminCount: 1, status: 1, createTime: '2024-01-05T00:00:00' },
-  { id: 6, name: '客服人员', description: '负责客服和售后', adminCount: 2, status: 1, createTime: '2024-01-06T00:00:00' },
-  { id: 7, name: '财务人员', description: '负责财务管理', adminCount: 1, status: 0, createTime: '2024-01-07T00:00:00' },
-])
-
-const list = ref([...allList.value])
-const total = ref(allList.value.length)
+const list = ref<UmsRole[]>([])
+const total = ref(0)
 const listLoading = ref(false)
-const role = ref<any>({ name: '', adminCount: 0, status: 1 })
+const role = ref<UmsRole>({ name: '', adminCount: 0, status: 1 })
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 
-const getList = () => {
+async function fetchData() {
   listLoading.value = true
-  let result = [...allList.value]
-  if (listQuery.value.keyword) result = result.filter(item => item.name?.includes(listQuery.value.keyword))
-  total.value = result.length
-  const start = (listQuery.value.pageNum - 1) * listQuery.value.pageSize
-  list.value = result.slice(start, start + listQuery.value.pageSize)
-  listLoading.value = false
+  try {
+    const params: PageParam = {
+      keyword: listQuery.value.keyword || undefined,
+      page: listQuery.value.pageNum,
+      page_size: listQuery.value.pageSize,
+    }
+    const data = await getRoleListAPI(params)
+    list.value = data.items || []
+    total.value = data.total || 0
+  } catch (err: any) {
+    ElMessage.error(err?.message || '获取列表失败')
+  } finally {
+    listLoading.value = false
+  }
 }
-onMounted(() => { getList() })
+onMounted(() => { fetchData() })
 
-const handleResetSearch = () => { listQuery.value = { pageNum: 1, pageSize: 10, keyword: '' }; getList() }
-const handleSearchList = () => { listQuery.value.pageNum = 1; getList() }
-const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQuery.value.pageSize = val; getList() }
-const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; getList() }
+const handleResetSearch = () => { listQuery.value = { pageNum: 1, pageSize: 10, keyword: '' }; fetchData() }
+const handleSearchList = () => { listQuery.value.pageNum = 1; fetchData() }
+const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQuery.value.pageSize = val; fetchData() }
+const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; fetchData() }
 
 const handleAdd = () => { dialogVisible.value = true; isEdit.value = false; role.value = { name: '', adminCount: 0, status: 1 } }
-const handleUpdate = (_index: number, row: any) => { dialogVisible.value = true; isEdit.value = true; role.value = { ...row } }
-const handleStatusChange = (_index: number, row: any) => { ElMessage.success('修改成功!') }
-const handleDelete = async (_index: number, row: any) => {
-  await ElMessageBox.confirm('是否要删除该角色?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
-  allList.value = allList.value.filter(item => item.id !== row.id); getList(); ElMessage.success('删除成功!')
-}
-const handleDialogConfirm = () => {
-  if (isEdit.value) {
-    const idx = allList.value.findIndex(item => item.id === role.value.id)
-    if (idx > -1) allList.value[idx] = { ...allList.value[idx], ...role.value }
-    ElMessage.success('修改成功！')
-  } else {
-    allList.value.unshift({ ...role.value, id: Date.now(), createTime: new Date().toISOString() })
-    ElMessage.success('添加成功！')
+const handleUpdate = (_index: number, row: UmsRole) => { dialogVisible.value = true; isEdit.value = true; role.value = { ...row } }
+const handleStatusChange = async (_index: number, row: UmsRole) => {
+  try {
+    await roleUpdateStatusAPI(row.id!, { status: row.status! })
+    ElMessage.success('修改成功!')
+  } catch (err: any) {
+    ElMessage.error(err?.message || '状态修改失败')
+    fetchData()
   }
-  dialogVisible.value = false; getList()
+}
+const handleDelete = async (_index: number, row: UmsRole) => {
+  try {
+    await ElMessageBox.confirm('是否要删除该角色?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
+    await roleDeleteByIdsAPI({ ids: String(row.id) })
+    ElMessage.success('删除成功!')
+    fetchData()
+  } catch (err: any) {
+    if (err !== 'cancel') ElMessage.error(err?.message || '删除失败')
+  }
+}
+const handleDialogConfirm = async () => {
+  try {
+    if (isEdit.value) {
+      await roleUpdateByIdAPI(role.value.id!, role.value as UmsRole)
+      ElMessage.success('修改成功！')
+    } else {
+      await roleCreateAPI(role.value as UmsRole)
+      ElMessage.success('添加成功！')
+    }
+    dialogVisible.value = false
+    fetchData()
+  } catch (err: any) {
+    ElMessage.error(err?.message || '保存失败')
+  }
 }
 
-const handleSelectMenu = (_index: number, row: any) => { router.push({ path: '/ums/allocMenu', query: { roleId: row.id } }) }
-const handleSelectResource = (_index: number, row: any) => { router.push({ path: '/ums/allocResource', query: { roleId: row.id } }) }
+const handleSelectMenu = (_index: number, row: UmsRole) => { router.push({ path: '/ums/allocMenu', query: { roleId: row.id } }) }
+const handleSelectResource = (_index: number, row: UmsRole) => { router.push({ path: '/ums/allocResource', query: { roleId: row.id } }) }
 </script>
 
 <template>

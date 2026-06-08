@@ -31,5 +31,5 @@ class PlanState(TypedDict, total=False):
     hitl_payload: dict[str, Any] | None
 
     # ── DAG routing & status ──
-    phase: str   # domain-specific phase name
+    phase: str  # domain-specific phase name
     status: str  # "running" | "waiting_user" | "done" | "failed"

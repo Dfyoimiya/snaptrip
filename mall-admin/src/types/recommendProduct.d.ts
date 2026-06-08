@@ -12,6 +12,6 @@ export interface SmsHomeRecommendProduct {
 export interface RecommendProductQueryParam {
   productName?: string
   recommendStatus?: number
-  pageNum: number
-  pageSize: number
+  page: number
+  page_size: number
 }

@@ -20,11 +20,13 @@ from pydantic import ValidationError
 #  1. 模型定义验证
 # ============================================================================
 
+
 class TestProductModels:
     """验证 ORM 模型的表名和字段定义"""
 
     def test_pms_category_tablename(self):
         from app.models.product.category import PmsCategory
+
         assert PmsCategory.__tablename__ == "pms_categories"
         assert hasattr(PmsCategory, "parent_id")
         assert hasattr(PmsCategory, "level")
@@ -32,12 +34,14 @@ class TestProductModels:
 
     def test_pms_brand_tablename(self):
         from app.models.product.brand import PmsBrand
+
         assert PmsBrand.__tablename__ == "pms_brands"
         assert hasattr(PmsBrand, "first_letter")
         assert hasattr(PmsBrand, "logo")
 
     def test_pms_product_tablename(self):
         from app.models.product.product import PmsProduct
+
         assert PmsProduct.__tablename__ == "pms_products"
         assert hasattr(PmsProduct, "name")
         assert hasattr(PmsProduct, "price")
@@ -45,18 +49,21 @@ class TestProductModels:
 
     def test_pms_sku_tablename(self):
         from app.models.product.sku import PmsSku
+
         assert PmsSku.__tablename__ == "pms_skus"
         assert hasattr(PmsSku, "sku_code")
         assert hasattr(PmsSku, "lock_stock")
 
     def test_pms_product_attribute_tablename(self):
         from app.models.product.attribute import PmsProductAttribute
+
         assert PmsProductAttribute.__tablename__ == "pms_product_attributes"
         assert hasattr(PmsProductAttribute, "category_id")
         assert hasattr(PmsProductAttribute, "attr_type")
 
     def test_pms_product_attribute_value_tablename(self):
         from app.models.product.attribute import PmsProductAttributeValue
+
         assert PmsProductAttributeValue.__tablename__ == "pms_product_attribute_values"
         assert hasattr(PmsProductAttributeValue, "value")
 
@@ -75,11 +82,13 @@ class TestProductModels:
 #  2. Schema 验证
 # ============================================================================
 
+
 class TestCategorySchema:
     """验证分类创建/更新/响应 Schema"""
 
     def test_category_create_minimal(self):
         from app.schemas.product import CategoryCreate
+
         c = CategoryCreate(name="手机通讯")
         assert c.name == "手机通讯"
         assert c.level == 0
@@ -87,11 +96,13 @@ class TestCategorySchema:
 
     def test_category_create_name_required(self):
         from app.schemas.product import CategoryCreate
+
         with pytest.raises(ValidationError):
             CategoryCreate()  # name 是必填
 
     def test_category_update_exclude_unset(self):
         from app.schemas.product import CategoryUpdate
+
         u = CategoryUpdate(name="新名称")
         dumped = u.model_dump(exclude_unset=True)
         assert dumped == {"name": "新名称"}  # 只序列化传入的字段
@@ -99,6 +110,7 @@ class TestCategorySchema:
 
     def test_category_tree_children_default(self):
         from app.schemas.product import CategoryTreeResponse
+
         tree = CategoryTreeResponse(id=uuid.uuid4(), name="Root", level=0, sort=0)
         assert tree.children == []
 
@@ -108,12 +120,14 @@ class TestBrandSchema:
 
     def test_brand_create(self):
         from app.schemas.product import BrandCreate
+
         b = BrandCreate(name="Apple", first_letter="A", sort=100)
         assert b.first_letter == "A"
         assert b.factory_status == 1
 
     def test_brand_update_partial(self):
         from app.schemas.product import BrandUpdate
+
         b = BrandUpdate(sort=50)
         assert b.model_dump(exclude_unset=True) == {"sort": 50}
 
@@ -123,6 +137,7 @@ class TestProductSchema:
 
     def test_product_create_basic(self):
         from app.schemas.product import ProductCreate
+
         p = ProductCreate(
             name="iPhone 15 Pro",
             price=Decimal("8999.00"),
@@ -134,6 +149,7 @@ class TestProductSchema:
 
     def test_product_create_with_skus(self):
         from app.schemas.product import ProductCreate, SkuCreate
+
         p = ProductCreate(
             name="iPhone 15 Pro",
             price=Decimal("8999.00"),
@@ -152,6 +168,7 @@ class TestProductSchema:
     def test_promotion_dates_validation_error(self):
         """跨字段校验: 开始时间必须早于结束时间"""
         from app.schemas.product import ProductCreate
+
         now = datetime.now()
 
         with pytest.raises(ValidationError, match="促销开始时间必须早于结束时间"):
@@ -178,6 +195,7 @@ class TestProductSchema:
 
     def test_product_list_query_defaults(self):
         from app.schemas.product import ProductListQuery
+
         q = ProductListQuery()
         assert q.page == 1
         assert q.page_size == 20
@@ -188,6 +206,7 @@ class TestSkuSchema:
 
     def test_sku_create(self):
         from app.schemas.product import SkuCreate
+
         s = SkuCreate(
             sku_code="SKU-001",
             spec='{"size":"L"}',
@@ -199,11 +218,13 @@ class TestSkuSchema:
 
     def test_sku_price_must_be_positive(self):
         from app.schemas.product import SkuCreate
+
         with pytest.raises(ValidationError):
             SkuCreate(sku_code="SKU-001", spec="{}", price=Decimal("-1"), stock=10)
 
     def test_sku_response_fields(self):
         from app.schemas.product import SkuResponse
+
         s = SkuResponse(
             id=uuid.uuid4(),
             product_id=uuid.uuid4(),
@@ -224,6 +245,7 @@ class TestProductAttributeSchema:
 
     def test_attribute_create(self):
         from app.schemas.product import ProductAttributeCreate
+
         a = ProductAttributeCreate(
             category_id=uuid.uuid4(),
             name="屏幕尺寸",
@@ -233,6 +255,7 @@ class TestProductAttributeSchema:
 
     def test_attribute_create_with_list(self):
         from app.schemas.product import ProductAttributeCreate
+
         a = ProductAttributeCreate(
             category_id=uuid.uuid4(),
             name="颜色",
@@ -248,6 +271,7 @@ class TestProductAttributeSchema:
 #  3. 迁移文件验证
 # ============================================================================
 
+
 class TestMigrationFiles:
     """验证迁移文件语法正确"""
 
@@ -260,6 +284,7 @@ class TestMigrationFiles:
 
     def test_phase2_migration_has_revision(self):
         import importlib.util
+
         spec = importlib.util.spec_from_file_location(
             "phase2_migration",
             "alembic/versions/b2c3d4e5f6a7_create_commerce_product_tables.py",
@@ -271,6 +296,7 @@ class TestMigrationFiles:
 
     def test_phase2_migration_correct_down_revision(self):
         import importlib.util
+
         spec = importlib.util.spec_from_file_location(
             "phase2_migration",
             "alembic/versions/b2c3d4e5f6a7_create_commerce_product_tables.py",
@@ -284,6 +310,7 @@ class TestMigrationFiles:
 # ============================================================================
 #  4. Admin Router 路由结构验证
 # ============================================================================
+
 
 class TestAdminRoutes:
     """验证路由注册和路径定义"""
@@ -310,6 +337,7 @@ class TestAdminRoutes:
 #  5. 模型模块导入完整性
 # ============================================================================
 
+
 class TestModelImports:
     """验证 models/__init__.py 导出完整"""
 
@@ -322,6 +350,7 @@ class TestModelImports:
             PmsProductAttributeValue,
             PmsSku,
         )
+
         assert PmsBrand is not None
         assert PmsCategory is not None
         assert PmsProduct is not None
@@ -333,6 +362,7 @@ class TestModelImports:
 # ============================================================================
 #  6. Decimal 精度验证 (金融数据正确性)
 # ============================================================================
+
 
 class TestDecimalPrecision:
     """验证金额字段使用 Decimal 而非 Float"""

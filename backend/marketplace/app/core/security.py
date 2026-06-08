@@ -45,9 +45,7 @@ async def create_refresh_token(user_id: uuid.UUID, db: AsyncSession) -> str:
 
 async def verify_refresh_token(raw_token: str, db: AsyncSession) -> RefreshToken | None:
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-    result = await db.execute(
-        select(RefreshToken).where(RefreshToken.token_hash == token_hash)
-    )
+    result = await db.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
     rt = result.scalar_one_or_none()
     if rt is None:
         return None
@@ -60,9 +58,7 @@ async def verify_refresh_token(raw_token: str, db: AsyncSession) -> RefreshToken
 
 async def revoke_refresh_token(raw_token: str, db: AsyncSession) -> None:
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
-    result = await db.execute(
-        select(RefreshToken).where(RefreshToken.token_hash == token_hash)
-    )
+    result = await db.execute(select(RefreshToken).where(RefreshToken.token_hash == token_hash))
     rt = result.scalar_one_or_none()
     if rt:
         await db.delete(rt)

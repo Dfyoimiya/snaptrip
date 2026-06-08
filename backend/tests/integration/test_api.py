@@ -26,9 +26,7 @@ async def e2e_client():
         from agent.graph import build_plan_graph
         from agent.runtime import AgentRuntime
 
-        app.state.plan_graph = build_plan_graph(
-            runtime=AgentRuntime(event_sink=app.state.runtime_events)
-        )
+        app.state.plan_graph = build_plan_graph(runtime=AgentRuntime(event_sink=app.state.runtime_events))
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
         yield c

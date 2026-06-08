@@ -12,6 +12,7 @@ from app.api.admin.brand import router as brand_router
 from app.api.admin.category import router as category_router
 from app.api.admin.cms import cms_router, stats_router
 from app.api.admin.coupon import router as coupon_router
+from app.api.admin.dashboard import router as dashboard_router
 from app.api.admin.flash import router as flash_router
 from app.api.admin.member import router as member_router
 from app.api.admin.order import router as order_router
@@ -26,6 +27,7 @@ admin_router.include_router(product_router)
 admin_router.include_router(order_router)
 admin_router.include_router(member_router)
 admin_router.include_router(coupon_router)
+admin_router.include_router(dashboard_router)
 admin_router.include_router(flash_router)
 admin_router.include_router(cms_router)
 admin_router.include_router(stats_router)

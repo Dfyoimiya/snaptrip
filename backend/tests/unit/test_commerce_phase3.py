@@ -18,9 +18,11 @@ from pydantic import ValidationError
 #  1. 模型定义验证
 # ============================================================================
 
+
 class TestOrderModels:
     def test_cart_item_tablename(self):
         from app.models.order.cart import OmsCartItem
+
         assert OmsCartItem.__tablename__ == "oms_cart_items"
         assert hasattr(OmsCartItem, "user_id")
         assert hasattr(OmsCartItem, "sku_id")
@@ -28,6 +30,7 @@ class TestOrderModels:
 
     def test_order_tablename(self):
         from app.models.order.order import OmsOrder
+
         assert OmsOrder.__tablename__ == "oms_orders"
         assert hasattr(OmsOrder, "order_sn")
         assert hasattr(OmsOrder, "status")
@@ -35,16 +38,19 @@ class TestOrderModels:
 
     def test_order_item_tablename(self):
         from app.models.order.order import OmsOrderItem
+
         assert OmsOrderItem.__tablename__ == "oms_order_items"
         assert hasattr(OmsOrderItem, "order_id")
 
     def test_operate_log_tablename(self):
         from app.models.order.order import OmsOrderOperateLog
+
         assert OmsOrderOperateLog.__tablename__ == "oms_order_operate_logs"
 
     def test_order_subclasses_commerce_base(self):
         from app.models.base import CommerceBase
         from app.models.order.order import OmsOrder
+
         assert issubclass(OmsOrder, CommerceBase)
 
 
@@ -52,24 +58,29 @@ class TestOrderModels:
 #  2. Schema 验证
 # ============================================================================
 
+
 class TestCartSchemas:
     def test_cart_item_create(self):
         from app.schemas.order import CartItemCreate
+
         c = CartItemCreate(product_id=uuid.uuid4(), sku_id=uuid.uuid4(), quantity=2)
         assert c.quantity == 2
 
     def test_cart_item_create_defaults(self):
         from app.schemas.order import CartItemCreate
+
         c = CartItemCreate(product_id=uuid.uuid4(), sku_id=uuid.uuid4())
         assert c.quantity == 1
 
     def test_cart_item_create_quantity_min(self):
         from app.schemas.order import CartItemCreate
+
         with pytest.raises(ValidationError):
             CartItemCreate(product_id=uuid.uuid4(), sku_id=uuid.uuid4(), quantity=0)
 
     def test_cart_item_update_partial(self):
         from app.schemas.order import CartItemUpdate
+
         u = CartItemUpdate(checked=0)
         assert u.model_dump(exclude_unset=True) == {"checked": 0}
 
@@ -77,6 +88,7 @@ class TestCartSchemas:
 class TestOrderSchemas:
     def test_order_create_from_cart(self):
         from app.schemas.order import OrderCreateFromCart
+
         o = OrderCreateFromCart(
             cart_item_ids=[uuid.uuid4()],
             receiver_name="张三",
@@ -87,6 +99,7 @@ class TestOrderSchemas:
 
     def test_order_create_empty_cart(self):
         from app.schemas.order import OrderCreateFromCart
+
         with pytest.raises(ValidationError):
             OrderCreateFromCart(
                 cart_item_ids=[],
@@ -97,11 +110,13 @@ class TestOrderSchemas:
 
     def test_order_delivery_request(self):
         from app.schemas.order import OrderDeliveryRequest
+
         d = OrderDeliveryRequest(delivery_company="顺丰", delivery_sn="SF123456")
         assert d.delivery_company == "顺丰"
 
     def test_order_list_query_defaults(self):
         from app.schemas.order import OrderListQuery
+
         q = OrderListQuery()
         assert q.page == 1
         assert q.page_size == 20
@@ -110,6 +125,7 @@ class TestOrderSchemas:
 # ============================================================================
 #  3. 订单状态机验证
 # ============================================================================
+
 
 class TestOrderStateMachine:
     def test_valid_transitions(self):
@@ -146,19 +162,23 @@ class TestOrderStateMachine:
 #  4. 路由验证
 # ============================================================================
 
+
 class TestPhase3Routes:
     def test_admin_router_has_order(self):
         from app.api.admin import admin_router
+
         routes = [r.path for r in admin_router.routes]
         assert "/admin/orders" in routes
 
     def test_portal_router_has_cart(self):
         from app.api.portal import portal_router
+
         routes = [r.path for r in portal_router.routes]
         assert "/portal/cart" in routes
 
     def test_portal_router_has_order(self):
         from app.api.portal import portal_router
+
         routes = [r.path for r in portal_router.routes]
         assert "/portal/orders" in routes
 
@@ -167,9 +187,11 @@ class TestPhase3Routes:
 #  5. 迁移文件验证
 # ============================================================================
 
+
 class TestPhase3Migration:
     def test_migration_exists(self):
         import importlib.util
+
         spec = importlib.util.spec_from_file_location(
             "phase3_migration",
             "alembic/versions/c3d4e5f6a7b8_create_commerce_order_tables.py",
@@ -178,6 +200,7 @@ class TestPhase3Migration:
 
     def test_migration_correct_chain(self):
         import importlib.util
+
         spec = importlib.util.spec_from_file_location(
             "phase3_migration",
             "alembic/versions/c3d4e5f6a7b8_create_commerce_order_tables.py",

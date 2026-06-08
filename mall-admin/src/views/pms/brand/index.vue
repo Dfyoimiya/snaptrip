@@ -1,40 +1,44 @@
 <script lang="ts" setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Edit, Delete, View } from '@element-plus/icons-vue'
-
-const router = useRouter()
+import { getBrandListAPI, createBrandAPI, updateBrandAPI, brandDeleteByIdAPI, brandUpdateShowStatusAPI, brandUpdateFactoryStatusAPI } from '@/apis/brand'
 
 // 搜索
 const searchKeyword = ref('')
 const pageNum = ref(1)
 const pageSize = ref(10)
-const total = ref(56)
+const total = ref(0)
 const listLoading = ref(false)
 const selectedRows = ref<any[]>([])
 
 // 品牌数据
-const brandList = ref([
-  { id: 1, name: 'Apple', firstLetter: 'A', sort: 100, factoryStatus: 1, showStatus: 1, productCount: 86, productCommentCount: 2340, logo: 'https://picsum.photos/seed/applelogo/100/100', bigPic: '', brandStory: '苹果公司是全球知名的科技公司' },
-  { id: 2, name: '华为', firstLetter: 'H', sort: 99, factoryStatus: 1, showStatus: 1, productCount: 128, productCommentCount: 5670, logo: 'https://picsum.photos/seed/huaweilogo/100/100', bigPic: '', brandStory: '华为技术有限公司是全球领先的信息与通信技术解决方案供应商' },
-  { id: 3, name: '小米', firstLetter: 'X', sort: 98, factoryStatus: 1, showStatus: 1, productCount: 156, productCommentCount: 8900, logo: 'https://picsum.photos/seed/milogo/100/100', bigPic: '', brandStory: '小米是一家以手机、智能硬件和IoT平台为核心的互联网公司' },
-  { id: 4, name: 'Nike', firstLetter: 'N', sort: 97, factoryStatus: 1, showStatus: 1, productCount: 68, productCommentCount: 1234, logo: 'https://picsum.photos/seed/nikelogo/100/100', bigPic: '', brandStory: 'Nike是全球著名的体育运动品牌' },
-  { id: 5, name: 'Adidas', firstLetter: 'A', sort: 96, factoryStatus: 1, showStatus: 1, productCount: 54, productCommentCount: 987, logo: 'https://picsum.photos/seed/adidaslogo/100/100', bigPic: '', brandStory: '阿迪达斯是德国运动用品制造商' },
-  { id: 6, name: '索尼', firstLetter: 'S', sort: 95, factoryStatus: 1, showStatus: 1, productCount: 42, productCommentCount: 1567, logo: 'https://picsum.photos/seed/sonylogo/100/100', bigPic: '', brandStory: '索尼是日本全球知名的大型综合性跨国企业集团' },
-  { id: 7, name: '三星', firstLetter: 'S', sort: 94, factoryStatus: 0, showStatus: 1, productCount: 36, productCommentCount: 2100, logo: 'https://picsum.photos/seed/samsunglogo/100/100', bigPic: '', brandStory: '三星是韩国最大的跨国企业集团' },
-  { id: 8, name: 'OPPO', firstLetter: 'O', sort: 93, factoryStatus: 1, showStatus: 0, productCount: 45, productCommentCount: 3456, logo: 'https://picsum.photos/seed/oppologo/100/100', bigPic: '', brandStory: 'OPPO是更多年轻人选择的拍照手机品牌' },
-])
+const brandList = ref<any[]>([])
+
+async function fetchData() {
+  listLoading.value = true
+  try {
+    const res = await getBrandListAPI({ keyword: searchKeyword.value, pageNum: pageNum.value, pageSize: pageSize.value })
+    brandList.value = res.list || []
+    total.value = res.total || 0
+  } finally {
+    listLoading.value = false
+  }
+}
+onMounted(() => { fetchData() })
 
 // 搜索
 function handleSearch() {
   pageNum.value = 1
-  ElMessage.success('搜索完成')
+  fetchData()
 }
 function handleReset() {
   searchKeyword.value = ''
   pageNum.value = 1
+  fetchData()
 }
+function handleSizeChange(val: number) { pageNum.value = 1; pageSize.value = val; fetchData() }
+function handleCurrentChange(val: number) { pageNum.value = val; fetchData() }
 
 // 添加/编辑
 function handleAdd() {
@@ -47,31 +51,37 @@ function handleEdit(row: any) {
   brandForm.value = { ...row }
   brandDialogVisible.value = true
 }
-function handleDelete(row: any) {
-  ElMessageBox.confirm(`确定删除品牌「${row.name}」吗？`, '提示', { type: 'warning' }).then(() => {
-    brandList.value = brandList.value.filter(b => b.id !== row.id)
-    ElMessage.success('删除成功')
-  })
+async function handleDelete(row: any) {
+  await ElMessageBox.confirm(`确定删除品牌「${row.name}」吗？`, '提示', { type: 'warning' })
+  await brandDeleteByIdAPI(row.id)
+  ElMessage.success('删除成功')
+  fetchData()
 }
 
 // 批量操作
-function handleBatchDelete() {
+async function handleBatchDelete() {
   if (selectedRows.value.length === 0) return ElMessage.warning('请至少选择一项')
-  ElMessageBox.confirm(`确定删除选中的 ${selectedRows.value.length} 个品牌？`, '提示', { type: 'warning' }).then(() => {
-    const ids = selectedRows.value.map(r => r.id)
-    brandList.value = brandList.value.filter(b => !ids.includes(b.id))
-    ElMessage.success('批量删除成功')
-  })
+  await ElMessageBox.confirm(`确定删除选中的 ${selectedRows.value.length} 个品牌？`, '提示', { type: 'warning' })
+  const ids = selectedRows.value.map((r: any) => r.id)
+  for (const id of ids) {
+    await brandDeleteByIdAPI(id)
+  }
+  ElMessage.success('批量删除成功')
+  fetchData()
 }
-function handleBatchShow(status: number) {
+async function handleBatchShow(status: number) {
   if (selectedRows.value.length === 0) return ElMessage.warning('请至少选择一项')
-  selectedRows.value.forEach(r => { const b = brandList.value.find(i => i.id === r.id); if (b) b.showStatus = status })
+  const ids = selectedRows.value.map((r: any) => r.id).join(',')
+  await brandUpdateShowStatusAPI({ ids, showStatus: status })
   ElMessage.success(status === 1 ? '批量显示成功' : '批量隐藏成功')
+  fetchData()
 }
-function handleBatchFactory(status: number) {
+async function handleBatchFactory(status: number) {
   if (selectedRows.value.length === 0) return ElMessage.warning('请至少选择一项')
-  selectedRows.value.forEach(r => { const b = brandList.value.find(i => i.id === r.id); if (b) b.factoryStatus = status })
+  const ids = selectedRows.value.map((r: any) => r.id).join(',')
+  await brandUpdateFactoryStatusAPI({ ids, factoryStatus: status })
   ElMessage.success(status === 1 ? '批量设为制造商成功' : '批量取消制造商成功')
+  fetchData()
 }
 
 function handleSelectionChange(val: any[]) { selectedRows.value = val }
@@ -81,17 +91,17 @@ const brandDialogVisible = ref(false)
 const brandDialogTitle = ref('')
 const brandForm = ref({ id: undefined as number | undefined, name: '', firstLetter: '', sort: 0, factoryStatus: 1, showStatus: 1, logo: '', bigPic: '', brandStory: '' })
 
-function handleSaveBrand() {
+async function handleSaveBrand() {
   if (!brandForm.value.name) return ElMessage.warning('请输入品牌名称')
   if (brandForm.value.id) {
-    const idx = brandList.value.findIndex(b => b.id === brandForm.value.id)
-    if (idx > -1) brandList.value[idx] = { ...brandForm.value, productCount: brandList.value[idx].productCount, productCommentCount: brandList.value[idx].productCommentCount }
+    await updateBrandAPI(brandForm.value.id, brandForm.value as any)
     ElMessage.success('编辑成功')
   } else {
-    brandList.value.unshift({ ...brandForm.value, id: Date.now(), productCount: 0, productCommentCount: 0 })
+    await createBrandAPI(brandForm.value as any)
     ElMessage.success('添加成功')
   }
   brandDialogVisible.value = false
+  fetchData()
 }
 </script>
 
@@ -162,7 +172,7 @@ function handleSaveBrand() {
       </el-table>
 
       <div class="pagination-wrapper">
-        <el-pagination v-model:current-page="pageNum" v-model:page-size="pageSize" :total="total" :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper" />
+        <el-pagination v-model:current-page="pageNum" v-model:page-size="pageSize" :total="total" :page-sizes="[10, 20, 50, 100]" layout="total, sizes, prev, pager, next, jumper" @size-change="handleSizeChange" @current-change="handleCurrentChange" />
       </div>
     </el-card>
 

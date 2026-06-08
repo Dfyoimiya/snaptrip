@@ -84,6 +84,7 @@ def _load_pricing() -> dict[str, ModelPricing]:
         logger.warning("pricing_parse_failed", exc_info=True)
         return {}
 
+
 # ── 错误分类 ──
 RETRYABLE_EXCEPTIONS = (
     httpx.TimeoutException,
@@ -116,7 +117,9 @@ class LangChainAdapter(LLMPort):
             max_retries=0,
         )
         self._pricing = _load_pricing()
-        logger.info("LangChainAdapter initialized (model=%s)", settings.LLM_DEFAULT_MODEL)
+        logger.info(
+            "LangChainAdapter initialized (model=%s)", settings.LLM_DEFAULT_MODEL
+        )
 
     # ── LLMPort 实现 ──────────────────────────────────────────
 
@@ -186,9 +189,15 @@ class LangChainAdapter(LLMPort):
             "usage=%s | content=%s | tool_calls=%s | reasoning_content=%s",
             model,
             getattr(ai_msg, "response_metadata", {}).get("finish_reason", "stop"),
-            json.dumps(raw_usage.__dict__ if raw_usage else None, ensure_ascii=False, default=str),
+            json.dumps(
+                raw_usage.__dict__ if raw_usage else None,
+                ensure_ascii=False,
+                default=str,
+            ),
             (ai_msg.content or "")[:500] if isinstance(ai_msg.content, str) else "",
-            json.dumps(ai_msg.tool_calls, ensure_ascii=False) if ai_msg.tool_calls else "None",
+            json.dumps(ai_msg.tool_calls, ensure_ascii=False)
+            if ai_msg.tool_calls
+            else "None",
             (ai_msg.additional_kwargs.get("reasoning_content", "") or "")[:500],
         )
         return ai_msg
@@ -288,7 +297,9 @@ class LangChainAdapter(LLMPort):
             try:
                 logger.debug(
                     "LLM stream call (LangChain): model=%s (attempt %d/%d)",
-                    model_name, i + 1, len(chain_names),
+                    model_name,
+                    i + 1,
+                    len(chain_names),
                 )
                 return await self._call_with_retry_stream(
                     messages=messages,
@@ -302,7 +313,9 @@ class LangChainAdapter(LLMPort):
                 )
             except RETRYABLE_EXCEPTIONS as e:
                 last_error = e
-                logger.warning("LLM stream model %s failed (retryable): %s", model_name, e)
+                logger.warning(
+                    "LLM stream model %s failed (retryable): %s", model_name, e
+                )
                 continue
             except Exception as e:
                 last_error = e
@@ -361,7 +374,9 @@ class LangChainAdapter(LLMPort):
                 except RETRYABLE_EXCEPTIONS:
                     logger.warning(
                         "LLM stream retry attempt %s for model %s",
-                        attempt.retry_state.attempt_number if attempt.retry_state else "?",
+                        attempt.retry_state.attempt_number
+                        if attempt.retry_state
+                        else "?",
                         model_alias,
                     )
                     raise
@@ -413,7 +428,9 @@ class LangChainAdapter(LLMPort):
                                 if tc_delta.function.name:
                                     buf["function"]["name"] += tc_delta.function.name
                                 if tc_delta.function.arguments:
-                                    buf["function"]["arguments"] += tc_delta.function.arguments
+                                    buf["function"]["arguments"] += (
+                                        tc_delta.function.arguments
+                                    )
 
                 if chunk.choices[0].finish_reason:
                     finish_reason = chunk.choices[0].finish_reason
@@ -432,11 +449,13 @@ class LangChainAdapter(LLMPort):
                     args = json.loads(raw_args) if raw_args else {}
                 except json.JSONDecodeError:
                     args = {}
-                tool_calls.append({
-                    "name": fn["name"],
-                    "args": args,
-                    "id": tc["id"],
-                })
+                tool_calls.append(
+                    {
+                        "name": fn["name"],
+                        "args": args,
+                        "id": tc["id"],
+                    }
+                )
 
         # 构建 AIMessage — content 永远有值，不会触发 Pydantic 校验失败
         additional_kwargs: dict[str, Any] = {}

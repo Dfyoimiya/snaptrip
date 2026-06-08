@@ -167,8 +167,7 @@ class TestDAGExecutor:
         executor = ToolDAGExecutor(memory=None)
         inv = [
             ToolInvocation(tool_name="search_poi", invocation_id="a", dependencies=[]),
-            ToolInvocation(tool_name="check_queue", invocation_id="b", dependencies=["a"],
-                          params={"poi_id": "bj-001"}),
+            ToolInvocation(tool_name="check_queue", invocation_id="b", dependencies=["a"], params={"poi_id": "bj-001"}),
         ]
         result = await executor.execute(inv)
         assert len(result["results"]) == 2

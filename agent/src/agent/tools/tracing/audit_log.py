@@ -84,9 +84,7 @@ class AuditStore:
         cost_cny: float,
     ) -> AuditEntry:
         """Create and append a new audit entry to the chain."""
-        prev_hash = (
-            self._entries[-1].digest() if self._entries else self.GENESIS_HASH
-        )
+        prev_hash = self._entries[-1].digest() if self._entries else self.GENESIS_HASH
         entry = AuditEntry(
             entry_id=str(uuid.uuid4()),
             prev_hash=prev_hash,

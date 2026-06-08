@@ -90,7 +90,9 @@ class ToolTracer(BaseCallbackHandler):
             span_id=span["span_id"],
             cost_cny=cost_cny,
         )
-        logger.debug("Tool end: %s (span=%s, %dms)", tool_name, span["span_id"], latency_ms)
+        logger.debug(
+            "Tool end: %s (span=%s, %dms)", tool_name, span["span_id"], latency_ms
+        )
 
     def on_tool_error(
         self,

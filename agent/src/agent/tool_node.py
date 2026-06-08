@@ -32,7 +32,9 @@ from agent.utils import (
 logger = logging.getLogger(__name__)
 
 
-async def _emit_tool_event(plan_id: str, event_type: str, payload: dict[str, Any]) -> None:
+async def _emit_tool_event(
+    plan_id: str, event_type: str, payload: dict[str, Any]
+) -> None:
     """Emit a RuntimeEvent via the event bus (non-blocking, best-effort)."""
     event_bus = get_event_bus()
     if event_bus is None:
@@ -52,6 +54,7 @@ async def _emit_tool_event(plan_id: str, event_type: str, payload: dict[str, Any
 def _get_harness_and_session():
     """Get ToolHarness + SessionContext from runtime."""
     from agent.graph import _runtime
+
     if _runtime:
         return _runtime.harness, _runtime.session_ctx
     return None, None
@@ -63,7 +66,9 @@ def _parse_tool_call(tc: dict | Any) -> tuple[str, str, dict[str, Any]]:
     tc_name = tc["name"] if isinstance(tc, dict) else tc.name
     if isinstance(tc, dict):
         raw_args = tc.get("args", tc.get("arguments", {}))
-        tc_args: dict[str, Any] = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+        tc_args: dict[str, Any] = (
+            json.loads(raw_args) if isinstance(raw_args, str) else raw_args
+        )
     else:
         raw_args = getattr(tc, "args", getattr(tc, "arguments", {}))
         tc_args = json.loads(raw_args) if isinstance(raw_args, str) else raw_args
@@ -84,8 +89,14 @@ async def _execute_saga(
     except Exception as e:
         logger.exception("SagaCoordinator execution failed")
         return [
-            {"tc_id": c["tc_id"], "success": False,
-             "data": {"error": f"Saga error: {type(e).__name__}: {e}", "saga_status": "error"}}
+            {
+                "tc_id": c["tc_id"],
+                "success": False,
+                "data": {
+                    "error": f"Saga error: {type(e).__name__}: {e}",
+                    "saga_status": "error",
+                },
+            }
             for c in exec_calls
         ]
 
@@ -96,27 +107,40 @@ async def _execute_saga(
     for i, call in enumerate(exec_calls):
         if saga_result["status"] == "done" and len(batch_results) >= 2 * n:
             confirm = batch_results[n + i]
-            output.append({
-                "tc_id": call["tc_id"], "success": confirm.success,
-                "data": confirm.data, "saga_status": "done",
-            })
+            output.append(
+                {
+                    "tc_id": call["tc_id"],
+                    "success": confirm.success,
+                    "data": confirm.data,
+                    "saga_status": "done",
+                }
+            )
         else:
             found = None
             for j in range(i, len(batch_results), n):
                 if j < len(batch_results):
                     found = batch_results[j]
             if found is not None:
-                output.append({
-                    "tc_id": call["tc_id"], "success": found.success,
-                    "data": found.data, "saga_status": saga_result["status"],
-                })
+                output.append(
+                    {
+                        "tc_id": call["tc_id"],
+                        "success": found.success,
+                        "data": found.data,
+                        "saga_status": saga_result["status"],
+                    }
+                )
             else:
-                output.append({
-                    "tc_id": call["tc_id"], "success": False,
-                    "data": {"error": "Saga rolled back before this step",
-                             "saga_status": saga_result["status"]},
-                    "saga_status": saga_result["status"],
-                })
+                output.append(
+                    {
+                        "tc_id": call["tc_id"],
+                        "success": False,
+                        "data": {
+                            "error": "Saga rolled back before this step",
+                            "saga_status": saga_result["status"],
+                        },
+                        "saga_status": saga_result["status"],
+                    }
+                )
 
     return output
 
@@ -161,20 +185,30 @@ async def tool_node(state: PlanState) -> dict:
             }
             if "options" in tc_args:
                 hitl_payload["options"] = tc_args["options"]
-            results.append(ToolMessage(
-                content=json.dumps({"status": "presented_to_user"}),
-                tool_call_id=tc_id,
-            ))
+            results.append(
+                ToolMessage(
+                    content=json.dumps({"status": "presented_to_user"}),
+                    tool_call_id=tc_id,
+                )
+            )
 
         elif tc_name in EXECUTION_NAMES:
-            exec_calls.append({
-                "tc_id": tc_id, "tc_name": tc_name, "tc_args": tc_args,
-            })
+            exec_calls.append(
+                {
+                    "tc_id": tc_id,
+                    "tc_name": tc_name,
+                    "tc_args": tc_args,
+                }
+            )
 
         else:
-            standard_calls.append({
-                "tc_id": tc_id, "tc_name": tc_name, "tc_args": tc_args,
-            })
+            standard_calls.append(
+                {
+                    "tc_id": tc_id,
+                    "tc_name": tc_name,
+                    "tc_args": tc_args,
+                }
+            )
 
     # ── Execute standard tools individually ──
     for sc in standard_calls:
@@ -185,44 +219,71 @@ async def tool_node(state: PlanState) -> dict:
                     args=sc["tc_args"],
                     session_ctx=session_ctx,
                 )
-                data = result.data if result.success else {"error": result.data.get("error", "unknown")}
+                data = (
+                    result.data
+                    if result.success
+                    else {"error": result.data.get("error", "unknown")}
+                )
             except Exception as e:
                 logger.exception("ToolHarness execution failed for %s", sc["tc_name"])
                 data = {"error": f"{type(e).__name__}: {e}"}
         else:
             data = {"error": "ToolHarness not available"}
 
-        results.append(ToolMessage(
-            content=json.dumps(data, ensure_ascii=False),
-            tool_call_id=sc["tc_id"],
-        ))
+        results.append(
+            ToolMessage(
+                content=json.dumps(data, ensure_ascii=False),
+                tool_call_id=sc["tc_id"],
+            )
+        )
 
     # ── Execute saga tools ──
     if exec_calls and harness and session_ctx:
         plan_id = state.get("plan_id", "")
         tool_names = [c["tc_name"] for c in exec_calls]
-        await _emit_tool_event(plan_id, "execution", {"phase": "tx", "tools": tool_names})
+        await _emit_tool_event(
+            plan_id, "execution", {"phase": "tx", "tools": tool_names}
+        )
         saga_results = await _execute_saga(harness, session_ctx, exec_calls)
         for sr in saga_results:
-            data = sr["data"] if sr["success"] else {"error": sr["data"].get("error", "unknown")}
-            results.append(ToolMessage(
-                content=json.dumps(data, ensure_ascii=False),
-                tool_call_id=sr["tc_id"],
-            ))
+            data = (
+                sr["data"]
+                if sr["success"]
+                else {"error": sr["data"].get("error", "unknown")}
+            )
+            results.append(
+                ToolMessage(
+                    content=json.dumps(data, ensure_ascii=False),
+                    tool_call_id=sr["tc_id"],
+                )
+            )
         session_ctx.active_tx = None
-        await _emit_tool_event(plan_id, "execution_done", {
-            "phase": "tx", "tools": tool_names,
-            "results": [
-                {"tc_id": sr["tc_id"], "success": sr["success"], "saga_status": sr["saga_status"]}
-                for sr in saga_results
-            ],
-        })
+        await _emit_tool_event(
+            plan_id,
+            "execution_done",
+            {
+                "phase": "tx",
+                "tools": tool_names,
+                "results": [
+                    {
+                        "tc_id": sr["tc_id"],
+                        "success": sr["success"],
+                        "saga_status": sr["saga_status"],
+                    }
+                    for sr in saga_results
+                ],
+            },
+        )
     elif exec_calls:
         for ec in exec_calls:
-            results.append(ToolMessage(
-                content=json.dumps({"error": "ToolHarness not available for Saga execution"}),
-                tool_call_id=ec["tc_id"],
-            ))
+            results.append(
+                ToolMessage(
+                    content=json.dumps(
+                        {"error": "ToolHarness not available for Saga execution"}
+                    ),
+                    tool_call_id=ec["tc_id"],
+                )
+            )
 
     return {
         "messages": results,

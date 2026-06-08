@@ -1,22 +1,46 @@
 <script lang="ts" setup>
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, ArrowRight } from '@element-plus/icons-vue'
-
-const router = useRouter()
+import {
+  productAttributeCategoryListWithAttrAPI,
+  productAttributeCategoryCreateAPI,
+  productAttributeCategoryUpdateAPI,
+  productAttributeCategoryDeleteById,
+} from '@/apis/productAttrCate'
+import {
+  createProductAttributeAPI,
+  updateProductAttributeAPI,
+  deleteProductAttributeAPI,
+} from '@/apis/productAttr'
+import type { PmsProductAttributeCategoryExt, PmsProductAttribute } from '@/types/productAttr'
 
 // ========== 属性分类 ==========
-const attrCateList = ref([
-  { id: 1, name: '手机属性', attributeCount: 6, paramCount: 4 },
-  { id: 2, name: '电脑属性', attributeCount: 5, paramCount: 3 },
-  { id: 3, name: '服装属性', attributeCount: 4, paramCount: 3 },
-  { id: 4, name: '鞋靴属性', attributeCount: 3, paramCount: 2 },
-])
+const attrCateList = ref<PmsProductAttributeCategoryExt[]>([])
+const loading = ref(false)
 
 const cateDialogVisible = ref(false)
 const cateDialogTitle = ref('')
-const cateForm = ref({ id: undefined as number | undefined, name: '' })
+const cateForm = ref<{ id?: number; name: string }>({ id: undefined, name: '' })
+
+async function fetchCateList() {
+  loading.value = true
+  try {
+    const data = await productAttributeCategoryListWithAttrAPI()
+    attrCateList.value = data || []
+    if (attrCateList.value.length > 0 && !attrCateList.value.find(c => c.id === currentCateId.value)) {
+      currentCateId.value = attrCateList.value[0].id!
+    }
+  } catch (err: any) {
+    ElMessage.error(err?.message || '获取分类列表失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  fetchCateList()
+})
 
 function handleAddCate() {
   cateDialogTitle.value = '添加属性分类'
@@ -28,47 +52,48 @@ function handleEditCate(row: any) {
   cateForm.value = { ...row }
   cateDialogVisible.value = true
 }
-function handleDeleteCate(row: any) {
-  ElMessageBox.confirm(`确定删除「${row.name}」吗？`, '提示', { type: 'warning' }).then(() => {
-    attrCateList.value = attrCateList.value.filter(c => c.id !== row.id)
+async function handleDeleteCate(row: any) {
+  try {
+    await ElMessageBox.confirm(`确定删除「${row.name}」吗？`, '提示', { type: 'warning' })
+    await productAttributeCategoryDeleteById(row.id)
     ElMessage.success('删除成功')
-  })
-}
-function handleSaveCate() {
-  if (!cateForm.value.name) return ElMessage.warning('请输入名称')
-  if (cateForm.value.id) {
-    const idx = attrCateList.value.findIndex(c => c.id === cateForm.value.id)
-    if (idx > -1) attrCateList.value[idx].name = cateForm.value.name
-    ElMessage.success('编辑成功')
-  } else {
-    attrCateList.value.push({ id: Date.now(), name: cateForm.value.name, attributeCount: 0, paramCount: 0 })
-    ElMessage.success('添加成功')
+    fetchCateList()
+  } catch (err: any) {
+    if (err !== 'cancel') ElMessage.error(err?.message || '删除失败')
   }
-  cateDialogVisible.value = false
+}
+async function handleSaveCate() {
+  if (!cateForm.value.name) return ElMessage.warning('请输入名称')
+  try {
+    if (cateForm.value.id) {
+      await productAttributeCategoryUpdateAPI(cateForm.value.id, cateForm.value.name)
+      ElMessage.success('编辑成功')
+    } else {
+      await productAttributeCategoryCreateAPI(cateForm.value.name)
+      ElMessage.success('添加成功')
+    }
+    cateDialogVisible.value = false
+    fetchCateList()
+  } catch (err: any) {
+    ElMessage.error(err?.message || '保存失败')
+  }
 }
 
 // ========== 属性列表 ==========
 const currentCateId = ref(1)
 const activeTab = ref('spec') // spec | param
 
-const attrList = ref([
-  { id: 1, productAttributeCategoryId: 1, name: '颜色', selectType: 2, inputType: 0, inputList: '黑色,白色,蓝色,金色', sort: 1, type: 0, handAddStatus: 1, searchType: 1, relatedStatus: 1 },
-  { id: 2, productAttributeCategoryId: 1, name: '存储容量', selectType: 2, inputType: 0, inputList: '128GB,256GB,512GB,1TB', sort: 2, type: 0, handAddStatus: 1, searchType: 1, relatedStatus: 1 },
-  { id: 3, productAttributeCategoryId: 1, name: '屏幕尺寸', selectType: 1, inputType: 0, inputList: '6.1英寸,6.7英寸', sort: 3, type: 0, handAddStatus: 0, searchType: 1, relatedStatus: 1 },
-  { id: 4, productAttributeCategoryId: 1, name: '网络类型', selectType: 1, inputType: 0, inputList: '5G,4G', sort: 4, type: 1, handAddStatus: 0, searchType: 0, relatedStatus: 0 },
-  { id: 5, productAttributeCategoryId: 1, name: '电池容量', selectType: 1, inputType: 1, inputList: '', sort: 5, type: 1, handAddStatus: 0, searchType: 0, relatedStatus: 0 },
-  { id: 6, productAttributeCategoryId: 1, name: '前置摄像头', selectType: 1, inputType: 1, inputList: '', sort: 6, type: 1, handAddStatus: 0, searchType: 0, relatedStatus: 0 },
-])
-
 const filteredAttrList = computed(() => {
-  return attrList.value.filter(a => a.productAttributeCategoryId === currentCateId.value && a.type === (activeTab.value === 'spec' ? 0 : 1))
+  const cate = attrCateList.value.find(c => c.id === currentCateId.value)
+  if (!cate || !cate.productAttributeList) return []
+  return cate.productAttributeList.filter(a => a.type === (activeTab.value === 'spec' ? 0 : 1))
 })
 
 // 属性弹窗
 const attrDialogVisible = ref(false)
 const attrDialogTitle = ref('')
-const attrForm = ref({
-  id: undefined as number | undefined,
+const attrForm = ref<PmsProductAttribute>({
+  id: undefined,
   productAttributeCategoryId: 1,
   name: '',
   selectType: 1,
@@ -91,23 +116,31 @@ function handleEditAttr(row: any) {
   attrForm.value = { ...row }
   attrDialogVisible.value = true
 }
-function handleDeleteAttr(row: any) {
-  ElMessageBox.confirm(`确定删除「${row.name}」吗？`, '提示', { type: 'warning' }).then(() => {
-    attrList.value = attrList.value.filter(a => a.id !== row.id)
+async function handleDeleteAttr(row: any) {
+  try {
+    await ElMessageBox.confirm(`确定删除「${row.name}」吗？`, '提示', { type: 'warning' })
+    await deleteProductAttributeAPI({ ids: String(row.id) })
     ElMessage.success('删除成功')
-  })
-}
-function handleSaveAttr() {
-  if (!attrForm.value.name) return ElMessage.warning('请输入属性名称')
-  if (attrForm.value.id) {
-    const idx = attrList.value.findIndex(a => a.id === attrForm.value.id)
-    if (idx > -1) attrList.value[idx] = { ...attrForm.value }
-    ElMessage.success('编辑成功')
-  } else {
-    attrList.value.push({ ...attrForm.value, id: Date.now() })
-    ElMessage.success('添加成功')
+    fetchCateList()
+  } catch (err: any) {
+    if (err !== 'cancel') ElMessage.error(err?.message || '删除失败')
   }
-  attrDialogVisible.value = false
+}
+async function handleSaveAttr() {
+  if (!attrForm.value.name) return ElMessage.warning('请输入属性名称')
+  try {
+    if (attrForm.value.id) {
+      await updateProductAttributeAPI(attrForm.value.id, attrForm.value)
+      ElMessage.success('编辑成功')
+    } else {
+      await createProductAttributeAPI(attrForm.value)
+      ElMessage.success('添加成功')
+    }
+    attrDialogVisible.value = false
+    fetchCateList()
+  } catch (err: any) {
+    ElMessage.error(err?.message || '保存失败')
+  }
 }
 
 function selectCateType(cateId: number) {

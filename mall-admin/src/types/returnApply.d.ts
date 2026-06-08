@@ -35,8 +35,8 @@ export interface ReturnApplyQueryParam {
   createTime?: string
   handleMan?: string
   handleTime?: string
-  pageNum: number
-  pageSize: number
+  page: number
+  page_size: number
 }
 
 /** 更新退货申请状态参数 */

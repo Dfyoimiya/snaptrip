@@ -74,5 +74,6 @@ class ToolExecutionContext:
         """SHA-256 of args for audit (never stores raw PII in logs)."""
         import hashlib
         import json
+
         payload = json.dumps(self.args, sort_keys=True, default=str)
         return hashlib.sha256(payload.encode()).hexdigest()[:16]

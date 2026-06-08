@@ -7,8 +7,10 @@ import {
   Money, Box, CircleCheck, Warning,
   HomeFilled, ArrowUp, ArrowDown,
 } from '@element-plus/icons-vue'
+import { getDashboardData } from '@/apis/dashboard'
 
 const router = useRouter()
+const loading = ref(false)
 const greeting = computed(() => {
   const hour = new Date().getHours()
   if (hour < 12) return '早安'
@@ -18,10 +20,10 @@ const greeting = computed(() => {
 
 // 核心统计
 const coreStats = ref([
-  { label: '今日订单', value: 128, change: 12.5, up: true, icon: Document, color: '#165dff', bg: '#e8f4ff' },
-  { label: '今日销售额', value: '¥25,680', change: 8.2, up: true, icon: Money, color: '#00b42a', bg: '#e8ffea' },
-  { label: '今日新增会员', value: 36, change: -3.1, up: false, icon: User, color: '#f7ba1e', bg: '#fff7e8' },
-  { label: '待处理退货', value: 8, change: 2.0, up: true, icon: Warning, color: '#f53f3f', bg: '#ffece8' },
+  { label: '今日订单', value: 0 as number | string, change: 0, up: true, icon: Document, color: '#165dff', bg: '#e8f4ff' },
+  { label: '今日销售额', value: '¥0' as number | string, change: 0, up: true, icon: Money, color: '#00b42a', bg: '#e8ffea' },
+  { label: '今日新增会员', value: 0 as number | string, change: 0, up: false, icon: User, color: '#f7ba1e', bg: '#fff7e8' },
+  { label: '待处理退货', value: 0 as number | string, change: 0, up: true, icon: Warning, color: '#f53f3f', bg: '#ffece8' },
 ])
 
 // 快捷导航
@@ -35,13 +37,7 @@ const shortcuts = ref([
 ])
 
 // 订单状态统计
-const orderStatusStats = ref([
-  { label: '待付款', count: 23, type: 'warning' },
-  { label: '待发货', count: 45, type: 'primary' },
-  { label: '已发货', count: 68, type: 'success' },
-  { label: '已完成', count: 1256, type: 'info' },
-  { label: '退款中', count: 8, type: 'danger' },
-])
+const orderStatusStats = ref<{ label: string; count: number; type: string }[]>([])
 
 // 待办事项
 const todos = ref([
@@ -54,13 +50,7 @@ const todos = ref([
 ])
 
 // 最新订单
-const latestOrders = ref([
-  { id: 1, orderSn: 'ORD20250602001', member: '张三', amount: 8999, status: 1, statusLabel: '待发货' },
-  { id: 2, orderSn: 'ORD20250602002', member: '李四', amount: 3290, status: 2, statusLabel: '已发货' },
-  { id: 3, orderSn: 'ORD20250602003', member: '王五', amount: 1599, status: 0, statusLabel: '待付款' },
-  { id: 4, orderSn: 'ORD20250602004', member: '赵六', amount: 2599, status: 2, statusLabel: '已发货' },
-  { id: 5, orderSn: 'ORD20250602005', member: '钱七', amount: 6999, status: 1, statusLabel: '待发货' },
-])
+const latestOrders = ref<{ id: number; orderSn: string; member: string; amount: number; status: number; statusLabel: string }[]>([])
 
 const orderStatusType = (status: number) => {
   const map: Record<number, string> = { 0: 'warning', 1: 'primary', 2: 'success' }
@@ -68,24 +58,51 @@ const orderStatusType = (status: number) => {
 }
 
 // 近7天销售趋势数据
-const weekDays = ref(['周一', '周二', '周三', '周四', '周五', '周六', '周日'])
-const weekSales = ref([18500, 22300, 19800, 25600, 31200, 28900, 25680])
-const maxSales = computed(() => Math.max(...weekSales.value))
+const weekDays = ref<string[]>(['周一', '周二', '周三', '周四', '周五', '周六', '周日'])
+const weekSales = ref<number[]>([0, 0, 0, 0, 0, 0, 0])
+const maxSales = computed(() => Math.max(...weekSales.value, 1))
 
 // 商品销售排行
-const topProducts = ref([
-  { name: 'iPhone 15 Pro', sales: 156, amount: 1403844 },
-  { name: '华为Mate60 Pro', sales: 128, amount: 895872 },
-  { name: '戴森吹风机', sales: 98, amount: 322420 },
-  { name: 'AirPods Pro 2', sales: 87, amount: 139113 },
-  { name: '索尼WH-1000XM5', sales: 72, amount: 215928 },
-])
+const topProducts = ref<{ name: string; sales: number; amount: number }[]>([])
 
 // 计算柱状图高度百分比
 const barHeight = (value: number) => `${Math.max((value / maxSales.value) * 100, 8)}%`
 
+async function fetchData() {
+  loading.value = true
+  try {
+    const data = await getDashboardData()
+    // 更新核心统计
+    coreStats.value[0].value = data.today_orders
+    coreStats.value[1].value = data.today_revenue_display || ('¥' + (data.today_revenue || 0).toLocaleString())
+    coreStats.value[2].value = data.new_members
+    coreStats.value[3].value = data.pending_returns
+    // 订单状态统计
+    if (data.order_status_counts && data.order_status_counts.length) {
+      orderStatusStats.value = data.order_status_counts
+    }
+    // 商品销售排行
+    if (data.top_products && data.top_products.length) {
+      topProducts.value = data.top_products
+    }
+    // 最新订单
+    if (data.latest_orders && data.latest_orders.length) {
+      latestOrders.value = data.latest_orders
+    }
+    // 本周销售趋势
+    if (data.week_days && data.week_days.length) {
+      weekDays.value = data.week_days
+    }
+    if (data.week_sales && data.week_sales.length) {
+      weekSales.value = data.week_sales
+    }
+  } finally {
+    loading.value = false
+  }
+}
+
 onMounted(() => {
-  // 模拟数据加载
+  fetchData()
 })
 </script>
 

@@ -1,36 +1,24 @@
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Edit, Delete, Bottom, Top, View } from '@element-plus/icons-vue'
+import { getProductCategoryListWithChildrenAPI, createProductCategoryAPI, updateProductCategoryAPI, productCategoryDeleteByIdAPI, productCategoryUpdateNavStatusAPI, productCategoryUpdateShowStatusAPI } from '@/apis/productCate'
 
 // 分类数据（树形）
-const cateList = ref([
-  {
-    id: 1, parentId: 0, name: '手机数码', level: 0, productCount: 156, productUnit: '件', navStatus: 1, showStatus: 1, sort: 100, icon: 'Phone', keywords: '手机', description: '手机、平板等数码产品',
-    children: [
-      { id: 11, parentId: 1, name: '手机', level: 1, productCount: 86, productUnit: '部', navStatus: 1, showStatus: 1, sort: 99, icon: 'Cellphone', keywords: '智能手机', description: '各品牌智能手机', children: [] },
-      { id: 12, parentId: 1, name: '平板电脑', level: 1, productCount: 32, productUnit: '台', navStatus: 1, showStatus: 1, sort: 98, icon: 'Monitor', keywords: '平板电脑', description: 'iPad及安卓平板', children: [] },
-      { id: 13, parentId: 1, name: '智能手表', level: 1, productCount: 38, productUnit: '只', navStatus: 1, showStatus: 1, sort: 97, icon: 'Clock', keywords: '智能手表手环', description: '智能穿戴设备', children: [] },
-    ],
-  },
-  {
-    id: 2, parentId: 0, name: '电脑办公', level: 0, productCount: 98, productUnit: '件', navStatus: 1, showStatus: 1, sort: 95, icon: 'Monitor', keywords: '电脑', description: '笔记本、台式机等',
-    children: [
-      { id: 21, parentId: 2, name: '笔记本电脑', level: 1, productCount: 45, productUnit: '台', navStatus: 1, showStatus: 1, sort: 94, icon: 'Notebook', keywords: '笔记本', description: '轻薄本、游戏本', children: [] },
-      { id: 22, parentId: 2, name: '显示器', level: 1, productCount: 28, productUnit: '台', navStatus: 1, showStatus: 1, sort: 93, icon: 'FullScreen', keywords: '显示器', description: '各种尺寸显示器', children: [] },
-    ],
-  },
-  {
-    id: 3, parentId: 0, name: '服装鞋包', level: 0, productCount: 234, productUnit: '件', navStatus: 1, showStatus: 1, sort: 90, icon: 'Handbag', keywords: '服装', description: '男装女装鞋靴箱包',
-    children: [
-      { id: 31, parentId: 3, name: '男装', level: 1, productCount: 78, productUnit: '件', navStatus: 1, showStatus: 1, sort: 89, icon: 'User', keywords: '男装', description: '男士服装', children: [] },
-      { id: 32, parentId: 3, name: '女装', level: 1, productCount: 92, productUnit: '件', navStatus: 1, showStatus: 1, sort: 88, icon: 'Female', keywords: '女装', description: '女士服装', children: [] },
-      { id: 33, parentId: 3, name: '运动鞋', level: 1, productCount: 64, productUnit: '双', navStatus: 1, showStatus: 1, sort: 87, icon: 'Basketball', keywords: '运动鞋', description: '各品牌运动鞋', children: [] },
-    ],
-  },
-])
-
+const cateList = ref<any[]>([])
 const listLoading = ref(false)
+
+async function fetchData() {
+  listLoading.value = true
+  try {
+    const res = await getProductCategoryListWithChildrenAPI()
+    cateList.value = res || []
+  } finally {
+    listLoading.value = false
+  }
+}
+onMounted(() => { fetchData() })
+
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const cateForm = ref({ id: undefined as number | undefined, parentId: 0, name: '', productUnit: '', sort: 0, navStatus: 1, showStatus: 1, icon: '', keywords: '', description: '' })
@@ -62,47 +50,38 @@ function handleEdit(row: any) {
   dialogVisible.value = true
 }
 
-function handleDelete(row: any) {
-  ElMessageBox.confirm(`确定删除「${row.name}」吗？`, '提示', { type: 'warning' }).then(() => {
-    cateList.value = cateList.value.filter(c => c.id !== row.id).map(c => {
-      if (c.children) c.children = c.children.filter((child: any) => child.id !== row.id)
-      return c
-    })
-    ElMessage.success('删除成功')
-  })
+async function handleDelete(row: any) {
+  await ElMessageBox.confirm(`确定删除「${row.name}」吗？`, '提示', { type: 'warning' })
+  await productCategoryDeleteByIdAPI(row.id)
+  ElMessage.success('删除成功')
+  fetchData()
 }
 
-function handleToggleNav(row: any) {
-  row.navStatus = row.navStatus === 1 ? 0 : 1
+async function handleToggleNav(row: any) {
+  const newStatus = row.navStatus === 1 ? 0 : 1
+  await productCategoryUpdateNavStatusAPI({ ids: String(row.id), navStatus: newStatus })
   ElMessage.success('导航栏显示状态已更新')
+  fetchData()
 }
 
-function handleToggleShow(row: any) {
-  row.showStatus = row.showStatus === 1 ? 0 : 1
+async function handleToggleShow(row: any) {
+  const newStatus = row.showStatus === 1 ? 0 : 1
+  await productCategoryUpdateShowStatusAPI({ ids: String(row.id), showStatus: newStatus })
   ElMessage.success('显示状态已更新')
+  fetchData()
 }
 
-function handleSaveCate() {
+async function handleSaveCate() {
   if (!cateForm.value.name) return ElMessage.warning('请输入分类名称')
   if (cateForm.value.id) {
-    // edit
+    await updateProductCategoryAPI(cateForm.value.id, cateForm.value as any)
     ElMessage.success('编辑成功')
   } else {
-    // add
-    const newId = Date.now()
-    if (cateForm.value.parentId === 0) {
-      cateList.value.push({ ...cateForm.value, id: newId, level: 0, productCount: 0, children: [] })
-    } else {
-      cateList.value.forEach(c => {
-        if (c.id === cateForm.value.parentId) {
-          if (!c.children) c.children = []
-          c.children.push({ ...cateForm.value, id: newId, level: 1, productCount: 0, children: [] })
-        }
-      })
-    }
+    await createProductCategoryAPI(cateForm.value as any)
     ElMessage.success('添加成功')
   }
   dialogVisible.value = false
+  fetchData()
 }
 </script>
 

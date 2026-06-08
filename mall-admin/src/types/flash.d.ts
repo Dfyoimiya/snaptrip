@@ -59,8 +59,8 @@ export interface SmsFlashPromotionProductRelation {
 export interface FlashProductQueryParam {
   flashPromotionId: number
   flashPromotionSessionId: number
-  pageNum: number
-  pageSize: number
+  page: number
+  page_size: number
 }
 
 /**

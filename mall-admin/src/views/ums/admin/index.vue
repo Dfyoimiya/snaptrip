@@ -3,77 +3,121 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Tickets } from '@element-plus/icons-vue'
 import { formatDateTime } from '@/utils/datetime'
+import {
+  getAdminListAPI,
+  adminRegisterAPI,
+  adminUpdateByIdAPI,
+  adminUpdateStatusByIdAPI,
+  adminDeleteByIdAPI,
+  getRoleByAdminIdAPI,
+  adminRoleUpdateAPI,
+} from '@/apis/admin'
+import { getRoleListAllAPI } from '@/apis/role'
+import type { UmsAdmin } from '@/types/admin'
+import type { UmsRole } from '@/types/role'
+import type { PageParam } from '@/types/common'
 
 const listQuery = ref({ pageNum: 1, pageSize: 10, keyword: '' })
-const allList = ref([
-  { id: 1, username: 'admin', nickName: '系统管理员', email: 'admin@mall.com', createTime: '2024-01-01T00:00:00', loginTime: '2024-05-28T10:30:00', status: 1 },
-  { id: 2, username: 'macro', nickName: '宏哥', email: 'macro@mall.com', createTime: '2024-01-15T00:00:00', loginTime: '2024-05-27T14:20:00', status: 1 },
-  { id: 3, username: 'test01', nickName: '测试员01', email: 'test01@mall.com', createTime: '2024-02-01T00:00:00', loginTime: '2024-05-26T09:10:00', status: 1 },
-  { id: 4, username: 'test02', nickName: '测试员02', email: 'test02@mall.com', createTime: '2024-02-15T00:00:00', loginTime: '2024-05-25T16:45:00', status: 0 },
-  { id: 5, username: 'operator', nickName: '运营人员', email: 'op@mall.com', createTime: '2024-03-01T00:00:00', loginTime: '2024-05-24T11:30:00', status: 1 },
-  { id: 6, username: 'cs01', nickName: '客服01', email: 'cs01@mall.com', createTime: '2024-03-15T00:00:00', loginTime: '2024-05-23T20:00:00', status: 1 },
-  { id: 7, username: 'cs02', nickName: '客服02', email: 'cs02@mall.com', createTime: '2024-04-01T00:00:00', loginTime: '2024-05-22T08:15:00', status: 1 },
-  { id: 8, username: 'finance', nickName: '财务人员', email: 'finance@mall.com', createTime: '2024-04-15T00:00:00', loginTime: '2024-05-21T13:40:00', status: 0 },
-])
-
-const list = ref([...allList.value])
-const total = ref(allList.value.length)
+const list = ref<UmsAdmin[]>([])
+const total = ref(0)
 const listLoading = ref(false)
 
-const admin = ref<any>({ username: '', password: '', status: 1 })
+const admin = ref<UmsAdmin>({ username: '', password: '', status: 1 })
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 
 const allocDialogVisible = ref(false)
 const allocAdminId = ref<number>()
 const allocRoleIds = ref<number[]>([])
-const allRoleList = ref([
-  { id: 1, name: '超级管理员' },
-  { id: 2, name: '商品管理员' },
-  { id: 3, name: '订单管理员' },
-  { id: 4, name: '会员管理员' },
-  { id: 5, name: '运营人员' },
-  { id: 6, name: '客服人员' },
-  { id: 7, name: '财务人员' },
-])
+const allRoleList = ref<UmsRole[]>([])
 
-const getList = () => {
+async function fetchData() {
   listLoading.value = true
-  let result = [...allList.value]
-  if (listQuery.value.keyword) result = result.filter(item => item.username?.includes(listQuery.value.keyword) || item.nickName?.includes(listQuery.value.keyword))
-  total.value = result.length
-  const start = (listQuery.value.pageNum - 1) * listQuery.value.pageSize
-  list.value = result.slice(start, start + listQuery.value.pageSize)
-  listLoading.value = false
+  try {
+    const params: PageParam = {
+      keyword: listQuery.value.keyword || undefined,
+      page: listQuery.value.pageNum,
+      page_size: listQuery.value.pageSize,
+    }
+    const data = await getAdminListAPI(params)
+    list.value = data.items || []
+    total.value = data.total || 0
+  } catch (err: any) {
+    ElMessage.error(err?.message || '获取列表失败')
+  } finally {
+    listLoading.value = false
+  }
 }
-onMounted(() => { getList() })
+onMounted(() => { fetchData() })
 
-const handleResetSearch = () => { listQuery.value = { pageNum: 1, pageSize: 10, keyword: '' }; getList() }
-const handleSearchList = () => { listQuery.value.pageNum = 1; getList() }
-const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQuery.value.pageSize = val; getList() }
-const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; getList() }
+const handleResetSearch = () => { listQuery.value = { pageNum: 1, pageSize: 10, keyword: '' }; fetchData() }
+const handleSearchList = () => { listQuery.value.pageNum = 1; fetchData() }
+const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQuery.value.pageSize = val; fetchData() }
+const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; fetchData() }
 
 const handleAdd = () => { dialogVisible.value = true; isEdit.value = false; admin.value = { username: '', password: '', status: 1 } }
-const handleUpdate = (_index: number, row: any) => { dialogVisible.value = true; isEdit.value = true; admin.value = Object.assign({}, row) }
-const handleStatusChange = (_index: number, row: any) => { ElMessage.success('状态修改成功') }
-const handleDelete = async (_index: number, row: any) => {
-  await ElMessageBox.confirm('是否要删除该用户?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
-  allList.value = allList.value.filter(item => item.id !== row.id); getList(); ElMessage.success('删除成功!')
-}
-const handleDialogConfirm = () => {
-  if (isEdit.value) {
-    const idx = allList.value.findIndex(item => item.id === admin.value.id)
-    if (idx > -1) allList.value[idx] = { ...allList.value[idx], ...admin.value }
-    ElMessage.success('修改成功！')
-  } else {
-    allList.value.unshift({ ...admin.value, id: Date.now(), createTime: new Date().toISOString() })
-    ElMessage.success('添加成功！')
+const handleUpdate = (_index: number, row: UmsAdmin) => { dialogVisible.value = true; isEdit.value = true; admin.value = { ...row } }
+const handleStatusChange = async (_index: number, row: UmsAdmin) => {
+  try {
+    await adminUpdateStatusByIdAPI(row.id!, { status: row.status! })
+    ElMessage.success('状态修改成功')
+  } catch (err: any) {
+    ElMessage.error(err?.message || '状态修改失败')
+    fetchData()
   }
-  dialogVisible.value = false; getList()
+}
+const handleDelete = async (_index: number, row: UmsAdmin) => {
+  try {
+    await ElMessageBox.confirm('是否要删除该用户?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
+    await adminDeleteByIdAPI(row.id!)
+    ElMessage.success('删除成功!')
+    fetchData()
+  } catch (err: any) {
+    if (err !== 'cancel') ElMessage.error(err?.message || '删除失败')
+  }
+}
+const handleDialogConfirm = async () => {
+  try {
+    if (isEdit.value) {
+      await adminUpdateByIdAPI(admin.value.id!, admin.value)
+      ElMessage.success('修改成功！')
+    } else {
+      await adminRegisterAPI(admin.value)
+      ElMessage.success('添加成功！')
+    }
+    dialogVisible.value = false
+    fetchData()
+  } catch (err: any) {
+    ElMessage.error(err?.message || '保存失败')
+  }
 }
 
-const handleSelectRole = (_index: number, row: any) => { allocAdminId.value = row.id; allocDialogVisible.value = true; allocRoleIds.value = [] }
-const handleAllocDialogConfirm = () => { ElMessage.success('分配成功！'); allocDialogVisible.value = false }
+const handleSelectRole = async (_index: number, row: UmsAdmin) => {
+  allocAdminId.value = row.id
+  allocDialogVisible.value = true
+  allocRoleIds.value = []
+  try {
+    const [roleData, adminRoleData] = await Promise.all([
+      getRoleListAllAPI(),
+      getRoleByAdminIdAPI(row.id!),
+    ])
+    allRoleList.value = roleData || []
+    if (adminRoleData) {
+      allocRoleIds.value = adminRoleData.map((r: any) => r.id)
+    }
+  } catch (err: any) {
+    ElMessage.error(err?.message || '获取角色信息失败')
+  }
+}
+const handleAllocDialogConfirm = async () => {
+  try {
+    await adminRoleUpdateAPI({ adminId: allocAdminId.value!, roleIds: allocRoleIds.value.join(',') })
+    ElMessage.success('分配成功！')
+    allocDialogVisible.value = false
+  } catch (err: any) {
+    ElMessage.error(err?.message || '分配失败')
+  }
+}
 </script>
 
 <template>

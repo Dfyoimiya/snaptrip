@@ -122,5 +122,3 @@ async def test_get_plan_status_not_found(client):
     """GET /status 对不存在的 plan_id → 404。"""
     resp = await client.get("/api/v1/plan/nonexistent-id/status")
     assert resp.status_code == 404
-
-

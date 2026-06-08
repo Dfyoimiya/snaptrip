@@ -1,7 +1,0 @@
-[
-  {"id":"b-001","image_url":"https://dummyimage.com/750x350/d63031/fff&text=Banner1_火锅节","link_type":"merchant","link_id":"m-001","sort_order":1,"status":"ACTIVE"},
-  {"id":"b-002","image_url":"https://dummyimage.com/750x350/0984e3/fff&text=Banner2_茶饮新品","link_type":"merchant","link_id":"m-007","sort_order":2,"status":"ACTIVE"},
-  {"id":"b-003","image_url":"https://dummyimage.com/750x350/00b894/fff&text=Banner3_密室特惠","link_type":"merchant","link_id":"m-005","sort_order":3,"status":"ACTIVE"},
-  {"id":"b-004","image_url":"https://dummyimage.com/750x350/6c5ce7/fff&text=Banner4_家政大促","link_type":"merchant","link_id":"m-010","sort_order":4,"status":"ACTIVE"},
-  {"id":"b-005","image_url":"https://dummyimage.com/750x350/fdcb6e/333&text=Banner5_新用户福利","link_type":"none","link_id":null,"sort_order":5,"status":"ACTIVE"}
-]

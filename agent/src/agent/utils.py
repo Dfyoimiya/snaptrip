@@ -30,6 +30,7 @@ EXECUTION_NAMES: set[str] = set()
 
 # ── Message utilities ──────────────────────────────────────────────────────
 
+
 def strip_orphan_tool_calls(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Strip orphan tool_calls that have no corresponding ToolMessage.
 
@@ -74,27 +75,33 @@ def normalize_tool_calls_for_api(tool_calls: list[Any]) -> list[dict[str, Any]]:
             else:
                 name = tc.get("name", "")
                 args = tc.get("args", {})
-                result.append({
-                    "id": tc.get("id", ""),
+                result.append(
+                    {
+                        "id": tc.get("id", ""),
+                        "type": "function",
+                        "function": {
+                            "name": name,
+                            "arguments": json.dumps(args, ensure_ascii=False)
+                            if not isinstance(args, str)
+                            else args,
+                        },
+                    }
+                )
+        else:
+            name = getattr(tc, "name", "")
+            args = getattr(tc, "args", {})
+            result.append(
+                {
+                    "id": getattr(tc, "id", ""),
                     "type": "function",
                     "function": {
                         "name": name,
                         "arguments": json.dumps(args, ensure_ascii=False)
-                        if not isinstance(args, str) else args,
+                        if not isinstance(args, str)
+                        else args,
                     },
-                })
-        else:
-            name = getattr(tc, "name", "")
-            args = getattr(tc, "args", {})
-            result.append({
-                "id": getattr(tc, "id", ""),
-                "type": "function",
-                "function": {
-                    "name": name,
-                    "arguments": json.dumps(args, ensure_ascii=False)
-                    if not isinstance(args, str) else args,
-                },
-            })
+                }
+            )
     return result
 
 
@@ -140,9 +147,11 @@ def strip_none_values(o: Any) -> Any:
 
 # ── Infrastructure utilities ───────────────────────────────────────────────
 
+
 def get_event_bus():
     """Get the Runtime event_bus (may be None)."""
     from agent.graph import _runtime
+
     if _runtime:
         return _runtime.event_bus
     return None
@@ -151,8 +160,10 @@ def get_event_bus():
 def get_llm_adapter() -> LLMPort:
     """Resolve the LLM adapter from runtime or settings."""
     from agent.graph import _runtime
+
     if _runtime and _runtime.llm_adapter:
         return _runtime.llm_adapter
 
     from agent.adapters.langchain_adapter import LangChainAdapter
+
     return LangChainAdapter()

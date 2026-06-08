@@ -6,7 +6,6 @@
 #   redis        — Redis 7 (Celery broker + SSE Pub/Sub + cache)
 #   marketplace  — FastAPI backend (port 8080, includes Celery Beat)
 #   agent-worker — Celery Worker (LangGraph async execution)
-#   mock-server  — Mock API for dev/CI
 
 services:
   # ===== 数据库 =====
@@ -101,7 +100,6 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DEV_DB:-snaptrip_dev}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0  # ggignore
       REDIS_POOL_SIZE: 10
-      MOCK_API_BASE_URL: http://mock-server:8001
       MARKETPLACE_MODE: ${MARKETPLACE_MODE:-mock}
       SNAPTRIP_MARKETPLACE_URL: ${SNAPTRIP_MARKETPLACE_URL:-http://marketplace:8000}
       # ── LLM (LiteLLM Gateway) ──
@@ -149,7 +147,6 @@ services:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snaptrip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DEV_DB:-snaptrip_dev}
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0  # ggignore
       REDIS_POOL_SIZE: 10
-      MOCK_API_BASE_URL: http://mock-server:8001
       MARKETPLACE_MODE: ${MARKETPLACE_MODE:-mock}
       SNAPTRIP_MARKETPLACE_URL: ${SNAPTRIP_MARKETPLACE_URL:-http://marketplace:8000}
       # ── LLM (LiteLLM Gateway) ──
@@ -208,56 +205,6 @@ services:
           cpus: "0.25"
     command: celery -A marketplace.app.celery_app beat -l info
 
-  # ===== Mock API 服务 (dev/CI) =====
-  mock-server:
-    build:
-      context: ./mock-services/mock-meituan
-      dockerfile: Dockerfile
-    container_name: snaptrip-mock
-    ports:
-      - "127.0.0.1:8001:8001"
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: "0.5"
-    profiles:
-      - dev
-      - full
-
-  # ===== 前端 =====
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      target: ${BUILD_TARGET:-production}
-    container_name: snaptrip-frontend
-    ports:
-      - "127.0.0.1:5174:5173"
-    depends_on:
-      - marketplace
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:5173/ || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: "0.5"
-    profiles:
-      - dev
-      - full
 
 volumes:
   postgres_data:

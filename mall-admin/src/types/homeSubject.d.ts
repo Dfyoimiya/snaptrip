@@ -12,6 +12,6 @@ export interface SmsHomeRecommendSubject {
 export interface HomeSubjectQueryParam {
   subjectName?: string
   recommendStatus?: number
-  pageNum: number
-  pageSize: number
+  page: number
+  page_size: number
 }

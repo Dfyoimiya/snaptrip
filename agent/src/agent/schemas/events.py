@@ -101,6 +101,10 @@ class RuntimeEvent(BaseModel):
     plan_id: str = ""
     node_name: str = ""
     event_type: str = ""
-    event_id: str = Field(default_factory=lambda: f"evt-{datetime.now(timezone.utc).timestamp()}")
+    event_id: str = Field(
+        default_factory=lambda: f"evt-{datetime.now(timezone.utc).timestamp()}"
+    )
     payload: UserMessagePayload | dict[str, Any] | None = None
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )

@@ -3,46 +3,41 @@ import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Tickets } from '@element-plus/icons-vue'
 import { formatDateTime } from '@/utils/datetime'
+import { getResourceCategoryListAllAPI, fetchAllResourceList, resourceCreateAPI, resourceUpdateByIdAPI, resourceDeleteByIdAPI } from '@/apis/resource'
+import type { UmsResource, UmsResourceCategory } from '@/types/resource'
 
 const listQuery = ref({ categoryId: undefined as number | undefined, nameKeyword: '', urlKeyword: '', pageNum: 1, pageSize: 10 })
 
-const categoryOptions = ref([
-  { label: '商品模块', value: 1 },
-  { label: '订单模块', value: 2 },
-  { label: '会员模块', value: 3 },
-  { label: '营销模块', value: 4 },
-  { label: '权限模块', value: 5 },
-])
-
-const allList = ref([
-  { id: 1, categoryId: 1, name: '商品列表查询', url: '/product/list', description: '查询商品列表', createTime: '2024-01-01T00:00:00' },
-  { id: 2, categoryId: 1, name: '商品添加', url: '/product/create', description: '添加商品', createTime: '2024-01-02T00:00:00' },
-  { id: 3, categoryId: 1, name: '商品修改', url: '/product/update', description: '修改商品', createTime: '2024-01-03T00:00:00' },
-  { id: 4, categoryId: 1, name: '商品删除', url: '/product/delete', description: '删除商品', createTime: '2024-01-04T00:00:00' },
-  { id: 5, categoryId: 2, name: '订单列表查询', url: '/order/list', description: '查询订单列表', createTime: '2024-01-05T00:00:00' },
-  { id: 6, categoryId: 2, name: '订单关闭', url: '/order/close', description: '关闭订单', createTime: '2024-01-06T00:00:00' },
-  { id: 7, categoryId: 2, name: '订单删除', url: '/order/delete', description: '删除订单', createTime: '2024-01-07T00:00:00' },
-  { id: 8, categoryId: 3, name: '用户列表查询', url: '/admin/list', description: '查询用户列表', createTime: '2024-01-08T00:00:00' },
-  { id: 9, categoryId: 3, name: '角色列表查询', url: '/role/list', description: '查询角色列表', createTime: '2024-01-09T00:00:00' },
-  { id: 10, categoryId: 3, name: '菜单列表查询', url: '/menu/list', description: '查询菜单列表', createTime: '2024-01-10T00:00:00' },
-  { id: 11, categoryId: 4, name: '优惠券查询', url: '/coupon/list', description: '查询优惠券', createTime: '2024-01-11T00:00:00' },
-  { id: 12, categoryId: 4, name: '秒杀活动查询', url: '/flash/list', description: '查询秒杀活动', createTime: '2024-01-12T00:00:00' },
-])
-
-const list = ref([...allList.value])
-const total = ref(allList.value.length)
+const categoryOptions = ref<{ label: string; value: number }[]>([])
+const allResources = ref<UmsResource[]>([])
+const list = ref<UmsResource[]>([])
+const total = ref(0)
 const listLoading = ref(false)
-const multipleSelection = ref<any[]>([])
+const multipleSelection = ref<UmsResource[]>([])
 const operateType = ref<number>()
 const operateOptions = ref([{ label: '删除', value: 1 }])
 
 const dialogVisible = ref(false)
 const isEdit = ref(false)
-const resource = ref<any>({ name: '', url: '', categoryId: 1, description: '' })
+const resource = ref<UmsResource>({ name: '', url: '', categoryId: 1, description: '' })
 
-const getList = () => {
+const fetchData = async () => {
   listLoading.value = true
-  let result = [...allList.value]
+  try {
+    const [categories, resources] = await Promise.all([
+      getResourceCategoryListAllAPI(),
+      fetchAllResourceList(),
+    ])
+    categoryOptions.value = (categories || []).map((item: UmsResourceCategory) => ({ label: item.name || '', value: item.id || 0 }))
+    allResources.value = resources || []
+  } catch {
+    allResources.value = []
+  }
+  applyFilters()
+}
+
+const applyFilters = () => {
+  let result = [...allResources.value]
   if (listQuery.value.categoryId !== undefined) result = result.filter(item => item.categoryId === listQuery.value.categoryId)
   if (listQuery.value.nameKeyword) result = result.filter(item => item.name?.includes(listQuery.value.nameKeyword))
   if (listQuery.value.urlKeyword) result = result.filter(item => item.url?.includes(listQuery.value.urlKeyword))
@@ -51,39 +46,56 @@ const getList = () => {
   list.value = result.slice(start, start + listQuery.value.pageSize)
   listLoading.value = false
 }
-onMounted(() => { getList() })
 
-const handleResetSearch = () => { listQuery.value = { categoryId: undefined, nameKeyword: '', urlKeyword: '', pageNum: 1, pageSize: 10 }; getList() }
-const handleSearchList = () => { listQuery.value.pageNum = 1; getList() }
-const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQuery.value.pageSize = val; getList() }
-const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; getList() }
-const handleSelectionChange = (val: any[]) => { multipleSelection.value = val }
+onMounted(() => { fetchData() })
+
+const handleResetSearch = () => { listQuery.value = { categoryId: undefined, nameKeyword: '', urlKeyword: '', pageNum: 1, pageSize: 10 }; applyFilters() }
+const handleSearchList = () => { listQuery.value.pageNum = 1; applyFilters() }
+const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQuery.value.pageSize = val; applyFilters() }
+const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; applyFilters() }
+const handleSelectionChange = (val: UmsResource[]) => { multipleSelection.value = val }
 
 const handleAdd = () => { dialogVisible.value = true; isEdit.value = false; resource.value = { name: '', url: '', categoryId: listQuery.value.categoryId || 1, description: '' } }
-const handleUpdate = (_index: number, row: any) => { dialogVisible.value = true; isEdit.value = true; resource.value = { ...row } }
-const handleDelete = async (_index: number, row: any) => {
+const handleUpdate = (_index: number, row: UmsResource) => { dialogVisible.value = true; isEdit.value = true; resource.value = { ...row } }
+const handleDelete = async (_index: number, row: UmsResource) => {
   await ElMessageBox.confirm('是否要删除该资源?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
-  allList.value = allList.value.filter(item => item.id !== row.id); getList(); ElMessage.success('删除成功!')
+  try {
+    await resourceDeleteByIdAPI(row.id!)
+    ElMessage.success('删除成功!')
+    fetchData()
+  } catch {
+    ElMessage.error('删除失败')
+  }
 }
 
-const handleDialogConfirm = () => {
-  if (isEdit.value) {
-    const idx = allList.value.findIndex(item => item.id === resource.value.id)
-    if (idx > -1) allList.value[idx] = { ...allList.value[idx], ...resource.value }
-    ElMessage.success('修改成功！')
-  } else {
-    allList.value.unshift({ ...resource.value, id: Date.now(), createTime: new Date().toISOString() })
-    ElMessage.success('添加成功！')
+const handleDialogConfirm = async () => {
+  try {
+    if (isEdit.value) {
+      await resourceUpdateByIdAPI(resource.value.id!, resource.value)
+      ElMessage.success('修改成功！')
+    } else {
+      await resourceCreateAPI(resource.value)
+      ElMessage.success('添加成功！')
+    }
+    dialogVisible.value = false
+    fetchData()
+  } catch {
+    ElMessage.error('操作失败')
   }
-  dialogVisible.value = false; getList()
 }
 
 const handleBatchOperate = async () => {
   if (!multipleSelection.value || multipleSelection.value.length < 1) { ElMessage({ message: '请选择要操作的条目', type: 'warning', duration: 1000 }); return }
   if (operateType.value === 1) {
     await ElMessageBox.confirm('是否要进行删除操作?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
-    const ids = multipleSelection.value.map(item => item.id)
-    allList.value = allList.value.filter(item => !ids.includes(item.id)); getList(); ElMessage.success('删除成功！')
+    try {
+      const ids = multipleSelection.value.map(item => item.id!)
+      await Promise.all(ids.map(id => resourceDeleteByIdAPI(id)))
+      ElMessage.success('删除成功！')
+      fetchData()
+    } catch {
+      ElMessage.error('批量删除失败')
+    }
   }
 }
 

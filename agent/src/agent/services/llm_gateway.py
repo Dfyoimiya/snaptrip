@@ -22,5 +22,10 @@ async def log_llm_usage(
     """记录 LLM 调用用量（当前仅log，未来可写入 DB）。"""
     logger.debug(
         "llm_usage model=%s provider=%s prompt=%d completion=%d latency=%d cost=%.6f",
-        model_name, provider, prompt_tokens, completion_tokens, latency_ms, cost_usd,
+        model_name,
+        provider,
+        prompt_tokens,
+        completion_tokens,
+        latency_ms,
+        cost_usd,
     )

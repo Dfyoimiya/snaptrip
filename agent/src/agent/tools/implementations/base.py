@@ -68,6 +68,7 @@ class SmartDayBaseTool(BaseTool):
         abstract _run contract but should not be called directly.
         """
         import asyncio
+
         try:
             loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -77,7 +78,9 @@ class SmartDayBaseTool(BaseTool):
             "from within a running event loop. Use ainvoke() instead."
         )
 
-    def compensation(self, args: dict[str, Any], result: ToolResult) -> CompensationAction:
+    def compensation(
+        self, args: dict[str, Any], result: ToolResult
+    ) -> CompensationAction:
         """Return a CompensationAction for this tool call.
 
         Read-only tools return a no-op action.
@@ -86,9 +89,7 @@ class SmartDayBaseTool(BaseTool):
         IMPORTANT: This is called by CompRegHook AFTER every successful run().
         Returning None breaks the post-hook chain.
         """
-        raise NotImplementedError(
-            f"Tool '{self.name}' must implement compensation()"
-        )
+        raise NotImplementedError(f"Tool '{self.name}' must implement compensation()")
 
     async def ainvoke(
         self,
@@ -118,6 +119,7 @@ class SmartDayBaseTool(BaseTool):
     @staticmethod
     def _noop_compensation(action_id: str, tool_name: str) -> CompensationAction:
         """Return a no-op compensation for read-only tools (cache invalidation)."""
+
         async def _noop() -> None:
             pass
 

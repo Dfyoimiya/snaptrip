@@ -129,6 +129,6 @@ export interface OrderQueryParam {
   orderType?: number
   sourceType?: number
   createTime?: string
-  pageNum: number
-  pageSize: number
+  page: number
+  page_size: number
 }

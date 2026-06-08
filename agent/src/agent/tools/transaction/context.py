@@ -46,7 +46,9 @@ class TransactionContext:
     def new(cls, session_id: str) -> TransactionContext:
         return cls(tx_id=str(uuid.uuid4()), session_id=session_id)
 
-    def begin_call(self, *, tool_name: str, args_hash: str, cost_cny: float = 0.0) -> ToolCallRecord:
+    def begin_call(
+        self, *, tool_name: str, args_hash: str, cost_cny: float = 0.0
+    ) -> ToolCallRecord:
         """Record the start of a tool call in this transaction."""
         if self.status != TxStatus.ACTIVE:
             raise RuntimeError(
