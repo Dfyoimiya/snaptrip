@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 USER_FACING_NAMES: set[str] = set()
 
 # Tool names that execute via SagaCoordinator (reserve → confirm → rollback)
-EXECUTION_NAMES: set[str] = set()
+EXECUTION_NAMES: set[str] = {"cancel_order"}
 
 
 # ── Message utilities ──────────────────────────────────────────────────────

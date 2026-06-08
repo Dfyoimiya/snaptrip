@@ -1,11 +1,13 @@
 # ────────────────────────────────────────────────────────────────────────────
 # 🔵 FRAMEWORK — Agent DAG Workflow Builder
 # ────────────────────────────────────────────────────────────────────────────
-# This is the core StateGraph builder. It provides the DI container, node
-# registration, conditional routing, and checkpointing infrastructure.
+# Supervisor + conditional routing topology:
 #
-# Trip-planning nodes (extract/plan/hitl) have been archived to _archived/.
-# Replace the placeholder nodes below with your domain-specific logic.
+#   START → supervisor → route_by_intent:
+#     ├─ product_discovery → tool_node ⇄ product_discovery → synthesize → END
+#     ├─ order_assistant   → tool_node ⇄ order_assistant   → synthesize → END
+#     ├─ marketing_engine  → tool_node ⇄ marketing_engine  → synthesize → END
+#     └─ knowledge_qa     → tool_node ⇄ knowledge_qa     → synthesize → END
 #
 # Archived: 2026-06-07 — repurposed from trip planning agent
 # ────────────────────────────────────────────────────────────────────────────
@@ -19,6 +21,13 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
+from agent.nodes.supervisor import route_by_intent, supervisor_node
+from agent.nodes.product_discovery import product_discovery_node
+from agent.nodes.order_assistant import order_assistant_node
+from agent.nodes.marketing_engine import marketing_engine_node
+from agent.nodes.knowledge_qa import knowledge_qa_node
+from agent.nodes.admin_analyst import admin_analyst_node
+from agent.nodes.synthesize import synthesize_node
 from agent.runtime import AgentRuntime
 from agent.schemas.state import PlanState
 from agent.tool_node import tool_node
@@ -30,49 +39,55 @@ logger = logging.getLogger(__name__)
 # ── Global DI ──
 _runtime: AgentRuntime | None = None
 
+# ── Specialist nodes (for dynamic lookup) ────────────────────────────────────
 
-# ── Placeholder nodes (replace with your domain logic) ─────────────────────
-
-
-async def _placeholder_node(state: PlanState) -> dict:
-    """Placeholder LLM reasoning node.
-
-    Replace this with your own agent node implementation.
-    See _archived/agent_node.py and _archived/extract_node.py for reference.
-    """
-    return {"messages": []}
+_SPECIALISTS = [
+    "product_discovery",
+    "order_assistant",
+    "marketing_engine",
+    "knowledge_qa",
+    "admin_analyst",
+]
 
 
-# ── Conditional routing ────────────────────────────────────────────────────
+# ── Conditional routing ─────────────────────────────────────────────────────
 
 
-def route_after_agent(state: PlanState) -> Literal["tools", "end"]:
-    """Route after LLM node: tools if tool_calls exist, else end."""
+def route_after_specialist(state: PlanState) -> Literal["tools", "synthesize"]:
+    """After specialist node: if tool_calls exist -> tools, else -> synthesize."""
     msgs = state.get("messages", [])
     if not msgs:
-        return "end"
+        return "synthesize"
     last_msg = msgs[-1]
     tool_calls = getattr(last_msg, "tool_calls", None) or []
-    return "tools" if tool_calls else "end"
+    return "tools" if tool_calls else "synthesize"
 
 
-def route_after_tools(state: PlanState) -> Literal["agent"]:
-    """Route after tool execution back to agent node."""
-    return "agent"
+def route_after_tools(state: PlanState) -> str:
+    """After tool execution: return to the current specialist agent."""
+    current = state.get("current_agent", "product_discovery")
+    # Validate that the current_agent is a known specialist
+    if current in _SPECIALISTS:
+        return current
+    logger.warning("route_after_tools: unknown current_agent=%s, falling back to product_discovery", current)
+    return "product_discovery"
 
 
 # ── Graph builder ───────────────────────────────────────────────────────────
 
 
 async def build_graph(runtime: AgentRuntime | None = None) -> CompiledStateGraph:
-    """Build the agent DAG.
+    """Build the agent DAG with Supervisor + 4 specialist agents.
 
-    Nodes:
-      agent — LLM reasoning node (replace with your domain logic)
-      tools — tool execution dispatch
+    Topology:
+      START -> supervisor -> route_by_intent ->
+        product_discovery | order_assistant | marketing_engine | knowledge_qa
+      -> route_after_specialist -> tools | synthesize
+      tools -> route_after_tools -> back to specialist
+      synthesize -> END
 
     Args:
-        runtime: optional DI container
+        runtime: optional DI container (AgentRuntime)
 
     Returns:
         CompiledStateGraph with PostgresSaver (or MemorySaver fallback)
@@ -84,13 +99,14 @@ async def build_graph(runtime: AgentRuntime | None = None) -> CompiledStateGraph
     if runtime and runtime.harness is None:
         from agent.tools.harness.context import SessionContext
         from agent.tools.harness.harness import ToolHarness
+        from agent.tools.bootstrap import build_registry
 
-        # Replace with your own tool registry builder
-        from agent.tools.registry.registry import ToolRegistry
-
-        runtime.harness = ToolHarness(registry=ToolRegistry())
+        runtime.harness = ToolHarness(registry=build_registry())
         runtime.session_ctx = SessionContext()
-        logger.info("ToolHarness initialized (empty registry — register your tools)")
+        logger.info(
+            "ToolHarness initialized with %d tools (commerce + admin)",
+            len(runtime.harness.registry.tool_names),
+        )
 
     # ── Initialize LLM adapter ──
     if runtime and runtime.llm_adapter is None:
@@ -100,21 +116,58 @@ async def build_graph(runtime: AgentRuntime | None = None) -> CompiledStateGraph
     # ── Build DAG ──
     graph = StateGraph(PlanState)
 
-    graph.add_node("agent", _placeholder_node)
+    # Add nodes
+    graph.add_node("supervisor", supervisor_node)
+    graph.add_node("product_discovery", product_discovery_node)
+    graph.add_node("order_assistant", order_assistant_node)
+    graph.add_node("marketing_engine", marketing_engine_node)
+    graph.add_node("knowledge_qa", knowledge_qa_node)
+    graph.add_node("admin_analyst", admin_analyst_node)
     graph.add_node("tools", tool_node)
+    graph.add_node("synthesize", synthesize_node)
 
-    graph.set_entry_point("agent")
+    # Entry
+    graph.set_entry_point("supervisor")
 
+    # Supervisor -> conditional routing to specialist
     graph.add_conditional_edges(
-        "agent",
-        route_after_agent,
-        {"tools": "tools", "end": END},
+        "supervisor",
+        route_by_intent,
+        {
+            "product_discovery": "product_discovery",
+            "order_assistant": "order_assistant",
+            "marketing_engine": "marketing_engine",
+            "knowledge_qa": "knowledge_qa",
+            "admin_analytics": "admin_analyst",
+        },
     )
+
+    # Each specialist -> tools or synthesize
+    for specialist in _SPECIALISTS:
+        graph.add_conditional_edges(
+            specialist,
+            route_after_specialist,
+            {
+                "tools": "tools",
+                "synthesize": "synthesize",
+            },
+        )
+
+    # Tools -> back to specialist
     graph.add_conditional_edges(
         "tools",
         route_after_tools,
-        {"agent": "agent"},
+        {
+            "product_discovery": "product_discovery",
+            "order_assistant": "order_assistant",
+            "marketing_engine": "marketing_engine",
+            "knowledge_qa": "knowledge_qa",
+            "admin_analyst": "admin_analyst",
+        },
     )
+
+    # Synthesize -> END
+    graph.add_edge("synthesize", END)
 
     # ── Checkpointer ──
     db_url = settings.DATABASE_URL

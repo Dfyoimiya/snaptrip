@@ -26,6 +26,21 @@ class PlanState(TypedDict, total=False):
     # ── Session identity ──
     plan_id: str
     user_id: str
+    session_id: str
+
+    # ── Intent routing ──
+    intent: str  # "product_search" | "order_status" | "coupon_inquiry" | "general"
+    intent_confidence: float
+    current_agent: str  # which specialist is active
+
+    # ── Domain results ──
+    sub_results: dict[str, Any]  # keyed by agent name
+    product_results: list[dict[str, Any]]
+    order_detail: dict[str, Any] | None
+
+    # ── Memory ──
+    working_memory: dict[str, Any]  # scratchpad for multi-step reasoning
+    retry_count: int
 
     # ── HITL payload (set by tool_node, consumed by hitl_node) ──
     hitl_payload: dict[str, Any] | None

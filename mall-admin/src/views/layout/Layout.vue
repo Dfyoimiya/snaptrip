@@ -8,6 +8,7 @@ import type { TabView } from '@/stores/tab'
 import Navbar from './components/Navbar.vue'
 import Sidebar from './components/Sidebar/index.vue'
 import AppMain from './components/AppMain.vue'
+import AssistantPanel from '@/views/ai/AssistantPanel.vue'
 import useResizeHandler from './composables/useResizeHandler'
 
 const appStore = useAppStore()
@@ -49,6 +50,7 @@ useResizeHandler()
       <Navbar class="fixed-header" />
       <AppMain />
     </div>
+    <AssistantPanel />
   </div>
 </template>
 

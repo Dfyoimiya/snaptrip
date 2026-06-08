@@ -60,6 +60,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from marketplace.app.api.v1.auth import router as auth_router
 from marketplace.app.api.v1.plan import router as plan_router
 from marketplace.app.api.v1.user import router as user_router
+from marketplace.app.api.v1.admin_agent import router as admin_agent_router
 
 # ── 电商路由 (Commerce) ──
 from app.api.admin import admin_router
@@ -101,6 +102,7 @@ app.add_middleware(
 app.include_router(plan_router)
 app.include_router(auth_router)
 app.include_router(user_router)
+app.include_router(admin_agent_router)
 
 # ── 电商路由 —— Admin + Portal 统一前缀 /api/v1 ──
 app.include_router(admin_router, prefix="/api/v1")
