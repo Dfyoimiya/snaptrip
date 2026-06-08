@@ -1,7 +1,8 @@
 {
-  "name": "snaptrip-admin",
+  "name": "snaptrip-frontend",
   "version": "1.0.0",
   "private": true,
+  "description": "SnapTrip B-end Admin Portal (C-end reserved — owned by classmate)",
   "type": "module",
   "scripts": {
     "dev": "vite",

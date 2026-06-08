@@ -115,7 +115,7 @@ onMounted(() => {
           <img src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png" class="welcome-avatar" alt="avatar" />
           <div>
             <div class="welcome-title">{{ greeting }}，Admin，开始您一天的工作吧！</div>
-            <div class="welcome-subtitle">mall-admin-vue3 后台管理系统</div>
+            <div class="welcome-subtitle">SnapTrip B 端管理后台</div>
           </div>
         </div>
         <div class="welcome-weather">

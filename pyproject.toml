@@ -5,6 +5,16 @@
 #   backend/                       — Marketplace API 网关 (snaptrip-backend)
 #   shared/                        — 共享库 (snaptrip-shared)
 #   agent/                         — Agent 核心引擎 (snaptrip-agent)
+#
+# 前端:
+#   frontend/                      — B 端管理后台 (Vue 3 + Element Plus)
+#   (C 端由同学负责，不在本 workspace)
+#
+# 基础设施:
+#   Dockerfile.gateway / .worker   — 生产镜像
+#   docker-compose.yml             — 开发/生产部署
+#   nginx/                         — 反向代理
+#   litellm/                       — LLM API Gateway 配置
 
 [tool.uv.workspace]
 members = ["backend", "shared", "agent"]

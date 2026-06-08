@@ -14,12 +14,10 @@ venv/
 backend/uv.lock
 mock-services/uv.lock
 
-# Node / Frontend
+# Node / Frontend (B-end admin portal; C-end portal reserved for classmate)
 node_modules/
 frontend/dist/
 frontend/.vite/
-mall-admin/dist/
-mall-admin/.vite/
 *.tsbuildinfo
 
 # Environment

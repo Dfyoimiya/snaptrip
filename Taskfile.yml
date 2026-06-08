@@ -14,8 +14,6 @@ env:
     APP_SECRET_KEY=test-secret
     JWT_SECRET_KEY=test-jwt-secret
     OPENROUTER_API_KEY=placeholder
-    MOCK_FAULT_RATE=0
-    MOCK_DELAY_RATE=0
 
 tasks:
   # ===== 初始化 =====
@@ -142,30 +140,12 @@ tasks:
     cmds:
       - uv run alembic downgrade -1
 
-  # ===== Mock 服务 =====
-  mock-up:
-    desc: 启动 Mock 服务（本地，后台运行）
-    dir: mock-services/mock-meituan
-    cmds:
-      - cmd: uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload &
-        platforms: [linux, darwin]
-      - cmd: powershell -Command "Start-Process uv -ArgumentList 'run','uvicorn','app.main:app','--host','0.0.0.0','--port','8001','--reload' -NoNewWindow"
-        platforms: [windows]
-
-  mock-down:
-    desc: 停止 Mock 服务
-    cmds:
-      - cmd: lsof -ti:8001 | xargs kill 2>/dev/null || true
-        platforms: [linux, darwin]
-      - cmd: powershell -Command "Get-NetTCPConnection -LocalPort 8001 | Stop-Process"
-        platforms: [windows]
-
   # ===== 后端开发 =====
   backend-dev:
     desc: 仅启动后端（本地）
     dir: backend
     cmds:
-      - uv run uvicorn marketplace.app.main:app --host 0.0.0.0 --port 8080 --reload
+      - uv run uvicorn marketplace.app.main:app --host 0.0.0.0 --port 8000 --reload
 
   # ===== 清理 =====
   clean:

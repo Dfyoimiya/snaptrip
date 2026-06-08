@@ -29,18 +29,3 @@ services:
       APP_DEBUG: "true"
       LOG_LEVEL: DEBUG
     command: celery -A marketplace.app.celery_app worker --pool=gevent --concurrency=100 -Q agent -l info
-
-  frontend:
-    build:
-      target: development
-    volumes:
-      - ./frontend/src:/app/src
-      - ./frontend/public:/app/public
-    command: npm run dev -- --host 0.0.0.0
-    environment:
-      VITE_API_BASE_URL: http://localhost:8080
-
-  mock-server:
-    volumes:
-      - ./mock-services/mock-meituan:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
