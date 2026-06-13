@@ -48,3 +48,8 @@ class PlanState(TypedDict, total=False):
     # ── DAG routing & status ──
     phase: str  # domain-specific phase name
     status: str  # "running" | "waiting_user" | "done" | "failed"
+
+    # ── Compliance (post-synthesize safety check) ──
+    compliance_passed: bool
+    compliance_violations: list[str]
+    compliance_risk: str  # "low" | "medium" | "high" | "critical"

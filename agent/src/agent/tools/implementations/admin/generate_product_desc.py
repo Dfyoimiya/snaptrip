@@ -1,12 +1,11 @@
-"""Generate product description tool — LLM-only, no HTTP calls.
+"""Generate product description tool — uses LLM to produce SEO-friendly copy.
 
-Uses hardcoded templates to produce SEO-friendly product descriptions,
-suggestions, and keywords based on the product name, category, and features.
+Falls back to template-based generation when the LLM adapter is unavailable.
 """
 
 from __future__ import annotations
 
-import random
+import logging
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -14,89 +13,79 @@ from pydantic import BaseModel, Field
 from agent.tools.implementations.base import SmartDayBaseTool, ToolResult
 from agent.tools.transaction.compensation import CompensationAction
 
-# ── Description templates per style ──────────────────────────────────────────
+logger = logging.getLogger(__name__)
 
-_PROFESSIONAL_TEMPLATES = [
-    "Introducing the {name} — a premium {category} solution designed for modern travelers. "
-    "Featuring {features}, this product delivers exceptional quality and reliability. "
-    "Backed by our satisfaction guarantee.",
-    "The {name} redefines {category} excellence. With {features}, it stands out as "
-    "a top-tier choice for discerning customers seeking the best in travel gear. "
-    "Engineered for performance and built to last.",
-    "Discover the {name}, the ultimate {category} for your next adventure. "
-    "Key highlights include {features}, making it an indispensable companion. "
-    "Order today and experience the difference.",
-]
+# ── Fallback templates (used when LLM is unavailable) ──────────────────────
 
-_CASUAL_TEMPLATES = [
-    "Meet the {name} — your new favorite {category}! Packed with {features}, "
-    "it's the perfect sidekick for your travels. Grab yours while supplies last!",
-    "Looking for an awesome {category}? The {name} is exactly what you need. "
-    "Features {features} — yep, it's that good. Get it now!",
-    "Say hello to the {name}! This {category} is loaded with {features} and "
-    "ready for any adventure. Don't miss out — shop the collection today!",
-]
-
-_MARKETING_TEMPLATES = [
-    "BEST DEAL {name} – Exclusive Limited-Time Offer! "
-    "This premium {category} comes with {features} — unbeatable value for savvy travelers. "
-    "Sale ends soon. Click to claim your discount!",
-    "FLASH SALE The {name} is flying off the shelves! "
-    "As a top-rated {category} featuring {features}, this deal won't last. "
-    "Limited stock — secure yours now at the lowest price!",
-    "SPECIAL PROMOTION Upgrade your travel gear with the {name}. "
-    "This {category} includes {features} and is available at a members-only price. "
-    "Join thousands of happy customers today!",
-]
-
-# ── Keyword sets per category ────────────────────────────────────────────────
-
-_CATEGORY_KEYWORDS: dict[str, list[str]] = {
-    "hotel": ["hotel booking", "luxury stay", "room reservation", "best hotel deal", "accommodation"],
-    "flight": ["flight ticket", "airfare deal", "cheap flights", "airline booking", "travel airfare"],
-    "tour": ["guided tour", "sightseeing", "travel package", "local experience", "day trip"],
-    "package": ["travel package", "all-inclusive", "vacation deal", "holiday package", "bundle deal"],
-    "ticket": ["attraction ticket", "entry pass", "skip the line", "admission", "entry ticket"],
-    "gear": ["travel gear", "luggage", "backpack", "travel accessories", "essentials"],
+_FALLBACK_TEMPLATES: dict[str, list[str]] = {
+    "professional": [
+        "Introducing the {name} — a premium {category} solution. Featuring {features}, "
+        "this product delivers exceptional quality and reliability.",
+        "The {name} redefines {category} excellence. With {features}, it stands out "
+        "as a top-tier choice for discerning customers.",
+        "Discover the {name}, the ultimate {category} for your next journey. "
+        "Key highlights: {features}.",
+    ],
+    "casual": [
+        "Meet the {name} — your new favorite {category}! Packed with {features}, "
+        "it's the perfect sidekick for your travels.",
+        "Looking for an awesome {category}? The {name} is exactly what you need. "
+        "Features include {features}.",
+        "Say hello to the {name}! This {category} is loaded with {features} and "
+        "ready for any adventure.",
+    ],
+    "marketing": [
+        "BEST DEAL: {name} – Exclusive Offer! This premium {category} comes with "
+        "{features} — unbeatable value. Limited time!",
+        "FLASH SALE: The {name} is flying off the shelves! A top-rated {category} "
+        "featuring {features}. Secure yours now!",
+        "SPECIAL PROMOTION: Upgrade with the {name}. This {category} includes "
+        "{features}. Join thousands of happy customers!",
+    ],
 }
 
+_GENERATION_PROMPT = """You are an SEO copywriter for SnapTrip, a travel e-commerce platform.
 
-def _pick_keywords(category: str) -> list[str]:
-    """Pick default keywords based on category."""
-    cat_lower = category.lower()
-    for key, kwds in _CATEGORY_KEYWORDS.items():
-        if key in cat_lower:
-            return kwds[:5]
-    return ["travel product", "best deal", "online shop", "quality", "fast delivery"]
+Generate 3 product descriptions for the following product. Each description should:
+- Be 2-4 sentences
+- Include the product name naturally
+- Highlight key features
+- Be optimized for search engines
+- Use a {style} tone
 
+Also suggest 5 SEO keywords relevant to this product.
 
-def _pick_templates(style: str) -> list[str]:
-    style_lower = style.lower()
-    if style_lower == "casual":
-        return _CASUAL_TEMPLATES
-    if style_lower == "marketing":
-        return _MARKETING_TEMPLATES
-    return _PROFESSIONAL_TEMPLATES
+Product Name: {product_name}
+Category: {category}
+Key Features: {features}
+
+Reply with ONLY a JSON object:
+{{
+  "suggestions": ["desc1", "desc2", "desc3"],
+  "keywords": ["kw1", "kw2", "kw3", "kw4", "kw5"]
+}}"""
 
 
 class GenerateProductDescArgs(BaseModel):
     product_name: str = Field(..., description="Product name")
-    category: str = Field("", description="Product category")
+    category: str = Field("travel", description="Product category (hotel, flight, tour, etc.)")
     features: str = Field("", description="Key features, comma-separated")
-    style: str = Field("professional", description="Style: professional, casual, marketing")
+    style: str = Field(
+        "professional", description="Writing style: professional, casual, marketing"
+    )
 
 
 class GenerateProductDescTool(SmartDayBaseTool):
     name: str = "generate_product_desc"
     description: str = (
-        "Generate SEO-friendly product descriptions using templates. "
-        "Produces 3 description suggestions and keyword list. "
-        "No external API calls — runs entirely client-side."
+        "Generate SEO-friendly product descriptions and keywords. "
+        "Uses LLM to create high-quality, unique copy in the requested style. "
+        "Falls back to template-based generation if LLM is unavailable."
     )
     is_read_only: bool = True
     cost_model: str = "free"
     args_schema: type[BaseModel] = GenerateProductDescArgs
-    tool_timeout: float = 2.0
+    tool_timeout: float = 15.0
 
     async def _arun(self, **kwargs: Any) -> dict:
         product_name = kwargs.get("product_name", "")
@@ -104,30 +93,69 @@ class GenerateProductDescTool(SmartDayBaseTool):
         features = kwargs.get("features", "") or "premium quality, reliable performance"
         style = kwargs.get("style", "professional")
 
-        # Normalize feature list: split by comma and join with commas
+        # Normalize features
         feature_items = [f.strip() for f in features.split(",") if f.strip()]
         if not feature_items:
             feature_items = ["premium quality", "reliable performance"]
         feature_text = ", ".join(feature_items)
 
-        templates = _pick_templates(style)
+        # Try LLM first
+        try:
+            from agent.graph import _runtime
 
-        suggestions: list[str] = []
-        for tpl in templates:
-            desc = tpl.format(name=product_name, category=category, features=feature_text)
-            suggestions.append(desc)
+            adapter = _runtime.llm_adapter if _runtime else None
+            if adapter:
+                prompt = _GENERATION_PROMPT.format(
+                    style=style,
+                    product_name=product_name,
+                    category=category,
+                    features=feature_text,
+                )
+                response = await adapter.chat_json(
+                    prompt=prompt,
+                    temperature=0.7,
+                    max_tokens=1024,
+                    timeout_s=12.0,
+                )
+                if response and response.get("suggestions"):
+                    return {
+                        "product_name": product_name,
+                        "category": category,
+                        "style": style,
+                        "suggestions": response.get("suggestions", []),
+                        "keywords": response.get("keywords", []),
+                        "generated_by": "llm",
+                    }
+        except Exception:
+            logger.warning(
+                "generate_product_desc: LLM generation failed, using templates",
+                exc_info=True,
+            )
 
-        keywords = _pick_keywords(category)
-        # Add product-name-derived keywords
-        name_parts = [p.strip().lower() for p in product_name.split() if len(p.strip()) > 2]
-        keywords = name_parts + keywords
+        # Fallback to templates
+        templates = _FALLBACK_TEMPLATES.get(style, _FALLBACK_TEMPLATES["professional"])
+        suggestions = [
+            tpl.format(name=product_name, category=category, features=feature_text)
+            for tpl in templates
+        ]
+        name_parts = [
+            p.strip().lower() for p in product_name.split() if len(p.strip()) > 2
+        ]
+        keywords = name_parts + [
+            f"{category} deal",
+            f"best {category}",
+            "travel product",
+            "online shop",
+            "fast delivery",
+        ]
 
         return {
             "product_name": product_name,
             "category": category,
             "style": style,
             "suggestions": suggestions,
-            "keywords": keywords,
+            "keywords": keywords[:8],
+            "generated_by": "template_fallback",
         }
 
     def compensation(

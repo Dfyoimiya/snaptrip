@@ -23,16 +23,16 @@ from snaptrip_shared.core.security import (
     hash_password,
     verify_password,
 )
+from snaptrip_shared.db.session import get_db
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from marketplace.app.core.security import (
     create_refresh_token,
     get_current_user,
     revoke_refresh_token,
     verify_refresh_token,
 )
-from snaptrip_shared.db.session import get_db
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from marketplace.app.models.user_profile import UserProfile
 from marketplace.app.models.users import User
 from marketplace.app.schemas.auth import (

@@ -1,4 +1,4 @@
-.PHONY: help init dev up down build logs backend-dev backend-shell test test-backend test-unit test-integration lint lint-frontend format migrate migrate-up migrate-down test-up migrate-test test-down clean
+.PHONY: help init dev up down build logs backend-dev backend-shell frontend-dev frontend-shell test test-backend test-unit test-integration lint lint-frontend format migrate migrate-up migrate-down test-up migrate-test test-down clean
 
 help: ## 显示帮助信息
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -26,7 +26,7 @@ up: ## 启动全栈（production 模式）
 down: ## 停止全栈
 	docker compose down
 
-dev: ## 启动开发环境（热重载）
+dev: ## 启动开发环境（后端 + 前端 + 数据库，全部热重载）
 	BUILD_TARGET=development docker compose --profile dev -f docker-compose.yml -f docker-compose.override.yml up --build
 
 build: ## 构建所有镜像
@@ -42,6 +42,12 @@ backend-dev: ## 仅启动后端（本地）
 
 backend-shell: ## 进入 Marketplace 容器
 	docker compose exec marketplace bash
+
+frontend-dev: ## 仅启动前端（本地 Vite HMR）
+	cd frontend && npm run dev
+
+frontend-shell: ## 进入前端容器
+	docker compose exec frontend sh
 
 # ===== 测试 =====
 
@@ -104,4 +110,4 @@ clean: ## 清理临时文件
 	docker compose -f docker-compose.test.yml down -v 2>/dev/null || true
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
-	rm -rf backend/.venv frontend/node_modules
+	rm -rf backend/.venv frontend/node_modules frontend/dist

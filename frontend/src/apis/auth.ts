@@ -23,6 +23,15 @@ export function logoutApi(refreshToken?: string) {
   })
 }
 
+/** 刷新令牌 —— POST /auth/refresh */
+export function refreshTokenAPI(refreshToken: string) {
+  return request<CommonResult<{ access_token: string; refresh_token: string }>>({
+    url: '/auth/refresh',
+    method: 'post',
+    data: { refresh_token: refreshToken },
+  })
+}
+
 /** 获取当前用户信息 —— GET /auth/me */
 export function getUserInfoApi() {
   return request<CommonResult<{

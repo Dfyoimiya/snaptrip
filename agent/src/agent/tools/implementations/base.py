@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from langchain_core.tools import BaseTool
@@ -70,7 +70,7 @@ class SmartDayBaseTool(BaseTool):
         import asyncio
 
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
         except RuntimeError:
             return asyncio.run(self._arun(*args, **kwargs))
         raise RuntimeError(
@@ -91,7 +91,7 @@ class SmartDayBaseTool(BaseTool):
         """
         raise NotImplementedError(f"Tool '{self.name}' must implement compensation()")
 
-    async def ainvoke(
+    async def ainvoke(  # type: ignore[override]
         self,
         input: str | dict[str, Any],
         config: dict[str, Any] | None = None,
@@ -102,7 +102,7 @@ class SmartDayBaseTool(BaseTool):
         LangChain's BaseTool.ainvoke returns the raw tool output.
         We wrap it in ToolResult for the SmartDay hook chain.
         """
-        result = await super().ainvoke(input, config, **kwargs)
+        result = await super().ainvoke(input, config, **kwargs)  # type: ignore[arg-type]
         if isinstance(result, ToolResult):
             return result
         # Wrap non-ToolResult outputs (e.g., from LangChain StructuredTool)

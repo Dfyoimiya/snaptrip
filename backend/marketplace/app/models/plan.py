@@ -18,7 +18,6 @@ from marketplace.app.models.base import Base
 
 if TYPE_CHECKING:
     from app.models.checkpoint import Checkpoint
-
     from marketplace.app.models.plan_adjustment import PlanAdjustment
     from marketplace.app.models.plan_slot import PlanSlot
     from marketplace.app.models.users import User

@@ -11,13 +11,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from snaptrip_shared.core.response import success
-from marketplace.app.core.security import get_current_user
 from snaptrip_shared.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.promotion import CouponCreate, CouponUpdate
 from app.services.coupon_service import CouponService
+from marketplace.app.core.security import get_current_user
 
 router = APIRouter(prefix="/admin/coupons", tags=["Admin - 优惠券"])
 

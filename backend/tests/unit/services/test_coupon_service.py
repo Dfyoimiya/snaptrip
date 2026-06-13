@@ -6,6 +6,7 @@ All DB interactions are mocked.
 Author: SnapTrip Team
 Date: 2026-06-08
 """
+
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
@@ -122,7 +123,7 @@ async def test_create_with_dates(mock_db):
             start_time=datetime.now(UTC),
             end_time=datetime.now(UTC) + timedelta(days=30),
         )
-        resp = await svc.create(data)
+        await svc.create(data)
         assert mock_db.add.called
 
 
@@ -302,8 +303,9 @@ async def test_claim_success(mock_db):
     The service creates a real SmsCouponHistory; model_validate is patched
     to avoid SQLAlchemy default-initialisation issues.
     """
-    from app.services.coupon_service import CouponService
     from unittest.mock import patch
+
+    from app.services.coupon_service import CouponService
 
     coupon_id = uuid4()
     coupon_mock = _make_coupon_mock(coupon_id)

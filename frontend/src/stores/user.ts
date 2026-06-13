@@ -3,6 +3,7 @@ import { reactive, computed } from 'vue'
 import type { UserInfo, LoginForm, MenuItem } from '@/types'
 import { loginApi, logoutApi, getUserInfoApi } from '@/apis/auth'
 import { getUserInfo, setUserInfo, clearAuth, getToken, setToken, setRefreshToken, getRefreshToken, removeRefreshToken } from '@/utils/storage'
+import { isTokenValid } from '@/utils/jwt'
 
 /** 默认菜单 —— 后端暂不返回菜单时使用 */
 const DEFAULT_MENUS: MenuItem[] = [
@@ -47,7 +48,7 @@ export const useUserStore = defineStore('user', () => {
   })
 
   // Getters
-  const isLoggedIn = computed(() => !!userInfo.token)
+  const isLoggedIn = computed(() => isTokenValid(getToken()))
   const username = computed(() => userInfo.username)
   const avatar = computed(() => userInfo.avatar)
 

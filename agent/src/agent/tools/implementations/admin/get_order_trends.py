@@ -1,14 +1,14 @@
-"""Get order trends tool — aggregate order statistics from marketplace."""
+"""Get order trends tool — use stats endpoints for real trend data."""
 
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
 from pydantic import BaseModel, Field
 
+from agent.tools.auth import auth_header
 from agent.tools.implementations.base import SmartDayBaseTool, ToolResult
 from agent.tools.transaction.compensation import CompensationAction
 
@@ -16,14 +16,15 @@ MARKETPLACE_URL = os.getenv("SNAPTRIP_MARKETPLACE_URL", "http://localhost:8000")
 
 
 class GetOrderTrendsArgs(BaseModel):
-    days: int = Field(7, description="Number of days to analyze")
+    days: int = Field(7, description="Number of days to analyze (default 7, max 365)")
 
 
 class GetOrderTrendsTool(SmartDayBaseTool):
     name: str = "get_order_trends"
     description: str = (
-        "Get order trends: recent orders, status distribution, total amounts. "
-        "Aggregates order data over a configurable time window."
+        "Get order trends using real daily-aggregated sales statistics. "
+        "Returns daily order count and revenue over the requested time window, "
+        "plus order status distribution from the latest orders snapshot."
     )
     is_read_only: bool = True
     cost_model: str = "free"
@@ -31,58 +32,74 @@ class GetOrderTrendsTool(SmartDayBaseTool):
     tool_timeout: float = 8.0
 
     async def _arun(self, **kwargs: Any) -> dict:
+        days = kwargs.get("days", 7)
+        hdrs = auth_header()
         try:
-            days = kwargs.get("days", 7)
             async with httpx.AsyncClient(timeout=self.tool_timeout) as client:
-                response = await client.get(
-                    f"{MARKETPLACE_URL}/api/v1/admin/orders",
-                    params={"page": 1, "page_size": 100},
+                # 1. Daily sales trend (server-side aggregation by DATE)
+                sales_resp = await client.get(
+                    f"{MARKETPLACE_URL}/api/v1/admin/stats/sales",
+                    params={"days": days},
+                    headers=hdrs,
                 )
-                response.raise_for_status()
-                data = response.json()
+                sales_resp.raise_for_status()
+                sales_data = sales_resp.json()
+                daily_items = sales_data.get("data", [])
 
-                inner = data.get("data", data)
-                orders = inner.get("items", inner.get("orders", []))
-                total_count = inner.get("total", len(orders))
+                # 2. Dashboard for current order status distribution
+                dash_resp = await client.get(
+                    f"{MARKETPLACE_URL}/api/v1/admin/dashboard",
+                    headers=hdrs,
+                )
+                dash_resp.raise_for_status()
+                dash_data = dash_resp.json()
+                dash_inner = dash_data.get("data", dash_data)
 
-                # Aggregate status distribution
-                status_map: dict[int, str] = {
-                    0: "pending_payment",
-                    1: "pending_shipment",
-                    2: "shipped",
-                    3: "completed",
-                    4: "refunding",
-                    5: "refunded",
-                    6: "cancelled",
-                }
-                status_counts: dict[str, int] = {}
-                total_amount = 0
-                recent_orders: list[dict[str, Any]] = []
+                # Compute trend summary
+                total_orders = sum(item.get("order_count", 0) for item in daily_items)
+                total_revenue = sum(item.get("amount", 0) for item in daily_items)
+                avg_daily_orders = round(total_orders / max(len(daily_items), 1), 1)
+                avg_daily_revenue = round(total_revenue / max(len(daily_items), 1), 2)
 
-                for order in orders:
-                    status = order.get("status", 0)
-                    status_label = status_map.get(status, f"unknown_{status}")
-                    status_counts[status_label] = status_counts.get(status_label, 0) + 1
-
-                    total_amount += order.get("total_amount", order.get("pay_amount", 0))
-
-                    if len(recent_orders) < 10:
-                        recent_orders.append(
-                            {
-                                "order_id": order.get("id"),
-                                "order_sn": order.get("order_sn", order.get("orderSn", "")),
-                                "status": status,
-                                "amount": order.get("total_amount", order.get("pay_amount", 0)),
-                                "created_at": order.get("created_at", order.get("create_time", "")),
-                            }
-                        )
+                # Direction: compare first half vs second half
+                mid = len(daily_items) // 2
+                first_half_rev = sum(
+                    item.get("amount", 0) for item in daily_items[:mid]
+                )
+                second_half_rev = sum(
+                    item.get("amount", 0) for item in daily_items[mid:]
+                )
+                if first_half_rev > 0:
+                    trend_direction = (
+                        "up"
+                        if second_half_rev > first_half_rev
+                        else "down"
+                        if second_half_rev < first_half_rev
+                        else "flat"
+                    )
+                else:
+                    trend_direction = "flat"
 
                 return {
                     "days_analyzed": days,
-                    "total_orders_fetched": total_count,
-                    "status_distribution": status_counts,
-                    "total_amount_sum": total_amount,
-                    "recent_orders": recent_orders,
+                    "total_orders": total_orders,
+                    "total_revenue": total_revenue,
+                    "avg_daily_orders": avg_daily_orders,
+                    "avg_daily_revenue": avg_daily_revenue,
+                    "trend_direction": trend_direction,
+                    "daily_breakdown": [
+                        {
+                            "date": item.get("date", ""),
+                            "orders": item.get("order_count", 0),
+                            "revenue": item.get("amount", 0),
+                        }
+                        for item in daily_items
+                    ],
+                    "current_status_distribution": dash_inner.get(
+                        "order_status_counts", []
+                    ),
+                    "today_orders": dash_inner.get("today_orders", 0),
+                    "today_revenue": dash_inner.get("today_revenue", 0),
                 }
         except httpx.HTTPStatusError as e:
             return {"error": f"HTTP {e.response.status_code}: {e.response.text[:500]}"}

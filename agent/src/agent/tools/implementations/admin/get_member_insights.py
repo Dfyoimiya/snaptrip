@@ -1,14 +1,14 @@
-"""Get member insights tool — aggregate member statistics from marketplace."""
+"""Get member insights tool — dashboard snapshot + member pagination."""
 
 from __future__ import annotations
 
 import os
-from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import httpx
 from pydantic import BaseModel, Field
 
+from agent.tools.auth import auth_header
 from agent.tools.implementations.base import SmartDayBaseTool, ToolResult
 from agent.tools.transaction.compensation import CompensationAction
 
@@ -16,65 +16,76 @@ MARKETPLACE_URL = os.getenv("SNAPTRIP_MARKETPLACE_URL", "http://localhost:8000")
 
 
 class GetMemberInsightsArgs(BaseModel):
-    pass  # no filters needed for basic insights
+    page: int = Field(1, description="Page number for member list")
+    page_size: int = Field(20, description="Members per page (max 100)")
 
 
 class GetMemberInsightsTool(SmartDayBaseTool):
     name: str = "get_member_insights"
     description: str = (
-        "Get member insights: total members, recent registrations, member activity. "
-        "Returns aggregate member statistics for the B-end dashboard."
+        "Get member insights: total member count, new members today, recent "
+        "registrations, and a page of member profiles. Fetches dashboard snapshot "
+        "plus paginated member list."
     )
     is_read_only: bool = True
     cost_model: str = "free"
     args_schema: type[BaseModel] = GetMemberInsightsArgs
-    tool_timeout: float = 5.0
+    tool_timeout: float = 8.0
 
     async def _arun(self, **kwargs: Any) -> dict:
+        page = kwargs.get("page", 1)
+        page_size = min(kwargs.get("page_size", 20), 100)
+        hdrs = auth_header()
+
         try:
             async with httpx.AsyncClient(timeout=self.tool_timeout) as client:
-                response = await client.get(
-                    f"{MARKETPLACE_URL}/api/v1/admin/members",
-                    params={"page": 1, "page_size": 100},
+                # 1. Dashboard for new_members count
+                dash_resp = await client.get(
+                    f"{MARKETPLACE_URL}/api/v1/admin/dashboard",
+                    headers=hdrs,
                 )
-                response.raise_for_status()
-                data = response.json()
+                dash_resp.raise_for_status()
+                dash_data = dash_resp.json()
+                dash_inner = dash_data.get("data", dash_data)
 
-                inner = data.get("data", data)
-                members = inner.get("items", inner.get("members", []))
-                total_members = inner.get("total", len(members))
+                # 2. Stats overview for today_new_member_count
+                overview_resp = await client.get(
+                    f"{MARKETPLACE_URL}/api/v1/admin/stats/overview",
+                    headers=hdrs,
+                )
+                overview_resp.raise_for_status()
+                overview_data = overview_resp.json()
+                overview_inner = overview_data.get("data", overview_data)
 
-                # Compute recent registrations (last 7 days)
-                now = datetime.now(timezone.utc)
-                week_ago = now - timedelta(days=7)
-                recent_count = 0
-                active_count = 0
-
-                for member in members:
-                    created = member.get("created_at", member.get("create_time", ""))
-                    if created:
-                        try:
-                            created_dt = datetime.fromisoformat(str(created).replace("Z", "+00:00"))
-                            if created_dt >= week_ago:
-                                recent_count += 1
-                        except (ValueError, TypeError):
-                            pass
-
-                    if member.get("is_active", True):
-                        active_count += 1
+                # 3. Paginated member list
+                members_resp = await client.get(
+                    f"{MARKETPLACE_URL}/api/v1/admin/members",
+                    params={"page": page, "page_size": page_size},
+                    headers=hdrs,
+                )
+                members_resp.raise_for_status()
+                members_data = members_resp.json()
+                members_inner = members_data.get("data", members_data)
+                total_members = members_inner.get("total", 0)
+                members = members_inner.get("items", [])
 
                 return {
                     "total_members": total_members,
-                    "recent_registrations_7d": recent_count,
-                    "active_members": active_count,
-                    "sampled_members": [
+                    "new_members_today": dash_inner.get("new_members", 0),
+                    "today_new_member_count": overview_inner.get(
+                        "today_new_member_count", 0
+                    ),
+                    "current_page": page,
+                    "page_size": page_size,
+                    "members": [
                         {
-                            "member_id": m.get("id"),
+                            "member_id": m.get("id", ""),
                             "username": m.get("username", m.get("nickname", "")),
                             "email": m.get("email", ""),
+                            "is_active": m.get("is_active", True),
                             "created_at": m.get("created_at", m.get("create_time", "")),
                         }
-                        for m in members[:10]
+                        for m in members
                     ],
                 }
         except httpx.HTTPStatusError as e:

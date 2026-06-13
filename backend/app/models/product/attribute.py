@@ -43,7 +43,7 @@ class PmsProductAttribute(CommerceBase):
         nullable=False,
         comment="属性名称, 如 屏幕尺寸",
     )
-    # type: 0=规格(影响SKU) 1=参数(纯展示)
+    # attr_type: 0=规格(影响SKU) 1=参数(纯展示)
     # 规格属性参与 SKU 生成, 如「颜色:黑色 存储:128GB」→ 一个 SKU
     # 参数属性不参与 SKU, 如「上市时间:2024年」
     attr_type: Mapped[int] = mapped_column(

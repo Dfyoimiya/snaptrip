@@ -27,7 +27,6 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from langchain_core.callbacks import BaseCallbackManager
 
 from agent.tools.harness.context import SessionContext, ToolExecutionContext
 from agent.tools.harness.hooks import (
@@ -49,7 +48,6 @@ from agent.tools.implementations.base import ToolResult
 from agent.tools.registry.registry import ToolRegistry
 from agent.tools.tracing.audit_log import AuditStore
 from agent.tools.tracing.tracer import ToolTracer
-from agent.tools.transaction.compensation import CompensationRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -220,7 +218,7 @@ class ToolHarness:
 
     def list_tools(self, strict: bool = False) -> list[dict]:
         """Return all tool manifests as OpenAI function-calling format."""
-        return self.registry.list_openai_tools(strict=strict)
+        return self.registry.list_openai_tools(strict=strict)  # type: ignore[no-any-return]
 
     # ── Internal ────────────────────────────────────────────────
 

@@ -6,6 +6,7 @@ All DB interactions are mocked.
 Author: SnapTrip Team
 Date: 2026-06-08
 """
+
 from __future__ import annotations
 
 from decimal import Decimal

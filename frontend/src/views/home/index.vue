@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, markRaw, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   Goods, Document, User, ShoppingCart,
@@ -20,20 +20,20 @@ const greeting = computed(() => {
 
 // 核心统计
 const coreStats = ref([
-  { label: '今日订单', value: 0 as number | string, change: 0, up: true, icon: Document, color: '#165dff', bg: '#e8f4ff' },
-  { label: '今日销售额', value: '¥0' as number | string, change: 0, up: true, icon: Money, color: '#00b42a', bg: '#e8ffea' },
-  { label: '今日新增会员', value: 0 as number | string, change: 0, up: false, icon: User, color: '#f7ba1e', bg: '#fff7e8' },
-  { label: '待处理退货', value: 0 as number | string, change: 0, up: true, icon: Warning, color: '#f53f3f', bg: '#ffece8' },
+  { label: '今日订单', value: 0 as number | string, change: 0, up: true, icon: markRaw(Document), color: '#165dff', bg: '#e8f4ff' },
+  { label: '今日销售额', value: '¥0' as number | string, change: 0, up: true, icon: markRaw(Money), color: '#00b42a', bg: '#e8ffea' },
+  { label: '今日新增会员', value: 0 as number | string, change: 0, up: false, icon: markRaw(User), color: '#f7ba1e', bg: '#fff7e8' },
+  { label: '待处理退货', value: 0 as number | string, change: 0, up: true, icon: markRaw(Warning), color: '#f53f3f', bg: '#ffece8' },
 ])
 
 // 快捷导航
 const shortcuts = ref([
-  { title: '商品列表', icon: Goods, path: '/pms/product', color: '#165dff' },
-  { title: '订单列表', icon: Document, path: '/oms/order', color: '#f7ba1e' },
-  { title: '会员列表', icon: User, path: '/ums/member', color: '#f53f3f' },
-  { title: '优惠券', icon: Collection, path: '/sms/coupon', color: '#722ed1' },
-  { title: '品牌管理', icon: Goods, path: '/pms/brand', color: '#14c9c9' },
-  { title: '秒杀活动', icon: ShoppingCart, path: '/sms/flash', color: '#ff7d00' },
+  { title: '商品列表', icon: markRaw(Goods), path: '/pms/product', color: '#165dff' },
+  { title: '订单列表', icon: markRaw(Document), path: '/oms/order', color: '#f7ba1e' },
+  { title: '会员列表', icon: markRaw(User), path: '/ums/member', color: '#f53f3f' },
+  { title: '优惠券', icon: markRaw(Collection), path: '/sms/coupon', color: '#722ed1' },
+  { title: '品牌管理', icon: markRaw(Goods), path: '/pms/brand', color: '#14c9c9' },
+  { title: '秒杀活动', icon: markRaw(ShoppingCart), path: '/sms/flash', color: '#ff7d00' },
 ])
 
 // 订单状态统计

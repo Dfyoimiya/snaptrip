@@ -34,24 +34,6 @@ class OSSClientProtocol(Protocol):
         ...
 
 
-class MockOSSClient:
-    """Mock OSS客户端 —— 开发/测试环境使用, 不实际存储文件"""
-
-    def __init__(self) -> None:
-        logger.info("oss_client_init", provider="mock")
-
-    async def upload(self, object_name: str, data: bytes, content_type: str = "application/octet-stream") -> str:
-        logger.info("oss_upload_mock", object_name=object_name, size=len(data))
-        return f"https://mock-oss.snaptrip.local/{object_name}"
-
-    async def get_presigned_url(self, object_name: str, expires: int | None = None) -> str:
-        return f"https://mock-oss.snaptrip.local/{object_name}?presigned=1"
-
-    async def delete(self, object_name: str) -> bool:
-        logger.info("oss_delete_mock", object_name=object_name)
-        return True
-
-
 class MinioOSSClient:
     """MinIO / S3 兼容 OSS 异步客户端 —— 生产环境使用"""
 
@@ -142,8 +124,5 @@ class MinioOSSClient:
 
 
 def get_oss_client() -> OSSClientProtocol:
-    """工厂: 根据配置返回 Mock 或 MinIO 客户端"""
-    if commerce_settings.OSS_ENDPOINT == "localhost:9000" and commerce_settings.OSS_ACCESS_KEY == "minioadmin":
-        logger.info("oss_using_mock")
-        return MockOSSClient()
+    """工厂: 返回 MinIO 客户端"""
     return MinioOSSClient()

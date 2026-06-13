@@ -20,12 +20,12 @@ from typing import Any
 import asyncpg
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from snaptrip_shared.core.response import success
-from marketplace.app.core.security import get_current_user
 from snaptrip_shared.db.session import get_db
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from marketplace.app.core.security import get_current_user
 from marketplace.app.models.plan import Plan
 from marketplace.app.models.plan_slot import PlanSlot
 from marketplace.app.models.user_profile import UserProfile

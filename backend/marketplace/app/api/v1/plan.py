@@ -25,7 +25,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from snaptrip_shared.core.response import APIServiceError, success
 from snaptrip_shared.db.redis import get_redis_client
-from snaptrip_shared.schemas.plan import PlanCreateRequest, PlanResponse
+from snaptrip_shared.schemas.plan import PlanCreateRequest
 
 from marketplace.app.api.v1.session import stream_plan
 
@@ -62,8 +62,9 @@ def _get_agent_service(request: Request) -> AgentService:
             request.app.state._agent_service = AgentService(request.app.state.plan_graph)
         else:
             # Fallback: 使用 MemorySaver 的 graph 构建（同步）
-            from agent.graph import build_graph as _sync_build
             import asyncio
+
+            from agent.graph import build_graph as _sync_build
 
             request.app.state._agent_service = AgentService(asyncio.get_event_loop().run_until_complete(_sync_build()))
     return request.app.state._agent_service

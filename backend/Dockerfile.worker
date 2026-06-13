@@ -10,7 +10,6 @@
 #   celery -A marketplace.app.celery_app worker --pool=gevent --concurrency=100 -Q agent
 #
 # 环境变量:
-#   MARKETPLACE_MODE  — mock | live | hybrid
 #   SNAPTRIP_MARKETPLACE_URL  — Marketplace API base URL
 #   REDIS_URL  — Celery broker + result backend
 #

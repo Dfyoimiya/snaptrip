@@ -9,6 +9,7 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, Field
 
+from agent.tools.auth import auth_header
 from agent.tools.implementations.base import SmartDayBaseTool, ToolResult
 from agent.tools.transaction.compensation import CompensationAction
 
@@ -34,6 +35,7 @@ class CancelOrderTool(SmartDayBaseTool):
         try:
             order_id = kwargs["order_id"]
             payload: dict[str, Any] = {"reason": kwargs.get("reason", "用户取消")}
+            hdrs = auth_header()
 
             async with httpx.AsyncClient(timeout=self.tool_timeout) as client:
                 # Try portal cancel endpoint first, fall back to admin close
@@ -41,6 +43,7 @@ class CancelOrderTool(SmartDayBaseTool):
                     response = await client.post(
                         f"{MARKETPLACE_URL}/api/v1/portal/orders/{order_id}/cancel",
                         json=payload,
+                        headers=hdrs,
                     )
                     response.raise_for_status()
                 except httpx.HTTPStatusError as e:
@@ -49,17 +52,20 @@ class CancelOrderTool(SmartDayBaseTool):
                         response = await client.post(
                             f"{MARKETPLACE_URL}/api/v1/admin/orders/{order_id}/close",
                             json=payload,
+                            headers=hdrs,
                         )
                         response.raise_for_status()
                     else:
                         raise
-                return response.json()
+                return response.json()  # type: ignore[no-any-return]
         except httpx.HTTPStatusError as e:
             return {"error": f"HTTP {e.response.status_code}: {e.response.text[:500]}"}
         except httpx.RequestError as e:
             return {"error": f"Request failed: {str(e)}"}
 
-    def compensation(self, args: dict[str, Any], result: ToolResult) -> CompensationAction:
+    def compensation(
+        self, args: dict[str, Any], result: ToolResult
+    ) -> CompensationAction:
         """Cancellation is inherently irreversible — order state cannot be un-cancelled.
 
         The compensation is a no-op that logs a warning. Manual intervention

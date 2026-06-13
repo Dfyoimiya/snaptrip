@@ -11,7 +11,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from snaptrip_shared.core.response import success
-from marketplace.app.core.security import get_current_user
 from snaptrip_shared.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,6 +24,7 @@ from app.schemas.cms import (
 )
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.services.cms_service import CmsService, StatsService
+from marketplace.app.core.security import get_current_user
 
 # ── CMS Router ──
 

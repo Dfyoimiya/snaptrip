@@ -147,7 +147,7 @@ class CartService:
         result = await self.db.execute(stmt)
         # delete() 返回 CursorResult, rowcount 表示删除行数
         # 如果 rowcount == 0 说明条目不存在或不属于该用户
-        if result.rowcount == 0:
+        if result.rowcount == 0:  # type: ignore[attr-defined]
             from app.core.exceptions import ProductNotFoundError
             raise ProductNotFoundError(f"购物车条目 {item_id}")
 

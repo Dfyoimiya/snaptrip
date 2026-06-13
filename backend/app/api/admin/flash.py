@@ -11,7 +11,6 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from snaptrip_shared.core.response import success
-from marketplace.app.core.security import get_current_user
 from snaptrip_shared.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,6 +23,7 @@ from app.schemas.promotion import (
     FlashSessionUpdate,
 )
 from app.services.flash_service import FlashService
+from marketplace.app.core.security import get_current_user
 
 router = APIRouter(prefix="/admin/flash-promotions", tags=["Admin - 秒杀"])
 

@@ -6,6 +6,7 @@ All DB interactions are mocked.
 Author: SnapTrip Team
 Date: 2026-06-08
 """
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -105,7 +106,7 @@ async def test_create_address_default_clears_others(mock_db):
         detail_address="456 Main St",
         default_status=1,
     )
-    resp = await svc.create_address(uuid4(), data)
+    await svc.create_address(uuid4(), data)
 
     # should execute the update to clear old defaults + add + flush
     assert mock_db.add.called
@@ -233,7 +234,6 @@ async def test_add_favorite_success(mock_db):
     to avoid SQLAlchemy default-initialisation issues.
     """
     from app.services.member_service import MemberService
-    from unittest.mock import patch
 
     product_mock = MagicMock()
     product_mock.is_deleted = False

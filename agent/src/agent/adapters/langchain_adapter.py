@@ -234,7 +234,7 @@ class LangChainAdapter(LLMPort):
 
         response = await self._client.chat.completions.create(**kwargs)
         content = response.choices[0].message.content or "{}"
-        return json.loads(content)
+        return json.loads(content)  # type: ignore[no-any-return]
 
     async def _record_usage(
         self,
@@ -457,19 +457,23 @@ class LangChainAdapter(LLMPort):
                     }
                 )
 
-        # 构建 AIMessage — content 永远有值，不会触发 Pydantic 校验失败
+        # 构建 AIMessage — content 永远有值，Pydantic v2 不允许 None
         additional_kwargs: dict[str, Any] = {}
         if collected_reasoning:
             additional_kwargs["reasoning_content"] = collected_reasoning
 
-        ai_msg = AIMessage(
-            content=collected_content or "",  # ← 核心修复: 空字符串而非 None
-            additional_kwargs=additional_kwargs or None,
-            response_metadata={
+        ai_kwargs: dict[str, Any] = {
+            "content": collected_content or "",
+            "additional_kwargs": additional_kwargs,
+            "response_metadata": {
                 "model": model_alias,
                 "finish_reason": finish_reason or "stop",
             },
-            tool_calls=tool_calls if tool_calls else None,
-        )
+        }
+        # Only pass tool_calls when non-empty — Pydantic rejects None/[]
+        if tool_calls:
+            ai_kwargs["tool_calls"] = tool_calls
+
+        ai_msg = AIMessage(**ai_kwargs)
 
         return ai_msg, final_usage

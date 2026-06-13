@@ -14,7 +14,7 @@ from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base
+from marketplace.app.models.base import Base
 
 if TYPE_CHECKING:
     from marketplace.app.models.plan import Plan

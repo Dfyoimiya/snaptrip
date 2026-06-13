@@ -39,9 +39,6 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_POOL_SIZE: int = 10
 
-    MOCK_API_BASE_URL: str = "http://localhost:8001"
-    MOCK_API_TIMEOUT: int = 3
-
     LLM_DEFAULT_MODEL: str = "deepseek-chat"
 
     AGENT_TIMEOUT: int = 300
@@ -88,16 +85,6 @@ class CommerceSettings(BaseSettings):
     ES_PASSWORD: str = ""
     ES_INDEX_PRODUCTS: str = "commerce_products"
     ES_SEARCH_TIMEOUT: int = 5
-
-    # ── 支付网关 (预留) ──
-    PAYMENT_GATEWAY: str = "mock"
-    PAYMENT_MOCK_TIMEOUT: int = 3
-
-    # ── 物流查询 (预留) ──
-    LOGISTICS_PROVIDER: str = "mock"
-
-    # ── 短信服务 (预留) ──
-    SMS_PROVIDER: str = "mock"
 
     # ── 管理后台 ──
     ADMIN_DEFAULT_PASSWORD: str = "admin123"

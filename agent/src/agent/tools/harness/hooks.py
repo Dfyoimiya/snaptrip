@@ -22,7 +22,7 @@ import abc
 import hashlib
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Literal
 
 from agent.tools.harness.context import ToolExecutionContext
 from agent.tools.tracing.audit_log import AuditStore
@@ -64,13 +64,24 @@ class ErrorHook(BaseHook, abc.ABC):
 
 
 class AuthHook(PreHook):
-    """Validates that the session is authenticated."""
+    """Validates that the session is authenticated for tools that require it.
+
+    Read-only tools (search, browse) call public portal APIs and
+    do not require authentication. Write tools (cancel, claim) require
+    a valid user_id in the session context.
+    """
 
     async def execute(self, ctx: ToolExecutionContext) -> ToolExecutionContext:
         session = ctx.session_ctx
-        if not session.user_id:
+        tool = ctx.metadata.get("_tool_instance")
+        is_read_only = getattr(tool, "is_read_only", False) if tool else False
+
+        if not is_read_only and not session.user_id:
             ctx.aborted = True
-            ctx.abort_reason = "Authentication required: no user_id in session"
+            ctx.abort_reason = (
+                f"Authentication required for '{ctx.tool_name}': "
+                "no user_id in session"
+            )
         return ctx
 
 
@@ -113,7 +124,6 @@ class SchemaHook(PreHook):
     async def execute(self, ctx: ToolExecutionContext) -> ToolExecutionContext:
         # LangChain BaseTool.ainvoke already validates args_schema.
         # This hook ensures validation runs even if called outside ainvoke path.
-        from agent.tools.registry.registry import ToolRegistry
 
         # Schema validation is handled by LangChain's Pydantic model
         # when the tool is invoked. Here we just verify required fields.

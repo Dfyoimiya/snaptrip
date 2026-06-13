@@ -83,7 +83,7 @@ class MemberService:
                 UmsMemberAddress.id == addr_id, UmsMemberAddress.user_id == user_id,
             )
         )
-        if result.rowcount == 0:
+        if result.rowcount == 0:  # type: ignore[attr-defined]
             from app.core.exceptions import ProductNotFoundError
             raise ProductNotFoundError(str(addr_id))
 
@@ -179,8 +179,8 @@ class MemberService:
         )
         items = [
             MemberAdminResponse(
-                id=u.id, email=u.email, is_active=u.is_active,
-                created_at=str(u.created_at) if u.created_at else None,
+                id=u.id, email=u.email, is_active=u.is_active,  # type: ignore[attr-defined]
+                created_at=str(u.created_at) if u.created_at else None,  # type: ignore[attr-defined]
             )
             for u in result.scalars().all()
         ]
@@ -240,3 +240,19 @@ class MemberService:
             avatar_url=profile.avatar_url if profile else None,
             created_at=str(user.created_at) if user.created_at else None,
         )
+
+    # =========================================================================
+    #  仪表盘统计
+    # =========================================================================
+
+    async def count_new_today(self) -> int:
+        """今日新增会员数"""
+        from datetime import date
+
+        from marketplace.app.models.users import User
+
+        today = date.today()
+        result = await self.db.execute(
+            select(func.count(User.id)).where(User.created_at >= today)
+        )
+        return result.scalar() or 0

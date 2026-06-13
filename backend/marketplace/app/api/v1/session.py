@@ -18,7 +18,7 @@ from collections.abc import AsyncGenerator
 from contextlib import suppress
 
 from agent.ports.repositories import RuntimeEventRepositoryPort
-from agent.schemas.events import RuntimeEvent, UserMessagePayload
+from agent.schemas.events import RuntimeEvent
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 

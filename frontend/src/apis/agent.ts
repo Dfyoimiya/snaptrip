@@ -17,5 +17,6 @@ export function adminAgentChatAPI(data: AgentChatRequest) {
     url: '/admin/agent/chat',
     method: 'post',
     data,
+    timeout: 60000,  // Agent needs multiple LLM calls, can take 10-30s
   })
 }

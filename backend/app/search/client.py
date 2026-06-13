@@ -101,7 +101,7 @@ class ESSearchClient:
             ]
             success, errors = await async_bulk(self._client, actions, raise_on_error=False)
             logger.info("es_bulk_indexed", success=success, errors=len(errors))
-            return success
+            return success  # type: ignore[no-any-return]
         except Exception as exc:
             logger.error("es_bulk_index_failed", error=str(exc))
             return 0

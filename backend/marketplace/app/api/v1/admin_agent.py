@@ -2,19 +2,25 @@
 
 Provides a chat endpoint for admin users to query analytics data through
 the LangGraph agent pipeline, routed through the admin_analyst specialist node.
+
+JWT passthrough: the user's JWT token from the incoming request is stored in
+PlanState.working_memory["auth_token"], then injected into SessionContext by
+tool_node, so tool implementations can add Authorization headers to their
+HTTP calls to the marketplace backend.
 """
 
 from __future__ import annotations
 
 import uuid
 
-from fastapi import APIRouter, Request
-from fastapi.responses import JSONResponse
+from agent.services.agent import AgentService
+from fastapi import APIRouter, Depends, Request
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
+from snaptrip_shared.core.response import APIServiceError
 
-from agent.services.agent import AgentService
-from snaptrip_shared.core.response import APIServiceError, success
+from marketplace.app.core.security import get_current_user  # JWT 认证
+from snaptrip_shared.core.response import success
 
 router = APIRouter(prefix="/admin/agent", tags=["admin-agent"])
 
@@ -30,8 +36,12 @@ class AgentChatResponse(BaseModel):
     data: dict | None = None
 
 
-def _build_admin_state(req: AgentChatRequest) -> dict:
-    """Build initial PlanState dict for admin agent chat."""
+def _build_admin_state(req: AgentChatRequest, auth_token: str = "") -> dict:
+    """Build initial PlanState dict for admin agent chat.
+
+    The auth_token (JWT from browser) is stored in working_memory so
+    tool_node can inject it into the tool execution context.
+    """
     plan_id = str(uuid.uuid4())[:8]
     return {
         "plan_id": plan_id,
@@ -41,6 +51,7 @@ def _build_admin_state(req: AgentChatRequest) -> dict:
         "messages": [HumanMessage(content=req.message)],
         "intent": "admin_analytics",
         "current_agent": "admin_analyst",
+        "working_memory": {"auth_token": auth_token},
     }
 
 
@@ -58,9 +69,9 @@ def _get_agent_service(request: Request) -> AgentService:
                 request.app.state.plan_graph
             )
         else:
-            # Fallback: build graph synchronously
-            from agent.graph import build_graph as _build
             import asyncio
+
+            from agent.graph import build_graph as _build
 
             request.app.state._agent_service = AgentService(
                 asyncio.get_event_loop().run_until_complete(_build())
@@ -68,20 +79,29 @@ def _get_agent_service(request: Request) -> AgentService:
     return request.app.state._agent_service
 
 
-@router.post("/chat", response_model=AgentChatResponse)
-async def admin_agent_chat(req: AgentChatRequest, request: Request):
+@router.post("/chat")
+async def admin_agent_chat(
+    req: AgentChatRequest,
+    request: Request,
+    _current_user=Depends(get_current_user),
+):
     """Admin AI chat — analyze admin data and answer questions.
 
     Routes through the admin_analyst node to fetch sales reports,
     inventory alerts, order trends, member insights, generate product
     descriptions, and analyze coupon effectiveness.
 
-    Uses the same LangGraph pipeline as the C-end agent with the
-    admin_analyst specialist node.
+    Requires JWT authentication. The user's token is forwarded to
+    admin API calls made by the agent tools.
     """
     try:
         service = _get_agent_service(request)
-        initial_state = _build_admin_state(req)
+
+        # Extract JWT from incoming request for passthrough to tools
+        auth_header = request.headers.get("Authorization", "")
+        auth_token = auth_header.replace("Bearer ", "") if auth_header else ""
+
+        initial_state = _build_admin_state(req, auth_token=auth_token)
         plan_id = initial_state["plan_id"]
 
         result = await service.invoke(initial_state, plan_id)
@@ -91,7 +111,6 @@ async def admin_agent_chat(req: AgentChatRequest, request: Request):
         reply = ""
         intent = result.get("intent", "admin_analytics")
 
-        # Find the last AI message with content
         for msg in reversed(messages):
             if hasattr(msg, "type") and msg.type == "ai":
                 content = getattr(msg, "content", "")
@@ -107,14 +126,13 @@ async def admin_agent_chat(req: AgentChatRequest, request: Request):
         if not reply:
             reply = "Analysis complete. Check the conversation for details."
 
-        # Extract relevant data from state
         data = {
             "phase": result.get("phase", ""),
             "status": result.get("status", "done"),
             "current_agent": result.get("current_agent", "admin_analyst"),
         }
 
-        return AgentChatResponse(reply=reply, intent=intent, data=data)
+        return success(AgentChatResponse(reply=reply, intent=intent, data=data).model_dump())
 
     except APIServiceError:
         raise
@@ -123,4 +141,4 @@ async def admin_agent_chat(req: AgentChatRequest, request: Request):
             code=5001,
             message=f"Admin agent error: {str(e)}",
             status_code=500,
-        )
+        ) from e

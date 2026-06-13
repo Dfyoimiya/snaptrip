@@ -4,8 +4,10 @@ import request from '@/utils/request'
 
 /** 秒杀商品列表 —— GET /admin/flash-promotions/{promoId}/sessions/{sessionId}/products */
 export function getFlashProductRelationListAPI(params: FlashProductQueryParam & { promotionId?: number; sessionId?: number }) {
+  const promoId = params.promotionId ? '/' + params.promotionId : ''
+  const sessionId = params.sessionId ? '/' + params.sessionId : ''
   return request<CommonResult<CommonPage<SmsFlashPromotionProductRelation>>>({
-    url: '/admin/flash-promotions/' + (params.promotionId || '') + '/sessions/' + (params.sessionId || '') + '/products',
+    url: '/admin/flash-promotions' + promoId + '/sessions' + sessionId + '/products',
     method: 'get',
     params,
   })
@@ -14,8 +16,10 @@ export function getFlashProductRelationListAPI(params: FlashProductQueryParam & 
 /** 添加秒杀商品 —— POST /admin/flash-promotions/{promoId}/sessions/{sessionId}/products */
 export function flashProductRelationCreateAPI(data: SmsFlashPromotionProductRelation[]) {
   const item = data[0] as any
+  const promoId = item?.promotionId ? '/' + item.promotionId : ''
+  const sessionId = item?.sessionId ? '/' + item.sessionId : ''
   return request<CommonResult<number>>({
-    url: '/admin/flash-promotions/' + (item?.promotionId || '') + '/sessions/' + (item?.sessionId || '') + '/products',
+    url: '/admin/flash-promotions' + promoId + '/sessions' + sessionId + '/products',
     method: 'post',
     data: item,
   })
@@ -23,16 +27,20 @@ export function flashProductRelationCreateAPI(data: SmsFlashPromotionProductRela
 
 /** 删除秒杀商品 —— DELETE /admin/flash-promotions/{promoId}/sessions/{sessionId}/products/{productId} */
 export function flashProductRelationDeleteByIdAPI(id: number, params?: { promotionId?: number; sessionId?: number }) {
+  const promoId = params?.promotionId ? '/' + params.promotionId : ''
+  const sessionId = params?.sessionId ? '/' + params.sessionId : ''
   return request<CommonResult<number>>({
-    url: '/admin/flash-promotions/' + (params?.promotionId || '') + '/sessions/' + (params?.sessionId || '') + '/products/' + id,
+    url: '/admin/flash-promotions' + promoId + '/sessions' + sessionId + '/products/' + id,
     method: 'delete',
   })
 }
 
 /** 编辑秒杀商品 —— PUT /admin/flash-promotions/{promoId}/sessions/{sessionId}/products/{id} */
 export function flashProductRelationUpdateByIdAPI(id: number, data: SmsFlashPromotionProductRelation & { promotionId?: number; sessionId?: number }) {
+  const promoId = data.promotionId ? '/' + data.promotionId : ''
+  const sessionId = data.sessionId ? '/' + data.sessionId : ''
   return request<CommonResult<number>>({
-    url: '/admin/flash-promotions/' + (data.promotionId || '') + '/sessions/' + (data.sessionId || '') + '/products/' + id,
+    url: '/admin/flash-promotions' + promoId + '/sessions' + sessionId + '/products/' + id,
     method: 'put',
     data,
   })

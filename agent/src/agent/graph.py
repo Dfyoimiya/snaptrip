@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Literal
+from typing import Any, Literal
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
@@ -27,6 +27,7 @@ from agent.nodes.order_assistant import order_assistant_node
 from agent.nodes.marketing_engine import marketing_engine_node
 from agent.nodes.knowledge_qa import knowledge_qa_node
 from agent.nodes.admin_analyst import admin_analyst_node
+from agent.nodes.compliance import compliance_node
 from agent.nodes.synthesize import synthesize_node
 from agent.runtime import AgentRuntime
 from agent.schemas.state import PlanState
@@ -68,8 +69,11 @@ def route_after_tools(state: PlanState) -> str:
     current = state.get("current_agent", "product_discovery")
     # Validate that the current_agent is a known specialist
     if current in _SPECIALISTS:
-        return current
-    logger.warning("route_after_tools: unknown current_agent=%s, falling back to product_discovery", current)
+        return current  # type: ignore[no-any-return]
+    logger.warning(
+        "route_after_tools: unknown current_agent=%s, falling back to product_discovery",
+        current,
+    )
     return "product_discovery"
 
 
@@ -125,6 +129,7 @@ async def build_graph(runtime: AgentRuntime | None = None) -> CompiledStateGraph
     graph.add_node("admin_analyst", admin_analyst_node)
     graph.add_node("tools", tool_node)
     graph.add_node("synthesize", synthesize_node)
+    graph.add_node("compliance_check", compliance_node)
 
     # Entry
     graph.set_entry_point("supervisor")
@@ -138,7 +143,7 @@ async def build_graph(runtime: AgentRuntime | None = None) -> CompiledStateGraph
             "order_assistant": "order_assistant",
             "marketing_engine": "marketing_engine",
             "knowledge_qa": "knowledge_qa",
-            "admin_analytics": "admin_analyst",
+            "admin_analyst": "admin_analyst",
         },
     )
 
@@ -166,11 +171,13 @@ async def build_graph(runtime: AgentRuntime | None = None) -> CompiledStateGraph
         },
     )
 
-    # Synthesize -> END
-    graph.add_edge("synthesize", END)
+    # Synthesize -> compliance -> END
+    graph.add_edge("synthesize", "compliance_check")
+    graph.add_edge("compliance_check", END)
 
     # ── Checkpointer ──
     db_url = settings.DATABASE_URL
+    checkpointer: Any
     try:
         from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 

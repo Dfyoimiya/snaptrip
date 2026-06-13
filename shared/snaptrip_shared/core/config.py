@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     APP_SECRET_KEY: str = "change-me-in-production"
     JWT_SECRET_KEY: str = "change-me-jwt-secret-key"
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 120
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     LOG_LEVEL: str = "INFO"
     LOG_FORMAT: str = "json"
@@ -57,13 +57,7 @@ class Settings(BaseSettings):
     REDIS_PASSWORD: str = ""
     REDIS_POOL_SIZE: int = 10
 
-    MOCK_API_BASE_URL: str = "http://localhost:8001"
-    MOCK_API_TIMEOUT: int = 3
-    MOCK_FAULT_RATE: float = 0.05
-    MOCK_DELAY_RATE: float = 0.10
-
-    MARKETPLACE_MODE: str = "mock"
-    SNAPTRIP_MARKETPLACE_URL: str = "http://marketplace:8081"
+    SNAPTRIP_MARKETPLACE_URL: str = "http://marketplace:8000"
 
     # ── LLM (LiteLLM Gateway) ──
     LITELLM_BASE_URL: str = "http://litellm-proxy:4000/v1"

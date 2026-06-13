@@ -1,22 +1,30 @@
-"""Search knowledge tool — look up FAQ and store policy information.
+"""Search knowledge tool — query CMS helps API, fall back to hardcoded policies.
 
-Since there is no dedicated FAQ/marketplace knowledge API yet, this tool
-returns structured policy information from hardcoded templates. This is
-acceptable for MVP; a future version will query a vector-backed knowledge base.
+The CMS /admin/cms/helps endpoint serves as the knowledge base backend.
+When unavailable (or when the response is empty), hardcoded policies act as
+the fallback so the tool always returns useful information.
 """
 
 from __future__ import annotations
 
+import logging
+import os
 from typing import Any
 
+import httpx
 from pydantic import BaseModel, Field
 
+from agent.tools.auth import auth_header
 from agent.tools.implementations.base import SmartDayBaseTool, ToolResult
 from agent.tools.transaction.compensation import CompensationAction
 
-# ── Knowledge base: store policies ───────────────────────────────────────────
+logger = logging.getLogger(__name__)
 
-POLICIES: dict[str, str] = {
+MARKETPLACE_URL = os.getenv("SNAPTRIP_MARKETPLACE_URL", "http://localhost:8000")
+
+# ── Fallback knowledge base ──────────────────────────────────────────────
+
+_POLICIES: dict[str, str] = {
     "shipping": (
         "【配送政策】\n"
         "1. 全国包邮（港澳台及偏远地区除外）。\n"
@@ -37,7 +45,7 @@ POLICIES: dict[str, str] = {
     "payment": (
         "【支付方式】\n"
         "1. 支持微信支付、支付宝、银行卡支付。\n"
-        "2. 支持分期付款（花呗、信用卡分期），具体期数和手续费以支付页面为准。\n"
+        "2. 支持分期付款（花呗、信用卡分期），具体期数/手续费以支付页面为准。\n"
         "3. 订单生成后需在30分钟内完成支付，超时订单将自动取消。\n"
         "4. 如遇支付失败，请检查：① 账户余额是否充足 ② 是否超出单笔/单日限额 ③ 网络是否正常。\n"
         "5. 支付成功后可在订单列表查看支付状态，如有异常请联系客服。"
@@ -61,44 +69,33 @@ POLICIES: dict[str, str] = {
     ),
 }
 
-CATEGORY_ALIASES: dict[str, str] = {
-    "ship": "shipping",
-    "delivery": "shipping",
-    "物流": "shipping",
-    "快递": "shipping",
-    "return": "returns",
-    "refund": "returns",
-    "退货": "returns",
-    "退款": "returns",
-    "换货": "returns",
-    "exchange": "returns",
-    "pay": "payment",
-    "支付": "payment",
-    "付款": "payment",
-    "account": "account",
-    "账户": "account",
-    "登录": "account",
-    "login": "account",
-    "注册": "account",
-    "register": "account",
-    "积分": "account",
-    "会员": "account",
-    "product": "products",
-    "商品": "products",
-    "库存": "products",
-    "限购": "products",
+_CATEGORY_ALIASES: dict[str, str] = {
+    "ship": "shipping", "delivery": "shipping", "物流": "shipping", "快递": "shipping",
+    "return": "returns", "refund": "returns", "退货": "returns", "退款": "returns",
+    "换货": "returns", "exchange": "returns",
+    "pay": "payment", "支付": "payment", "付款": "payment",
+    "account": "account", "账户": "account", "登录": "account", "login": "account",
+    "注册": "account", "register": "account", "积分": "account", "会员": "account",
+    "product": "products", "商品": "products", "库存": "products", "限购": "products",
     "价格": "products",
 }
 
 
 class SearchKnowledgeArgs(BaseModel):
     query: str = Field(..., description="Question or search query")
-    category: str | None = Field(None, description="Optional: 'shipping', 'returns', 'payment', 'account', 'products'")
+    category: str | None = Field(
+        None,
+        description="Optional category filter: shipping, returns, payment, account, products",
+    )
 
 
 class SearchKnowledgeTool(SmartDayBaseTool):
     name: str = "search_knowledge"
-    description: str = "Search FAQ and knowledge base for answers to general questions about shipping, returns, payment, account, or products"
+    description: str = (
+        "Search FAQ and knowledge base for answers about shipping, returns, "
+        "payment methods, account management, and product policies. "
+        "Queries the CMS help center first, falls back to hardcoded policies."
+    )
     is_read_only: bool = True
     cost_model: str = "free"
     args_schema: type[BaseModel] = SearchKnowledgeArgs
@@ -107,33 +104,81 @@ class SearchKnowledgeTool(SmartDayBaseTool):
     async def _arun(self, **kwargs: Any) -> dict:
         query: str = kwargs.get("query", "")
         category: str | None = kwargs.get("category")
+        hdrs = auth_header()
 
-        # Resolve category — check explicit category first, then keyword match
+        # ── Resolve which categories to query ──────────────────────────
         resolved: list[str] = []
-        if category and category in POLICIES:
+        if category and category in _POLICIES:
             resolved.append(category)
-        else:
-            # Try alias matching on explicit category
-            if category and category in CATEGORY_ALIASES:
-                resolved.append(CATEGORY_ALIASES[category])
-            # Keyword matching on query string
+        elif category and category in _CATEGORY_ALIASES:
+            resolved.append(_CATEGORY_ALIASES[category])
+
+        if not resolved:
+            # Keyword match from query
             query_lower = query.lower()
-            for keyword, cat in CATEGORY_ALIASES.items():
+            for keyword, cat in _CATEGORY_ALIASES.items():
                 if keyword.lower() in query_lower and cat not in resolved:
                     resolved.append(cat)
-
-        # Fallback: return all categories if nothing matched
         if not resolved:
-            resolved = list(POLICIES)
+            resolved = list(_POLICIES)
 
-        # Build result
-        results: dict[str, str] = {}
+        # ── Try CMS helps API ──────────────────────────────────────────
+        cms_results: list[dict[str, Any]] = []
+        try:
+            async with httpx.AsyncClient(timeout=self.tool_timeout) as client:
+                for cat in resolved[:3]:  # only fetch top 3 categories from CMS
+                    resp = await client.get(
+                        f"{MARKETPLACE_URL}/api/v1/admin/cms/helps",
+                        params={"category_name": cat, "page": 1, "page_size": 3},
+                        headers=hdrs,
+                    )
+                    resp.raise_for_status()
+                    data = resp.json()
+                    inner = data.get("data", data)
+                    items = inner.get("items", [])
+                    for item in items:
+                        cms_results.append(
+                            {
+                                "category": cat,
+                                "title": item.get("title", ""),
+                                "content": item.get("content", ""),
+                            }
+                        )
+        except Exception:
+            logger.debug("search_knowledge: CMS helps API unavailable, using fallback")
+
+        # ── Build result ───────────────────────────────────────────────
+        knowledge: dict[str, dict[str, Any]] = {}
+
+        if cms_results:
+            for item in cms_results:
+                cat = item["category"]
+                if cat not in knowledge:
+                    knowledge[cat] = {
+                        "source": "cms",
+                        "articles": [],
+                    }
+                knowledge[cat]["articles"].append(
+                    {"title": item["title"], "content": item["content"]}
+                )
+
+        # Fill missing categories from fallback
         for cat in resolved:
-            results[cat] = POLICIES.get(cat, "")
+            if cat not in knowledge:
+                knowledge[cat] = {
+                    "source": "fallback",
+                    "content": _POLICIES.get(cat, ""),
+                }
 
-        return {"query": query, "matched_categories": resolved, "results": results}
+        return {
+            "query": query,
+            "matched_categories": resolved,
+            "knowledge": knowledge,
+        }
 
-    def compensation(self, args: dict[str, Any], result: ToolResult) -> CompensationAction:
+    def compensation(
+        self, args: dict[str, Any], result: ToolResult
+    ) -> CompensationAction:
         return self._noop_compensation(
             action_id=self._idem_key(args),
             tool_name=self.name,

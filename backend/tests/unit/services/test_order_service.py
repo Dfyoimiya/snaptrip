@@ -7,10 +7,11 @@ All DB interactions are mocked.
 Author: SnapTrip Team
 Date: 2026-06-08
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
@@ -206,8 +207,8 @@ async def test_create_from_cart_insufficient_stock(mock_db):
 @pytest.mark.asyncio
 async def test_pay_success(mock_db):
     """pay: transitions PENDING_PAYMENT -> PAID."""
-    from app.services.order_service import OrderService
     from app.schemas.order import OrderStatus
+    from app.services.order_service import OrderService
 
     order_id = uuid4()
     order_mock = _make_order_mock(order_id, status=OrderStatus.PENDING_PAYMENT)
@@ -246,8 +247,8 @@ async def test_pay_order_not_found(mock_db):
 @pytest.mark.asyncio
 async def test_cancel_from_pending(mock_db):
     """cancel: pending payment -> closed, restores locked stock."""
-    from app.services.order_service import OrderService
     from app.schemas.order import OrderStatus
+    from app.services.order_service import OrderService
 
     order_id = uuid4()
     order_mock = _make_order_mock(order_id, status=OrderStatus.PENDING_PAYMENT)

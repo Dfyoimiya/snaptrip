@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from agent.nodes.base import BaseSpecialist
 from agent.schemas.state import PlanState
 
 logger = logging.getLogger(__name__)
@@ -21,8 +22,8 @@ PRODUCT_TOOLS: list[dict[str, Any]] = [
         "function": {
             "name": "search_products",
             "description": "Search the product catalog for travel products matching user criteria. "
-                           "Uses semantic search across hotels, flights, tours, and packages. "
-                           "Returns ranked list of matching products with prices and descriptions.",
+            "Uses semantic search across hotels, flights, tours, and packages. "
+            "Returns ranked list of matching products with prices and descriptions.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -54,7 +55,7 @@ PRODUCT_TOOLS: list[dict[str, Any]] = [
         "function": {
             "name": "get_product_detail",
             "description": "Get detailed information about a specific product by its ID. "
-                           "Returns full description, pricing, availability, reviews, and images.",
+            "Returns full description, pricing, availability, reviews, and images.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -86,6 +87,9 @@ Guidelines:
 6. Present up to 3-5 best matches, not an exhaustive list.
 7. NEVER call a tool that you don't have defined.
 
+When providing a final answer (without tool calls), structure your response as JSON:
+{"answer": "Your product recommendations here", "highlights": ["Product 1 - ¥price", "Product 2 - ¥price"]}
+
 Respond in the user's language. Be concise but informative.
 """
 
@@ -93,70 +97,22 @@ Respond in the user's language. Be concise but informative.
 # ── Node ─────────────────────────────────────────────────────────────────────
 
 
+class ProductDiscoveryNode(BaseSpecialist):
+    node_name = "product_discovery"
+    system_prompt = PRODUCT_SYSTEM_PROMPT
+    tools = PRODUCT_TOOLS
+    phase_name = "product_searching"
+    temperature = 0.3
+
+
+_instance = ProductDiscoveryNode()
+
+
 async def product_discovery_node(state: PlanState) -> dict:
     """Search products based on user intent. Calls search_products/get_product_detail tools.
-
-    On first turn: sends user query + system prompt to LLM with tool definitions.
-    On subsequent turns (after tool results): LLM processes tool output and either
-    calls more tools or returns a final answer.
 
     Returns:
         dict with updated messages and phase. AIMessage may contain tool_calls
         which the graph routes to tool_node.
     """
-    from agent.graph import _runtime
-
-    adapter = _runtime.llm_adapter if _runtime else None
-    if not adapter:
-        logger.error("product_discovery: LLM adapter unavailable")
-        return {"phase": "error", "status": "llm_unavailable"}
-
-    messages = state.get("messages", [])
-    retry_count = state.get("retry_count", 0)
-
-    if retry_count > 3:
-        logger.warning("product_discovery: max retries exceeded, forcing synthesize")
-        return {"phase": "product_searching", "status": "max_retries"}
-
-    # Build messages: system prompt + accumulated conversation
-    llm_messages: list[dict[str, Any]] = [
-        {"role": "system", "content": PRODUCT_SYSTEM_PROMPT},
-    ]
-    # Convert LangChain messages to OpenAI dict format
-    for msg in messages:
-        if hasattr(msg, "type"):
-            role = msg.type
-            content = msg.content or ""
-            role_map = {"human": "user", "ai": "assistant", "tool": "tool"}
-            api_role = role_map.get(role, role)
-            entry: dict[str, Any] = {"role": api_role, "content": content}
-            # Include tool_calls if present on assistant messages
-            if role == "ai":
-                tcs = getattr(msg, "tool_calls", None) or []
-                if tcs:
-                    from agent.utils import normalize_tool_calls_for_api
-                    entry["tool_calls"] = normalize_tool_calls_for_api(tcs)
-            # Include tool_call_id on tool messages
-            if hasattr(msg, "tool_call_id") and msg.tool_call_id:
-                entry["tool_call_id"] = msg.tool_call_id
-            llm_messages.append(entry)
-        elif isinstance(msg, dict):
-            llm_messages.append(msg)
-
-    try:
-        response = await adapter.chat(
-            messages=llm_messages,
-            tools=PRODUCT_TOOLS,
-            temperature=0.3,
-            max_tokens=2048,
-        )
-    except Exception:
-        logger.exception("product_discovery: LLM call failed")
-        return {"phase": "error", "status": "llm_error"}
-
-    return {
-        "messages": [response],
-        "phase": "product_searching",
-        "current_agent": "product_discovery",
-        "retry_count": retry_count + 1,
-    }
+    return await _instance.execute(state)

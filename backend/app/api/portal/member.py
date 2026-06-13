@@ -11,13 +11,13 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from snaptrip_shared.core.response import success
-from marketplace.app.core.security import get_current_user
 from snaptrip_shared.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.member import AddressCreate, AddressUpdate
 from app.services.member_service import MemberService
+from marketplace.app.core.security import get_current_user
 from marketplace.app.models.users import User
 
 router = APIRouter(prefix="/portal/member", tags=["Portal - 会员中心"])

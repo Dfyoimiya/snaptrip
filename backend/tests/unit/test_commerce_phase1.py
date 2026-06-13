@@ -300,28 +300,21 @@ class TestRBACModels:
 
 
 class TestOSSClient:
-    """验证 OSS 客户端工厂和 Mock 实现"""
+    """验证 OSS 客户端工厂和 MinIO 实现"""
 
-    async def test_mock_oss_upload(self):
-        from app.core.oss import MockOSSClient
-
-        client = MockOSSClient()
-        url = await client.upload("test/product.png", b"image-data", content_type="image/png")
-        assert "mock-oss.snaptrip.local" in url
-        assert "product.png" in url
-
-    async def test_mock_oss_delete(self):
-        from app.core.oss import MockOSSClient
-
-        client = MockOSSClient()
-        ok = await client.delete("test/old.png")
-        assert ok is True
-
-    def test_get_oss_client_returns_mock_default(self):
-        from app.core.oss import MockOSSClient, get_oss_client
+    def test_get_oss_client_returns_minio_client(self):
+        from app.core.oss import MinioOSSClient, get_oss_client
 
         client = get_oss_client()
-        assert isinstance(client, MockOSSClient)
+        assert isinstance(client, MinioOSSClient)
+
+    def test_minio_client_default_config(self):
+        from app.core.oss import MinioOSSClient
+
+        client = MinioOSSClient()
+        assert client._endpoint == "localhost:9000"
+        assert client._bucket == "snaptrip-commerce"
+        assert client._secure is False
 
 
 # ============================================================================

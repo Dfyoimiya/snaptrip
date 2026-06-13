@@ -186,7 +186,7 @@ class CouponService:
             )
         )
         upd = await self.db.execute(stmt)
-        if upd.rowcount == 0:
+        if upd.rowcount == 0:  # type: ignore[attr-defined]
             from app.core.exceptions import CouponExhaustedError
 
             raise CouponExhaustedError(str(coupon_id))

@@ -40,7 +40,9 @@ class GetProductDetailTool(SmartDayBaseTool):
                 result: dict[str, Any] = {}
                 if isinstance(data, dict):
                     product = data.get("data", data)
-                    result["product_id"] = product.get("id", product.get("product_id", ""))
+                    result["product_id"] = product.get(
+                        "id", product.get("product_id", "")
+                    )
                     result["name"] = product.get("name", "")
                     result["description"] = product.get("description", "")
                     result["price"] = product.get("price", 0)
@@ -59,7 +61,9 @@ class GetProductDetailTool(SmartDayBaseTool):
         except httpx.RequestError as e:
             return {"error": f"Request failed: {str(e)}"}
 
-    def compensation(self, args: dict[str, Any], result: ToolResult) -> CompensationAction:
+    def compensation(
+        self, args: dict[str, Any], result: ToolResult
+    ) -> CompensationAction:
         return self._noop_compensation(
             action_id=self._idem_key(args),
             tool_name=self.name,

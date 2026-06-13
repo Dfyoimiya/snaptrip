@@ -29,7 +29,7 @@ class Base(DeclarativeBase):
     与 CommerceBase 共享同一 metadata.schema，但保持独立继承树。
     """
 
-    metadata: Any
+    metadata: Any  # type: ignore[misc]
 
 
 class CommerceBase(DeclarativeBase):
@@ -39,7 +39,7 @@ class CommerceBase(DeclarativeBase):
     默认使用 public schema, 后续迁移可按域拆分为 pms/oms/ums/sms/cms。
     """
 
-    metadata: Any  # Alembic 通过 target_metadata 访问
+    metadata: Any  # type: ignore[misc]  # Alembic 通过 target_metadata 访问
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

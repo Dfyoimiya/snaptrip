@@ -17,7 +17,6 @@ import uuid
 from typing import Any
 
 from redis.asyncio import Redis
-
 from snaptrip_shared.core.config import settings
 
 
@@ -36,7 +35,7 @@ class MemoryService:
             max_connections=settings.REDIS_POOL_SIZE,
             decode_responses=True,
         )
-        await self._client.ping()
+        await self._client.ping()  # type: ignore[misc]
 
     async def stop(self) -> None:
         if self._client:
@@ -57,7 +56,7 @@ class MemoryService:
 
     async def get_session_state(self, session_id: str) -> str | None:
         key = f"session:{session_id}:state"
-        return await self.client.get(key)
+        return await self.client.get(key)  # type: ignore[no-any-return]
 
     # ===== 对话历史 =====
 
@@ -73,7 +72,7 @@ class MemoryService:
 
     async def get_dialogue(self, session_id: str) -> list[dict]:
         key = f"session:{session_id}:dialogue"
-        raw = await self.client.lrange(key, 0, -1)
+        raw = await self.client.lrange(key, 0, -1)  # type: ignore[misc]
         return [json.loads(item) for item in raw]
 
     # ===== 热门 POI 缓存 =====
@@ -102,7 +101,7 @@ class MemoryService:
             pipe.zadd(redis_key, {member: now_ms})
             pipe.expire(redis_key, window + 1)
             _, count, _, _ = await pipe.execute()
-        return count < limit
+        return bool(count < limit)
 
     # ===== 事务状态 =====
 
@@ -114,7 +113,7 @@ class MemoryService:
 
     async def get_transaction_status(self, txn_id: str) -> str | None:
         key = f"txn:{txn_id}:status"
-        return await self.client.get(key)
+        return await self.client.get(key)  # type: ignore[no-any-return]
 
     # ===== 兼容旧接口 (内存 dict stub 过渡) =====
 

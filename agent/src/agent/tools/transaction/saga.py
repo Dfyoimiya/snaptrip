@@ -11,7 +11,7 @@ Uses ToolHarness for tool execution (injected, not imported).
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, TYPE_CHECKING
 
 from agent.tools.transaction.compensation import CompensationRegistry

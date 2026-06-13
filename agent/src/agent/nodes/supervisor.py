@@ -22,35 +22,121 @@ logger = logging.getLogger(__name__)
 
 INTENT_KEYWORDS: dict[str, list[str]] = {
     "product_search": [
-        "search", "find", "product", "recommend", "recommendation",
-        "buy", "purchase", "shop", "item", "price", "catalog",
-        "looking for", "show me", "what do you have", "available",
-        "deal price", "cheapest", "best", "hotel", "flight",
-        "ticket", "trip", "travel", "vacation", "tour", "package",
+        "search",
+        "find",
+        "product",
+        "recommend",
+        "recommendation",
+        "buy",
+        "purchase",
+        "shop",
+        "item",
+        "price",
+        "catalog",
+        "looking for",
+        "show me",
+        "what do you have",
+        "available",
+        "deal price",
+        "cheapest",
+        "best",
+        "hotel",
+        "flight",
+        "ticket",
+        "trip",
+        "travel",
+        "vacation",
+        "tour",
+        "package",
     ],
     "order_status": [
-        "order", "status", "tracking", "where is my", "delivery",
-        "shipping", "cancel", "refund", "return", "my order",
-        "order number", "when will", "delivered", "shipment",
-        "modify order", "change order", "update order",
+        "order",
+        "status",
+        "tracking",
+        "where is my",
+        "delivery",
+        "shipping",
+        "cancel",
+        "refund",
+        "return",
+        "my order",
+        "order number",
+        "when will",
+        "delivered",
+        "shipment",
+        "modify order",
+        "change order",
+        "update order",
     ],
     "coupon_inquiry": [
-        "coupon", "discount", "promo", "promotion", "deal",
-        "flash", "sale", "offer", "voucher", "code",
-        "off", "save money", "cheaper", "discount code",
-        "special offer", "limited time",
+        "coupon",
+        "discount",
+        "promo",
+        "promotion",
+        "deal",
+        "flash",
+        "sale",
+        "offer",
+        "voucher",
+        "code",
+        "off",
+        "save money",
+        "cheaper",
+        "discount code",
+        "special offer",
+        "limited time",
     ],
     "general": [
-        "faq", "help", "how to", "policy", "contact",
-        "support", "information", "about", "hours", "location",
-        "store", "payment method", "account", "register",
-        "sign up", "login", "password", "gift card",
+        "faq",
+        "help",
+        "how to",
+        "policy",
+        "contact",
+        "support",
+        "information",
+        "about",
+        "hours",
+        "location",
+        "store",
+        "payment method",
+        "account",
+        "register",
+        "sign up",
+        "login",
+        "password",
+        "gift card",
     ],
     "admin_analytics": [
-        "sales", "revenue", "report", "dashboard", "analytics",
-        "stock", "inventory", "low stock", "trend", "statistics",
-        "member", "insight", "description", "seo", "generate",
-        "coupon analysis", "effect", "performance",
+        "sales",
+        "revenue",
+        "report",
+        "dashboard",
+        "analytics",
+        "stock",
+        "inventory",
+        "low stock",
+        "trend",
+        "statistics",
+        "member",
+        "insight",
+        "description",
+        "seo",
+        "generate",
+        "coupon analysis",
+        "effect",
+        "performance",
+        "增长",
+        "数据",
+        "有多少",
+        "多少会员",
+        "新增",
+        "增长情况",
+        "会员增长",
+        "会员数据",
+        "会员统计",
+        "商品描述",
+        "商品详情",
+        "描述生成",
     ],
 }
 
@@ -78,14 +164,21 @@ Classify the user's message into exactly ONE of these intents:
 
 1. product_search   — User wants to search, browse, or discover travel products
                        (hotels, flights, packages, tours, tickets, etc.)
+                       Also: "what products do I have", "show me products", "in-stock items"
 2. order_status     — User wants to check order status, tracking, cancel,
                        refund, or return an order
 3. coupon_inquiry   — User wants coupons, discounts, promo codes, flash deals,
                        or special offers
-4. admin_analytics  — User wants sales reports, inventory alerts, order trends,
-                       member insights, product descriptions, or coupon analysis
+4. admin_analytics  — User wants DATA or ANALYTICS: sales reports, inventory alerts,
+                       order trends, member growth/statistics/insights, product
+                       description generation, or coupon effect analysis.
+                       KEY SIGNAL: questions asking about numbers, growth, trends,
+                       statistics, reports, or "how many" type analysis queries.
+                       Also: requests to generate or improve product descriptions.
 5. general          — User has a general question about policies, account,
-                       payment methods, store info, or other FAQ topics
+                       payment methods, store info, or other FAQ topics.
+                       NOTE: "member growth" is NOT general — it's admin_analytics.
+                       NOTE: "what products are on sale" is product_search, NOT general.
 
 Reply with ONLY a JSON object: {"intent": "<intent_name>", "confidence": <0.0-1.0>}
 """
@@ -112,16 +205,26 @@ async def _classify_intent_llm(text: str) -> tuple[str, float]:
         )
         content = response.content if hasattr(response, "content") else str(response)
         import json
+
         result = json.loads(content if isinstance(content, str) else str(content))
         intent = result.get("intent", "general")
         confidence = float(result.get("confidence", 0.5))
-        valid_intents = {"product_search", "order_status", "coupon_inquiry", "admin_analytics", "general"}
+        valid_intents = {
+            "product_search",
+            "order_status",
+            "coupon_inquiry",
+            "admin_analytics",
+            "general",
+        }
         if intent not in valid_intents:
             intent = "general"
             confidence = 0.3
         return (intent, round(confidence, 2))
     except Exception:
-        logger.warning("supervisor: LLM classification failed, falling back to keywords", exc_info=True)
+        logger.warning(
+            "supervisor: LLM classification failed, falling back to keywords",
+            exc_info=True,
+        )
         return _classify_intent_keywords(text)
 
 
@@ -155,7 +258,9 @@ async def supervisor_node(state: PlanState) -> dict:
 
     logger.info(
         "supervisor: intent=%s confidence=%s text=%s",
-        intent, confidence, user_text[:100],
+        intent,
+        confidence,
+        user_text[:100],
     )
 
     return {
@@ -163,7 +268,6 @@ async def supervisor_node(state: PlanState) -> dict:
         "intent_confidence": confidence,
         "current_agent": intent,
         "retry_count": 0,
-        "working_memory": {},
         "sub_results": {},
         "product_results": [],
         "order_detail": None,

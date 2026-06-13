@@ -127,7 +127,7 @@ def safe_parse_json(raw: str) -> dict[str, Any]:
     if end == 0:
         return {}
     try:
-        return json.loads(raw[:end])
+        return json.loads(raw[:end])  # type: ignore[no-any-return]
     except json.JSONDecodeError:
         return {}
 

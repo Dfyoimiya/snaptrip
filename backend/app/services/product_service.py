@@ -170,7 +170,7 @@ class ProductService:
         from app.models.product.sku import PmsSku
 
         product = await self.db.get(PmsProduct, product_id)
-        if not product:
+        if not product or product.is_deleted:
             from app.core.exceptions import ProductNotFoundError
             raise ProductNotFoundError(str(product_id))
 
@@ -255,7 +255,7 @@ class ProductService:
 
         offset = (query.page - 1) * query.page_size
         result = await self.db.execute(
-            base.order_by(order_by).offset(offset).limit(query.page_size)
+            base.order_by(order_by).offset(offset).limit(query.page_size)  # type: ignore[arg-type]
         )
         products = result.scalars().all()
 
@@ -319,7 +319,7 @@ class ProductService:
         total = result.scalar() or 0
 
         result = await self.db.execute(
-            base.order_by(order_by).offset((page - 1) * page_size).limit(page_size)
+            base.order_by(order_by).offset((page - 1) * page_size).limit(page_size)  # type: ignore[arg-type]
         )
         products = result.scalars().all()
         return [ProductResponse.model_validate(p) for p in products], total
@@ -347,6 +347,29 @@ class ProductService:
             await _sync_product_to_es(product)
 
         return ProductResponse.model_validate(product)
+
+    # =========================================================================
+    #  仪表盘统计
+    # =========================================================================
+
+    async def top_by_sales(self, limit: int = 5) -> list[dict]:
+        """商品销售排行 TOP N"""
+        from app.models.product.product import PmsProduct
+
+        result = await self.db.execute(
+            select(PmsProduct.name, PmsProduct.sale_count, PmsProduct.price)
+            .where(PmsProduct.is_deleted == False)  # noqa: E712
+            .order_by(PmsProduct.sale_count.desc())
+            .limit(limit)
+        )
+        return [
+            {
+                "name": row[0],
+                "sales": row[1] or 0,
+                "amount": int((row[1] or 0) * float(row[2] or 0)),
+            }
+            for row in result.all()
+        ]
 
 
 # ============================================================================

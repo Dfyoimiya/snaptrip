@@ -19,10 +19,8 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timedelta
 
-import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-
 
 # ============================================================================
 #  Helpers
@@ -162,7 +160,7 @@ class TestProductSupplement:
         assert resp.status_code == 200, resp.text
         data = resp.json()["data"]
         assert data["name"] == new_name
-        assert data["price"] == "159.00" or str(data["price"]) in ("159.00", "159")
+        assert data["price"] == "159.00" or str(data["price"]) in ("159.00", "159", "159.0")
 
     async def test_delete_product(self, auth_client: AsyncClient):
         """DELETE /api/v1/admin/products/{id} —— 软删除商品."""
@@ -184,16 +182,12 @@ class TestProductSupplement:
         product_id = product["id"]
 
         # 下架 (status=0)
-        resp = await auth_client.patch(
-            f"/api/v1/admin/products/{product_id}/status?status=0"
-        )
+        resp = await auth_client.patch(f"/api/v1/admin/products/{product_id}/status?status=0")
         assert resp.status_code == 200, resp.text
         assert resp.json()["data"]["publish_status"] == 0
 
         # 上架 (status=1)
-        resp = await auth_client.patch(
-            f"/api/v1/admin/products/{product_id}/status?status=1"
-        )
+        resp = await auth_client.patch(f"/api/v1/admin/products/{product_id}/status?status=1")
         assert resp.status_code == 200, resp.text
         assert resp.json()["data"]["publish_status"] == 1
 
@@ -203,16 +197,12 @@ class TestProductSupplement:
         product_id = product["id"]
 
         # 设为推荐
-        resp = await auth_client.patch(
-            f"/api/v1/admin/products/{product_id}/recommend?status=1"
-        )
+        resp = await auth_client.patch(f"/api/v1/admin/products/{product_id}/recommend?status=1")
         assert resp.status_code == 200, resp.text
         assert resp.json()["data"]["recommend_status"] == 1
 
         # 取消推荐
-        resp = await auth_client.patch(
-            f"/api/v1/admin/products/{product_id}/recommend?status=0"
-        )
+        resp = await auth_client.patch(f"/api/v1/admin/products/{product_id}/recommend?status=0")
         assert resp.status_code == 200, resp.text
         assert resp.json()["data"]["recommend_status"] == 0
 
@@ -222,16 +212,12 @@ class TestProductSupplement:
         product_id = product["id"]
 
         # 设为新品
-        resp = await auth_client.patch(
-            f"/api/v1/admin/products/{product_id}/new?status=1"
-        )
+        resp = await auth_client.patch(f"/api/v1/admin/products/{product_id}/new?status=1")
         assert resp.status_code == 200, resp.text
         assert resp.json()["data"]["new_status"] == 1
 
         # 取消新品
-        resp = await auth_client.patch(
-            f"/api/v1/admin/products/{product_id}/new?status=0"
-        )
+        resp = await auth_client.patch(f"/api/v1/admin/products/{product_id}/new?status=0")
         assert resp.status_code == 200, resp.text
         assert resp.json()["data"]["new_status"] == 0
 
@@ -317,7 +303,7 @@ class TestCouponSupplement:
         assert update_resp.status_code == 200, update_resp.text
         data = update_resp.json()["data"]
         assert data["name"] == "满200减50"
-        assert data["amount"] == "50.00" or str(data["amount"]) in ("50.00", "50")
+        assert data["amount"] == "50.00" or str(data["amount"]) in ("50.00", "50", "50.0")
 
     async def test_delete_coupon(self, auth_client: AsyncClient):
         """DELETE /api/v1/admin/coupons/{id} —— 删除优惠券."""
@@ -360,9 +346,7 @@ class TestOrderSupplement:
         order_id = order["id"]
 
         # 未支付订单(status=0)可以直接关闭
-        close_resp = await auth_client.post(
-            f"/api/v1/admin/orders/{order_id}/close?note=test close"
-        )
+        close_resp = await auth_client.post(f"/api/v1/admin/orders/{order_id}/close?note=test close")
         assert close_resp.status_code == 200, close_resp.text
         assert close_resp.json()["data"]["status"] != 0  # 状态不再是待付款
 
@@ -437,9 +421,7 @@ class TestFlashSupplement:
         session_id = session_resp.json()["data"]["id"]
 
         # 删除场次
-        del_resp = await auth_client.delete(
-            f"/api/v1/admin/flash-promotions/{promo_id}/sessions/{session_id}"
-        )
+        del_resp = await auth_client.delete(f"/api/v1/admin/flash-promotions/{promo_id}/sessions/{session_id}")
         assert del_resp.status_code == 200, del_resp.text
         assert del_resp.json()["message"] == "删除成功"
 
@@ -460,8 +442,6 @@ class TestFlashSupplement:
         promo_id = promo_resp.json()["data"]["id"]
 
         # 删除活动
-        del_resp = await auth_client.delete(
-            f"/api/v1/admin/flash-promotions/{promo_id}"
-        )
+        del_resp = await auth_client.delete(f"/api/v1/admin/flash-promotions/{promo_id}")
         assert del_resp.status_code == 200, del_resp.text
         assert del_resp.json()["message"] == "删除成功"

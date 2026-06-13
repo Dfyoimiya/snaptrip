@@ -6,6 +6,7 @@ All DB interactions are mocked.
 Author: SnapTrip Team
 Date: 2026-06-08
 """
+
 from __future__ import annotations
 
 from decimal import Decimal
@@ -118,9 +119,7 @@ async def test_create_success(mock_db):
     data = ProductCreate(
         name="Test Product",
         price=Decimal("99.99"),
-        skus=[
-            SkuCreate(sku_code="SKU001", spec="{}", price=Decimal("99.99"), stock=50)
-        ],
+        skus=[SkuCreate(sku_code="SKU001", spec="{}", price=Decimal("99.99"), stock=50)],
     )
 
     # The service does product_data = data.model_dump(exclude={"skus", "attribute_values"})

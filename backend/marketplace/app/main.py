@@ -17,11 +17,9 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 
-from agent.adapters.marketplace import MarketplaceClient
 from agent.adapters.persistence.runtime_event import SQLRuntimeEventRepository
 from agent.events.redis_bus import RedisEventBus
 from agent.graph import build_graph
-from app.services.memory_service import MemoryService
 from agent.runtime import AgentRuntime
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -57,22 +55,20 @@ from snaptrip_shared.core.response import (
 from snaptrip_shared.db.redis import close_redis_pool, get_redis_pool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from marketplace.app.api.v1.auth import router as auth_router
-from marketplace.app.api.v1.plan import router as plan_router
-from marketplace.app.api.v1.user import router as user_router
-from marketplace.app.api.v1.admin_agent import router as admin_agent_router
-
 # ── 电商路由 (Commerce) ──
 from app.api.admin import admin_router
 from app.api.portal import portal_router
+from app.services.memory_service import MemoryService
+from marketplace.app.api.v1.admin_agent import router as admin_agent_router
+from marketplace.app.api.v1.auth import router as auth_router
+from marketplace.app.api.v1.plan import router as plan_router
+from marketplace.app.api.v1.user import router as user_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.memory = MemoryService()
     app.state.redis_pool = get_redis_pool()
-    app.state.marketplace_client = MarketplaceClient(mode=settings.MARKETPLACE_MODE)
-
     event_bus = RedisEventBus(
         pool=app.state.redis_pool,
         repository=SQLRuntimeEventRepository(),
@@ -102,7 +98,7 @@ app.add_middleware(
 app.include_router(plan_router)
 app.include_router(auth_router)
 app.include_router(user_router)
-app.include_router(admin_agent_router)
+app.include_router(admin_agent_router, prefix="/api/v1")
 
 # ── 电商路由 —— Admin + Portal 统一前缀 /api/v1 ──
 app.include_router(admin_router, prefix="/api/v1")

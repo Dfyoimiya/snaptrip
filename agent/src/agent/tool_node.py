@@ -164,6 +164,20 @@ async def tool_node(state: PlanState) -> dict:
     if session_ctx and state.get("user_id"):
         session_ctx.user_id = state["user_id"]
 
+    # ── JWT passthrough ──────────────────────────────────────
+    # admin_agent.py stores the browser JWT in working_memory["auth_token"].
+    # We set it via ContextVar so every tool's _arun can read it via auth_header().
+    auth_token = state.get("working_memory", {}).get("auth_token", "")
+    if auth_token and session_ctx:
+        session_ctx.metadata["auth_token"] = auth_token
+        from agent.tools.auth import set_auth_token
+
+        set_auth_token(auth_token)
+    else:
+        from agent.tools.auth import set_auth_token
+
+        set_auth_token("")
+
     last_msg = state["messages"][-1]
     tool_calls = getattr(last_msg, "tool_calls", None) or []
 

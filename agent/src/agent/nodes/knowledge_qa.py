@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from agent.nodes.base import BaseSpecialist
 from agent.schemas.state import PlanState
 
 logger = logging.getLogger(__name__)
@@ -17,9 +18,9 @@ KNOWLEDGE_TOOLS: list[dict[str, Any]] = [
         "function": {
             "name": "search_knowledge",
             "description": "Search the SnapTrip knowledge base for FAQs, policies, "
-                           "and general information. Covers payment methods, account management, "
-                           "store locations, cancellation policies, insurance, visa requirements, "
-                           "and general travel tips.",
+            "and general information. Covers payment methods, account management, "
+            "store locations, cancellation policies, insurance, visa requirements, "
+            "and general travel tips.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -30,8 +31,14 @@ KNOWLEDGE_TOOLS: list[dict[str, Any]] = [
                     "topic": {
                         "type": "string",
                         "enum": [
-                            "payment", "account", "cancellation", "insurance",
-                            "visa", "store", "general", "all",
+                            "payment",
+                            "account",
+                            "cancellation",
+                            "insurance",
+                            "visa",
+                            "store",
+                            "general",
+                            "all",
                         ],
                         "description": "Topic filter to narrow results (default: 'all')",
                     },
@@ -63,11 +70,25 @@ Guidelines:
 5. Be polite, concise, and helpful.
 6. NEVER call a tool that you don't have defined.
 
+When providing a final answer (without tool calls), structure your response as JSON:
+{"answer": "Your knowledge base answer here", "highlights": ["Key fact 1", "Key fact 2"]}
+
 Respond in the user's language.
 """
 
 
 # ── Node ─────────────────────────────────────────────────────────────────────
+
+
+class KnowledgeQANode(BaseSpecialist):
+    node_name = "knowledge_qa"
+    system_prompt = KNOWLEDGE_SYSTEM_PROMPT
+    tools = KNOWLEDGE_TOOLS
+    phase_name = "knowledge_qa"
+    temperature = 0.3
+
+
+_instance = KnowledgeQANode()
 
 
 async def knowledge_qa_node(state: PlanState) -> dict:
@@ -77,55 +98,4 @@ async def knowledge_qa_node(state: PlanState) -> dict:
         dict with updated messages and phase. AIMessage may contain tool_calls
         which the graph routes to tool_node.
     """
-    from agent.graph import _runtime
-
-    adapter = _runtime.llm_adapter if _runtime else None
-    if not adapter:
-        logger.error("knowledge_qa: LLM adapter unavailable")
-        return {"phase": "error", "status": "llm_unavailable"}
-
-    messages = state.get("messages", [])
-    retry_count = state.get("retry_count", 0)
-
-    if retry_count > 3:
-        logger.warning("knowledge_qa: max retries exceeded, forcing synthesize")
-        return {"phase": "knowledge_qa", "status": "max_retries"}
-
-    llm_messages: list[dict[str, Any]] = [
-        {"role": "system", "content": KNOWLEDGE_SYSTEM_PROMPT},
-    ]
-    for msg in messages:
-        if hasattr(msg, "type"):
-            role = msg.type
-            content = msg.content or ""
-            role_map = {"human": "user", "ai": "assistant", "tool": "tool"}
-            api_role = role_map.get(role, role)
-            entry: dict[str, Any] = {"role": api_role, "content": content}
-            if role == "ai":
-                tcs = getattr(msg, "tool_calls", None) or []
-                if tcs:
-                    from agent.utils import normalize_tool_calls_for_api
-                    entry["tool_calls"] = normalize_tool_calls_for_api(tcs)
-            if hasattr(msg, "tool_call_id") and msg.tool_call_id:
-                entry["tool_call_id"] = msg.tool_call_id
-            llm_messages.append(entry)
-        elif isinstance(msg, dict):
-            llm_messages.append(msg)
-
-    try:
-        response = await adapter.chat(
-            messages=llm_messages,
-            tools=KNOWLEDGE_TOOLS,
-            temperature=0.3,
-            max_tokens=2048,
-        )
-    except Exception:
-        logger.exception("knowledge_qa: LLM call failed")
-        return {"phase": "error", "status": "llm_error"}
-
-    return {
-        "messages": [response],
-        "phase": "knowledge_qa",
-        "current_agent": "knowledge_qa",
-        "retry_count": retry_count + 1,
-    }
+    return await _instance.execute(state)

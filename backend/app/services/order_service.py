@@ -15,7 +15,7 @@ Date: 2026-05-26
 from __future__ import annotations
 
 import random
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
@@ -112,7 +112,7 @@ class OrderService:
                 .values(lock_stock=PmsSku.lock_stock + item.quantity)
             )
             upd_result = await self.db.execute(stmt)
-            if upd_result.rowcount == 0:
+            if upd_result.rowcount == 0:  # type: ignore[attr-defined]
                 # rowcount == 0 → 库存不足 (WHERE 条件不满足)
                 # 这里需要回滚已锁定的库存——但由于事务未提交，回滚就是 rollback
                 from app.core.exceptions import InsufficientStockError
@@ -467,3 +467,139 @@ class OrderService:
         )
         orders = result.scalars().all()
         return [OrderResponse.model_validate(o) for o in orders], total
+
+    # =========================================================================
+    #  仪表盘统计
+    # =========================================================================
+
+    async def count_today(self) -> int:
+        """今日订单数"""
+        from datetime import date
+
+        from app.models.order.order import OmsOrder
+
+        today = date.today()
+        result = await self.db.execute(
+            select(func.count(OmsOrder.id)).where(
+                OmsOrder.created_at >= today,
+                OmsOrder.delete_status == 0,
+            )
+        )
+        return result.scalar() or 0
+
+    async def revenue_today(self) -> int:
+        """今日销售额 (分)"""
+        from datetime import date
+
+        from app.models.order.order import OmsOrder
+
+        today = date.today()
+        result = await self.db.execute(
+            select(func.coalesce(func.sum(OmsOrder.pay_amount), 0)).where(
+                OmsOrder.created_at >= today,
+                OmsOrder.delete_status == 0,
+                OmsOrder.status != OrderStatus.CLOSED,
+                OmsOrder.status != OrderStatus.PENDING_PAYMENT,
+            )
+        )
+        return int(result.scalar() or 0)
+
+    async def count_pending_returns(self) -> int:
+        """待处理退货数"""
+        from app.models.order.order import OmsOrder
+
+        result = await self.db.execute(
+            select(func.count(OmsOrder.id)).where(
+                OmsOrder.status == OrderStatus.REFUNDING,
+                OmsOrder.delete_status == 0,
+            )
+        )
+        return result.scalar() or 0
+
+    async def status_counts(self) -> list[dict]:
+        """各状态订单数量统计"""
+        from app.models.order.order import OmsOrder
+
+        _status_map = {
+            0: ("待付款", "warning"),
+            1: ("待发货", "primary"),
+            2: ("已发货", "success"),
+            3: ("已收货", "info"),
+            4: ("已完成", "info"),
+            5: ("已关闭", "info"),
+            6: ("退款中", "danger"),
+            7: ("已退款", "info"),
+        }
+
+        result = await self.db.execute(
+            select(OmsOrder.status, func.count(OmsOrder.id))
+            .where(OmsOrder.delete_status == 0)
+            .group_by(OmsOrder.status)
+        )
+        counts = {row[0]: row[1] for row in result.all()}
+
+        return [
+            {"label": label, "count": counts.get(status, 0), "type": tag_type}
+            for status, (label, tag_type) in _status_map.items()
+            if counts.get(status, 0) > 0
+        ]
+
+    async def revenue_daily_range(
+        self, start_date: date, end_date: date
+    ) -> list[int]:
+        """近N天每日销售额 (分)，按日期升序"""
+        from app.models.order.order import OmsOrder
+
+        result = await self.db.execute(
+            select(
+                func.date(OmsOrder.created_at),
+                func.coalesce(func.sum(OmsOrder.pay_amount), 0),
+            )
+            .where(
+                OmsOrder.created_at >= start_date,
+                OmsOrder.created_at <= end_date,
+                OmsOrder.delete_status == 0,
+                OmsOrder.status != OrderStatus.CLOSED,
+                OmsOrder.status != OrderStatus.PENDING_PAYMENT,
+            )
+            .group_by(func.date(OmsOrder.created_at))
+            .order_by(func.date(OmsOrder.created_at))
+        )
+        day_map = {str(row[0]): int(row[1]) for row in result.all()}
+
+        # Fill in all days in range
+        sales = []
+        d = start_date
+        while d <= end_date:
+            sales.append(day_map.get(d.isoformat(), 0))
+            d += timedelta(days=1)
+        return sales
+
+    async def latest(self, limit: int = 5) -> list[dict]:
+        """最新N条订单"""
+        from app.models.order.order import OmsOrder
+
+        _status_map = {
+            0: "待付款", 1: "待发货", 2: "已发货",
+            3: "已收货", 4: "已完成", 5: "已关闭",
+            6: "退款中", 7: "已退款",
+        }
+
+        result = await self.db.execute(
+            select(OmsOrder)
+            .where(OmsOrder.delete_status == 0)
+            .order_by(OmsOrder.created_at.desc())
+            .limit(limit)
+        )
+        orders = result.scalars().all()
+        return [
+            {
+                "id": o.id,
+                "orderSn": o.order_sn,
+                "member": o.member_username,
+                "amount": float(o.pay_amount),
+                "status": o.status,
+                "statusLabel": _status_map.get(o.status, "未知"),
+            }
+            for o in orders
+        ]

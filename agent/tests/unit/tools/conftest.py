@@ -167,25 +167,6 @@ def force_random_failure():
 
 
 # ═══════════════════════════════════════════════════════════════
-# Clean up module-level state after mock tool tests
-# ═══════════════════════════════════════════════════════════════
-
-
-@pytest.fixture(autouse=True)
-def _clean_mock_stores():
-    """Auto-clean module-level _MOCK_ORDERS and _MOCK_PAYMENTS state."""
-    from agent.tools.implementations import mock_order
-    from agent.tools.implementations import mock_payment
-    mock_order._MOCK_ORDERS.clear()
-    mock_payment._MOCK_PAYMENTS.clear()
-    mock_payment._CHARGED_KEYS.clear()
-    yield
-    mock_order._MOCK_ORDERS.clear()
-    mock_payment._MOCK_PAYMENTS.clear()
-    mock_payment._CHARGED_KEYS.clear()
-
-
-# ═══════════════════════════════════════════════════════════════
 # Event loop fixture
 # ═══════════════════════════════════════════════════════════════
 
