@@ -11,22 +11,22 @@ export function adminRegisterAPI(data: UmsAdmin) {
   return request<CommonResult<UmsAdmin>>({ url: '/admin/register', method: 'post', data })
 }
 
-export function adminUpdateByIdAPI(id: number, data: UmsAdmin) {
+export function adminUpdateByIdAPI(id: string, data: UmsAdmin) {
   return request<CommonResult<number>>({ url: '/admin/update/' + id, method: 'post', data })
 }
 
-export function adminUpdateStatusByIdAPI(id: number, params: { status: number }) {
+export function adminUpdateStatusByIdAPI(id: string, params: { status: number }) {
   return request<CommonResult<number>>({ url: '/admin/updateStatus/' + id, method: 'post', params })
 }
 
-export function adminDeleteByIdAPI(id: number) {
+export function adminDeleteByIdAPI(id: string) {
   return request<CommonResult<number>>({ url: '/admin/delete/' + id, method: 'post' })
 }
 
-export function getRoleByAdminIdAPI(adminId: number) {
+export function getRoleByAdminIdAPI(adminId: string) {
   return request<CommonResult<any[]>>({ url: '/admin/role/' + adminId, method: 'get' })
 }
 
-export function adminRoleUpdateAPI(params: { adminId: number; roleIds: string }) {
+export function adminRoleUpdateAPI(params: { adminId: string; roleIds: string }) {
   return request<CommonResult<number>>({ url: '/admin/role/update', method: 'post', params })
 }

@@ -18,7 +18,7 @@ const search = reactive({
   title: '',
   recommendStatus: '' as number | '',
 })
-const selectedIds = ref<number[]>([])
+const selectedIds = ref<string[]>([])
 
 const filteredList = computed(() => {
   let result = list.value
@@ -35,10 +35,10 @@ async function loadList() {
   loading.value = true
   try {
     const [subjectRes, categoryRes] = await Promise.all([
-      fetchSubjectList({}),
+      fetchSubjectList({ page: 1, page_size: 100 }),
       fetchSubjectCategoryList(),
     ])
-    list.value = subjectRes.data.list
+    list.value = subjectRes.data.items
     categoryList.value = categoryRes.data
   } catch {
     ElMessage.error('加载失败')
@@ -56,7 +56,7 @@ function handleSelectionChange(selection: CmsSubject[]) {
   selectedIds.value = selection.map(item => item.id!).filter(Boolean)
 }
 
-function getCategoryName(categoryId?: number) {
+function getCategoryName(categoryId?: string) {
   const cat = categoryList.value.find(c => c.id === categoryId)
   return cat?.name || '-'
 }

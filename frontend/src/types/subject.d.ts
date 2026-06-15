@@ -2,8 +2,8 @@
  * 首页专题
  */
 export interface CmsSubject {
-  id?: number
-  categoryId?: number
+  id?: string
+  categoryId?: string
   title?: string
   pic?: string
   productCount?: number
@@ -23,7 +23,7 @@ export interface CmsSubject {
  * 专题分类
  */
 export interface CmsSubjectCategory {
-  id?: number
+  id?: string
   name?: string
   icon?: string
   subjectCount?: number

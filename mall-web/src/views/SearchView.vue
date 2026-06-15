@@ -11,6 +11,7 @@
  */
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { searchProductListAPI } from '@/apis/product'
 import type { PmsProduct } from '@/types/product'
 
 const route = useRoute()
@@ -74,92 +75,38 @@ const priceRanges = [
   { label: '5000+', min: 5000, max: undefined },
 ]
 
-/** 选中的价格区间索引 */
+/** 选中价格区间索引 */
 const selectedPriceRange = ref(-1)
 
-// ===== Mock 商品数据池 =====
-const mockProducts: PmsProduct[] = [
-  { id: 1, name: 'Apple iPhone 15 Pro Max 256GB 钛金属 5G智能手机', pic: 'https://images.unsplash.com/photo-1696446701796-da61225697cc?w=300&h=300&fit=crop', price: 9999, originalPrice: 10999, sale: 5200, stock: 200, brandId: 1, brandName: 'Apple', productCategoryId: 1, productCategoryName: '手机数码', subTitle: 'A17 Pro芯片', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 1, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 2, name: '华为 Mate 60 Pro 12GB+512GB 鸿蒙系统 卫星通信', pic: 'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=300&h=300&fit=crop', price: 6999, originalPrice: 7999, sale: 8900, stock: 150, brandId: 2, brandName: '华为', productCategoryId: 1, productCategoryName: '手机数码', subTitle: '麒麟9000S', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 2, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 3, name: '小米14 Pro 16GB+512GB 徕卡影像 骁龙8 Gen3', pic: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=300&h=300&fit=crop', price: 5499, originalPrice: 5999, sale: 12000, stock: 300, brandId: 3, brandName: '小米', productCategoryId: 1, productCategoryName: '手机数码', subTitle: '徕卡Summilux', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 1, recommandStatus: 1, verifyStatus: 1, sort: 3, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 4, name: 'Apple MacBook Air M3芯片 13.6英寸 16GB+512GB', pic: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300&h=300&fit=crop', price: 10499, originalPrice: 11999, sale: 3200, stock: 80, brandId: 1, brandName: 'Apple', productCategoryId: 2, productCategoryName: '电脑办公', subTitle: 'M3芯片', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 4, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 5, name: '联想 ThinkPad X1 Carbon 2024 14英寸轻薄商务本', pic: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=300&h=300&fit=crop', price: 12999, originalPrice: 14999, sale: 1800, stock: 60, brandId: 9, brandName: '联想', productCategoryId: 2, productCategoryName: '电脑办公', subTitle: '碳纤维机身', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 5, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 6, name: 'Sony WH-1000XM5 头戴式无线降噪耳机 铂金银', pic: 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=300&h=300&fit=crop', price: 2499, originalPrice: 2999, sale: 6500, stock: 120, brandId: 6, brandName: 'Sony', productCategoryId: 1, productCategoryName: '手机数码', subTitle: 'AI降噪', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 6, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 7, name: 'Dyson Supersonic HD15 吹风机 镍灰色 负离子护发', pic: 'https://images.unsplash.com/photo-1522338140262-f46f5913618a?w=300&h=300&fit=crop', price: 2590, originalPrice: 3290, sale: 8900, stock: 100, brandId: 7, brandName: 'Dyson', productCategoryId: 3, productCategoryName: '家用电器', subTitle: '智能温控', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 7, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 8, name: 'Nike Air Force 1 \'07 空军一号 白色 42码', pic: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&h=300&fit=crop', price: 749, originalPrice: 899, sale: 25000, stock: 500, brandId: 4, brandName: 'Nike', productCategoryId: 5, productCategoryName: '服装服饰', subTitle: '经典百搭', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 8, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 9, name: '三星 65英寸 QLED 4K超高清智能电视 QA65Q70C', pic: 'https://images.unsplash.com/photo-1593784991095-a205069470b6?w=300&h=300&fit=crop', price: 6999, originalPrice: 8999, sale: 2100, stock: 45, brandId: 8, brandName: '三星', productCategoryId: 3, productCategoryName: '家用电器', subTitle: '量子点技术', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 9, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 10, name: '海尔 545升 十字对开门冰箱 一级能效变频', pic: 'https://images.unsplash.com/photo-1584568694244-067fb5f30001?w=300&h=300&fit=crop', price: 4299, originalPrice: 5899, sale: 3500, stock: 70, brandId: 10, brandName: '海尔', productCategoryId: 3, productCategoryName: '家用电器', subTitle: '双变频养鲜', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 10, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 11, name: 'Adidas Ultraboost 22 跑步鞋 黑色 43码', pic: 'https://images.unsplash.com/photo-1584735175315-9d5df23860e6?w=300&h=300&fit=crop', price: 899, originalPrice: 1299, sale: 8000, stock: 200, brandId: 5, brandName: 'Adidas', productCategoryId: 5, productCategoryName: '服装服饰', subTitle: 'Boost中底', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 11, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 12, name: '华为 MatePad Pro 13.2英寸 144Hz OLED平板', pic: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=300&h=300&fit=crop', price: 4999, originalPrice: 5699, sale: 1500, stock: 90, brandId: 2, brandName: '华为', productCategoryId: 2, productCategoryName: '电脑办公', subTitle: '星闪手写笔', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 1, recommandStatus: 1, verifyStatus: 1, sort: 12, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 13, name: 'Apple Watch Series 9 GPS版 45mm 星光色', pic: 'https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d?w=300&h=300&fit=crop', price: 2999, originalPrice: 3499, sale: 4200, stock: 150, brandId: 1, brandName: 'Apple', productCategoryId: 1, productCategoryName: '手机数码', subTitle: 'S9 SiP芯片', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 13, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 14, name: '小米电视 S Pro 75英寸 Mini LED 4K 144Hz', pic: 'https://images.unsplash.com/photo-1593784991095-a205069470b6?w=300&h=300&fit=crop', price: 5999, originalPrice: 7999, sale: 2800, stock: 55, brandId: 3, brandName: '小米', productCategoryId: 3, productCategoryName: '家用电器', subTitle: '千级分区', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 1, recommandStatus: 1, verifyStatus: 1, sort: 14, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 15, name: 'Sony A7M4 全画幅微单相机 单机身 ILCE-7M4', pic: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=300&h=300&fit=crop', price: 16999, originalPrice: 18999, sale: 900, stock: 30, brandId: 6, brandName: 'Sony', productCategoryId: 1, productCategoryName: '手机数码', subTitle: '3300万像素', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 15, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 16, name: 'Nintendo Switch OLED 游戏主机 日版 红蓝', pic: 'https://images.unsplash.com/photo-1578303512597-81e6cc155b3e?w=300&h=300&fit=crop', price: 1899, originalPrice: 2599, sale: 15000, stock: 200, brandId: 1, brandName: 'Nintendo', productCategoryId: 7, productCategoryName: '运动户外', subTitle: 'OLED屏幕', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 16, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 17, name: 'SK-II 神仙水护肤精华露 230ml 补水保湿', pic: 'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?w=300&h=300&fit=crop', price: 1540, originalPrice: 2150, sale: 12000, stock: 300, brandId: 4, brandName: 'SK-II', productCategoryId: 6, productCategoryName: '美妆个护', subTitle: 'PITERA精华', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 17, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 18, name: 'Dyson V12 Detect Slim 吸尘器 激光探测', pic: 'https://images.unsplash.com/photo-1558317374-067fb5f30001?w=300&h=300&fit=crop', price: 4490, originalPrice: 5290, sale: 2500, stock: 65, brandId: 7, brandName: 'Dyson', productCategoryId: 3, productCategoryName: '家用电器', subTitle: '激光除尘', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 18, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 19, name: 'AirPods Pro 2 配MagSafe充电盒 USB-C', pic: 'https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?w=300&h=300&fit=crop', price: 1899, originalPrice: 2199, sale: 18000, stock: 400, brandId: 1, brandName: 'Apple', productCategoryId: 1, productCategoryName: '手机数码', subTitle: 'H2芯片', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 19, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 20, name: '华为 FreeBuds Pro 3 无线耳机 星闪连接', pic: 'https://images.unsplash.com/photo-1606220588913-b3aacb4d2f46?w=300&h=300&fit=crop', price: 1299, originalPrice: 1599, sale: 5600, stock: 180, brandId: 2, brandName: '华为', productCategoryId: 1, productCategoryName: '手机数码', subTitle: '无损音质', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 1, recommandStatus: 1, verifyStatus: 1, sort: 20, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 21, name: '小米空气净化器 4 Pro H 除甲醛除菌', pic: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=300&h=300&fit=crop', price: 1699, originalPrice: 2299, sale: 8000, stock: 120, brandId: 3, brandName: '小米', productCategoryId: 3, productCategoryName: '家用电器', subTitle: '固态甲醛传感', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 21, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 22, name: '联想拯救者 Y9000P 2024 RTX4060 电竞本', pic: 'https://images.unsplash.com/photo-1603302576837-37561b2e2302?w=300&h=300&fit=crop', price: 9999, originalPrice: 11999, sale: 2100, stock: 50, brandId: 9, brandName: '联想', productCategoryId: 2, productCategoryName: '电脑办公', subTitle: 'i9-14900HX', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 22, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 23, name: 'Adidas Originals Forum Low 复古板鞋', pic: 'https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=300&h=300&fit=crop', price: 799, originalPrice: 999, sale: 6000, stock: 250, brandId: 5, brandName: 'Adidas', productCategoryId: 5, productCategoryName: '服装服饰', subTitle: '复古篮球风', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 23, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 24, name: '三星 Galaxy Watch6 Classic 47mm 蓝牙版', pic: 'https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=300&h=300&fit=crop', price: 2299, originalPrice: 2899, sale: 1800, stock: 80, brandId: 8, brandName: '三星', productCategoryId: 1, productCategoryName: '手机数码', subTitle: '旋转表圈', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 24, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-]
-
-// ===== 筛选逻辑（前端过滤） =====
-const filteredProducts = computed(() => {
-  let result = [...mockProducts]
-
-  // 关键词过滤
-  if (keyword.value) {
-    const kw = keyword.value.toLowerCase()
-    result = result.filter(p =>
-      p.name.toLowerCase().includes(kw) ||
-      p.brandName.toLowerCase().includes(kw) ||
-      p.subTitle.toLowerCase().includes(kw),
-    )
+// ===== 从后端 API 搜索 =====
+async function fetchProducts() {
+  loading.value = true
+  try {
+    const res = await searchProductListAPI({
+      keyword: keyword.value || undefined,
+      productCategoryId: categoryId.value,
+      brandId: brandId.value,
+      sort: sortType.value,
+      minPrice: minPrice.value,
+      maxPrice: maxPrice.value,
+      pageNum: currentPage.value,
+      pageSize,
+    }) as unknown as { items: PmsProduct[]; total: number; totalPages: number; page: number }
+    productList.value = res.items || []
+    total.value = res.total || 0
+    totalPages.value = res.totalPages || 1
+  } catch (err: any) {
+    console.error('搜索失败:', err?.message || err)
+    productList.value = []
+    total.value = 0
+    totalPages.value = 1
+  } finally {
+    loading.value = false
   }
-
-  // 分类过滤
-  if (categoryId.value) {
-    result = result.filter(p => p.productCategoryId === categoryId.value)
-  }
-
-  // 品牌过滤
-  if (brandId.value) {
-    result = result.filter(p => p.brandId === brandId.value)
-  }
-
-  // 价格区间过滤
-  if (minPrice.value !== undefined) {
-    result = result.filter(p => p.price >= minPrice.value!)
-  }
-  if (maxPrice.value !== undefined) {
-    result = result.filter(p => p.price <= maxPrice.value!)
-  }
-
-  // 排序
-  if (sortType.value === 2) {
-    // 销量降序
-    result.sort((a, b) => b.sale - a.sale)
-  } else if (sortType.value === 3) {
-    // 价格升序
-    result.sort((a, b) => a.price - b.price)
-  } else if (sortType.value === 4) {
-    // 价格降序
-    result.sort((a, b) => b.price - a.price)
-  }
-
-  return result
-})
+}
 
 /** 总页数 */
-const totalPages = computed(() => Math.ceil(filteredProducts.value.length / pageSize))
-
-/** 分页后的商品 */
-const paginatedProducts = computed(() => {
-  const start = (currentPage.value - 1) * pageSize
-  return filteredProducts.value.slice(start, start + pageSize)
-})
+const totalPages = ref(1)
 
 /** 已选筛选标签 */
 const activeFilters = computed(() => {
@@ -243,7 +190,7 @@ const goProductDetail = (id: number) => {
   router.push(`/product/${id}`)
 }
 
-// 同步 URL 参数变化
+// 同步 URL 参数变化 + 自动搜索
 watch(
   () => [route.query.keyword, route.query.categoryId, route.query.brandId],
   ([kw, cat, brand]) => {
@@ -251,13 +198,18 @@ watch(
     categoryId.value = cat ? Number(cat) : undefined
     brandId.value = brand ? Number(brand) : undefined
     currentPage.value = 1
-    total.value = filteredProducts.value.length
+    fetchProducts()
   },
   { immediate: true },
 )
 
+// 筛选条件变化时重新搜索
+watch([categoryId, brandId, sortType, minPrice, maxPrice, currentPage], () => {
+  fetchProducts()
+})
+
 onMounted(() => {
-  total.value = filteredProducts.value.length
+  fetchProducts()
 })
 </script>
 
@@ -269,7 +221,7 @@ onMounted(() => {
         <h1 class="text-lg font-bold text-gray-900">
           <span v-if="keyword">"{{ keyword }}" 的搜索结果</span>
           <span v-else>全部商品</span>
-          <span class="text-sm font-normal text-gray-400 ml-2">共 {{ filteredProducts.length }} 件商品</span>
+          <span class="text-sm font-normal text-gray-400 ml-2">共 {{ total }} 件商品</span>
         </h1>
         <!-- 排序按钮 -->
         <div class="flex items-center gap-1">
@@ -389,9 +341,9 @@ onMounted(() => {
     </div>
 
     <!-- ====== 商品网格 ====== -->
-    <div v-if="paginatedProducts.length" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div v-if="productList.length" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
       <button
-        v-for="product in paginatedProducts"
+        v-for="product in productList"
         :key="product.id"
         class="group text-left bg-white rounded-xl border border-gray-100 hover:border-red-200 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 overflow-hidden"
         @click="goProductDetail(product.id)"
@@ -468,7 +420,7 @@ onMounted(() => {
       </button>
 
       <span class="text-sm text-gray-400 ml-3">
-        第 {{ currentPage }} / {{ totalPages }} 页，共 {{ filteredProducts.length }} 件
+        第 {{ currentPage }} / {{ totalPages }} 页，共 {{ total }} 件
       </span>
     </div>
   </div>

@@ -17,7 +17,7 @@ const search = reactive({
   brandName: '',
   recommendStatus: '' as number | '',
 })
-const selectedIds = ref<number[]>([])
+const selectedIds = ref<string[]>([])
 
 // 可选择的品牌列表（用于"选择品牌"弹窗）
 const allBrands = [
@@ -48,8 +48,8 @@ const filteredList = computed(() => {
 async function loadList() {
   loading.value = true
   try {
-    const res = await fetchHomeBrandList({})
-    list.value = res.data.list
+    const res = await fetchHomeBrandList({ pageNum: 1, pageSize: 100 })
+    list.value = res.data.items
   } catch {
     ElMessage.error('加载失败')
   } finally {
@@ -73,21 +73,21 @@ function handleSelectionChange(selection: SmsHomeBrand[]) {
 // 推荐状态
 async function handleToggleStatus(row: SmsHomeBrand) {
   const newStatus = row.recommendStatus === 1 ? 0 : 1
-  await updateHomeBrandStatus(row.id!, newStatus)
+  await updateHomeBrandStatus({ ids: row.id!, recommendStatus: newStatus })
   row.recommendStatus = newStatus
   ElMessage.success('状态更新成功')
 }
 
 // 排序
 function handleSortChange(row: SmsHomeBrand) {
-  updateHomeBrandSort(row.id!, row.sort || 0)
+  updateHomeBrandSort({ id: row.id!, sort: row.sort || 0 })
 }
 
 // 删除
 async function handleDelete(row: SmsHomeBrand) {
   try {
     await ElMessageBox.confirm(`确定取消品牌"${row.brandName}"的推荐吗？`, '提示', { type: 'warning' })
-    await deleteHomeBrand(row.id!)
+    await deleteHomeBrand({ ids: row.id! })
     ElMessage.success('删除成功')
     loadList()
   } catch {
@@ -103,7 +103,7 @@ async function handleBatchDelete() {
   }
   try {
     await ElMessageBox.confirm(`确定删除选中的 ${selectedIds.value.length} 项吗？`, '提示', { type: 'warning' })
-    await batchDeleteHomeBrand(selectedIds.value)
+    await batchDeleteHomeBrand({ ids: selectedIds.value.join(',') })
     ElMessage.success('批量删除成功')
     loadList()
   } catch {
@@ -125,12 +125,12 @@ async function handleConfirmSelectBrand() {
   for (const brandId of selectedBrandIds.value) {
     const brand = allBrands.find(b => b.id === brandId)
     if (brand) {
-      await addHomeBrand({
+      await addHomeBrand([{
         brandId: brand.id,
         brandName: brand.name,
         recommendStatus: 1,
         sort: 100,
-      })
+      } as SmsHomeBrand])
     }
   }
   ElMessage.success('添加成功')

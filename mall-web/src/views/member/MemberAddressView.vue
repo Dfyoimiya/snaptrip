@@ -5,9 +5,10 @@
  * PC 端：卡片式列表 + Dialog 弹窗 + 省市区联动级联选择器
  * ============================================
  */
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import type { MemberReceiveAddress } from '@/types/address'
 import { provinceData } from '@/data/region'
+import { getAddressListAPI, addAddressAPI, updateAddressAPI, deleteAddressAPI } from '@/apis/address'
 
 // ===== 级联选择器相关 =====
 const provinceList = provinceData
@@ -32,15 +33,25 @@ const selectedCity = ref('')
 const selectedRegion = ref('')
 
 // ===== 地址数据 =====
-const addresses = ref<MemberReceiveAddress[]>([
-  { id: 1, memberId: 1, name: '张三', phoneNumber: '13800138000', defaultStatus: 1, province: '上海市', city: '上海市', region: '浦东新区', detailAddress: '陆家嘴环路1000号恒生银行大厦28楼' },
-  { id: 2, memberId: 1, name: '李四', phoneNumber: '13900139000', defaultStatus: 0, province: '北京市', city: '北京市', region: '朝阳区', detailAddress: '建国路88号SOHO现代城B座1502室' },
-  { id: 3, memberId: 1, name: '王五', phoneNumber: '13700137000', defaultStatus: 0, province: '广东省', city: '深圳市', region: '南山区', detailAddress: '科技园科苑路15号科兴科学园B栋3单元1201' },
-])
+const loading = ref(false)
+const addresses = ref<MemberReceiveAddress[]>([])
+
+async function loadAddresses() {
+  loading.value = true
+  try {
+    const res = await getAddressListAPI()
+    addresses.value = res || []
+  } catch (err: any) {
+    console.error('加载地址失败:', err?.message || err)
+  } finally {
+    loading.value = false
+  }
+}
 
 // ===== Dialog 相关 =====
 const showDialog = ref(false)
 const dialogTitle = ref('新增地址')
+const saving = ref(false)
 const editingAddress = ref<Partial<MemberReceiveAddress>>({
   name: '', phoneNumber: '', detailAddress: '', defaultStatus: 0,
 })
@@ -96,32 +107,56 @@ const validateForm = () => {
   return Object.keys(errors).length === 0
 }
 
-const handleSave = () => {
-  if (!validateForm()) return
+const handleSave = async () => {
+  if (!validateForm() || saving.value) return
   const data = {
-    ...editingAddress.value,
+    name: editingAddress.value.name!,
+    phoneNumber: editingAddress.value.phoneNumber!,
     province: selectedProvince.value,
     city: selectedCity.value,
     region: selectedRegion.value,
+    detailAddress: editingAddress.value.detailAddress!,
+    defaultStatus: editingAddress.value.defaultStatus ?? 0,
   }
-  if (editingAddress.value.id) {
-    const idx = addresses.value.findIndex(a => a.id === editingAddress.value.id)
-    if (idx >= 0) addresses.value[idx] = { ...addresses.value[idx], ...data } as MemberReceiveAddress
-  } else {
-    addresses.value.push({ ...data, id: Date.now(), memberId: 1 } as MemberReceiveAddress)
+  saving.value = true
+  try {
+    if (editingAddress.value.id) {
+      await updateAddressAPI(String(editingAddress.value.id), data)
+    } else {
+      await addAddressAPI(data)
+    }
+    showDialog.value = false
+    await loadAddresses()
+  } catch (err: any) {
+    console.error('保存地址失败:', err?.message || err)
+  } finally {
+    saving.value = false
   }
-  showDialog.value = false
 }
 
-const handleDelete = (id?: number) => {
-  if (confirm('确定删除该地址吗？')) {
-    addresses.value = addresses.value.filter(a => a.id !== id)
+const handleDelete = async (id?: number) => {
+  if (!id || !confirm('确定删除该地址吗？')) return
+  try {
+    await deleteAddressAPI(String(id))
+    await loadAddresses()
+  } catch (err: any) {
+    console.error('删除地址失败:', err?.message || err)
   }
 }
 
-const handleSetDefault = (id?: number) => {
-  addresses.value.forEach(a => { a.defaultStatus = a.id === id ? 1 : 0 })
+const handleSetDefault = async (id?: number) => {
+  if (!id) return
+  try {
+    await updateAddressAPI(String(id), { defaultStatus: 1 } as Partial<MemberReceiveAddress>)
+    await loadAddresses()
+  } catch (err: any) {
+    console.error('设置默认地址失败:', err?.message || err)
+  }
 }
+
+onMounted(() => {
+  loadAddresses()
+})
 </script>
 
 <template>
@@ -131,8 +166,11 @@ const handleSetDefault = (id?: number) => {
       <span class="text-sm text-gray-400 mr-4">已保存 {{ addresses.length }} 个地址（最多20个）</span>
     </div>
 
+    <!-- 加载中 -->
+    <div v-if="loading" class="flex justify-center py-20 text-gray-400">加载中...</div>
+
     <!-- 地址卡片网格 -->
-    <div class="p-5 grid grid-cols-2 gap-4">
+    <div v-else class="p-5 grid grid-cols-2 gap-4">
       <!-- 新增地址卡片 -->
       <button
         class="h-40 border-2 border-dashed border-gray-200 rounded-lg flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-red-300 hover:text-red-500 transition-colors"
@@ -294,7 +332,11 @@ const handleSetDefault = (id?: number) => {
         <!-- 底部按钮 -->
         <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50">
           <button class="h-10 px-6 border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-100 transition-colors" @click="closeDialog">取消</button>
-          <button class="h-10 px-6 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors" @click="handleSave">保存</button>
+          <button
+            class="h-10 px-6 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+            :disabled="saving"
+            @click="handleSave"
+          >{{ saving ? '保存中...' : '保存' }}</button>
         </div>
       </div>
     </div>

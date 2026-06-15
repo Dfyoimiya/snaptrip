@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, provide } from 'vue'
+import { ref, onMounted, watch, provide } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getProductAPI, createProductAPI, updateProductAPI } from '@/apis/product'
 import ProductInfoDetail from './ProductInfoDetail.vue'
 import ProductSaleDetail from './ProductSaleDetail.vue'
 import ProductAttrDetail from './ProductAttrDetail.vue'
@@ -69,47 +70,39 @@ const defaultProductParam = {
 const active = ref(0)
 const showStatus = ref([true, false, false, false])
 const productParam = ref(Object.assign({}, defaultProductParam))
+const pageLoading = ref(false)
 
 // 跨层传递数据
 provide('product-key', productParam)
 
-onMounted(async () => {
-  if (props.isEdit) {
-    // 模拟编辑数据
-    productParam.value = {
-      ...productParam.value,
-      name: 'iPhone 15 Pro Max',
-      subTitle: '苹果最新旗舰手机',
-      brandId: 1,
-      brandName: 'Apple',
-      productCategoryId: 11,
-      productCategoryName: '手机',
-      productSn: 'APP-2024-001',
-      price: 9999,
-      originalPrice: 10999,
-      stock: 500,
-      unit: '部',
-      weight: 200,
-      sort: 100,
-      description: 'iPhone 15 Pro Max 是苹果最新旗舰手机',
-      publishStatus: 1,
-      newStatus: 1,
-      recommandStatus: 1,
-      detailTitle: 'iPhone 15 Pro Max 详情',
-      detailDesc: '详细介绍',
-      keywords: 'iPhone,苹果,手机',
-      note: '备注信息',
-      giftPoint: 100,
-      giftGrowth: 100,
-      usePointLimit: 0,
-      serviceIds: '1,2,3',
-      pic: 'https://picsum.photos/seed/iphone/200/200',
-      albumPics: 'https://picsum.photos/seed/iphone2/200/200,https://picsum.photos/seed/iphone3/200/200',
-      detailHtml: '<h1>iPhone 15 Pro Max</h1><p>详细介绍...</p>',
-      detailMobileHtml: '<h1>iPhone 15 Pro Max</h1><p>移动端介绍...</p>',
-    }
+onMounted(() => {
+  if (!props.isEdit) return
+  const id = route.query.id as string
+  if (!id) {
+    ElMessage.error('商品ID不能为空，请从商品列表进入')
+    router.replace('/pms/product')
+    return
   }
+  loadProduct(id)
 })
+
+watch(() => route.query.id, (newId) => {
+  if (!props.isEdit || !newId) return
+  loadProduct(newId as string)
+})
+
+async function loadProduct(productId: string) {
+  pageLoading.value = true
+  try {
+    const data = await getProductAPI(productId)
+    const detail = (data as any).data || data
+    productParam.value = { ...defaultProductParam, ...detail }
+  } catch {
+    ElMessage.error('加载商品详情失败')
+  } finally {
+    pageLoading.value = false
+  }
+}
 
 const hideAll = () => { showStatus.value.fill(false) }
 
@@ -133,8 +126,17 @@ const finishCommit = async (isEdit: boolean) => {
   await ElMessageBox.confirm('是否要提交该商品？', '提示', {
     confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning'
   })
-  ElMessage({ type: 'success', message: '提交成功', duration: 1000 })
-  router.back()
+  try {
+    if (isEdit) {
+      await updateProductAPI(route.query.id as string, productParam.value as any)
+    } else {
+      await createProductAPI(productParam.value as any)
+    }
+    ElMessage({ type: 'success', message: '提交成功', duration: 1000 })
+    router.back()
+  } catch {
+    ElMessage.error('提交失败')
+  }
 }
 </script>
 

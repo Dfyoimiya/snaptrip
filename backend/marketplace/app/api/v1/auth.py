@@ -16,7 +16,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from snaptrip_shared.core.response import success
 from snaptrip_shared.core.security import (
     create_access_token,
@@ -27,6 +27,11 @@ from snaptrip_shared.db.session import get_db
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from marketplace.app.core.rate_limit import (
+    login_limiter,
+    refresh_limiter,
+    register_limiter,
+)
 from marketplace.app.core.security import (
     create_refresh_token,
     get_current_user,
@@ -50,7 +55,9 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 @router.post("/register", response_model=dict)
 async def register(
     body: RegisterRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
+    _rate_limit=Depends(register_limiter),
 ) -> dict:
     result = await db.execute(select(User).where(User.email == body.email))
     if result.scalar_one_or_none():
@@ -91,7 +98,9 @@ async def register(
 @router.post("/login", response_model=dict)
 async def login(
     body: LoginRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
+    _rate_limit=Depends(login_limiter),
 ) -> dict:
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
@@ -123,7 +132,9 @@ async def login(
 @router.post("/refresh", response_model=dict)
 async def refresh(
     body: RefreshRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db),
+    _rate_limit=Depends(refresh_limiter),
 ) -> dict:
     rt = await verify_refresh_token(body.refresh_token, db)
     if rt is None:
@@ -159,11 +170,15 @@ async def logout(
     return data
 
 
+import logging
+_logger = logging.getLogger(__name__)
+
 @router.get("/me", response_model=dict)
 async def me(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
+    _logger.info("[me endpoint] called, user=%s", current_user.email)
     result = await db.execute(select(UserProfile).where(UserProfile.user_id == current_user.id))
     profile = result.scalar_one_or_none()
     data: dict[str, Any] = success(

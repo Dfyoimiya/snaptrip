@@ -2,17 +2,17 @@ import request from '@/utils/request'
 import type { CommonResult } from '@/types/common'
 import type { OmsOrderSetting } from '@/types/orderSetting'
 
-export function getOrderSettingByIdAPI(id: number) {
+export function getOrderSettingByIdAPI(id: string) {
   return request<CommonResult<OmsOrderSetting>>({
-    url: '/orderSetting/' + id,
+    url: '/admin/order-settings/' + id,
     method: 'get',
   })
 }
 
-export function orderSettingUpdateByIdAPI(id: number, data: OmsOrderSetting) {
-  return request<CommonResult<number>>({
-    url: '/orderSetting/update/' + id,
-    method: 'post',
+export function orderSettingUpdateByIdAPI(id: string, data: OmsOrderSetting) {
+  return request<CommonResult<OmsOrderSetting>>({
+    url: '/admin/order-settings/' + id,
+    method: 'put',
     data,
   })
 }

@@ -1,74 +1,52 @@
 /**
  * ============================================
  * 会员相关类型定义
- * 对应后端 UmsMember 及其关联 Schema
+ * 对应后端 User / UserMeResponse / TokenResponse
  * ============================================
  */
 
 /** 登录请求参数 */
 export interface LoginParam {
-  /** 用户名 */
-  username: string
+  /** 邮箱 */
+  email: string
   /** 密码 */
   password: string
 }
 
 /** 注册请求参数 */
 export interface RegisterParam {
-  /** 用户名 */
-  username: string
+  /** 邮箱 */
+  email: string
   /** 密码 */
   password: string
-  /** 手机号 */
-  telephone: string
-  /** 验证码 */
-  authCode: string
 }
 
-/** 登录响应结果 */
+/** 登录响应结果 (后端 TokenResponse, 经 deepConvertKeys 转换) */
 export interface LoginResult {
-  /** JWT Token */
-  token: string
-  /** Token 前缀 */
-  tokenHead: string
-  /** 会员信息 */
-  memberInfo?: MemberInfo
+  /** JWT Access Token */
+  accessToken: string
+  /** 刷新 Token */
+  refreshToken: string
+  /** Token 类型 */
+  tokenType: string
 }
 
-/** 会员信息 */
+/** 会员信息 (后端 UserMeResponse + portal profile, 经 deepConvertKeys 转换) */
 export interface MemberInfo {
-  /** 会员ID */
-  id: number
-  /** 会员等级ID */
-  memberLevelId: number
-  /** 用户名 */
-  username: string
+  /** 用户ID */
+  id: string
+  /** 邮箱 */
+  email: string
   /** 昵称 */
   nickname: string
-  /** 手机号 */
-  phone: string
-  /** 头像 */
-  icon: string
+  /** 头像 URL */
+  avatarUrl: string
+  /** 手机号 (来自 profile) */
+  phone?: string
   /** 性别：0->未知；1->男；2->女 */
-  gender: number
+  gender?: number
   /** 生日 */
-  birthday: string
-  /** 城市 */
-  city: string
-  /** 个性签名 */
-  personalizedSignature: string
+  birthday?: string
   /** 积分 */
-  integration: number
-  /** 成长值 */
-  growth: number
-  /** 会员登录次数 */
-  loginCount: number
-  /** 关注数量 */
-  attentionCount: number
-  /** 收藏数量 */
-  collectProductCount: number
-  /** 浏览记录数量 */
-  readCount: number
-  /** 优惠券数量 */
-  couponCount: number
+  integration?: number
 }

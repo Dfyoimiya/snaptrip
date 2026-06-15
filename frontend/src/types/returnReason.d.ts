@@ -1,6 +1,6 @@
 /** 退货原因 */
 export interface OmsOrderReturnReason {
-  id?: number
+  id?: string
   name?: string
   sort?: number
   status?: number

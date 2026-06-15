@@ -18,9 +18,9 @@ const brandList = ref<any[]>([])
 async function fetchData() {
   listLoading.value = true
   try {
-    const res = await getBrandListAPI({ keyword: searchKeyword.value, pageNum: pageNum.value, pageSize: pageSize.value })
-    brandList.value = res.list || []
-    total.value = res.total || 0
+    const res = await getBrandListAPI({ keyword: searchKeyword.value, page: pageNum.value, page_size: pageSize.value })
+    brandList.value = res.data.items || []
+    total.value = res.data.total || 0
   } finally {
     listLoading.value = false
   }
@@ -71,15 +71,17 @@ async function handleBatchDelete() {
 }
 async function handleBatchShow(status: number) {
   if (selectedRows.value.length === 0) return ElMessage.warning('请至少选择一项')
-  const ids = selectedRows.value.map((r: any) => r.id).join(',')
-  await brandUpdateShowStatusAPI({ ids, showStatus: status })
+  for (const row of selectedRows.value) {
+    await brandUpdateShowStatusAPI((row as any).id, status)
+  }
   ElMessage.success(status === 1 ? '批量显示成功' : '批量隐藏成功')
   fetchData()
 }
 async function handleBatchFactory(status: number) {
   if (selectedRows.value.length === 0) return ElMessage.warning('请至少选择一项')
-  const ids = selectedRows.value.map((r: any) => r.id).join(',')
-  await brandUpdateFactoryStatusAPI({ ids, factoryStatus: status })
+  for (const row of selectedRows.value) {
+    await brandUpdateFactoryStatusAPI((row as any).id, status)
+  }
   ElMessage.success(status === 1 ? '批量设为制造商成功' : '批量取消制造商成功')
   fetchData()
 }
@@ -89,12 +91,12 @@ function handleSelectionChange(val: any[]) { selectedRows.value = val }
 // 品牌表单弹窗
 const brandDialogVisible = ref(false)
 const brandDialogTitle = ref('')
-const brandForm = ref({ id: undefined as number | undefined, name: '', firstLetter: '', sort: 0, factoryStatus: 1, showStatus: 1, logo: '', bigPic: '', brandStory: '' })
+const brandForm = ref<{ id?: string; name: string; firstLetter: string; sort: number; factoryStatus: number; showStatus: number; logo: string; bigPic: string; brandStory: string }>({ id: undefined, name: '', firstLetter: '', sort: 0, factoryStatus: 1, showStatus: 1, logo: '', bigPic: '', brandStory: '' })
 
 async function handleSaveBrand() {
   if (!brandForm.value.name) return ElMessage.warning('请输入品牌名称')
   if (brandForm.value.id) {
-    await updateBrandAPI(brandForm.value.id, brandForm.value as any)
+    await updateBrandAPI(brandForm.value.id!, brandForm.value as any)
     ElMessage.success('编辑成功')
   } else {
     await createBrandAPI(brandForm.value as any)
@@ -198,16 +200,16 @@ async function handleSaveBrand() {
           <el-col :xs="24" :lg="12">
             <el-form-item label="是否为制造商">
               <el-radio-group v-model="brandForm.factoryStatus">
-                <el-radio :label="1">是</el-radio>
-                <el-radio :label="0">否</el-radio>
+                <el-radio :value="1">是</el-radio>
+                <el-radio :value="0">否</el-radio>
               </el-radio-group>
             </el-form-item>
           </el-col>
           <el-col :xs="24" :lg="12">
             <el-form-item label="是否显示">
               <el-radio-group v-model="brandForm.showStatus">
-                <el-radio :label="1">是</el-radio>
-                <el-radio :label="0">否</el-radio>
+                <el-radio :value="1">是</el-radio>
+                <el-radio :value="0">否</el-radio>
               </el-radio-group>
             </el-form-item>
           </el-col>

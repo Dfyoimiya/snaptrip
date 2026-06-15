@@ -17,8 +17,8 @@ const listQuery = ref({
   status: undefined as number | undefined,
   orderType: undefined as number | undefined,
   sourceType: undefined as number | undefined,
-  pageNum: 1,
-  pageSize: 10,
+  page: 1,
+  page_size: 10,
 })
 
 const list = ref<OmsOrder[]>([])
@@ -31,7 +31,7 @@ const logisticsDialogVisible = ref(false)
 const closeOrderData = ref({
   dialogVisible: false,
   content: '',
-  orderIds: [] as number[],
+  orderIds: [] as string[],
 })
 
 const statusOptions = [
@@ -80,8 +80,8 @@ async function fetchData() {
   listLoading.value = true
   try {
     const res = await getOrderListAPI(listQuery.value)
-    list.value = res.list
-    total.value = res.total
+    list.value = res.data.items
+    total.value = res.data.total
   } finally {
     listLoading.value = false
   }
@@ -90,18 +90,19 @@ async function fetchData() {
 onMounted(() => { fetchData() })
 
 const handleResetSearch = () => {
-  listQuery.value = { orderSn: '', receiverKeyword: '', createTime: '', status: undefined, orderType: undefined, sourceType: undefined, pageNum: 1, pageSize: 10 }
+  listQuery.value = { orderSn: '', receiverKeyword: '', createTime: '', status: undefined, orderType: undefined, sourceType: undefined, page: 1, page_size: 10 }
   fetchData()
 }
 
 const handleSearchList = () => {
-  listQuery.value.pageNum = 1
+  listQuery.value.page = 1
   fetchData()
 }
 
 const handleSelectionChange = (val: OmsOrder[]) => { multipleSelection.value = val }
 
 const handleViewOrder = (_index: number, row: OmsOrder) => {
+  if (!row.id) return ElMessage.error('订单ID不能为空')
   router.push({ path: '/oms/orderDetail', query: { id: row.id } })
 }
 
@@ -146,21 +147,25 @@ const handleBatchOperate = async () => {
   }
 }
 
-const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQuery.value.pageSize = val; fetchData() }
-const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; fetchData() }
+const handleSizeChange = (val: number) => { listQuery.value.page = 1; listQuery.value.page_size = val; fetchData() }
+const handleCurrentChange = (val: number) => { listQuery.value.page = val; fetchData() }
 
 const handleCloseOrderConfirm = async () => {
   if (!closeOrderData.value.content) { ElMessage({ message: '操作备注不能为空', type: 'warning', duration: 1000 }); return }
-  await orderUpdateCloseAPI({ ids: closeOrderData.value.orderIds.join(','), note: closeOrderData.value.content })
+  for (const id of closeOrderData.value.orderIds) {
+    await orderUpdateCloseAPI(id, closeOrderData.value.content)
+  }
   closeOrderData.value.dialogVisible = false
   closeOrderData.value.content = ''
   fetchData()
   ElMessage({ message: '关闭成功', type: 'success', duration: 1000 })
 }
 
-const deleteOrderFn = async (ids: number[]) => {
+const deleteOrderFn = async (ids: string[]) => {
   await ElMessageBox.confirm('是否要进行该删除操作?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
-  await orderDeleteByIdsAPI({ ids: ids.join(',') })
+  for (const id of ids) {
+    await orderDeleteByIdsAPI(id)
+  }
   fetchData()
   ElMessage({ message: '删除成功！', type: 'success', duration: 1000 })
 }
@@ -236,7 +241,7 @@ const deleteOrderFn = async (ids: number[]) => {
         </el-table-column>
         <el-table-column label="订单状态" width="120" align="center">
           <template #default="scope">
-            <el-tag :type="scope.row.status === 0 ? 'warning' : scope.row.status === 1 ? 'primary' : scope.row.status === 2 ? 'success' : scope.row.status === 3 ? '' : 'info'" size="small">
+            <el-tag :type="scope.row.status === 0 ? 'warning' : scope.row.status === 1 ? 'primary' : scope.row.status === 2 ? 'success' : 'info'" size="small">
               {{ formatStatus(scope.row.status) }}
             </el-tag>
           </template>
@@ -262,8 +267,8 @@ const deleteOrderFn = async (ids: number[]) => {
 
     <div class="pagination-container">
       <el-pagination background @size-change="handleSizeChange" @current-change="handleCurrentChange"
-        layout="total, sizes, prev, pager, next, jumper" v-model:current-page="listQuery.pageNum"
-        :page-size="listQuery.pageSize" :page-sizes="[5, 10, 15]" :total="total" />
+        layout="total, sizes, prev, pager, next, jumper" v-model:current-page="listQuery.page"
+        :page-size="listQuery.page_size" :page-sizes="[5, 10, 15]" :total="total" />
     </div>
 
     <!-- 关闭订单弹窗 -->

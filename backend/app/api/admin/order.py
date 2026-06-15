@@ -128,3 +128,14 @@ async def remark(
     svc = OrderService(db)
     result = await svc.remark(order_id, note)
     return success(result.model_dump())
+
+
+@router.delete("/{order_id}", summary="删除订单（软删除）")
+async def delete_order(
+    order_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _current_user=Depends(get_current_user),
+):
+    svc = OrderService(db)
+    await svc.admin_delete(order_id)
+    return success(message="删除成功")

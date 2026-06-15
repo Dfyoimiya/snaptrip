@@ -83,6 +83,8 @@ class CategoryTreeResponse(BaseModel):
     parent_id: UUID | None = None
     level: int
     sort: int
+    nav_status: int
+    show_status: int
     icon: str | None = None
     children: list[CategoryTreeResponse] = Field(default_factory=list)
 

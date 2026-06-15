@@ -70,7 +70,10 @@ const formatRegion = (address?: any) => {
   return str
 }
 
-const handleViewOrder = () => { router.push({ path: '/oms/orderDetail', query: { id: orderReturnApply.value.orderId } }) }
+const handleViewOrder = () => {
+  if (!orderReturnApply.value.orderId) return ElMessage.error('订单ID不能为空')
+  router.push({ path: '/oms/orderDetail', query: { id: orderReturnApply.value.orderId } })
+}
 
 const handleUpdateStatus = async (status: number) => {
   updateStatusParam.value.status = status

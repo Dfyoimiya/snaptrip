@@ -92,6 +92,16 @@ async def list_subjects(status: int | None = Query(None, ge=0, le=1),
     return success(resp.model_dump())
 
 
+@cms_router.get("/subjects/categories", summary="专题分类列表")
+async def list_subject_categories(
+    db: AsyncSession = Depends(get_db),
+    _u=Depends(get_current_user),
+):
+    svc = CmsService(db)
+    categories = await svc.list_subject_categories()
+    return success(categories)
+
+
 @cms_router.post("/subjects", summary="创建专题", status_code=201)
 async def create_subject(data: SubjectCreate, db: AsyncSession = Depends(get_db), _u=Depends(get_current_user)):
     svc = CmsService(db)

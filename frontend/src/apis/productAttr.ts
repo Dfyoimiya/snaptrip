@@ -4,67 +4,69 @@ import request from '@/utils/request'
 
 /**
  * 根据商品分类ID获取商品属性及属性分类ID
+ * —— GET /admin/product-attributes?category_id=...
  */
-export function getProductAttrInfoByCateIdAPI(cateId: number) {
+export function getProductAttrInfoByCateIdAPI(cateId: string) {
   return request<CommonResult<ProductAttrInfo[]>>({
-    url: '/productAttribute/attrInfo/' + cateId,
+    url: '/admin/product-attributes',
     method: 'get',
+    params: { category_id: cateId, page_size: 100 },
   })
 }
 
 /**
  * 根据分类ID查询属性列表或参数列表
+ * —— GET /admin/product-attributes?category_id=...
  */
 export function getProductAttributeListAPI(
-  productAttributeCategoryId: number,
+  productAttributeCategoryId: string,
   params: { pageNum: number; pageSize: number; type: number }
 ) {
   return request<CommonResult<CommonPage<PmsProductAttribute>>>({
-    url: '/productAttribute/list/' + productAttributeCategoryId,
+    url: '/admin/product-attributes',
     method: 'get',
-    params,
+    params: { category_id: productAttributeCategoryId || undefined, page: params.pageNum, page_size: params.pageSize },
   })
 }
 
 /**
- * 添加商品属性信息
+ * 添加商品属性信息 —— POST /admin/product-attributes
  */
 export function createProductAttributeAPI(data: PmsProductAttribute) {
   return request<CommonResult<number>>({
-    url: '/productAttribute/create',
+    url: '/admin/product-attributes',
     method: 'post',
     data,
   })
 }
 
 /**
- * 修改商品属性信息
+ * 修改商品属性信息 —— PUT /admin/product-attributes/{id}
  */
-export function updateProductAttributeAPI(id: number, data: PmsProductAttribute) {
+export function updateProductAttributeAPI(id: string, data: PmsProductAttribute) {
   return request<CommonResult<number>>({
-    url: '/productAttribute/update/' + id,
-    method: 'post',
+    url: '/admin/product-attributes/' + id,
+    method: 'put',
     data,
   })
 }
 
 /**
- * 根据ID查询商品属性
+ * 根据ID查询商品属性 —— GET /admin/product-attributes/{id}
  */
-export function getProductAttributeAPI(id: number) {
+export function getProductAttributeAPI(id: string) {
   return request<CommonResult<PmsProductAttribute>>({
-    url: '/productAttribute/' + id,
+    url: '/admin/product-attributes/' + id,
     method: 'get',
   })
 }
 
 /**
- * 批量删除商品属性
+ * 删除商品属性 —— DELETE /admin/product-attributes/{id}
  */
-export function deleteProductAttributeAPI(params: { ids: string }) {
+export function deleteProductAttributeAPI(id: string) {
   return request<CommonResult<number>>({
-    url: '/productAttribute/delete',
-    method: 'post',
-    params,
+    url: '/admin/product-attributes/' + id,
+    method: 'delete',
   })
 }

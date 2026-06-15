@@ -1,6 +1,6 @@
 /** 优惠券 */
 export interface SmsCoupon {
-  id?: number
+  id?: string
   type?: number
   name?: string
   platform?: number

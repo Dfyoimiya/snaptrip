@@ -15,11 +15,11 @@ export function roleCreateAPI(data: UmsRole) {
   return request<CommonResult<number>>({ url: '/role/create', method: 'post', data })
 }
 
-export function roleUpdateByIdAPI(id: number, data: UmsRole) {
+export function roleUpdateByIdAPI(id: string, data: UmsRole) {
   return request<CommonResult<number>>({ url: '/role/update/' + id, method: 'post', data })
 }
 
-export function roleUpdateStatusAPI(id: number, params: { status: number }) {
+export function roleUpdateStatusAPI(id: string, params: { status: number }) {
   return request<CommonResult<number>>({ url: '/role/updateStatus/' + id, method: 'post', params })
 }
 
@@ -27,19 +27,19 @@ export function roleDeleteByIdsAPI(params: { ids: string }) {
   return request<CommonResult<number>>({ url: '/role/delete', method: 'post', params })
 }
 
-export function getMenuByRoleIdAPI(roleId: number) {
+export function getMenuByRoleIdAPI(roleId: string) {
   return request<CommonResult<UmsMenu[]>>({ url: '/role/listMenu/' + roleId, method: 'get' })
 }
 
-export function getResourceByRoleIdAPI(roleId: number) {
+export function getResourceByRoleIdAPI(roleId: string) {
   return request<CommonResult<UmsResource[]>>({ url: '/role/listResource/' + roleId, method: 'get' })
 }
 
-export function roleAllocMenuAPI(data: { roleId: number; menuIds: string }) {
+export function roleAllocMenuAPI(data: { roleId: string; menuIds: string }) {
   return request<CommonResult<number>>({ url: '/role/allocMenu', method: 'post', data })
 }
 
-export function roleAllocResourceAPI(data: { roleId: number; resourceIds: string }) {
+export function roleAllocResourceAPI(data: { roleId: string; resourceIds: string }) {
   return request<CommonResult<number>>({ url: '/role/allocResource', method: 'post', data })
 }
 

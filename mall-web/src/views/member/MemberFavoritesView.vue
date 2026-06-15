@@ -5,29 +5,27 @@
  * 支持批量选中、删除操作的网格图片列表
  * ============================================
  */
-import { ref, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { fetchProductCollectionListAPI, deleteProductCollectionAPI } from '@/apis/memberProductCollection'
+import type { PmsProduct } from '@/types/product'
 
 const router = useRouter()
 
-interface FavoriteItem {
-  id: number
-  name: string
-  price: number
-  originalPrice: number
-  pic: string
-  addedTime: string
-  brand: string
-}
+const loading = ref(false)
+const favorites = ref<PmsProduct[]>([])
 
-const favorites = ref<FavoriteItem[]>([
-  { id: 101, name: 'Apple MacBook Air M3 16+512G', price: 9999, originalPrice: 11999, pic: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300&h=300&fit=crop', addedTime: '2026-06-01', brand: 'Apple' },
-  { id: 102, name: 'Dyson Supersonic HD15 吹风机', price: 2590, originalPrice: 3290, pic: 'https://images.unsplash.com/photo-1522338140262-f46f5913618a?w=300&h=300&fit=crop', addedTime: '2026-06-02', brand: 'Dyson' },
-  { id: 104, name: 'Nike Air Force 1 经典板鞋', price: 749, originalPrice: 899, pic: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&h=300&fit=crop', addedTime: '2026-06-03', brand: 'Nike' },
-  { id: 103, name: 'SK-II 神仙水 230ml', price: 1540, originalPrice: 2150, pic: 'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?w=300&h=300&fit=crop', addedTime: '2026-06-04', brand: 'SK-II' },
-  { id: 201, name: '华为 Mate 60 Pro+ 16GB+512GB', price: 8999, originalPrice: 9999, pic: 'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=300&h=300&fit=crop', addedTime: '2026-06-05', brand: '华为' },
-  { id: 205, name: 'Anker 737 240W 氮化镓充电器', price: 399, originalPrice: 599, pic: 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=300&h=300&fit=crop', addedTime: '2026-06-06', brand: 'Anker' },
-])
+async function loadFavorites() {
+  loading.value = true
+  try {
+    const res = await fetchProductCollectionListAPI({ pageNum: 1, pageSize: 50 })
+    favorites.value = (res as unknown as { items: PmsProduct[] }).items || []
+  } catch (err: any) {
+    console.error('加载收藏失败:', err?.message || err)
+  } finally {
+    loading.value = false
+  }
+}
 
 /** 批量选中模式 */
 const batchMode = ref(false)
@@ -35,7 +33,7 @@ const batchMode = ref(false)
 const selectedIds = ref<Set<number>>(new Set())
 
 /** 是否全选 */
-const isAllSelected = computed(() => favorites.value.length > 0 && favorites.value.every(f => selectedIds.value.has(f.id)))
+const isAllSelected = () => favorites.value.length > 0 && favorites.value.every(f => selectedIds.value.has(f.id))
 
 /** 切换批量模式 */
 const toggleBatchMode = () => {
@@ -51,23 +49,39 @@ const toggleSelect = (id: number) => {
 
 /** 全选/取消全选 */
 const toggleSelectAll = () => {
-  if (isAllSelected.value) selectedIds.value.clear()
+  if (isAllSelected()) selectedIds.value.clear()
   else favorites.value.forEach(f => selectedIds.value.add(f.id))
 }
 
 /** 批量删除 */
-const batchDelete = () => {
+const batchDelete = async () => {
   if (selectedIds.value.size === 0) return
   if (!confirm(`确定删除选中的 ${selectedIds.value.size} 件商品吗？`)) return
-  favorites.value = favorites.value.filter(f => !selectedIds.value.has(f.id))
-  selectedIds.value.clear()
-  if (favorites.value.length === 0) batchMode.value = false
+  try {
+    for (const id of selectedIds.value) {
+      await deleteProductCollectionAPI({ productId: String(id) })
+    }
+    await loadFavorites()
+    selectedIds.value.clear()
+    if (favorites.value.length === 0) batchMode.value = false
+  } catch (err: any) {
+    console.error('批量删除失败:', err?.message || err)
+  }
 }
 
 /** 单个删除 */
-const removeItem = (id: number) => {
-  favorites.value = favorites.value.filter(f => f.id !== id)
+const removeItem = async (id: number) => {
+  try {
+    await deleteProductCollectionAPI({ productId: String(id) })
+    await loadFavorites()
+  } catch (err: any) {
+    console.error('删除收藏失败:', err?.message || err)
+  }
 }
+
+onMounted(() => {
+  loadFavorites()
+})
 </script>
 
 <template>
@@ -82,7 +96,7 @@ const removeItem = (id: number) => {
         <!-- 批量操作按钮 -->
         <template v-if="batchMode">
           <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer mr-2">
-            <input type="checkbox" :checked="isAllSelected" class="rounded border-gray-300 text-red-600 focus:ring-red-500" @change="toggleSelectAll" />
+            <input type="checkbox" :checked="isAllSelected()" class="rounded border-gray-300 text-red-600 focus:ring-red-500" @change="toggleSelectAll" />
             全选
           </label>
           <button
@@ -102,8 +116,11 @@ const removeItem = (id: number) => {
       </div>
     </div>
 
+    <!-- 加载中 -->
+    <div v-if="loading" class="flex justify-center py-20 text-gray-400">加载中...</div>
+
     <!-- 收藏网格 -->
-    <div v-if="favorites.length" class="p-5 grid grid-cols-4 gap-4">
+    <div v-else-if="favorites.length" class="p-5 grid grid-cols-4 gap-4">
       <div
         v-for="item in favorites"
         :key="item.id"
@@ -143,8 +160,7 @@ const removeItem = (id: number) => {
               <span class="text-xs text-gray-400 line-through">&yen;{{ item.originalPrice }}</span>
             </div>
             <div class="flex items-center justify-between mt-1.5">
-              <span class="text-xs text-gray-400">{{ item.brand }}</span>
-              <span class="text-xs text-gray-400">{{ item.addedTime }}</span>
+              <span class="text-xs text-gray-400">{{ item.brandName }}</span>
             </div>
           </div>
         </button>

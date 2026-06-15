@@ -29,7 +29,7 @@ export function createBrandAPI(data: PmsBrand) {
 }
 
 /** 编辑品牌 —— PUT /admin/brands/{id} */
-export function updateBrandAPI(id: number, data: PmsBrand) {
+export function updateBrandAPI(id: string, data: PmsBrand) {
   return request<CommonResult<number>>({
     url: '/admin/brands/' + id,
     method: 'put',
@@ -38,7 +38,7 @@ export function updateBrandAPI(id: number, data: PmsBrand) {
 }
 
 /** 品牌详情 —— GET /admin/brands/{id} */
-export function getBrandAPI(id: number) {
+export function getBrandAPI(id: string) {
   return request<CommonResult<PmsBrand>>({
     url: '/admin/brands/' + id,
     method: 'get',
@@ -46,7 +46,7 @@ export function getBrandAPI(id: number) {
 }
 
 /** 删除品牌 —— DELETE /admin/brands/{id} */
-export function brandDeleteByIdAPI(id: number) {
+export function brandDeleteByIdAPI(id: string) {
   return request<CommonResult<number>>({
     url: '/admin/brands/' + id,
     method: 'delete',
@@ -54,19 +54,19 @@ export function brandDeleteByIdAPI(id: number) {
 }
 
 /** 切换品牌显示状态 —— PATCH /admin/brands/{id}/status?field=show_status&status=0|1 */
-export function brandUpdateShowStatusAPI(params: { ids: string; showStatus: number }) {
+export function brandUpdateShowStatusAPI(id: string, showStatus: number) {
   return request<CommonResult<number>>({
-    url: '/admin/brands/' + params.ids + '/status',
+    url: '/admin/brands/' + id + '/status',
     method: 'patch',
-    params: { field: 'show_status', status: params.showStatus },
+    params: { field: 'show_status', status: showStatus },
   })
 }
 
 /** 切换品牌制造商状态 —— PATCH /admin/brands/{id}/status?field=factory_status&status=0|1 */
-export function brandUpdateFactoryStatusAPI(params: { ids: string; factoryStatus: number }) {
+export function brandUpdateFactoryStatusAPI(id: string, factoryStatus: number) {
   return request<CommonResult<number>>({
-    url: '/admin/brands/' + params.ids + '/status',
+    url: '/admin/brands/' + id + '/status',
     method: 'patch',
-    params: { field: 'factory_status', status: params.factoryStatus },
+    params: { field: 'factory_status', status: factoryStatus },
   })
 }

@@ -10,21 +10,17 @@ import type { LoginResult, MemberInfo, LoginParam, RegisterParam } from '@/types
 
 /**
  * 用户登录
- * @param data 登录参数（用户名+密码）
+ * @param data 登录参数（邮箱+密码）
  */
 export const loginAPI = (data: LoginParam) => {
-  return post<LoginResult>('/sso/login', data, {
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
-    },
-  })
+  return post<LoginResult>('/api/v1/auth/login', data)
 }
 
 /**
  * 获取当前登录用户信息
  */
 export const getMemberInfoAPI = () => {
-  return get<MemberInfo>('/sso/info')
+  return get<MemberInfo>('/api/v1/auth/me')
 }
 
 /**
@@ -32,17 +28,26 @@ export const getMemberInfoAPI = () => {
  * @param data 注册参数
  */
 export const registerAPI = (data: RegisterParam) => {
-  return post<unknown>('/sso/register', data, {
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8',
-    },
-  })
+  return post<LoginResult>('/api/v1/auth/register', data)
 }
 
 /**
- * 获取手机验证码
- * @param telephone 手机号
+ * 获取会员完整资料 (portal profile)
  */
-export const getAuthCodeAPI = (telephone: string) => {
-  return get<unknown>('/sso/getAuthCode', { telephone })
+export const getMemberProfileAPI = () => {
+  return get<MemberInfo>('/api/v1/portal/member/profile')
+}
+
+/**
+ * 刷新访问令牌
+ */
+export const refreshTokenAPI = (token: string) => {
+  return post<LoginResult>('/api/v1/auth/refresh', { refresh_token: token })
+}
+
+/**
+ * 登出（撤销 refresh token）
+ */
+export const logoutAPI = (token: string) => {
+  return post<void>('/api/v1/auth/logout', { refresh_token: token })
 }

@@ -1,6 +1,6 @@
 /** 角色 */
 export interface UmsRole {
-  id?: number
+  id?: string
   name?: string
   description?: string
   adminCount?: number

@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.promotion import (
     FlashProductCreate,
     FlashProductResponse,
+    FlashProductUpdate,
     FlashPromotionCreate,
     FlashPromotionResponse,
     FlashPromotionUpdate,
@@ -83,6 +84,16 @@ class FlashService:
             .limit(page_size)
         )
         return [FlashPromotionResponse.model_validate(p) for p in result.scalars().all()], total
+
+    async def list_sessions(self, promo_id: UUID | None = None) -> list[FlashSessionResponse]:
+        """列出所有场次，或按活动ID筛选"""
+        from app.models.promotion.flash import SmsFlashPromotionSession
+
+        base = select(SmsFlashPromotionSession)
+        if promo_id:
+            base = base.where(SmsFlashPromotionSession.promotion_id == promo_id)
+        result = await self.db.execute(base.order_by(SmsFlashPromotionSession.start_time.asc()))
+        return [FlashSessionResponse.model_validate(s) for s in result.scalars().all()]
 
     # ── 场次 ──
 
@@ -154,6 +165,49 @@ class FlashService:
         await self.db.flush()
         await self.db.refresh(p)
         return FlashProductResponse.model_validate(p)
+
+    async def list_products(
+        self, session_id: UUID | None = None, page: int = 1, page_size: int = 20
+    ) -> tuple[list[FlashProductResponse], int]:
+        """分页列出秒杀商品，按 session_id 筛选"""
+        from app.models.promotion.flash import SmsFlashPromotionProduct
+
+        base = select(SmsFlashPromotionProduct)
+        cnt_q = select(func.count(SmsFlashPromotionProduct.id))
+        if session_id:
+            base = base.where(SmsFlashPromotionProduct.session_id == session_id)
+            cnt_q = cnt_q.where(SmsFlashPromotionProduct.session_id == session_id)
+        cnt_result = await self.db.execute(cnt_q)
+        total = cnt_result.scalar() or 0
+        result = await self.db.execute(
+            base.order_by(SmsFlashPromotionProduct.sort.asc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        return [FlashProductResponse.model_validate(p) for p in result.scalars().all()], total
+
+    async def update_product(self, product_id: UUID, data: FlashProductUpdate) -> FlashProductResponse:
+        """编辑秒杀商品（flash_price / flash_stock / flash_limit / sort）"""
+        from app.models.promotion.flash import SmsFlashPromotionProduct
+
+        values = data.model_dump(exclude_unset=True)
+        if not values:
+            from app.core.exceptions import CommerceException
+
+            raise CommerceException(code="NO_FIELDS", message="没有提供需要更新的字段", status_code=400)
+        stmt = (
+            update(SmsFlashPromotionProduct)
+            .where(SmsFlashPromotionProduct.id == product_id)
+            .values(**values)
+            .returning(SmsFlashPromotionProduct)
+        )
+        result = await self.db.execute(stmt)
+        fp = result.scalar_one_or_none()
+        if not fp:
+            from app.core.exceptions import ProductNotFoundError
+
+            raise ProductNotFoundError(str(product_id))
+        return FlashProductResponse.model_validate(fp)
 
     async def delete_product(self, product_id: UUID) -> None:
         from app.models.promotion.flash import SmsFlashPromotionProduct

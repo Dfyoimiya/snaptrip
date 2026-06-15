@@ -12,8 +12,8 @@ const router = useRouter()
 const listQuery = ref({
   name: '',
   type: undefined as number | undefined,
-  pageNum: 1,
-  pageSize: 10,
+  page: 1,
+  page_size: 10,
 })
 
 const list = ref<any[]>([])
@@ -24,8 +24,8 @@ async function fetchData() {
   listLoading.value = true
   try {
     const res = await getCouponListAPI(listQuery.value)
-    list.value = res.list || []
-    total.value = res.total || 0
+    list.value = res.data.items || []
+    total.value = res.data.total || 0
   } finally {
     listLoading.value = false
   }
@@ -36,13 +36,19 @@ const formatType = (value?: number) => couponTypes.find(item => item.value === v
 const formatPlatform = (value?: number) => value === 1 ? '移动平台' : value === 2 ? 'PC平台' : '全平台'
 const formatUseType = (value?: number) => value === 1 ? '指定分类' : value === 2 ? '指定商品' : '全场通用'
 
-const handleResetSearch = () => { listQuery.value = { name: '', type: undefined, pageNum: 1, pageSize: 10 }; fetchData() }
-const handleSearchList = () => { listQuery.value.pageNum = 1; fetchData() }
-const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQuery.value.pageSize = val; fetchData() }
-const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; fetchData() }
-const handleAdd = () => { router.push('/sms/addCoupon') }
-const handleView = (_index: number, row: any) => { router.push({ path: '/sms/couponDetail', query: { id: row.id } }) }
-const handleUpdate = (_index: number, row: any) => { router.push({ path: '/sms/updateCoupon', query: { id: row.id } }) }
+const handleResetSearch = () => { listQuery.value = { name: '', type: undefined, page: 1, page_size: 10 }; fetchData() }
+const handleSearchList = () => { listQuery.value.page = 1; fetchData() }
+const handleSizeChange = (val: number) => { listQuery.value.page = 1; listQuery.value.page_size = val; fetchData() }
+const handleCurrentChange = (val: number) => { listQuery.value.page = val; fetchData() }
+const handleAdd = () => { router.push('/sms/couponForm?mode=add') }
+const handleView = (_index: number, row: any) => {
+  if (!row.id) return ElMessage.error('优惠券ID不能为空')
+  router.push({ path: '/sms/couponForm', query: { mode: 'detail', id: row.id } })
+}
+const handleUpdate = (_index: number, row: any) => {
+  if (!row.id) return ElMessage.error('优惠券ID不能为空')
+  router.push({ path: '/sms/couponForm', query: { mode: 'edit', id: row.id } })
+}
 const handleDelete = async (_index: number, row: any) => {
   await ElMessageBox.confirm('是否要删除该优惠券?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
   await deleteCouponByIdAPI(row.id)
@@ -108,8 +114,8 @@ const handleDelete = async (_index: number, row: any) => {
     </div>
     <div class="pagination-container">
       <el-pagination background @size-change="handleSizeChange" @current-change="handleCurrentChange"
-        layout="total, sizes,prev, pager, next,jumper" v-model:current-page="listQuery.pageNum"
-        :page-size="listQuery.pageSize" :page-sizes="[5, 10, 15]" :total="total" />
+        layout="total, sizes,prev, pager, next,jumper" v-model:current-page="listQuery.page"
+        :page-size="listQuery.page_size" :page-sizes="[5, 10, 15]" :total="total" />
     </div>
   </div>
 </template>

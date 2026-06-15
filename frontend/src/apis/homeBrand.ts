@@ -2,43 +2,59 @@ import type { CommonResult, CommonPage } from '@/types/common'
 import type { SmsHomeBrand } from '@/types/homeBrand'
 import request from '@/utils/request'
 
+/** 品牌推荐分页列表 —— GET /admin/brands（后端BrandResponse含sort字段即视作推荐序） */
 export function getHomeBrandListAPI(params: { pageNum: number; pageSize: number; brandName?: string; recommendStatus?: number }) {
   return request<CommonResult<CommonPage<SmsHomeBrand>>>({
-    url: '/home/brand/list',
+    url: '/admin/brands',
     method: 'get',
-    params,
+    params: {
+      keyword: params.brandName,
+      show_status: params.recommendStatus,
+      page: params.pageNum,
+      page_size: params.pageSize,
+    },
   })
 }
 
+/** 添加品牌推荐 —— POST /admin/brands（创建品牌并标记show_status） */
 export function homeBrandCreateAPI(data: SmsHomeBrand[]) {
+  const item = data[0] || (data as any)
   return request<CommonResult<number>>({
-    url: '/home/brand/create',
+    url: '/admin/brands',
     method: 'post',
-    data,
+    data: {
+      name: item.brandName,
+      show_status: item.recommendStatus ?? 1,
+      sort: item.sort ?? 0,
+    },
   })
 }
 
+/** 更新推荐状态 —— PUT /admin/brands/{id} */
 export function homeBrandUpdateRecommendStatusAPI(params: { ids: string; recommendStatus: number }) {
+  const id = params.ids.split(',')[0]
   return request<CommonResult<number>>({
-    url: '/home/brand/update/recommendStatus',
-    method: 'post',
-    params,
+    url: '/admin/brands/' + id,
+    method: 'put',
+    data: { show_status: params.recommendStatus },
   })
 }
 
+/** 删除品牌推荐（按ID） —— DELETE /admin/brands/{id} */
 export function homeBrandDeleteByIdsAPI(params: { ids: string }) {
+  const id = params.ids.split(',')[0]
   return request<CommonResult<number>>({
-    url: '/home/brand/delete',
-    method: 'post',
-    params,
+    url: '/admin/brands/' + id,
+    method: 'delete',
   })
 }
 
-export function homeBrandUpdateSortAPI(params: { id: number; sort: number }) {
+/** 更新品牌排序 —— PUT /admin/brands/{id} */
+export function homeBrandUpdateSortAPI(params: { id: string; sort: number }) {
   return request<CommonResult<number>>({
-    url: '/home/brand/update/sort/' + params.id,
-    method: 'post',
-    params,
+    url: '/admin/brands/' + params.id,
+    method: 'put',
+    data: { sort: params.sort },
   })
 }
 

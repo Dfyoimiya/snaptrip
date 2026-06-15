@@ -2,63 +2,71 @@ import type { CommonResult, CommonPage } from '@/types/common'
 import type { PmsProductCategory } from '@/types/productCate'
 import request from '@/utils/request'
 
-export function getProductCategoryListAPI(parentId: number, params: { pageNum: number; pageSize: number }) {
+/** 分页子分类 —— GET /admin/categories?parent_id=... */
+export function getProductCategoryListAPI(parentId: string, params: { pageNum: number; pageSize: number }) {
   return request<CommonResult<CommonPage<PmsProductCategory>>>({
-    url: '/productCategory/list/' + parentId,
+    url: '/admin/categories',
     method: 'get',
-    params,
+    params: { parent_id: parentId || undefined, page: params.pageNum, page_size: params.pageSize },
   })
 }
 
+/** 分类树形结构 —— GET /admin/categories/tree */
 export function getProductCategoryListWithChildrenAPI() {
   return request<CommonResult<PmsProductCategory[]>>({
-    url: '/productCategory/list/withChildren',
+    url: '/admin/categories/tree',
     method: 'get',
   })
 }
 
+/** 创建分类 —— POST /admin/categories */
 export function createProductCategoryAPI(data: PmsProductCategory) {
   return request<CommonResult<number>>({
-    url: '/productCategory/create',
+    url: '/admin/categories',
     method: 'post',
     data,
   })
 }
 
-export function updateProductCategoryAPI(id: number, data: PmsProductCategory) {
+/** 编辑分类 —— PUT /admin/categories/{id} */
+export function updateProductCategoryAPI(id: string, data: PmsProductCategory) {
   return request<CommonResult<number>>({
-    url: '/productCategory/update/' + id,
-    method: 'post',
+    url: '/admin/categories/' + id,
+    method: 'put',
     data,
   })
 }
 
-export function getProductCategoryAPI(id: number) {
+/** 分类详情 —— GET /admin/categories/{id} */
+export function getProductCategoryAPI(id: string) {
   return request<CommonResult<PmsProductCategory>>({
-    url: '/productCategory/' + id,
+    url: '/admin/categories/' + id,
     method: 'get',
   })
 }
 
-export function productCategoryDeleteByIdAPI(id: number) {
+/** 删除分类 —— DELETE /admin/categories/{id} */
+export function productCategoryDeleteByIdAPI(id: string) {
   return request<CommonResult<number>>({
-    url: '/productCategory/delete/' + id,
-    method: 'post',
+    url: '/admin/categories/' + id,
+    method: 'delete',
   })
 }
 
-export function productCategoryUpdateNavStatusAPI(params: { ids: string; navStatus: number }) {
+/** 切换导航显示状态 —— PATCH /admin/categories/{id}/status?field=nav_status&status=0|1 */
+export function productCategoryUpdateNavStatusAPI(id: string, navStatus: number) {
   return request<CommonResult<number>>({
-    url: '/productCategory/update/navStatus',
-    method: 'post',
-    params,
+    url: '/admin/categories/' + id + '/status',
+    method: 'patch',
+    params: { field: 'nav_status', status: navStatus },
   })
 }
 
-export function productCategoryUpdateShowStatusAPI(params: { ids: string; showStatus: number }) {
+/** 切换显示状态 —— PATCH /admin/categories/{id}/status?field=show_status&status=0|1 */
+export function productCategoryUpdateShowStatusAPI(id: string, showStatus: number) {
   return request<CommonResult<number>>({
-    url: '/productCategory/update/showStatus',
-    method: 'post',
-    params,
+    url: '/admin/categories/' + id + '/status',
+    method: 'patch',
+    params: { field: 'show_status', status: showStatus },
   })
 }

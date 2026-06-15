@@ -43,6 +43,9 @@ from app.models.order import (  # noqa: E402, F401
     OmsOrder,
     OmsOrderItem,
     OmsOrderOperateLog,
+    OmsOrderSetting,
+    OmsReturnApply,
+    OmsReturnReason,
 )
 from app.models.product import (  # noqa: E402, F401
     PmsBrand,

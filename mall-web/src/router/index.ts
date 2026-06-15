@@ -125,11 +125,18 @@ const router = createRouter({
       component: () => import('@/views/HelpView.vue'),
       meta: { title: '帮助中心' },
     },
+    // 404 catch-all
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('@/views/NotFoundView.vue'),
+      meta: { title: '页面未找到' },
+    },
     // ===== 会员中心嵌套路由 =====
     {
       path: '/member',
       component: () => import('@/views/member/MemberLayout.vue'),
-      meta: { title: '会员中心' },
+      meta: { title: '会员中心', requireAuth: true },
       children: [
         {
           path: '',
@@ -188,7 +195,7 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from) => {
   const memberStore = useMemberStore()
 
   // 设置页面标题
@@ -198,17 +205,13 @@ router.beforeEach((to, from, next) => {
 
   // 需要登录的页面
   if (to.meta.requireAuth && !memberStore.isLoggedIn) {
-    next(`/login?redirect=${to.path}`)
-    return
+    return `/login?redirect=${to.path}`
   }
 
   // 仅限游客访问的页面（登录页、注册页）
   if (to.meta.guestOnly && memberStore.isLoggedIn) {
-    next('/')
-    return
+    return '/'
   }
-
-  next()
 })
 
 export default router

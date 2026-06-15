@@ -5,47 +5,27 @@
  * PC 端品牌 Logo 墙 + A-Z 字母索引
  * ============================================
  */
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { getBrandRecommendListAPI } from '@/apis/brand'
+import type { PmsBrand } from '@/types/brand'
 
 const router = useRouter()
 
-/** 品牌数据结构 */
-interface BrandItem {
-  id: number
-  name: string
-  firstLetter: string
-  logo: string
-  productCount: number
-}
+const loading = ref(false)
+const brands = ref<PmsBrand[]>([])
 
-/** Mock 品牌数据 */
-const brands = ref<BrandItem[]>([
-  { id: 1, name: 'Apple', firstLetter: 'A', logo: 'https://images.unsplash.com/photo-1621768216002-5ac171876625?w=200&h=200&fit=crop', productCount: 156 },
-  { id: 2, name: '华为 HUAWEI', firstLetter: 'H', logo: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=200&h=200&fit=crop', productCount: 328 },
-  { id: 3, name: '小米 Xiaomi', firstLetter: 'X', logo: 'https://images.unsplash.com/photo-1567581935884-3349723552ca?w=200&h=200&fit=crop', productCount: 512 },
-  { id: 4, name: 'Nike', firstLetter: 'N', logo: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&h=200&fit=crop', productCount: 892 },
-  { id: 5, name: 'Adidas', firstLetter: 'A', logo: 'https://images.unsplash.com/photo-1584735175315-9d5df23860e6?w=200&h=200&fit=crop', productCount: 756 },
-  { id: 6, name: 'Sony', firstLetter: 'S', logo: 'https://images.unsplash.com/photo-1606144042614-81e6cc155b3e?w=200&h=200&fit=crop', productCount: 198 },
-  { id: 7, name: 'Dyson', firstLetter: 'D', logo: 'https://images.unsplash.com/photo-1522338140262-f46f5913618a?w=200&h=200&fit=crop', productCount: 45 },
-  { id: 8, name: '三星 SAMSUNG', firstLetter: 'S', logo: 'https://images.unsplash.com/photo-1610945265064-f4d215f72119?w=200&h=200&fit=crop', productCount: 267 },
-  { id: 9, name: '联想 Lenovo', firstLetter: 'L', logo: 'https://images.unsplash.com/photo-1588872657578-7efd1f1555b3?w=200&h=200&fit=crop', productCount: 189 },
-  { id: 10, name: '海尔 Haier', firstLetter: 'H', logo: 'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=200&h=200&fit=crop', productCount: 423 },
-  { id: 11, name: '美的 Midea', firstLetter: 'M', logo: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=200&h=200&fit=crop', productCount: 567 },
-  { id: 12, name: 'Nintendo', firstLetter: 'N', logo: 'https://images.unsplash.com/photo-1578303512597-81e6cc155b3e?w=200&h=200&fit=crop', productCount: 78 },
-  { id: 13, name: 'Canon', firstLetter: 'C', logo: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=200&h=200&fit=crop', productCount: 134 },
-  { id: 14, name: 'SK-II', firstLetter: 'S', logo: 'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?w=200&h=200&fit=crop', productCount: 56 },
-  { id: 15, name: 'Bose', firstLetter: 'B', logo: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=200&h=200&fit=crop', productCount: 67 },
-  { id: 16, name: 'Puma', firstLetter: 'P', logo: 'https://images.unsplash.com/photo-1608231387042-66d1773070a5?w=200&h=200&fit=crop', productCount: 345 },
-  { id: 17, name: '雅诗兰黛', firstLetter: 'Y', logo: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=200&h=200&fit=crop', productCount: 89 },
-  { id: 18, name: 'LG', firstLetter: 'L', logo: 'https://images.unsplash.com/photo-1593784991095-a205069470b6?w=200&h=200&fit=crop', productCount: 156 },
-  { id: 19, name: 'Philips', firstLetter: 'P', logo: 'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=200&h=200&fit=crop', productCount: 234 },
-  { id: 20, name: 'DJI 大疆', firstLetter: 'D', logo: 'https://images.unsplash.com/photo-1473968512647-3e447244af8f?w=200&h=200&fit=crop', productCount: 34 },
-  { id: 21, name: 'New Balance', firstLetter: 'N', logo: 'https://images.unsplash.com/photo-1539185441755-769473a23570?w=200&h=200&fit=crop', productCount: 278 },
-  { id: 22, name: 'Under Armour', firstLetter: 'U', logo: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=200&h=200&fit=crop', productCount: 189 },
-  { id: 23, name: 'Gucci', firstLetter: 'G', logo: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?w=200&h=200&fit=crop', productCount: 123 },
-  { id: 24, name: 'Zara', firstLetter: 'Z', logo: 'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=200&h=200&fit=crop', productCount: 567 },
-])
+async function loadBrands() {
+  loading.value = true
+  try {
+    const res = await getBrandRecommendListAPI({ page: 1, page_size: 100 })
+    brands.value = res || []
+  } catch (err: any) {
+    console.error('加载品牌列表失败:', err?.message || err)
+  } finally {
+    loading.value = false
+  }
+}
 
 /** A-Z 字母表 */
 const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
@@ -55,7 +35,7 @@ const activeLetter = ref('')
 
 /** 按字母分组的品牌 */
 const groupedBrands = computed(() => {
-  const groups: Record<string, BrandItem[]> = {}
+  const groups: Record<string, PmsBrand[]> = {}
   const source = activeLetter.value
     ? brands.value.filter(b => b.firstLetter === activeLetter.value)
     : brands.value
@@ -70,17 +50,27 @@ const groupedBrands = computed(() => {
   return Object.keys(groups).sort().reduce((acc, key) => {
     acc[key] = groups[key]
     return acc
-  }, {} as Record<string, BrandItem[]>)
+  }, {} as Record<string, PmsBrand[]>)
 })
 
-/** 热门品牌（销量前8） */
-const hotBrands = computed(() => brands.value.slice(0, 8))
+/** 热门品牌（按商品数量排序，前8） */
+const hotBrands = computed(() =>
+  [...brands.value].sort((a, b) => (b.productCount || 0) - (a.productCount || 0)).slice(0, 8)
+)
+
+onMounted(() => {
+  loadBrands()
+})
 </script>
 
 <template>
   <div class="brand-page space-y-5">
+    <!-- 加载中 -->
+    <div v-if="loading" class="flex justify-center py-20 text-gray-400">加载中...</div>
+
+    <template v-else>
     <!-- ====== 热门品牌 ====== -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <div v-if="hotBrands.length" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <h2 class="text-base font-bold text-gray-900 mb-4">热门品牌</h2>
       <div class="grid grid-cols-8 gap-4">
         <button
@@ -162,5 +152,6 @@ const hotBrands = computed(() => brands.value.slice(0, 8))
         </div>
       </div>
     </div>
+    </template>
   </div>
 </template>

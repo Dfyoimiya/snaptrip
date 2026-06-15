@@ -28,11 +28,13 @@ class ESSearchClient:
         self._index_products = commerce_settings.ES_INDEX_PRODUCTS
         self._timeout = commerce_settings.ES_SEARCH_TIMEOUT
         self._initialized = False
+        self._available = None  # None=未检测, True=可用, False=不可用
 
     async def _ensure_client(self) -> None:
         """懒初始化 ES 客户端"""
         if self._initialized:
             return
+        self._initialized = True
         try:
             from elasticsearch import AsyncElasticsearch
 
@@ -44,13 +46,18 @@ class ESSearchClient:
                 kwargs["basic_auth"] = (self._username, self._password)
 
             self._client = AsyncElasticsearch(**kwargs)
+            self._available = True
             logger.info("es_client_connected", hosts=self._hosts)
         except ImportError:
-            logger.warning("es_import_failed", fallback="db_search")
-            raise RuntimeError(
-                "elasticsearch 未安装。安装命令: pip install elasticsearch[async]"
-            ) from None
-        self._initialized = True
+            self._available = False
+            logger.warning(
+                "es_import_failed",
+                fallback="db_search",
+                hint="pip install elasticsearch[async]",
+            )
+        except Exception as exc:
+            self._available = False
+            logger.warning("es_connection_failed", error=str(exc))
 
     async def close(self) -> None:
         if self._client is not None:
@@ -70,24 +77,28 @@ class ESSearchClient:
 
     async def index_product(self, product_id: str, doc: dict[str, Any]) -> bool:
         """索引单个商品文档"""
+        await self._ensure_client()
+        if not self._available:
+            return False
         try:
-            await self._ensure_client()
             assert self._client is not None
             await self._client.index(
                 index=self._index_products,
                 id=product_id,
                 document=doc,
             )
-            logger.info("es_product_indexed", product_id=product_id)
+            logger.debug("es_product_indexed", product_id=product_id)
             return True
         except Exception as exc:
-            logger.error("es_index_failed", product_id=product_id, error=str(exc))
+            logger.warning("es_index_failed", product_id=product_id, error=str(exc))
             return False
 
     async def bulk_index_products(self, docs: list[dict[str, Any]]) -> int:
         """批量索引商品, 返回成功数"""
+        await self._ensure_client()
+        if not self._available:
+            return 0
         try:
-            await self._ensure_client()
             assert self._client is not None
             from elasticsearch.helpers import async_bulk
 
@@ -100,19 +111,21 @@ class ESSearchClient:
                 for doc in docs
             ]
             success, errors = await async_bulk(self._client, actions, raise_on_error=False)
-            logger.info("es_bulk_indexed", success=success, errors=len(errors))
+            logger.debug("es_bulk_indexed", success=success, errors=len(errors))
             return success  # type: ignore[no-any-return]
         except Exception as exc:
-            logger.error("es_bulk_index_failed", error=str(exc))
+            logger.warning("es_bulk_index_failed", error=str(exc))
             return 0
 
     async def delete_product(self, product_id: str) -> bool:
         """从索引中删除商品"""
+        await self._ensure_client()
+        if not self._available:
+            return False
         try:
-            await self._ensure_client()
             assert self._client is not None
             await self._client.delete(index=self._index_products, id=product_id)
-            logger.info("es_product_deleted", product_id=product_id)
+            logger.debug("es_product_deleted", product_id=product_id)
             return True
         except Exception as exc:
             logger.warning("es_delete_failed", product_id=product_id, error=str(exc))
@@ -130,8 +143,10 @@ class ESSearchClient:
         page_size: int = 20,
     ) -> dict[str, Any]:
         """商品全文搜索 —— 多条件组合 + 排序"""
+        await self._ensure_client()
+        if not self._available:
+            return {"items": [], "total": 0, "page": page, "page_size": page_size}
         try:
-            await self._ensure_client()
             assert self._client is not None
 
             must_clauses: list[dict[str, Any]] = []
@@ -207,13 +222,15 @@ class ESSearchClient:
                 "page_size": page_size,
             }
         except Exception as exc:
-            logger.error("es_search_failed", keyword=keyword, error=str(exc))
+            logger.warning("es_search_failed", keyword=keyword, error=str(exc))
             return {"items": [], "total": 0, "page": page, "page_size": page_size}
 
     async def create_product_index(self) -> bool:
         """创建商品搜索索引 —— 仅首次部署使用"""
+        await self._ensure_client()
+        if not self._available:
+            return False
         try:
-            await self._ensure_client()
             assert self._client is not None
 
             exists = await self._client.indices.exists(index=self._index_products)

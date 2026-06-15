@@ -1,7 +1,7 @@
 /** 菜单 */
 export interface UmsMenu {
-  id?: number
-  parentId?: number
+  id?: string
+  parentId?: string
   title?: string
   name?: string
   icon?: string
@@ -14,7 +14,7 @@ export interface UmsMenu {
 
 /** 菜单节点 */
 export interface MenuNode {
-  id: number
+  id: string
   title: string
   level: number
   name: string

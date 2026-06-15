@@ -17,7 +17,7 @@ const operateType = ref<number>()
 const defaultReturnReason = { name: '', sort: 0, status: 1 }
 const dialogVisible = ref(false)
 const returnReason = ref(Object.assign({}, defaultReturnReason))
-const operateReasonId = ref<number | undefined>()
+const operateReasonId = ref<string | undefined>()
 const operateOptions = ref([{ label: '删除', value: 1 }])
 
 const fetchData = async () => {
@@ -27,8 +27,8 @@ const fetchData = async () => {
       page: listQuery.value.pageNum,
       page_size: listQuery.value.pageSize,
     })
-    list.value = res.items || []
-    total.value = res.total || 0
+    list.value = res.data.items || []
+    total.value = res.data.total || 0
   } catch {
     list.value = []
     total.value = 0
@@ -48,7 +48,7 @@ const handleConfirm = async () => {
       await returnReasonCreateAPI(returnReason.value)
       ElMessage({ message: '添加成功！', type: 'success', duration: 1000 })
     } else {
-      await returnReasonUpdateAPI(operateReasonId.value, returnReason.value)
+      await returnReasonUpdateAPI(operateReasonId.value!, returnReason.value)
       ElMessage({ message: '修改成功！', type: 'success', duration: 1000 })
     }
     dialogVisible.value = false
@@ -59,7 +59,7 @@ const handleConfirm = async () => {
   }
 }
 
-const handleUpdate = (_index: number, row: OmsOrderReturnReason) => { dialogVisible.value = true; operateReasonId.value = row.id; returnReason.value = { name: row.name, sort: row.sort, status: row.status } }
+const handleUpdate = (_index: number, row: OmsOrderReturnReason) => { dialogVisible.value = true; operateReasonId.value = row.id; returnReason.value = { name: row.name ?? '', sort: row.sort ?? 0, status: row.status ?? 1 } }
 
 const handleDelete = (_index: number, row: OmsOrderReturnReason) => { deleteReasonMethod([row.id!]) }
 
@@ -67,7 +67,7 @@ const handleSelectionChange = (val: OmsOrderReturnReason[]) => { multipleSelecti
 
 const handleStatusChange = async (_index: number, row: OmsOrderReturnReason) => {
   try {
-    await returnReasonUpdateStatusAPI({ ids: String(row.id), status: row.status! })
+    await returnReasonUpdateStatusAPI([row.id!], row.status!)
     ElMessage({ message: '状态修改成功', type: 'success' })
   } catch {
     ElMessage({ message: '状态修改失败', type: 'error' })
@@ -82,10 +82,10 @@ const handleBatchOperate = () => {
 const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQuery.value.pageSize = val; fetchData() }
 const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; fetchData() }
 
-const deleteReasonMethod = async (ids: number[]) => {
+const deleteReasonMethod = async (ids: string[]) => {
   await ElMessageBox.confirm('是否要进行该删除操作?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
   try {
-    await returnReasonDeleteByIdsAPI({ ids: ids.join(',') })
+    await returnReasonDeleteByIdsAPI(ids)
     listQuery.value.pageNum = 1
     fetchData()
     ElMessage({ message: '删除成功！', type: 'success', duration: 1000 })

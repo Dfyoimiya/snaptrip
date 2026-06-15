@@ -26,18 +26,18 @@ export function getOrderListAPI(params: OrderQueryParam) {
 }
 
 /** 关闭订单 —— POST /admin/orders/{id}/close?note=... */
-export function orderUpdateCloseAPI(params: { ids: string; note: string }) {
+export function orderUpdateCloseAPI(id: string, note: string) {
   return request<CommonResult<number>>({
-    url: '/admin/orders/' + params.ids + '/close',
+    url: '/admin/orders/' + id + '/close',
     method: 'post',
-    params: { note: params.note },
+    params: { note },
   })
 }
 
-/** 删除订单 —— 后端暂未提供删除接口，占位 */
-export function orderDeleteByIdsAPI(params: { ids: string }) {
+/** 删除订单 —— DELETE /admin/orders/{id} */
+export function orderDeleteByIdsAPI(id: string) {
   return request<CommonResult<number>>({
-    url: '/admin/orders/' + params.ids,
+    url: '/admin/orders/' + id,
     method: 'delete',
   })
 }
@@ -53,7 +53,7 @@ export function orderUpdateDeliveryAPI(data: OmsOrderDeliveryParam[]) {
 }
 
 /** 订单详情 —— GET /admin/orders/{id} */
-export function getOrderDetailByIdAPI(id: number) {
+export function getOrderDetailByIdAPI(id: string) {
   return request<CommonResult<OmsOrderDetail>>({
     url: '/admin/orders/' + id,
     method: 'get',

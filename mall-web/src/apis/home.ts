@@ -1,36 +1,47 @@
 /**
  * ============================================
  * 首页 API
- * 首页内容、推荐商品、分类等接口
+ * 首页聚合、推荐商品、分类等接口
  * ============================================
  */
 
 import { get } from '@/utils/request'
-import type { PmsProduct, PmsProductCategory } from '@/types/product'
+import type { PmsProductCategory } from '@/types/product'
 import type { HomeContentResult } from '@/types/home'
-import type { PageParam } from '@/types/common'
 
-/** 首页内容 */
+/** 首页聚合内容 */
 export const getHomeContentAPI = () => {
-  return get<HomeContentResult>('/home/content')
+  return get<HomeContentResult>('/api/v1/portal/home')
 }
 
-/** 推荐商品列表 */
-export const getRecommendProductListAPI = (params?: PageParam) => {
-  return get<PmsProduct[]>('/home/recommendProductList', params as Record<string, unknown>)
+/** 首页推荐商品 = 按销量排序 */
+export const getRecommendProductListAPI = (params?: { page?: number; page_size?: number }) => {
+  return get<{ items: unknown[] }>('/api/v1/portal/products', {
+    sort_by: 'sales',
+    page: params?.page || 1,
+    page_size: params?.page_size || 8,
+  })
 }
 
-/** 商品分类列表 */
-export const getProductCateListAPI = (parentId: string | number) => {
-  return get<PmsProductCategory[]>(`/home/productCateList/${parentId}`)
+/** 商品分类列表 — 一级分类 */
+export const getProductCateListAPI = (parentId: number | string) => {
+  return get<PmsProductCategory[]>(`/api/v1/portal/categories`, { parent_id: parentId })
 }
 
-/** 新鲜好物列表 */
-export const getNewProductListAPI = (params?: PageParam) => {
-  return get<PmsProduct[]>('/home/newProductList', params as Record<string, unknown>)
+/** 新品推荐 = 按上架时间排序 */
+export const getNewProductListAPI = (params?: { page?: number; page_size?: number }) => {
+  return get<{ items: unknown[] }>('/api/v1/portal/products', {
+    sort_by: 'new',
+    page: params?.page || 1,
+    page_size: params?.page_size || 8,
+  })
 }
 
-/** 人气推荐列表 */
-export const getHotProductListAPI = (params?: PageParam) => {
-  return get<PmsProduct[]>('/home/hotProductList', params as Record<string, unknown>)
+/** 人气推荐 = 按销量排序 (同推荐) */
+export const getHotProductListAPI = (params?: { page?: number; page_size?: number }) => {
+  return get<{ items: unknown[] }>('/api/v1/portal/products', {
+    sort_by: 'sales',
+    page: params?.page || 1,
+    page_size: params?.page_size || 8,
+  })
 }

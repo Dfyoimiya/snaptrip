@@ -5,25 +5,37 @@
  * 营销聚合页：顶部 Banner 氛围图 + 热销排行网格
  * ============================================
  */
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { searchProductListAPI } from '@/apis/product'
 import type { PmsProduct } from '@/types/product'
 
 const router = useRouter()
 
-/** Mock 热销数据 */
-const products = ref<PmsProduct[]>([
-  { id: 101, name: 'Apple MacBook Air M3芯片 16GB+512GB', pic: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300&h=300&fit=crop', price: 9999, originalPrice: 11999, sale: 12580, brandId: 1, brandName: 'Apple', productCategoryId: 2, productCategoryName: '电脑办公', subTitle: 'M3芯片', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 1, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 102, name: '戴森 Dyson HD15 新一代吹风机 负离子护发', pic: 'https://images.unsplash.com/photo-1522338140262-f46f5913618a?w=300&h=300&fit=crop', price: 2590, originalPrice: 3290, sale: 8900, brandId: 7, brandName: 'Dyson', productCategoryId: 3, productCategoryName: '家用电器', subTitle: '智能温控', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 2, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 103, name: 'SK-II 神仙水护肤精华露 230ml', pic: 'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?w=300&h=300&fit=crop', price: 1540, originalPrice: 2150, sale: 2900, brandId: 14, brandName: 'SK-II', productCategoryId: 6, productCategoryName: '美妆个护', subTitle: 'PITERA精华', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 3, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 104, name: 'Nike Air Force 1 经典板鞋男女同款', pic: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&h=300&fit=crop', price: 749, originalPrice: 899, sale: 6100, brandId: 4, brandName: 'Nike', productCategoryId: 5, productCategoryName: '服装服饰', subTitle: '经典百搭', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 4, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 105, name: '小米14 Pro 16GB+512GB 徕卡影像', pic: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=300&h=300&fit=crop', price: 5499, originalPrice: 5999, sale: 4500, brandId: 3, brandName: '小米', productCategoryId: 1, productCategoryName: '手机数码', subTitle: '骁龙8 Gen3', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 5, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 106, name: '雅诗兰黛 小棕瓶精华液 50ml 修护抗老', pic: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=300&h=300&fit=crop', price: 935, originalPrice: 1280, sale: 2100, brandId: 17, brandName: '雅诗兰黛', productCategoryId: 6, productCategoryName: '美妆个护', subTitle: '第七代', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 6, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 107, name: '索尼 Sony PS5 光驱版游戏主机 国行', pic: 'https://images.unsplash.com/photo-1606144042614-81e6cc155b3e?w=300&h=300&fit=crop', price: 3599, originalPrice: 3899, sale: 1800, brandId: 6, brandName: 'Sony', productCategoryId: 7, productCategoryName: '运动户外', subTitle: '4K 120Hz', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 7, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-  { id: 108, name: 'Nespresso 胶囊咖啡机 Essenza Mini', pic: 'https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=300&h=300&fit=crop', price: 866, originalPrice: 1280, sale: 1500, brandId: 19, brandName: 'Nespresso', productCategoryId: 3, productCategoryName: '家用电器', subTitle: '全自动', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 0, recommandStatus: 1, verifyStatus: 1, sort: 8, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '', updateTime: '' },
-])
+const loading = ref(false)
+const products = ref<PmsProduct[]>([])
+
+async function loadProducts() {
+  loading.value = true
+  try {
+    const res = await searchProductListAPI({
+      sort: 2, // sales
+      pageNum: 1,
+      pageSize: 20,
+    }) as unknown as { items: PmsProduct[] }
+    products.value = res.items || []
+  } catch (err: any) {
+    console.error('加载热门商品失败:', err?.message || err)
+  } finally {
+    loading.value = false
+  }
+}
 
 const formatPrice = (p: number) => p.toLocaleString('zh-CN')
+
+onMounted(() => {
+  loadProducts()
+})
 </script>
 
 <template>
@@ -44,8 +56,11 @@ const formatPrice = (p: number) => p.toLocaleString('zh-CN')
       </div>
     </div>
 
+    <!-- 加载中 -->
+    <div v-if="loading" class="flex justify-center py-20 text-gray-400">加载中...</div>
+
     <!-- ====== 热销排行网格 ====== -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
       <button
         v-for="(product, index) in products"
         :key="product.id"

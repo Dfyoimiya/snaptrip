@@ -19,7 +19,6 @@ from uuid import UUID
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.schemas.product import (
     CategoryCreate,
@@ -165,12 +164,17 @@ class CategoryService:
         from app.models.product.category import PmsCategory
 
         result = await self.db.execute(
-            select(PmsCategory)
-            .options(selectinload(PmsCategory.children))  # 预加载子分类
-            .where(PmsCategory.parent_id.is_(None))  # 只取顶级分类
-            .order_by(PmsCategory.sort.asc())
+            select(PmsCategory).order_by(PmsCategory.sort.asc(), PmsCategory.created_at.desc())
         )
-        roots = result.unique().scalars().all()  # unique() 去重 ORM 的 identity map 影响
+        all_categories = result.scalars().all()
+
+        # Build parent_id → children map
+        children_map: dict[UUID | None, list[PmsCategory]] = {}
+        for cat in all_categories:
+            pid = cat.parent_id
+            if pid not in children_map:
+                children_map[pid] = []
+            children_map[pid].append(cat)
 
         def _build_node(cat: PmsCategory) -> CategoryTreeResponse:
             """递归构建树节点"""
@@ -180,11 +184,13 @@ class CategoryService:
                 parent_id=cat.parent_id,
                 level=cat.level,
                 sort=cat.sort,
+                nav_status=cat.nav_status,
+                show_status=cat.show_status,
                 icon=cat.icon,
-                children=[_build_node(child) for child in cat.children],
+                children=[_build_node(child) for child in children_map.get(cat.id, [])],
             )
 
-        return [_build_node(root) for root in roots]
+        return [_build_node(root) for root in children_map.get(None, [])]
 
     # ── 状态切换 ──
 

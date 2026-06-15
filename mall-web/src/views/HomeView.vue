@@ -5,23 +5,25 @@
  * 参考京东/天猫/淘宝 PC 端经典布局
  * ============================================
  */
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { getHomeContentAPI } from '@/apis/home'
+import type { PmsProduct } from '@/types/product'
+import type { PmsBrand } from '@/types/brand'
+import type { SmsHomeAdvertise, HomeFlashPromotion, CmsSubject } from '@/types/home'
 
 const router = useRouter()
 
-// ===== 轮播图 =====
+const loading = ref(false)
+
+// ===== 轮播图（从 API）=====
 const currentBanner = ref(0)
 let bannerTimer: ReturnType<typeof setInterval> | null = null
 
-const banners = ref([
-  { id: 1, img: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=960&h=400&fit=crop', title: '年中大促 全场5折起', subtitle: '万件好物限时抢购' },
-  { id: 2, img: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=960&h=400&fit=crop', title: '时尚潮流 新品首发', subtitle: '大牌联名限量发售' },
-  { id: 3, img: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=960&h=400&fit=crop', title: '智能家电 品质生活', subtitle: '精选好物 惊喜优惠' },
-  { id: 4, img: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=960&h=400&fit=crop', title: '品质家居 焕新升级', subtitle: '打造理想生活空间' },
-])
+const banners = ref<SmsHomeAdvertise[]>([])
 
 const startBannerAutoPlay = () => {
+  if (banners.value.length <= 1) return
   bannerTimer = setInterval(() => {
     currentBanner.value = (currentBanner.value + 1) % banners.value.length
   }, 4000)
@@ -40,7 +42,7 @@ const goToBanner = (index: number) => {
   startBannerAutoPlay()
 }
 
-// ===== 多级商品分类 =====
+// ===== 多级商品分类（前端静态数据 — 后端暂无3级结构+emoji图标）=====
 interface SubCategory {
   name: string
   items: string[]
@@ -165,110 +167,74 @@ const categories = ref<Category[]>([
 // 当前 hover 的分类索引
 const hoveredCategoryIndex = ref(-1)
 
-// ===== 秒杀数据 =====
-interface SeckillItem {
-  id: number
-  name: string
-  img: string
-  price: number
-  originalPrice: number
-}
-
-const seckillItems = ref<SeckillItem[]>([
-  { id: 1, name: 'Apple iPhone 15 Pro Max 256GB', img: 'https://images.unsplash.com/photo-1696446701796-da61225697cc?w=200&h=200&fit=crop', price: 8999, originalPrice: 9999 },
-  { id: 2, name: 'Sony WH-1000XM5 无线降噪耳机', img: 'https://images.unsplash.com/photo-1618366712010-f4ae9c647dcb?w=200&h=200&fit=crop', price: 1999, originalPrice: 2999 },
-  { id: 3, name: 'Nintendo Switch OLED 游戏主机', img: 'https://images.unsplash.com/photo-1578303512597-81e6cc155b3e?w=200&h=200&fit=crop', price: 1899, originalPrice: 2599 },
-  { id: 4, name: 'Dyson V15 Detect 无线吸尘器', img: 'https://images.unsplash.com/photo-1558317374-067fb5f30001?w=200&h=200&fit=crop', price: 3499, originalPrice: 4990 },
-  { id: 5, name: '小米空气净化器 4 Pro', img: 'https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=200&h=200&fit=crop', price: 899, originalPrice: 1299 },
-])
+// ===== 秒杀（从 API）=====
+const homeFlashPromotion = ref<HomeFlashPromotion | null>(null)
+const seckillItems = ref<PmsProduct[]>([])
 
 // 秒杀倒计时
-const seckillHours = ref(2)
-const seckillMinutes = ref(15)
-const seckillSeconds = ref(30)
+const seckillHours = ref(0)
+const seckillMinutes = ref(0)
+const seckillSeconds = ref(0)
 
-// ===== 热门推荐商品 =====
-interface Product {
-  id: number
-  name: string
-  img: string
-  price: number
-  originalPrice: number
-  saleCount: number
-  tag?: string
+let seckillTimer: ReturnType<typeof setInterval> | null = null
+
+function updateSeckillCountdown() {
+  if (!homeFlashPromotion.value?.endTime) return
+  const diff = Math.max(0, new Date(homeFlashPromotion.value.endTime).getTime() - Date.now())
+  seckillHours.value = Math.floor(diff / 3600000)
+  seckillMinutes.value = Math.floor((diff % 3600000) / 60000)
+  seckillSeconds.value = Math.floor((diff % 60000) / 1000)
 }
 
-const hotProducts = ref<Product[]>([
-  { id: 101, name: 'Apple MacBook Air M3 芯片 13.6英寸 8核CPU 8核GPU 8GB 256GB', img: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=300&h=300&fit=crop', price: 8999, originalPrice: 10499, saleCount: 5200, tag: '热卖' },
-  { id: 102, name: '戴森(Dyson) Supersonic HD15 新一代吹风机 负离子护发', img: 'https://images.unsplash.com/photo-1522338140262-f46f5913618a?w=300&h=300&fit=crop', price: 2590, originalPrice: 3290, saleCount: 3800, tag: '爆款' },
-  { id: 103, name: 'SK-II 神仙水护肤精华露 230ml 紧致修护 补水保湿', img: 'https://images.unsplash.com/photo-1611930022073-b7a4ba5fcccd?w=300&h=300&fit=crop', price: 1540, originalPrice: 2150, saleCount: 2900 },
-  { id: 104, name: 'Nike Air Force 1 \'07 空军一号经典板鞋男女同款', img: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=300&h=300&fit=crop', price: 749, originalPrice: 899, saleCount: 6100, tag: '潮流' },
-  { id: 105, name: '小米14 Pro 16GB+512GB 徕卡影像 骁龙8 Gen3', img: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=300&h=300&fit=crop', price: 5499, originalPrice: 5999, saleCount: 4500 },
-  { id: 106, name: '雅诗兰黛(Estee Lauder) 小棕瓶精华液 50ml 修护抗老', img: 'https://images.unsplash.com/photo-1620916566398-39f1143ab7be?w=300&h=300&fit=crop', price: 935, originalPrice: 1280, saleCount: 2100 },
-  { id: 107, name: '索尼(SONY) PS5 光驱版游戏主机 国行', img: 'https://images.unsplash.com/photo-1606144042614-b2417e99c4e3?w=300&h=300&fit=crop', price: 3599, originalPrice: 3899, saleCount: 1800, tag: '新品' },
-  { id: 108, name: 'Nespresso 胶囊咖啡机 Essenza Mini 全自动家用', img: 'https://images.unsplash.com/photo-1517256064527-09c73fc73e38?w=300&h=300&fit=crop', price: 866, originalPrice: 1280, saleCount: 1500 },
-  { id: 109, name: '北面(The North Face) 1996 Retro Nuptse 羽绒服', img: 'https://images.unsplash.com/photo-1544022613-e87ca75a784a?w=300&h=300&fit=crop', price: 2698, originalPrice: 3398, saleCount: 980, tag: '保暖' },
-  { id: 110, name: '海尔(Haier) 545升十字对开门冰箱 一级能效', img: 'https://images.unsplash.com/photo-1584568694244-14fbdf83bd30?w=300&h=300&fit=crop', price: 4299, originalPrice: 5899, saleCount: 750 },
-])
+const startSeckillCountdown = () => {
+  updateSeckillCountdown()
+  seckillTimer = setInterval(updateSeckillCountdown, 1000)
+}
 
-// ===== 新品上架 =====
-const newProducts = ref<Product[]>([
-  { id: 201, name: '华为 Mate 60 Pro+ 16GB+512GB 鸿蒙系统 卫星通信', img: 'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=300&h=300&fit=crop', price: 8999, originalPrice: 9999, saleCount: 320 },
-  { id: 202, name: 'DJI Osmo Pocket 3 口袋云台相机 4K 120fps', img: 'https://images.unsplash.com/photo-1564466021188-1e17010c5352?w=300&h=300&fit=crop', price: 3499, originalPrice: 3999, saleCount: 180 },
-  { id: 203, name: '科沃斯(ECOVACS) X2 Pro 扫地机器人 自动上下水', img: 'https://images.unsplash.com/photo-1588854337221-4cf9fa96059c?w=300&h=300&fit=crop', price: 4999, originalPrice: 6499, saleCount: 260 },
-  { id: 204, name: 'Lululemon Align™ 女士运动瑜伽裤 高腰裸感', img: 'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=300&h=300&fit=crop', price: 850, originalPrice: 1080, saleCount: 410 },
-  { id: 205, name: 'Anker 737 240W 氮化镓充电器 三口快充', img: 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=300&h=300&fit=crop', price: 399, originalPrice: 599, saleCount: 580 },
-  { id: 206, name: 'Philips 飞利浦 Sonicare 钻石牙刷 HX9912 智能', img: 'https://images.unsplash.com/photo-1559671088-795c52083351?w=300&h=300&fit=crop', price: 1299, originalPrice: 1899, saleCount: 230 },
-  { id: 207, name: 'Bose QuietComfort Ultra 无线消噪耳机 头戴式', img: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&h=300&fit=crop', price: 2299, originalPrice: 2999, saleCount: 170 },
-  { id: 208, name: '戴森 Dyson Airwrap™ 多功能造型器 长发版', img: 'https://images.unsplash.com/photo-1522338140262-f46f5913618a?w=300&h=300&fit=crop', price: 3999, originalPrice: 4590, saleCount: 120 },
-  { id: 209, name: 'iPad Air 6 M2芯片 11英寸 256GB WiFi版', img: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?w=300&h=300&fit=crop', price: 5599, originalPrice: 5999, saleCount: 290 },
-  { id: 210, name: 'L\'Occitane 欧舒丹 樱花身体乳 250ml 滋润', img: 'https://images.unsplash.com/photo-1601049541289-9b1b7bbbfe19?w=300&h=300&fit=crop', price: 260, originalPrice: 380, saleCount: 650 },
-])
+// ===== 热门推荐 & 新品 & 品牌（从 API）=====
+const hotProducts = ref<PmsProduct[]>([])
+const newProducts = ref<PmsProduct[]>([])
+const brands = ref<PmsBrand[]>([])
 
-// ===== 品牌推荐 =====
-const brands = ref([
-  { id: 1, name: 'Apple', logo: 'https://images.unsplash.com/photo-1621768216002-5ac171876625?w=120&h=60&fit=crop' },
-  { id: 2, name: '华为', logo: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?w=120&h=60&fit=crop' },
-  { id: 3, name: '小米', logo: 'https://images.unsplash.com/photo-1567581935884-3349723552ca?w=120&h=60&fit=crop' },
-  { id: 4, name: 'Nike', logo: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=120&h=60&fit=crop' },
-  { id: 5, name: 'Adidas', logo: 'https://images.unsplash.com/photo-1584735175315-9d5df23860e6?w=120&h=60&fit=crop' },
-  { id: 6, name: 'Sony', logo: 'https://images.unsplash.com/photo-1606144042614-81e6cc155b3e?w=120&h=60&fit=crop' },
-  { id: 7, name: 'Dyson', logo: 'https://images.unsplash.com/photo-1522338140262-f46f5913618a?w=120&h=60&fit=crop' },
-  { id: 8, name: '三星', logo: 'https://images.unsplash.com/photo-1610945265064-f4d215f72119?w=120&h=60&fit=crop' },
-  { id: 9, name: 'L\'Oréal', logo: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?w=120&h=60&fit=crop' },
-  { id: 10, name: 'Nintendo', logo: 'https://images.unsplash.com/photo-1578303512597-81e6cc155b3e?w=120&h=60&fit=crop' },
-])
+/** 根据商品属性派生标签 */
+function getProductTag(p: PmsProduct): string | null {
+  if (p.promotionType === 5) return '限时'
+  if (p.promotionType === 1) return '优惠'
+  if (p.promotionType === 4) return '满减'
+  if (p.newStatus === 1) return '新品'
+  if (p.recommandStatus === 1) return '推荐'
+  return null
+}
+
+/** 加载首页聚合数据 */
+async function loadHomeContent() {
+  loading.value = true
+  try {
+    const data = await getHomeContentAPI()
+    banners.value = data.advertiseList || []
+    brands.value = data.brandList || []
+    hotProducts.value = data.hotProductList || []
+    newProducts.value = data.newProductList || []
+    if (data.homeFlashPromotion) {
+      homeFlashPromotion.value = data.homeFlashPromotion
+      seckillItems.value = data.homeFlashPromotion.productList || []
+    }
+    startBannerAutoPlay()
+    startSeckillCountdown()
+  } catch (err: any) {
+    console.error('加载首页失败:', err?.message || err)
+  } finally {
+    loading.value = false
+  }
+}
 
 // ===== 导航到商品详情 =====
 const goProductDetail = (id: number) => {
   router.push(`/product/${id}`)
 }
 
-// ===== 格式化价格 =====
-const formatPrice = (price: number) => {
-  return price.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-// ===== 秒杀倒计时 =====
-let seckillTimer: ReturnType<typeof setInterval> | null = null
-const startSeckillCountdown = () => {
-  seckillTimer = setInterval(() => {
-    if (seckillSeconds.value > 0) {
-      seckillSeconds.value--
-    } else if (seckillMinutes.value > 0) {
-      seckillMinutes.value--
-      seckillSeconds.value = 59
-    } else if (seckillHours.value > 0) {
-      seckillHours.value--
-      seckillMinutes.value = 59
-      seckillSeconds.value = 59
-    }
-  }, 1000)
-}
-
 onMounted(() => {
-  startBannerAutoPlay()
-  startSeckillCountdown()
+  loadHomeContent()
 })
 
 onUnmounted(() => {
@@ -279,6 +245,10 @@ onUnmounted(() => {
 
 <template>
   <div class="home-page">
+    <!-- 加载中 -->
+    <div v-if="loading" class="flex justify-center py-40 text-gray-400">加载中...</div>
+
+    <template v-else>
     <!-- ======================== 首屏区域 ======================== -->
     <section class="hero-section mb-6">
       <div class="flex h-[400px] gap-0">
@@ -347,18 +317,17 @@ onUnmounted(() => {
               v-for="banner in banners"
               :key="banner.id"
               class="w-full h-full flex-shrink-0 relative cursor-pointer"
-              @click="router.push('/search')"
+              @click="router.push(banner.url || '/search')"
             >
               <img
-                :src="banner.img"
-                :alt="banner.title"
+                :src="banner.pic"
+                :alt="banner.name"
                 class="w-full h-full object-cover"
               />
               <!-- 文字遮罩 -->
               <div class="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-transparent" />
               <div class="absolute left-8 top-1/2 -translate-y-1/2 text-white">
-                <h2 class="text-3xl font-bold mb-2 drop-shadow-lg">{{ banner.title }}</h2>
-                <p class="text-lg opacity-90 drop-shadow">{{ banner.subtitle }}</p>
+                <h2 class="text-3xl font-bold mb-2 drop-shadow-lg">{{ banner.name }}</h2>
               </div>
             </div>
           </div>
@@ -398,7 +367,7 @@ onUnmounted(() => {
     </section>
 
     <!-- ======================== 秒杀专区 ======================== -->
-    <section class="seckill-section mb-6">
+    <section v-if="seckillItems.length" class="seckill-section mb-6">
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <!-- 头部 -->
         <div class="flex items-center justify-between px-6 py-4 bg-gradient-to-r from-red-600 to-red-500">
@@ -432,11 +401,11 @@ onUnmounted(() => {
             @click="goProductDetail(item.id)"
           >
             <div class="aspect-square rounded-lg bg-gray-50 overflow-hidden mb-2">
-              <img :src="item.img" :alt="item.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              <img :src="item.pic" :alt="item.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
             </div>
             <p class="text-xs text-gray-700 line-clamp-2 mb-2 h-8 leading-4">{{ item.name }}</p>
             <div class="flex items-baseline gap-2">
-              <span class="text-red-600 font-bold text-base">&yen;{{ item.price }}</span>
+              <span class="text-red-600 font-bold text-base">&yen;{{ item.flashPromotionPrice || item.price }}</span>
               <span class="text-gray-400 text-xs line-through">&yen;{{ item.originalPrice }}</span>
             </div>
           </button>
@@ -445,7 +414,7 @@ onUnmounted(() => {
     </section>
 
     <!-- ======================== 品牌推荐 ======================== -->
-    <section class="brand-section mb-6">
+    <section v-if="brands.length" class="brand-section mb-6">
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-lg font-bold text-gray-900">热门品牌</h2>
@@ -468,7 +437,7 @@ onUnmounted(() => {
     </section>
 
     <!-- ======================== 热门推荐 ======================== -->
-    <section class="hot-section mb-6">
+    <section v-if="hotProducts.length" class="hot-section mb-6">
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <!-- 区块头部 -->
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -491,16 +460,16 @@ onUnmounted(() => {
             <!-- 商品图片 -->
             <div class="aspect-square bg-gray-50 overflow-hidden relative">
               <img
-                :src="product.img"
+                :src="product.pic"
                 :alt="product.name"
                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
               <!-- 标签 -->
               <span
-                v-if="product.tag"
+                v-if="getProductTag(product)"
                 class="absolute top-2 left-2 bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-medium"
               >
-                {{ product.tag }}
+                {{ getProductTag(product) }}
               </span>
             </div>
             <!-- 商品信息 -->
@@ -517,7 +486,7 @@ onUnmounted(() => {
                 <span class="text-gray-400 text-xs line-through">&yen;{{ product.originalPrice }}</span>
               </div>
               <!-- 销量 -->
-              <p class="text-xs text-gray-400 mt-1">已售 {{ product.saleCount >= 1000 ? (product.saleCount / 1000).toFixed(1) + '万' : product.saleCount }}</p>
+              <p class="text-xs text-gray-400 mt-1">已售 {{ product.sale >= 10000 ? (product.sale / 10000).toFixed(1) + '万' : product.sale }}</p>
             </div>
           </button>
         </div>
@@ -525,7 +494,7 @@ onUnmounted(() => {
     </section>
 
     <!-- ======================== 新品上架 ======================== -->
-    <section class="new-section mb-6">
+    <section v-if="newProducts.length" class="new-section mb-6">
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <!-- 区块头部 -->
         <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
@@ -548,7 +517,7 @@ onUnmounted(() => {
             <!-- 商品图片 -->
             <div class="aspect-square bg-gray-50 overflow-hidden relative">
               <img
-                :src="product.img"
+                :src="product.pic"
                 :alt="product.name"
                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
@@ -571,7 +540,7 @@ onUnmounted(() => {
                 <span class="text-gray-400 text-xs line-through">&yen;{{ product.originalPrice }}</span>
               </div>
               <!-- 销量 -->
-              <p class="text-xs text-gray-400 mt-1">已售 {{ product.saleCount }}</p>
+              <p class="text-xs text-gray-400 mt-1">已售 {{ product.sale }}</p>
             </div>
           </button>
         </div>
@@ -579,7 +548,7 @@ onUnmounted(() => {
     </section>
 
     <!-- ======================== 为你推荐 ======================== -->
-    <section class="recommend-section">
+    <section v-if="hotProducts.length || newProducts.length" class="recommend-section">
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
         <!-- 区块头部 -->
         <div class="flex items-center justify-center px-6 py-4 border-b border-gray-100">
@@ -604,7 +573,7 @@ onUnmounted(() => {
             <!-- 商品图片 -->
             <div class="aspect-square bg-gray-50 overflow-hidden relative">
               <img
-                :src="product.img"
+                :src="product.pic"
                 :alt="product.name"
                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
@@ -624,6 +593,7 @@ onUnmounted(() => {
         </div>
       </div>
     </section>
+    </template>
   </div>
 </template>
 

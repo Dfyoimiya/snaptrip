@@ -35,7 +35,7 @@ export function createProductAPI(data: PmsProductParam) {
 }
 
 /** 编辑商品 —— PUT /admin/products/{id} */
-export function updateProductAPI(id: number, data: PmsProductParam) {
+export function updateProductAPI(id: string, data: PmsProductParam) {
   return request<CommonResult<number>>({
     url: '/admin/products/' + id,
     method: 'put',
@@ -44,7 +44,7 @@ export function updateProductAPI(id: number, data: PmsProductParam) {
 }
 
 /** 商品详情 —— GET /admin/products/{id} */
-export function getProductAPI(id: number) {
+export function getProductAPI(id: string) {
   return request<CommonResult<PmsProductParam>>({
     url: '/admin/products/' + id,
     method: 'get',
@@ -52,36 +52,36 @@ export function getProductAPI(id: number) {
 }
 
 /** 删除商品 —— DELETE /admin/products/{id} */
-export function productUpdateDeleteStatusAPI(params: { ids: string; deleteStatus: number }) {
+export function productUpdateDeleteStatusAPI(id: string) {
   return request<CommonResult<number>>({
-    url: '/admin/products/' + params.ids,
+    url: '/admin/products/' + id,
     method: 'delete',
   })
 }
 
 /** 设为新品 —— PATCH /admin/products/{id}/new */
-export function productUpdateNewStatusAPI(params: { ids: string; newStatus: number }) {
+export function productUpdateNewStatusAPI(id: string, newStatus: number) {
   return request<CommonResult<number>>({
-    url: '/admin/products/' + params.ids + '/new',
+    url: '/admin/products/' + id + '/new',
     method: 'patch',
-    params: { status: params.newStatus },
+    params: { status: newStatus },
   })
 }
 
 /** 设为推荐 —— PATCH /admin/products/{id}/recommend */
-export function productUpdateRecommendStatusAPI(params: { ids: string; recommendStatus: number }) {
+export function productUpdateRecommendStatusAPI(id: string, recommendStatus: number) {
   return request<CommonResult<number>>({
-    url: '/admin/products/' + params.ids + '/recommend',
+    url: '/admin/products/' + id + '/recommend',
     method: 'patch',
-    params: { status: params.recommendStatus },
+    params: { status: recommendStatus },
   })
 }
 
 /** 上架/下架 —— PATCH /admin/products/{id}/status */
-export function productUpdatePublishStatusAPI(params: { ids: string; publishStatus: number }) {
+export function productUpdatePublishStatusAPI(id: string, publishStatus: number) {
   return request<CommonResult<number>>({
-    url: '/admin/products/' + params.ids + '/status',
+    url: '/admin/products/' + id + '/status',
     method: 'patch',
-    params: { status: params.publishStatus },
+    params: { status: publishStatus },
   })
 }

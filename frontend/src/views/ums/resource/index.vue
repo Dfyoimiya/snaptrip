@@ -28,8 +28,8 @@ const fetchData = async () => {
       getResourceCategoryListAllAPI(),
       fetchAllResourceList(),
     ])
-    categoryOptions.value = (categories || []).map((item: UmsResourceCategory) => ({ label: item.name || '', value: item.id || 0 }))
-    allResources.value = resources || []
+    categoryOptions.value = (categories.data || []).map((item: UmsResourceCategory) => ({ label: item.name || '', value: Number(item.id) || 0 }))
+    allResources.value = resources.data || []
   } catch {
     allResources.value = []
   }

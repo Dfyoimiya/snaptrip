@@ -1,6 +1,6 @@
 /** 品牌 */
 export interface PmsBrand {
-  id?: number
+  id?: string
   name: string
   firstLetter?: string
   sort?: number

@@ -2,7 +2,7 @@
  * 秒杀活动
  */
 export interface SmsFlashPromotion {
-  id?: number
+  id?: string
   title?: string
   startDate?: string
   endDate?: string
@@ -14,7 +14,7 @@ export interface SmsFlashPromotion {
  * 秒杀活动时段
  */
 export interface SmsFlashPromotionSession {
-  id?: number
+  id?: string
   name?: string
   startTime?: string
   endTime?: string
@@ -26,7 +26,7 @@ export interface SmsFlashPromotionSession {
  * 秒杀活动商品
  */
 export interface SmsFlashPromotionProduct {
-  id?: number
+  id?: string
   flashPromotionId?: number
   flashPromotionSessionId?: number
   productId?: number
@@ -43,7 +43,7 @@ export interface SmsFlashPromotionProduct {
 
 /** 秒杀活动与商品关联 */
 export interface SmsFlashPromotionProductRelation {
-  id?: number
+  id?: string
   flashPromotionId?: number
   flashPromotionSessionId?: number
   productId?: number
@@ -57,8 +57,8 @@ export interface SmsFlashPromotionProductRelation {
 
 /** 秒杀商品查询参数 */
 export interface FlashProductQueryParam {
-  flashPromotionId: number
-  flashPromotionSessionId: number
+  flashPromotionId: string
+  flashPromotionSessionId: string
   page: number
   page_size: number
 }

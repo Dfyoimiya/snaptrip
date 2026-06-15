@@ -4,73 +4,73 @@
  * ============================================
  */
 
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { defineStore } from 'pinia'
 import type { MemberInfo } from '@/types/member'
+import { logoutAPI } from '@/apis/member'
 
-export const useMemberStore = defineStore(
-  'member',
-  () => {
-    // ===== State =====
-    /** JWT Token */
-    const token = ref<string>('')
-    /** Token 前缀 */
-    const tokenHead = ref<string>('Bearer ')
-    /** 会员信息 */
-    const memberInfo = ref<MemberInfo | null>(null)
+const STORAGE_KEY = 'snaptrip_member'
 
-    // ===== Getters =====
-    /** 是否已登录 */
-    const isLoggedIn = computed(() => !!token.value && !!memberInfo.value)
-    /** 会员昵称（优先显示昵称，否则显示用户名） */
-    const displayName = computed(() => memberInfo.value?.nickname || memberInfo.value?.username || '')
-    /** 会员头像 */
-    const avatar = computed(() => memberInfo.value?.icon || '')
-    /** 会员积分 */
-    const integration = computed(() => memberInfo.value?.integration || 0)
+function loadPersisted(): { token: string; refreshToken: string; memberInfo: MemberInfo | null } {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) return JSON.parse(raw)
+  } catch { /* ignore */ }
+  return { token: '', refreshToken: '', memberInfo: null }
+}
 
-    // ===== Actions =====
-    /**
-     * 设置登录信息
-     */
-    const setLoginInfo = (newToken: string, newTokenHead: string, info?: MemberInfo) => {
-      token.value = newToken
-      tokenHead.value = newTokenHead
-      if (info) {
-        memberInfo.value = info
-      }
+function savePersisted(token: string, refreshToken: string, memberInfo: MemberInfo | null) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ token, refreshToken, memberInfo }))
+  } catch { /* ignore */ }
+}
+
+export const useMemberStore = defineStore('member', () => {
+  const persisted = loadPersisted()
+
+  const token = ref<string>(persisted.token)
+  const refreshToken = ref<string>(persisted.refreshToken)
+  const memberInfo = ref<MemberInfo | null>(persisted.memberInfo)
+
+  watch([token, refreshToken, memberInfo], () => {
+    savePersisted(token.value, refreshToken.value, memberInfo.value)
+  }, { deep: true })
+
+  const isLoggedIn = computed(() => !!token.value)
+  const displayName = computed(() => memberInfo.value?.nickname || memberInfo.value?.email || '')
+  const avatar = computed(() => memberInfo.value?.avatarUrl || '')
+  const integration = computed(() => memberInfo.value?.integration || 0)
+
+  const setLoginInfo = (accessToken: string, refresh: string, info?: MemberInfo) => {
+    token.value = accessToken
+    refreshToken.value = refresh
+    if (info) memberInfo.value = info
+  }
+
+  const setMemberInfo = (info: MemberInfo) => {
+    memberInfo.value = info
+  }
+
+  const memberLogout = async () => {
+    const rt = refreshToken.value
+    token.value = ''
+    refreshToken.value = ''
+    memberInfo.value = null
+    if (rt) {
+      try { await logoutAPI(rt) } catch { /* ignore */ }
     }
+  }
 
-    /**
-     * 设置会员信息
-     */
-    const setMemberInfo = (info: MemberInfo) => {
-      memberInfo.value = info
-    }
-
-    /**
-     * 会员登出
-     */
-    const memberLogout = () => {
-      token.value = ''
-      tokenHead.value = 'Bearer '
-      memberInfo.value = null
-    }
-
-    return {
-      token,
-      tokenHead,
-      memberInfo,
-      isLoggedIn,
-      displayName,
-      avatar,
-      integration,
-      setLoginInfo,
-      setMemberInfo,
-      memberLogout,
-    }
-  },
-  {
-    persist: true,
-  },
-)
+  return {
+    token,
+    refreshToken,
+    memberInfo,
+    isLoggedIn,
+    displayName,
+    avatar,
+    integration,
+    setLoginInfo,
+    setMemberInfo,
+    memberLogout,
+  }
+})

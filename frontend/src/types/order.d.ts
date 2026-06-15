@@ -1,6 +1,6 @@
 /** 订单 */
 export interface OmsOrder {
-  id?: number
+  id?: string
   memberId?: number
   couponId?: number
   orderSn?: string
@@ -54,7 +54,7 @@ export interface OmsOrderDetail extends OmsOrder {
 
 /** 订单商品 */
 export interface OmsOrderItem {
-  id?: number
+  id?: string
   orderId?: number
   orderSn?: string
   productId?: number
@@ -78,7 +78,7 @@ export interface OmsOrderItem {
 
 /** 订单操作记录 */
 export interface OmsOrderOperateHistory {
-  id?: number
+  id?: string
   orderId?: number
   operateMan?: string
   createTime?: string

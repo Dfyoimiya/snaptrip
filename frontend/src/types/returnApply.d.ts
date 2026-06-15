@@ -1,6 +1,6 @@
 /** 退货申请 */
 export interface OmsOrderReturnApply {
-  id?: number
+  id?: string
   orderId?: number
   productId?: number
   orderSn?: string
@@ -30,7 +30,7 @@ export interface OmsOrderReturnApply {
 
 /** 退货申请查询参数 */
 export interface ReturnApplyQueryParam {
-  id?: number
+  id?: string
   status?: number
   createTime?: string
   handleMan?: string

@@ -17,7 +17,7 @@ const defaultStatusOptions = [
 ]
 
 const listQuery = ref({
-  id: undefined as number | undefined,
+  id: undefined as string | undefined,
   status: undefined as number | undefined,
   createTime: '',
   handleMan: '',
@@ -53,8 +53,8 @@ const fetchData = async () => {
       page: listQuery.value.pageNum,
       page_size: listQuery.value.pageSize,
     })
-    list.value = res.items || []
-    total.value = res.total || 0
+    list.value = res.data.items || []
+    total.value = res.data.total || 0
   } catch {
     list.value = []
     total.value = 0
@@ -67,7 +67,10 @@ onMounted(() => { fetchData() })
 
 const handleResetSearch = () => { listQuery.value = { id: undefined, status: undefined, createTime: '', handleMan: '', handleTime: '', pageNum: 1, pageSize: 10 }; fetchData() }
 const handleSearchList = () => { listQuery.value.pageNum = 1; fetchData() }
-const handleViewDetail = (_index: number, row: OmsOrderReturnApply) => { router.push({ path: '/oms/returnApplyDetail', query: { id: row.id } }) }
+const handleViewDetail = (_index: number, row: OmsOrderReturnApply) => {
+  if (!row.id) return ElMessage.error('退货申请ID不能为空')
+  router.push({ path: '/oms/returnApplyDetail', query: { id: row.id } })
+}
 
 const handleBatchOperate = async () => {
   if (!multipleSelection.value || multipleSelection.value.length < 1) { ElMessage({ message: '请选择要操作的申请', type: 'warning', duration: 1000 }); return }
@@ -75,7 +78,7 @@ const handleBatchOperate = async () => {
     await ElMessageBox.confirm('是否要进行删除操作?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
     try {
       const ids = multipleSelection.value.map(item => item.id!)
-      await returnApplyDeleteByIdsAPI({ ids: ids.join(',') })
+      await returnApplyDeleteByIdsAPI(ids)
       ElMessage({ type: 'success', message: '删除成功!' })
       fetchData()
     } catch {

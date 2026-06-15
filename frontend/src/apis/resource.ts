@@ -19,11 +19,11 @@ export function resourceCreateAPI(data: UmsResource) {
   return request<CommonResult<number>>({ url: '/resource/create', method: 'post', data })
 }
 
-export function resourceUpdateByIdAPI(id: number, data: UmsResource) {
+export function resourceUpdateByIdAPI(id: string, data: UmsResource) {
   return request<CommonResult<number>>({ url: '/resource/update/' + id, method: 'post', data })
 }
 
-export function resourceDeleteByIdAPI(id: number) {
+export function resourceDeleteByIdAPI(id: string) {
   return request<CommonResult<number>>({ url: '/resource/delete/' + id, method: 'post' })
 }
 
@@ -31,10 +31,10 @@ export function resourceCategoryCreateAPI(data: UmsResourceCategory) {
   return request<CommonResult<number>>({ url: '/resourceCategory/create', method: 'post', data })
 }
 
-export function resourceCategoryUpdateByIdAPI(id: number, data: UmsResourceCategory) {
+export function resourceCategoryUpdateByIdAPI(id: string, data: UmsResourceCategory) {
   return request<CommonResult<number>>({ url: '/resourceCategory/update/' + id, method: 'post', data })
 }
 
-export function resourceCategoryDeleteByIdAPI(id: number) {
+export function resourceCategoryDeleteByIdAPI(id: string) {
   return request<CommonResult<number>>({ url: '/resourceCategory/delete/' + id, method: 'post' })
 }

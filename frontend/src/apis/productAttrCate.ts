@@ -1,34 +1,25 @@
-import type { CommonResult, CommonPage } from '@/types/common'
-import type { PmsProductAttributeCategory, PmsProductAttributeCategoryExt } from '@/types/productAttr'
+import type { CommonResult } from '@/types/common'
+import type { PmsProductAttributeCategoryExt } from '@/types/productAttr'
 import request from '@/utils/request'
 
 /**
  * 获取所有商品属性分类及其下属性
+ * GET /admin/product-attributes/categories
  */
 export function productAttributeCategoryListWithAttrAPI() {
   return request<CommonResult<PmsProductAttributeCategoryExt[]>>({
-    url: '/productAttribute/category/list/withAttr',
+    url: '/admin/product-attributes/categories',
     method: 'get',
-  })
-}
-
-/**
- * 分页获取所有商品属性分类
- */
-export function getProductAttributeCategoryListAPI(params: { pageNum: number; pageSize: number }) {
-  return request<CommonResult<CommonPage<PmsProductAttributeCategory>>>({
-    url: '/productAttribute/category/list',
-    method: 'get',
-    params,
   })
 }
 
 /**
  * 添加商品属性分类
+ * POST /admin/product-attributes/categories?name=...
  */
 export function productAttributeCategoryCreateAPI(name: string) {
   return request<CommonResult<number>>({
-    url: '/productAttribute/category/create',
+    url: '/admin/product-attributes/categories',
     method: 'post',
     params: { name },
   })
@@ -36,21 +27,23 @@ export function productAttributeCategoryCreateAPI(name: string) {
 
 /**
  * 修改商品属性分类
+ * PUT /admin/product-attributes/categories/{id}?name=...
  */
-export function productAttributeCategoryUpdateAPI(id: number, name: string) {
+export function productAttributeCategoryUpdateAPI(id: string, name: string) {
   return request<CommonResult<number>>({
-    url: '/productAttribute/category/update/' + id,
-    method: 'post',
+    url: '/admin/product-attributes/categories/' + id,
+    method: 'put',
     params: { name },
   })
 }
 
 /**
  * 删除单个商品属性分类
+ * DELETE /admin/product-attributes/categories/{id}
  */
-export function productAttributeCategoryDeleteById(id: number) {
+export function productAttributeCategoryDeleteById(id: string) {
   return request<CommonResult<number>>({
-    url: '/productAttribute/category/delete/' + id,
-    method: 'get',
+    url: '/admin/product-attributes/categories/' + id,
+    method: 'delete',
   })
 }

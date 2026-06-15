@@ -33,8 +33,8 @@ async function fetchData() {
       page_size: listQuery.value.pageSize,
     }
     const data = await getRoleListAPI(params)
-    list.value = data.items || []
-    total.value = data.total || 0
+    list.value = data.data.items || []
+    total.value = data.data.total || 0
   } catch (err: any) {
     ElMessage.error(err?.message || '获取列表失败')
   } finally {
@@ -85,8 +85,14 @@ const handleDialogConfirm = async () => {
   }
 }
 
-const handleSelectMenu = (_index: number, row: UmsRole) => { router.push({ path: '/ums/allocMenu', query: { roleId: row.id } }) }
-const handleSelectResource = (_index: number, row: UmsRole) => { router.push({ path: '/ums/allocResource', query: { roleId: row.id } }) }
+const handleSelectMenu = (_index: number, row: UmsRole) => {
+  if (!row.id) return ElMessage.error('角色ID不能为空')
+  router.push({ path: '/ums/allocMenu', query: { roleId: row.id, roleName: row.name } })
+}
+const handleSelectResource = (_index: number, row: UmsRole) => {
+  if (!row.id) return ElMessage.error('角色ID不能为空')
+  router.push({ path: '/ums/allocResource', query: { roleId: row.id, roleName: row.name } })
+}
 </script>
 
 <template>

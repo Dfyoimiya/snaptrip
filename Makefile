@@ -10,6 +10,8 @@ init: .env docker-compose.override.yml ## 初始化项目（复制配置、安�
 	uv sync --extra dev
 	@echo "==> 安装前端依赖 (B-end admin)..."
 	cd frontend && npm install
+	@echo "==> 安装前端依赖 (C-end mall-web)..."
+	cd mall-web && npm install
 	@echo "==> 初始化完成! 运行 make dev 启动开发环境"
 
 .env:
@@ -43,8 +45,11 @@ backend-dev: ## 仅启动后端（本地）
 backend-shell: ## 进入 Marketplace 容器
 	docker compose exec marketplace bash
 
-frontend-dev: ## 仅启动前端（本地 Vite HMR）
+frontend-dev: ## 仅启动前端（本地 Vite HMR — B端）
 	cd frontend && npm run dev
+
+mall-web-dev: ## 仅启动C端前端（本地 Vite HMR — C端购物）
+	cd mall-web && npm run dev
 
 frontend-shell: ## 进入前端容器
 	docker compose exec frontend sh
@@ -102,6 +107,12 @@ migrate-up: ## 执行数据库迁移
 
 migrate-down: ## 回滚数据库迁移
 	cd backend && uv run alembic downgrade -1
+
+seed: migrate-up ## 填充开发数据（用户、菜单、商品等）
+	cd backend && uv run python scripts/seed_dev.py
+
+dev-init: migrate-up seed ## 完整初始化开发数据库（迁移 + 种子数据）
+	@echo "==> 开发数据库初始化完成!"
 
 # ===== 清理 =====
 

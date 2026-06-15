@@ -6,7 +6,7 @@ export interface ProductAttrInfo {
 
 /** 商品属性分类 */
 export interface PmsProductAttributeCategory {
-  id?: number
+  id?: string
   name: string
   attributeCount?: number
   paramCount?: number
@@ -19,7 +19,7 @@ export interface PmsProductAttributeCategoryExt extends PmsProductAttributeCateg
 
 /** 商品属性 */
 export interface PmsProductAttribute {
-  id?: number
+  id?: string
   productAttributeCategoryId: number
   name: string
   selectType?: number

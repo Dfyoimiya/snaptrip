@@ -69,7 +69,10 @@ async def get_current_user(
     token: str | None = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
+    import logging
+    _logger = logging.getLogger(__name__)
     if token is None:
+        _logger.warning("[get_current_user] No token provided")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="未提供认证令牌",
@@ -77,11 +80,13 @@ async def get_current_user(
     try:
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
     except JWTError:
+        _logger.warning("[get_current_user] JWT decode failed, key=%s...", settings.JWT_SECRET_KEY[:8])
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="无效的认证令牌",
         ) from None
     user_id_str: str | None = payload.get("sub")
+    _logger.info("[get_current_user] JWT valid, sub=%s", user_id_str)
     if user_id_str is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -97,6 +102,7 @@ async def get_current_user(
     result = await db.execute(select(User).where(User.id == uid))
     user = result.scalar_one_or_none()
     if user is None or not user.is_active:
+        _logger.warning("[get_current_user] User not found or inactive: id=%s, exists=%s, active=%s", user_id_str, user is not None, user.is_active if user else "N/A")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户不存在或已禁用",

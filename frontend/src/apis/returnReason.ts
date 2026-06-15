@@ -5,47 +5,40 @@ import type { PageParam } from '@/types/common'
 
 export function getReturnReasonListAPI(params: PageParam) {
   return request<CommonResult<CommonPage<OmsOrderReturnReason>>>({
-    url: '/returnReason/list',
+    url: '/admin/return-reasons',
     method: 'get',
     params,
   })
 }
 
 export function returnReasonCreateAPI(data: OmsOrderReturnReason) {
-  return request<CommonResult<number>>({
-    url: '/returnReason/create',
-    method: 'post',
-    data,
-  })
-}
-
-export function returnReasonUpdateAPI(id: number, data: OmsOrderReturnReason) {
-  return request<CommonResult<number>>({
-    url: '/returnReason/update/' + id,
-    method: 'post',
-    data,
-  })
-}
-
-export function getReturnReasonByIdAPI(id: number) {
   return request<CommonResult<OmsOrderReturnReason>>({
-    url: '/returnReason/' + id,
-    method: 'get',
+    url: '/admin/return-reasons',
+    method: 'post',
+    data,
   })
 }
 
-export function returnReasonDeleteByIdsAPI(params: { ids: string }) {
-  return request<CommonResult<number>>({
-    url: '/returnReason/delete',
-    method: 'post',
-    params,
+export function returnReasonUpdateAPI(id: string, data: OmsOrderReturnReason) {
+  return request<CommonResult<OmsOrderReturnReason>>({
+    url: '/admin/return-reasons/' + id,
+    method: 'put',
+    data,
   })
 }
 
-export function returnReasonUpdateStatusAPI(params: { ids: string; status: number }) {
-  return request<CommonResult<number>>({
-    url: '/returnReason/update/status',
-    method: 'post',
-    params,
+export function returnReasonDeleteByIdsAPI(ids: string[]) {
+  const query = ids.map(id => `ids=${encodeURIComponent(id)}`).join('&')
+  return request<CommonResult<null>>({
+    url: `/admin/return-reasons?${query}`,
+    method: 'delete',
+  })
+}
+
+export function returnReasonUpdateStatusAPI(ids: string[], status: number) {
+  const query = ids.map(id => `ids=${encodeURIComponent(id)}`).join('&')
+  return request<CommonResult<null>>({
+    url: `/admin/return-reasons/status?${query}&status=${status}`,
+    method: 'patch',
   })
 }

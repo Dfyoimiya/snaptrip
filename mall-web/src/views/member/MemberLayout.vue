@@ -93,7 +93,7 @@ const avatarLetter = computed(() => {
             </div>
             <div class="w-px h-6 bg-red-100" />
             <div class="text-center flex-1">
-              <div class="text-sm font-bold text-orange-500">{{ memberStore.memberInfo?.couponCount || 0 }}</div>
+              <div class="text-sm font-bold text-orange-500">{{ (memberStore.memberInfo as any)?.couponCount || 0 }}</div>
               <div class="text-[10px] text-gray-400">优惠券</div>
             </div>
             <div class="w-px h-6 bg-red-100" />

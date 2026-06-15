@@ -22,7 +22,7 @@ export function flashCreateAPI(data: SmsFlashPromotion) {
 }
 
 /** 编辑秒杀活动 —— PUT /admin/flash-promotions/{id} */
-export function flashUpdateByIdAPI(id: number, data: SmsFlashPromotion) {
+export function flashUpdateByIdAPI(id: string, data: SmsFlashPromotion) {
   return request<CommonResult<number>>({
     url: '/admin/flash-promotions/' + id,
     method: 'put',
@@ -31,19 +31,19 @@ export function flashUpdateByIdAPI(id: number, data: SmsFlashPromotion) {
 }
 
 /** 删除秒杀活动 —— DELETE /admin/flash-promotions/{id} */
-export function flashDeleteByIdAPI(id: number) {
+export function flashDeleteByIdAPI(id: string) {
   return request<CommonResult<number>>({
     url: '/admin/flash-promotions/' + id,
     method: 'delete',
   })
 }
 
-/** 切换场次状态 —— PATCH /admin/flash-promotions/{promoId}/sessions/{sessionId}/status */
-export function flashUpdateStatusByIdAPI(id: number, params: { status: number }) {
+/** 切换活动状态 —— PUT /admin/flash-promotions/{id} (body: {status}) */
+export function flashUpdateStatusByIdAPI(id: string, params: { status: number }) {
   return request<CommonResult<number>>({
-    url: '/admin/flash-promotions/' + id + '/sessions/status',
-    method: 'patch',
-    params,
+    url: '/admin/flash-promotions/' + id,
+    method: 'put',
+    data: { status: params.status },
   })
 }
 

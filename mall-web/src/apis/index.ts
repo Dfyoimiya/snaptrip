@@ -20,9 +20,5 @@ export * from './address'
 export * from './brand'
 // 优惠券 API
 export * from './coupon'
-// 会员品牌关注 API
-export * from './memberBrandAttention'
 // 会员商品收藏 API
 export * from './memberProductCollection'
-// 会员浏览记录 API
-export * from './memberReadHistory'

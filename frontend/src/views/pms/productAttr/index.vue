@@ -21,13 +21,13 @@ const loading = ref(false)
 
 const cateDialogVisible = ref(false)
 const cateDialogTitle = ref('')
-const cateForm = ref<{ id?: number; name: string }>({ id: undefined, name: '' })
+const cateForm = ref<{ id?: string; name: string }>({ id: undefined, name: '' })
 
 async function fetchCateList() {
   loading.value = true
   try {
     const data = await productAttributeCategoryListWithAttrAPI()
-    attrCateList.value = data || []
+    attrCateList.value = data.data || []
     if (attrCateList.value.length > 0 && !attrCateList.value.find(c => c.id === currentCateId.value)) {
       currentCateId.value = attrCateList.value[0].id!
     }
@@ -80,7 +80,7 @@ async function handleSaveCate() {
 }
 
 // ========== 属性列表 ==========
-const currentCateId = ref(1)
+const currentCateId = ref<string>('')
 const activeTab = ref('spec') // spec | param
 
 const filteredAttrList = computed(() => {
@@ -108,7 +108,7 @@ const attrForm = ref<PmsProductAttribute>({
 
 function handleAddAttr() {
   attrDialogTitle.value = '添加' + (activeTab.value === 'spec' ? '规格' : '参数')
-  attrForm.value = { id: undefined, productAttributeCategoryId: currentCateId.value, name: '', selectType: 1, inputType: 0, inputList: '', sort: 0, type: activeTab.value === 'spec' ? 0 : 1, handAddStatus: 0, searchType: 0, relatedStatus: 0 }
+  attrForm.value = { id: undefined, productAttributeCategoryId: Number(currentCateId.value) || 1, name: '', selectType: 1, inputType: 0, inputList: '', sort: 0, type: activeTab.value === 'spec' ? 0 : 1, handAddStatus: 0, searchType: 0, relatedStatus: 0 }
   attrDialogVisible.value = true
 }
 function handleEditAttr(row: any) {
@@ -119,7 +119,7 @@ function handleEditAttr(row: any) {
 async function handleDeleteAttr(row: any) {
   try {
     await ElMessageBox.confirm(`确定删除「${row.name}」吗？`, '提示', { type: 'warning' })
-    await deleteProductAttributeAPI({ ids: String(row.id) })
+    await deleteProductAttributeAPI(String(row.id))
     ElMessage.success('删除成功')
     fetchCateList()
   } catch (err: any) {
@@ -143,8 +143,8 @@ async function handleSaveAttr() {
   }
 }
 
-function selectCateType(cateId: number) {
-  currentCateId.value = cateId
+function selectCateType(cateId: string | undefined) {
+  currentCateId.value = cateId || ''
 }
 </script>
 
@@ -256,27 +256,27 @@ function selectCateType(cateId: number) {
         </el-form-item>
         <el-form-item label="录入方式">
           <el-radio-group v-model="attrForm.inputType">
-            <el-radio :label="0">手动录入</el-radio>
-            <el-radio :label="1">从可选值列表选择</el-radio>
+            <el-radio :value="0">手动录入</el-radio>
+            <el-radio :value="1">从可选值列表选择</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="可选值类型">
           <el-radio-group v-model="attrForm.selectType">
-            <el-radio :label="0">单选</el-radio>
-            <el-radio :label="1">多选</el-radio>
-            <el-radio :label="2">唯一</el-radio>
+            <el-radio :value="0">单选</el-radio>
+            <el-radio :value="1">多选</el-radio>
+            <el-radio :value="2">唯一</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="能否检索">
           <el-radio-group v-model="attrForm.searchType">
-            <el-radio :label="1">是</el-radio>
-            <el-radio :label="0">否</el-radio>
+            <el-radio :value="1">是</el-radio>
+            <el-radio :value="0">否</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="支持手动新增">
           <el-radio-group v-model="attrForm.handAddStatus">
-            <el-radio :label="1">是</el-radio>
-            <el-radio :label="0">否</el-radio>
+            <el-radio :value="1">是</el-radio>
+            <el-radio :value="0">否</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="排序">

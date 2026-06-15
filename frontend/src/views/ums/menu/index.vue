@@ -17,14 +17,14 @@ const list = ref<UmsMenuNode[]>([])
 const listLoading = ref(false)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
-const menu = ref<UmsMenu>({ parentId: 0, title: '', name: '', icon: '', sort: 0, hidden: 0 })
+const menu = ref<UmsMenu>({ parentId: '0', title: '', name: '', icon: '', sort: 0, hidden: 0 })
 const parentOptions = ref([{ label: '无上级菜单', value: 0 }])
 
 async function fetchList() {
   listLoading.value = true
   try {
     const data = await getMenuTreeListAPI()
-    list.value = data || []
+    list.value = data.data || []
   } catch (err: any) {
     ElMessage.error(err?.message || '获取菜单列表失败')
   } finally {

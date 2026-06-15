@@ -380,6 +380,20 @@ class OrderService:
         await self.db.flush()
         return await self.get_detail(order.id)
 
+    async def admin_delete(self, order_id: UUID) -> None:
+        """软删除订单（设置 delete_status=1）"""
+        from app.models.order.order import OmsOrder
+
+        stmt = (
+            update(OmsOrder)
+            .where(OmsOrder.id == order_id, OmsOrder.delete_status == 0)
+            .values(delete_status=1)
+        )
+        result = await self.db.execute(stmt)
+        if result.rowcount == 0:  # type: ignore[attr-defined]
+            from app.core.exceptions import OrderNotFoundError
+            raise OrderNotFoundError(str(order_id))
+
     # =========================================================================
     #  查询
     # =========================================================================

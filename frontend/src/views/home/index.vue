@@ -37,7 +37,7 @@ const shortcuts = ref([
 ])
 
 // 订单状态统计
-const orderStatusStats = ref<{ label: string; count: number; type: string }[]>([])
+const orderStatusStats = ref<{ label: string; count: number; type: 'primary' | 'success' | 'warning' | 'info' | 'danger' }[]>([])
 
 // 待办事项
 const todos = ref([
@@ -52,8 +52,8 @@ const todos = ref([
 // 最新订单
 const latestOrders = ref<{ id: number; orderSn: string; member: string; amount: number; status: number; statusLabel: string }[]>([])
 
-const orderStatusType = (status: number) => {
-  const map: Record<number, string> = { 0: 'warning', 1: 'primary', 2: 'success' }
+const orderStatusType = (status: number): 'primary' | 'success' | 'warning' | 'info' | 'danger' => {
+  const map: Record<number, 'primary' | 'success' | 'warning' | 'info' | 'danger'> = { 0: 'warning', 1: 'primary', 2: 'success' }
   return map[status] || 'info'
 }
 
@@ -72,29 +72,25 @@ async function fetchData() {
   loading.value = true
   try {
     const data = await getDashboardData()
-    // 更新核心统计
-    coreStats.value[0].value = data.today_orders
-    coreStats.value[1].value = data.today_revenue_display || ('¥' + (data.today_revenue || 0).toLocaleString())
-    coreStats.value[2].value = data.new_members
-    coreStats.value[3].value = data.pending_returns
-    // 订单状态统计
-    if (data.order_status_counts && data.order_status_counts.length) {
-      orderStatusStats.value = data.order_status_counts
+    // 核心指标 —— 来自 /admin/stats/overview
+    if (data.overview) {
+      coreStats.value[0].value = data.overview.todayOrderCount ?? 0
+      coreStats.value[1].value = '¥' + (data.overview.todaySalesAmount ?? 0).toLocaleString()
+      coreStats.value[2].value = data.overview.todayNewMemberCount ?? 0
+      coreStats.value[3].value = 0  // 后端暂未提供待处理退货
     }
-    // 商品销售排行
-    if (data.top_products && data.top_products.length) {
-      topProducts.value = data.top_products
+    // 本周销售趋势 —— 来自 /admin/stats/sales
+    if (data.salesStats.length) {
+      weekDays.value = data.salesStats.map(s => s.date?.slice(5) || '')  // MM-DD
+      weekSales.value = data.salesStats.map(s => s.amount ?? 0)
     }
-    // 最新订单
-    if (data.latest_orders && data.latest_orders.length) {
-      latestOrders.value = data.latest_orders
-    }
-    // 本周销售趋势
-    if (data.week_days && data.week_days.length) {
-      weekDays.value = data.week_days
-    }
-    if (data.week_sales && data.week_sales.length) {
-      weekSales.value = data.week_sales
+    // 商品销售排行 —— 来自 /admin/stats/products
+    if (data.productRank.length) {
+      topProducts.value = data.productRank.map(p => ({
+        name: p.productName || '',
+        sales: p.saleCount ?? 0,
+        amount: p.amount ?? 0,
+      }))
     }
   } finally {
     loading.value = false
@@ -179,7 +175,7 @@ onMounted(() => {
             <div v-for="(p, i) in topProducts" :key="p.name" class="rank-row">
               <div class="rank-num" :class="i < 3 ? 'top' : ''">{{ i + 1 }}</div>
               <div class="rank-name">{{ p.name }}</div>
-              <el-progress :percentage="Math.round((p.sales / topProducts[0].sales) * 100)" :stroke-width="8" :show-text="false" style="flex: 1" />
+              <el-progress :percentage="topProducts[0].sales ? Math.round((p.sales / topProducts[0].sales) * 100) : 0" :stroke-width="8" :show-text="false" style="flex: 1" />
               <div class="rank-sales">{{ p.sales }}单</div>
               <div class="rank-amount">¥{{ (p.amount / 10000).toFixed(1) }}万</div>
             </div>

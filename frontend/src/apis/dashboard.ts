@@ -1,21 +1,22 @@
-import request from '@/utils/request'
+import { getStatsOverviewAPI, getSalesStatsAPI, getProductRankAPI } from './stats'
+import type { SalesStatItem, ProductRankItem, StatsOverview } from './stats'
 
 export interface DashboardData {
-  today_orders: number
-  today_revenue: number
-  today_revenue_display: string
-  pending_returns: number
-  new_members: number
-  order_status_counts: { label: string; count: number; type: string }[]
-  top_products: { name: string; sales: number; amount: number }[]
-  week_days: string[]
-  week_sales: number[]
-  latest_orders: { id: number; orderSn: string; member: string; amount: number; status: number; statusLabel: string }[]
+  overview: StatsOverview | null
+  salesStats: SalesStatItem[]
+  productRank: ProductRankItem[]
 }
 
-export function getDashboardData() {
-  return request<DashboardData>({
-    url: '/admin/dashboard',
-    method: 'get',
-  })
+/** 仪表盘聚合数据 —— 并行调用 3 个真实 API */
+export async function getDashboardData(): Promise<DashboardData> {
+  const [overviewRes, salesRes, rankRes] = await Promise.all([
+    getStatsOverviewAPI(),
+    getSalesStatsAPI(7),
+    getProductRankAPI(10),
+  ])
+  return {
+    overview: overviewRes.data,
+    salesStats: salesRes.data || [],
+    productRank: rankRes.data || [],
+  }
 }

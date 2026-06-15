@@ -11,8 +11,8 @@ const router = useRouter()
 const listQuery = ref({
   keyword: '',
   productSn: '',
-  productCategoryId: undefined as number | undefined,
-  brandId: undefined as number | undefined,
+  productCategoryId: undefined as string | number | undefined,
+  brandId: undefined as string | number | undefined,
   publishStatus: undefined as number | undefined,
   verifyStatus: undefined as number | undefined,
   page: 1,
@@ -109,7 +109,7 @@ function handleSelectionChange(val: any[]) {
 // ========== 状态变更 ==========
 async function handlePublishStatusChange(_index: number, row: any) {
   try {
-    await productUpdatePublishStatusAPI({ ids: String(row.id), publishStatus: row.publishStatus })
+    await productUpdatePublishStatusAPI(String(row.id), row.publishStatus)
     ElMessage.success('上架状态已更新')
   } catch {
     ElMessage.error('上架状态更新失败')
@@ -117,7 +117,7 @@ async function handlePublishStatusChange(_index: number, row: any) {
 }
 async function handleNewStatusChange(_index: number, row: any) {
   try {
-    await productUpdateNewStatusAPI({ ids: String(row.id), newStatus: row.newStatus })
+    await productUpdateNewStatusAPI(String(row.id), row.newStatus)
     ElMessage.success('新品状态已更新')
   } catch {
     ElMessage.error('新品状态更新失败')
@@ -125,7 +125,7 @@ async function handleNewStatusChange(_index: number, row: any) {
 }
 async function handleRecommendStatusChange(_index: number, row: any) {
   try {
-    await productUpdateRecommendStatusAPI({ ids: String(row.id), recommendStatus: row.recommandStatus })
+    await productUpdateRecommendStatusAPI(String(row.id), row.recommandStatus)
     ElMessage.success('推荐状态已更新')
   } catch {
     ElMessage.error('推荐状态更新失败')
@@ -140,12 +140,13 @@ function handleAddProduct() {
   router.push({ path: '/pms/addProduct' })
 }
 function handleUpdateProduct(_index: number, row: any) {
+  if (!row.id) return ElMessage.error('商品ID不能为空')
   router.push({ path: '/pms/updateProduct', query: { id: row.id } })
 }
 function handleDelete(_index: number, row: any) {
   ElMessageBox.confirm('是否要进行删除操作?', '提示', { type: 'warning' }).then(async () => {
     try {
-      await productUpdateDeleteStatusAPI({ ids: String(row.id), deleteStatus: 1 })
+      await productUpdateDeleteStatusAPI(String(row.id))
       ElMessage.success('删除成功')
       fetchList()
     } catch {
@@ -212,7 +213,7 @@ async function handleBatchOperate() {
         case 'recycle':
           // 逐个删除
           for (const id of ids) {
-            await productUpdateDeleteStatusAPI({ ids: String(id), deleteStatus: 1 })
+            await productUpdateDeleteStatusAPI(String(id))
           }
           ElMessage.success('批量操作成功')
           operateType.value = undefined
@@ -225,11 +226,11 @@ async function handleBatchOperate() {
       // 逐个调用状态变更接口
       for (const id of ids) {
         if (operateType.value === 'publishOn' || operateType.value === 'publishOff') {
-          await productUpdatePublishStatusAPI({ ids: String(id), publishStatus: status })
+          await productUpdatePublishStatusAPI(String(id), status)
         } else if (operateType.value === 'recommendOn' || operateType.value === 'recommendOff') {
-          await productUpdateRecommendStatusAPI({ ids: String(id), recommendStatus: status })
+          await productUpdateRecommendStatusAPI(String(id), status)
         } else if (operateType.value === 'newOn' || operateType.value === 'newOff') {
-          await productUpdateNewStatusAPI({ ids: String(id), newStatus: status })
+          await productUpdateNewStatusAPI(String(id), status)
         }
       }
       ElMessage.success('批量操作成功')

@@ -232,12 +232,12 @@ const handleNext = () => { mergeProductAttrValue(); mergeProductAttrPics(); emit
           <div v-for="(productAttr, idx) in state.selectProductAttr" :key="'productAttr' + idx">
             {{ productAttr.name }}：
             <el-checkbox-group v-if="productAttr.handAddStatus === 0" v-model="state.selectProductAttr[idx].values">
-              <el-checkbox v-for="item in getInputListArr(productAttr.inputList)" :label="item" :key="item" class="littleMarginLeft" />
+              <el-checkbox v-for="item in getInputListArr(productAttr.inputList)" :key="item" :value="item" class="littleMarginLeft">{{ item }}</el-checkbox>
             </el-checkbox-group>
             <div v-else>
               <el-checkbox-group v-model="state.selectProductAttr[idx].values">
                 <div v-for="(item, index) in state.selectProductAttr[idx].options" style="display: inline-flex;" class="littleMarginLeft" :key="'options' + index">
-                  <el-checkbox :label="item" :key="item"></el-checkbox>
+                  <el-checkbox :key="item" :value="item">{{ item }}</el-checkbox>
                   <el-button link type="primary" class="littleMarginLeft" @click="handleRemoveProductAttrValue(idx, index)">删除</el-button>
                 </div>
               </el-checkbox-group>

@@ -1,34 +1,19 @@
 import request from '@/utils/request'
 import type { CommonResult, CommonPage } from '@/types/common'
-import type { OmsOrderReturnApply, ReturnApplyQueryParam, OmsUpdateStatusParam } from '@/types/returnApply'
+import type { OmsOrderReturnApply, ReturnApplyQueryParam } from '@/types/returnApply'
 
 export function getReturnApplyListAPI(params: ReturnApplyQueryParam) {
   return request<CommonResult<CommonPage<OmsOrderReturnApply>>>({
-    url: '/returnApply/list',
+    url: '/admin/return-applies',
     method: 'get',
     params,
   })
 }
 
-export function getReturnApplyByIdAPI(id: number) {
-  return request<CommonResult<OmsOrderReturnApply>>({
-    url: '/returnApply/' + id,
-    method: 'get',
-  })
-}
-
-export function returnApplyUpdateStatusAPI(id: number, data: OmsUpdateStatusParam) {
-  return request<CommonResult<number>>({
-    url: '/returnApply/update/status/' + id,
-    method: 'post',
-    data,
-  })
-}
-
-export function returnApplyDeleteByIdsAPI(params: { ids: string }) {
-  return request<CommonResult<number>>({
-    url: '/returnApply/delete',
-    method: 'post',
-    params,
+export function returnApplyDeleteByIdsAPI(ids: string[]) {
+  const query = ids.map(id => `ids=${encodeURIComponent(id)}`).join('&')
+  return request<CommonResult<null>>({
+    url: `/admin/return-applies?${query}`,
+    method: 'delete',
   })
 }

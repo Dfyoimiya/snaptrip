@@ -2,7 +2,7 @@
  * 首页轮播广告
  */
 export interface SmsHomeAdvertise {
-  id?: number
+  id?: string
   name?: string
   type?: number // 0->PC 1->APP
   pic?: string

@@ -181,3 +181,11 @@ class FlashProductResponse(BaseModel):
     flash_limit: int
     sort: int
     model_config = {"from_attributes": True}
+
+
+class FlashProductUpdate(BaseModel):
+    """编辑秒杀商品 —— 全字段可选"""
+    flash_price: Decimal | None = Field(None, ge=0, max_digits=10, decimal_places=2)
+    flash_stock: int | None = Field(None, ge=1)
+    flash_limit: int | None = Field(None, ge=1)
+    sort: int | None = Field(None, ge=0)

@@ -31,6 +31,8 @@ export interface CartItem {
   productPic: string
   /** 商品价格 */
   price: number
+  /** 商品原价 */
+  originalPrice?: number
   /** 商品数量 */
   quantity: number
   /** 商品属性 JSON 字符串 */

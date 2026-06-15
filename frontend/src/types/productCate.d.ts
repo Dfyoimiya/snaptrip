@@ -1,7 +1,7 @@
 /** 商品分类 */
 export interface PmsProductCategory {
-  id?: number
-  parentId: number
+  id?: string
+  parentId: string
   name: string
   level?: number
   productCount?: number

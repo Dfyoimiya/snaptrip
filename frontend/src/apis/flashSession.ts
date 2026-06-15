@@ -3,7 +3,7 @@ import type { SmsFlashPromotionSession } from '@/types/flash'
 import request from '@/utils/request'
 
 /** 可选场次列表 —— GET /admin/flash-promotions/{promoId}/sessions */
-export function getFlashSessionSelectListAPI(params: { flashPromotionId: number }) {
+export function getFlashSessionSelectListAPI(params: { flashPromotionId: string }) {
   return request<CommonResult<SmsFlashPromotionSession[]>>({
     url: '/admin/flash-promotions/' + params.flashPromotionId + '/sessions',
     method: 'get',
@@ -11,7 +11,7 @@ export function getFlashSessionSelectListAPI(params: { flashPromotionId: number 
 }
 
 /** 所有场次列表 —— GET /admin/flash-promotions/sessions（带 promoId） */
-export function getFlashSessionListAPI(params?: { promotionId?: number }) {
+export function getFlashSessionListAPI(params?: { promotionId?: string }) {
   const base = '/admin/flash-promotions'
   const promoPath = params?.promotionId ? '/' + params.promotionId : ''
   return request<CommonResult<SmsFlashPromotionSession[]>>({
@@ -21,7 +21,7 @@ export function getFlashSessionListAPI(params?: { promotionId?: number }) {
 }
 
 /** 创建场次 —— POST /admin/flash-promotions/{promoId}/sessions */
-export function flashSessionCreateAPI(data: SmsFlashPromotionSession & { promotionId?: number }) {
+export function flashSessionCreateAPI(data: SmsFlashPromotionSession & { promotionId?: string }) {
   const promoPath = data.promotionId ? '/' + data.promotionId : ''
   return request<CommonResult<number>>({
     url: '/admin/flash-promotions' + promoPath + '/sessions',
@@ -31,7 +31,7 @@ export function flashSessionCreateAPI(data: SmsFlashPromotionSession & { promoti
 }
 
 /** 编辑场次 —— PUT /admin/flash-promotions/{promoId}/sessions/{id} */
-export function flashSessionUpdateByIdAPI(id: number, data: SmsFlashPromotionSession & { promotionId?: number }) {
+export function flashSessionUpdateByIdAPI(id: string, data: SmsFlashPromotionSession & { promotionId?: string }) {
   const promoPath = data.promotionId ? '/' + data.promotionId : ''
   return request<CommonResult<number>>({
     url: '/admin/flash-promotions' + promoPath + '/sessions/' + id,
@@ -41,7 +41,7 @@ export function flashSessionUpdateByIdAPI(id: number, data: SmsFlashPromotionSes
 }
 
 /** 删除场次 —— DELETE /admin/flash-promotions/{promoId}/sessions/{id} */
-export function flashSessionDeleteByIdAPI(id: number, params?: { promotionId?: number }) {
+export function flashSessionDeleteByIdAPI(id: string, params?: { promotionId?: string }) {
   const promoPath = params?.promotionId ? '/' + params.promotionId : ''
   return request<CommonResult<number>>({
     url: '/admin/flash-promotions' + promoPath + '/sessions/' + id,
@@ -50,7 +50,7 @@ export function flashSessionDeleteByIdAPI(id: number, params?: { promotionId?: n
 }
 
 /** 切换场次状态 —— PATCH /admin/flash-promotions/{promoId}/sessions/{id}/status */
-export function flashSessionUpdateStatusByIdAPI(id: number, params: { status: number; promotionId?: number }) {
+export function flashSessionUpdateStatusByIdAPI(id: string, params: { status: number; promotionId?: string }) {
   const promoPath = params.promotionId ? '/' + params.promotionId : ''
   return request<CommonResult<number>>({
     url: '/admin/flash-promotions' + promoPath + '/sessions/' + id + '/status',

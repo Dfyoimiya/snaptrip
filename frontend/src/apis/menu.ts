@@ -7,7 +7,7 @@ export function getMenuTreeListAPI() {
   return request<CommonResult<UmsMenuNode[]>>({ url: '/menu/treeList', method: 'get' })
 }
 
-export function getMenuListByParentIdAPI(parentId: number, params: PageParam) {
+export function getMenuListByParentIdAPI(parentId: string, params: PageParam) {
   return request<CommonResult<CommonPage<UmsMenu>>>({
     url: '/menu/list/' + parentId,
     method: 'get',
@@ -19,21 +19,21 @@ export function menuCreateAPI(data: UmsMenu) {
   return request<CommonResult<number>>({ url: '/menu/create', method: 'post', data })
 }
 
-export function menuUpdateByIdAPI(id: number, data: UmsMenu) {
+export function menuUpdateByIdAPI(id: string, data: UmsMenu) {
   return request<CommonResult<number>>({ url: '/menu/update/' + id, method: 'post', data })
 }
 
-export function menuDeleteByIdAPI(id: number) {
+export function menuDeleteByIdAPI(id: string) {
   return request<CommonResult<number>>({ url: '/menu/delete/' + id, method: 'post' })
 }
 
-export function getMenuByIdAPI(id: number) {
+export function getMenuByIdAPI(id: string) {
   return request<CommonResult<UmsMenu>>({
     url: '/menu/' + id,
     method: 'get',
   })
 }
 
-export function menuUpdateHiddenByIdAPI(id: number, params: { hidden: number }) {
+export function menuUpdateHiddenByIdAPI(id: string, params: { hidden: number }) {
   return request<CommonResult<number>>({ url: '/menu/updateHidden/' + id, method: 'post', params })
 }

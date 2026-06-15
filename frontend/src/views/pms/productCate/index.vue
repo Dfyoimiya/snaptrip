@@ -12,7 +12,7 @@ async function fetchData() {
   listLoading.value = true
   try {
     const res = await getProductCategoryListWithChildrenAPI()
-    cateList.value = res || []
+    cateList.value = res.data || []
   } finally {
     listLoading.value = false
   }
@@ -21,7 +21,7 @@ onMounted(() => { fetchData() })
 
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
-const cateForm = ref({ id: undefined as number | undefined, parentId: 0, name: '', productUnit: '', sort: 0, navStatus: 1, showStatus: 1, icon: '', keywords: '', description: '' })
+const cateForm = ref<{ id?: string; parentId: number; name: string; productUnit: string; sort: number; navStatus: number; showStatus: number; icon: string; keywords: string; description: string }>({ id: undefined, parentId: 0, name: '', productUnit: '', sort: 0, navStatus: 1, showStatus: 1, icon: '', keywords: '', description: '' })
 const parentOptions = ref([{ label: '无上级分类', value: 0 }])
 
 // 递归提取父级选项
@@ -57,18 +57,24 @@ async function handleDelete(row: any) {
   fetchData()
 }
 
-async function handleToggleNav(row: any) {
-  const newStatus = row.navStatus === 1 ? 0 : 1
-  await productCategoryUpdateNavStatusAPI({ ids: String(row.id), navStatus: newStatus })
-  ElMessage.success('导航栏显示状态已更新')
-  fetchData()
+async function handleToggleNav(row: any, newVal: number) {
+  try {
+    await productCategoryUpdateNavStatusAPI(String(row.id), newVal)
+    ElMessage.success('导航栏显示状态已更新')
+    fetchData()
+  } catch {
+    row.navStatus = newVal === 1 ? 0 : 1 // 恢复原值
+  }
 }
 
-async function handleToggleShow(row: any) {
-  const newStatus = row.showStatus === 1 ? 0 : 1
-  await productCategoryUpdateShowStatusAPI({ ids: String(row.id), showStatus: newStatus })
-  ElMessage.success('显示状态已更新')
-  fetchData()
+async function handleToggleShow(row: any, newVal: number) {
+  try {
+    await productCategoryUpdateShowStatusAPI(String(row.id), newVal)
+    ElMessage.success('显示状态已更新')
+    fetchData()
+  } catch {
+    row.showStatus = newVal === 1 ? 0 : 1 // 恢复原值
+  }
 }
 
 async function handleSaveCate() {
@@ -110,12 +116,12 @@ async function handleSaveCate() {
         <el-table-column label="数量单位" prop="productUnit" width="80" align="center" />
         <el-table-column label="导航栏" width="90" align="center">
           <template #default="{ row }">
-            <el-switch v-model="row.navStatus" :active-value="1" :inactive-value="0" @change="handleToggleNav(row)" />
+            <el-switch v-model="row.navStatus" :active-value="1" :inactive-value="0" @change="(val: number) => handleToggleNav(row, val)" />
           </template>
         </el-table-column>
         <el-table-column label="是否显示" width="90" align="center">
           <template #default="{ row }">
-            <el-switch v-model="row.showStatus" :active-value="1" :inactive-value="0" @change="handleToggleShow(row)" />
+            <el-switch v-model="row.showStatus" :active-value="1" :inactive-value="0" @change="(val: number) => handleToggleShow(row, val)" />
           </template>
         </el-table-column>
         <el-table-column label="排序" prop="sort" width="70" align="center" />
@@ -148,14 +154,14 @@ async function handleSaveCate() {
         </el-form-item>
         <el-form-item label="是否显示">
           <el-radio-group v-model="cateForm.showStatus">
-            <el-radio :label="1">是</el-radio>
-            <el-radio :label="0">否</el-radio>
+            <el-radio :value="1">是</el-radio>
+            <el-radio :value="0">否</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="导航栏显示">
           <el-radio-group v-model="cateForm.navStatus">
-            <el-radio :label="1">是</el-radio>
-            <el-radio :label="0">否</el-radio>
+            <el-radio :value="1">是</el-radio>
+            <el-radio :value="0">否</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="分类图标">

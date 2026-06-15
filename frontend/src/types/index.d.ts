@@ -8,7 +8,6 @@ export * from './productAttr'
 export * from './order'
 export * from './returnApply'
 export * from './returnReason'
-export * from './companyAddress'
 export * from './admin'
 export * from './role'
 export * from './resource'
@@ -23,8 +22,8 @@ export interface LoginForm {
 
 /** 菜单项（来自后端权限） */
 export interface MenuItem {
-  id: number
-  parentId: number
+  id: string
+  parentId: string
   title: string
   name: string
   icon?: string

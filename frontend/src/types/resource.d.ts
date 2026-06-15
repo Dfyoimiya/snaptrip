@@ -1,6 +1,6 @@
 /** 资源分类 */
 export interface UmsResourceCategory {
-  id?: number
+  id?: string
   name?: string
   sort?: number
   createTime?: string
@@ -8,7 +8,7 @@ export interface UmsResourceCategory {
 
 /** 资源 */
 export interface UmsResource {
-  id?: number
+  id?: string
   categoryId?: number
   name?: string
   url?: string

@@ -33,6 +33,7 @@ from app.models.promotion import (  # noqa: F401
     SmsFlashPromotionProduct,
     SmsFlashPromotionSession,
 )
+from app.models.menu import Menu, Resource, ResourceCategory  # noqa: F401
 from app.models.rbac import Permission, Role, RolePermission, UserRole  # noqa: F401
 from app.models.trip_history import TripHistory  # noqa: F401
 
@@ -66,5 +67,8 @@ __all__ = [
     "SmsFlashPromotionSession",
     "Checkpoint",
     "LLMUsageLog",
+    "Menu",
+    "Resource",
+    "ResourceCategory",
     "TripHistory",
 ]

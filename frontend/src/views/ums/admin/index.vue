@@ -27,8 +27,8 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 
 const allocDialogVisible = ref(false)
-const allocAdminId = ref<number>()
-const allocRoleIds = ref<number[]>([])
+const allocAdminId = ref<string>()
+const allocRoleIds = ref<string[]>([])
 const allRoleList = ref<UmsRole[]>([])
 
 async function fetchData() {
@@ -40,8 +40,8 @@ async function fetchData() {
       page_size: listQuery.value.pageSize,
     }
     const data = await getAdminListAPI(params)
-    list.value = data.items || []
-    total.value = data.total || 0
+    list.value = data.data.items || []
+    total.value = data.data.total || 0
   } catch (err: any) {
     ElMessage.error(err?.message || '获取列表失败')
   } finally {
@@ -101,9 +101,9 @@ const handleSelectRole = async (_index: number, row: UmsAdmin) => {
       getRoleListAllAPI(),
       getRoleByAdminIdAPI(row.id!),
     ])
-    allRoleList.value = roleData || []
+    allRoleList.value = roleData.data || []
     if (adminRoleData) {
-      allocRoleIds.value = adminRoleData.map((r: any) => r.id)
+      allocRoleIds.value = adminRoleData.data.map((r: any) => r.id)
     }
   } catch (err: any) {
     ElMessage.error(err?.message || '获取角色信息失败')

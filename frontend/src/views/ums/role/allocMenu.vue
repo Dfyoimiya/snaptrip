@@ -1,119 +1,52 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { getMenuTreeListAPI } from '@/apis/menu'
+import { getMenuByRoleIdAPI, roleAllocMenuAPI } from '@/apis/role'
 
 const route = useRoute()
 const router = useRouter()
 
-const roleId = ref<number>(Number(route.query.roleId) || 0)
+const roleId = ref('')
+const roleName = ref('')
 
-// 角色列表（用于显示角色名称）
-const roleMap: Record<number, string> = {
-  1: '超级管理员',
-  2: '商品管理员',
-  3: '订单管理员',
-  4: '会员管理员',
-  5: '运营人员',
-  6: '客服人员',
-  7: '财务人员',
-}
-
-// 所有菜单树
-const menuTree = ref([
-  {
-    id: 1,
-    title: '商品管理',
-    children: [
-      { id: 2, title: '商品列表' },
-      { id: 3, title: '添加商品' },
-      { id: 4, title: '商品分类' },
-      { id: 5, title: '商品类型' },
-      { id: 13, title: '品牌管理' },
-    ],
-  },
-  {
-    id: 6,
-    title: '订单管理',
-    children: [
-      { id: 7, title: '订单列表' },
-      { id: 8, title: '订单设置' },
-      { id: 9, title: '退货申请' },
-      { id: 14, title: '退货原因' },
-    ],
-  },
-  {
-    id: 10,
-    title: '会员管理',
-    children: [
-      { id: 11, title: '用户管理' },
-      { id: 12, title: '角色管理' },
-      { id: 15, title: '菜单管理' },
-      { id: 16, title: '资源管理' },
-    ],
-  },
-  {
-    id: 18,
-    title: '营销管理',
-    children: [
-      { id: 19, title: '优惠券' },
-      { id: 20, title: '秒杀活动' },
-      { id: 21, title: '品牌推荐' },
-    ],
-  },
-  {
-    id: 22,
-    title: '内容管理',
-    children: [
-      { id: 23, title: '轮播广告' },
-      { id: 24, title: '专题管理' },
-    ],
-  },
-  {
-    id: 25,
-    title: '系统设置',
-    children: [
-      { id: 26, title: '文件存储' },
-    ],
-  },
-])
-
-// 每个角色已分配的菜单ID（模拟角色-菜单关联数据）
-const roleMenuMap: Record<number, number[]> = {
-  1: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 18, 19, 20, 21, 22, 23, 24, 25, 26], // 超级管理员：全部
-  2: [1, 2, 3, 4, 5, 13], // 商品管理员
-  3: [6, 7, 8, 9, 14], // 订单管理员
-  4: [10, 11, 12, 15, 16], // 会员管理员
-  5: [1, 2, 4, 6, 7, 18, 19, 20, 21, 22, 23, 24, 25, 26], // 运营人员
-  6: [6, 7, 9, 10, 11], // 客服人员
-  7: [6, 7, 8], // 财务人员
-}
-
-const checkedKeys = ref<number[]>([])
+const menuTree = ref<any[]>([])
+const checkedKeys = ref<string[]>([])
 const treeRef = ref()
 const loading = ref(false)
 const saving = ref(false)
 
-function loadRoleMenus() {
+async function loadMenuData() {
   loading.value = true
-  setTimeout(() => {
-    checkedKeys.value = roleMenuMap[roleId.value] || []
+  try {
+    const [tree, roleMenus] = await Promise.all([
+      getMenuTreeListAPI(),
+      getMenuByRoleIdAPI(roleId.value),
+    ])
+    menuTree.value = (tree.data as any) || []
+    const roleMenuData = roleMenus.data || []
+    checkedKeys.value = roleMenuData.map((m: any) => m.id).filter(Boolean)
+  } catch {
+    ElMessage.error('加载菜单数据失败')
+  } finally {
     loading.value = false
-  }, 200)
+  }
 }
 
 async function handleSave() {
   saving.value = true
-  const checked = treeRef.value?.getCheckedKeys() || []
-  const halfChecked = treeRef.value?.getHalfCheckedKeys() || []
-  const allChecked = [...checked, ...halfChecked]
-
-  // 模拟保存
-  setTimeout(() => {
-    roleMenuMap[roleId.value] = allChecked
-    ElMessage.success(`已为角色"${roleMap[roleId.value] || '未知'}"分配 ${allChecked.length} 个菜单权限`)
+  try {
+    const checked = treeRef.value?.getCheckedKeys() || []
+    const halfChecked = treeRef.value?.getHalfCheckedKeys() || []
+    const allChecked = [...checked, ...halfChecked]
+    await roleAllocMenuAPI({ roleId: roleId.value, menuIds: allChecked.join(',') })
+    ElMessage.success(`已为角色"${roleName.value || roleId.value}"分配 ${allChecked.length} 个菜单权限`)
+  } catch {
+    ElMessage.error('保存失败')
+  } finally {
     saving.value = false
-  }, 300)
+  }
 }
 
 function handleBack() {
@@ -121,12 +54,23 @@ function handleBack() {
 }
 
 onMounted(() => {
-  if (!roleId.value) {
-    ElMessage.error('角色ID不能为空')
-    router.back()
+  const id = route.query.roleId as string
+  if (!id) {
+    ElMessage.error('角色ID不能为空，请从角色列表进入')
+    router.replace('/ums/role')
     return
   }
-  loadRoleMenus()
+  roleId.value = id
+  roleName.value = (route.query.roleName as string) || ''
+  loadMenuData()
+})
+
+watch(() => route.query.roleId, (newId) => {
+  if (newId) {
+    roleId.value = newId as string
+    roleName.value = (route.query.roleName as string) || ''
+    loadMenuData()
+  }
 })
 </script>
 
@@ -140,7 +84,7 @@ onMounted(() => {
               <el-icon><ArrowLeft /></el-icon>返回
             </el-button>
             <span style="margin-left: 12px; font-weight: 600">
-              分配菜单 — 角色：{{ roleMap[roleId] || '未知' }}
+              分配菜单 — 角色：{{ roleName || roleId }}
             </span>
             <el-tag type="info" size="small" style="margin-left: 8px">roleId: {{ roleId }}</el-tag>
           </div>

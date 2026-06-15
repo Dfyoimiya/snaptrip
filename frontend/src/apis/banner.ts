@@ -2,55 +2,100 @@ import type { CommonResult, CommonPage } from '@/types/common'
 import type { SmsHomeAdvertise } from '@/types/banner'
 import request from '@/utils/request'
 
-export function getHomeAdvertiseListAPI(params: { name?: string; type?: number; endTime?: string; pageNum: number; pageSize: number }) {
+/** 轮播图分页列表 —— GET /admin/cms/banners */
+export function getBannerListAPI(params?: { status?: number }) {
   return request<CommonResult<CommonPage<SmsHomeAdvertise>>>({
-    url: '/home/advertise/list',
+    url: '/admin/cms/banners',
     method: 'get',
     params,
+  }).then(res => {
+    // Backend returns flat list; wrap in CommonPage shape for view compatibility
+    const items = Array.isArray(res.data) ? res.data : (res.data as any)?.items ?? []
+    return { ...res, data: { items, total: items.length } } as typeof res
   })
 }
 
-export function homeAdvertiseCreateAPI(data: SmsHomeAdvertise) {
-  return request<CommonResult<number>>({
-    url: '/home/advertise/create',
+/** 创建轮播图 —— POST /admin/cms/banners */
+export function bannerCreateAPI(data: SmsHomeAdvertise) {
+  return request<CommonResult<string>>({
+    url: '/admin/cms/banners',
     method: 'post',
-    data,
+    data: {
+      name: data.name,
+      pic: data.pic,
+      url: data.url,
+      type: data.type,
+      status: data.status,
+      sort: data.sort,
+      note: data.note,
+      start_time: data.startTime,
+      end_time: data.endTime,
+    },
   })
 }
 
-export function homeAdvertiseUpdateAPI(id: number, data: SmsHomeAdvertise) {
-  return request<CommonResult<number>>({
-    url: '/home/advertise/update/' + id,
-    method: 'post',
-    data,
+/** 编辑轮播图 —— PUT /admin/cms/banners/{id} */
+export function bannerUpdateAPI(id: string, data: SmsHomeAdvertise) {
+  return request<CommonResult<string>>({
+    url: '/admin/cms/banners/' + id,
+    method: 'put',
+    data: {
+      name: data.name,
+      pic: data.pic,
+      url: data.url,
+      type: data.type,
+      status: data.status,
+      sort: data.sort,
+      note: data.note,
+      start_time: data.startTime,
+      end_time: data.endTime,
+    },
   })
 }
 
-export function getHomeAdvertiseByIdAPI(id: number) {
-  return request<CommonResult<SmsHomeAdvertise>>({
-    url: '/home/advertise/' + id,
-    method: 'get',
+/** 删除轮播图 —— DELETE /admin/cms/banners/{id} */
+export function bannerDeleteAPI(id: string) {
+  return request<CommonResult<string>>({
+    url: '/admin/cms/banners/' + id,
+    method: 'delete',
   })
 }
 
-export function deleteHomeAdvertiseAPI(params: { ids: string }) {
-  return request<CommonResult<number>>({
-    url: '/home/advertise/delete',
-    method: 'post',
-    params,
+/** 切换轮播图状态 —— PATCH /admin/cms/banners/{id}/status */
+export function bannerUpdateStatusAPI(id: string, status: number) {
+  return request<CommonResult<string>>({
+    url: '/admin/cms/banners/' + id + '/status',
+    method: 'patch',
+    params: { status },
   })
 }
 
-export function homeAdvertiseUpdateStatusAPI(params: { id: number; status: number }) {
-  return request<CommonResult<number>>({
-    url: '/home/advertise/update/status/' + params.id,
-    method: 'post',
-    params,
+/** 修改排序 —— PATCH /admin/cms/banners/{id}/sort */
+export function bannerUpdateSortAPI(id: string, sort: number) {
+  return request<CommonResult<string>>({
+    url: '/admin/cms/banners/' + id + '/sort',
+    method: 'patch',
+    params: { sort },
   })
 }
 
-// 向后兼容别名
-export const fetchBannerList = getHomeAdvertiseListAPI
-export const saveBanner = homeAdvertiseCreateAPI
-export const deleteBanner = deleteHomeAdvertiseAPI
-export const updateBannerStatus = homeAdvertiseUpdateStatusAPI
+// ── 向后兼容别名（视图层使用） ──
+
+/** @deprecated 使用 getBannerListAPI */
+export const fetchBannerList = getBannerListAPI
+
+/** 保存（自动判断创建/编辑） */
+export async function saveBanner(data: SmsHomeAdvertise) {
+  if (data.id) {
+    return bannerUpdateAPI(data.id, data)
+  }
+  return bannerCreateAPI(data)
+}
+
+/** @deprecated 使用 bannerDeleteAPI */
+export async function deleteBanner(id: string) {
+  return bannerDeleteAPI(id)
+}
+
+/** @deprecated 使用 bannerUpdateStatusAPI */
+export const updateBannerStatus = bannerUpdateStatusAPI

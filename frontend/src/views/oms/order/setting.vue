@@ -6,7 +6,7 @@ import { getOrderSettingByIdAPI, orderSettingUpdateByIdAPI } from '@/apis/orderS
 import type { OmsOrderSetting } from '@/types/orderSetting'
 
 const defaultOrderSetting: OmsOrderSetting = {
-  id: 1,
+  id: '1',
   flashOrderOvertime: 30,
   normalOrderOvertime: 60,
   confirmOvertime: 15,
@@ -73,9 +73,9 @@ const confirm = async () => {
 
 onMounted(async () => {
   try {
-    const data = await getOrderSettingByIdAPI(1)
+    const data = await getOrderSettingByIdAPI('1')
     if (data) {
-      orderSetting.value = { ...data }
+      orderSetting.value = { ...data.data }
     }
   } catch {
     // keep defaults on error

@@ -5,25 +5,37 @@
  * 营销聚合页：顶部 Banner 氛围图 + 新品商品网格
  * ============================================
  */
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { searchProductListAPI } from '@/apis/product'
 import type { PmsProduct } from '@/types/product'
 
 const router = useRouter()
 
-/** Mock 新品数据 */
-const products = ref<PmsProduct[]>([
-  { id: 201, name: '华为 Mate 60 Pro+ 16GB+512GB 鸿蒙系统 卫星通信', pic: 'https://images.unsplash.com/photo-1592899677977-9c10ca588bbd?w=300&h=300&fit=crop', price: 8999, originalPrice: 9999, sale: 320, brandId: 2, brandName: '华为', productCategoryId: 1, productCategoryName: '手机数码', subTitle: '麒麟9000S', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 1, recommandStatus: 1, verifyStatus: 1, sort: 1, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '2026-06-08', updateTime: '' },
-  { id: 202, name: 'DJI Osmo Pocket 3 口袋云台相机 4K 120fps', pic: 'https://images.unsplash.com/photo-1564466021188-1e17010c5352?w=300&h=300&fit=crop', price: 3499, originalPrice: 3999, sale: 180, brandId: 20, brandName: 'DJI', productCategoryId: 1, productCategoryName: '手机数码', subTitle: '一英寸云台', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 1, recommandStatus: 1, verifyStatus: 1, sort: 2, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '2026-06-07', updateTime: '' },
-  { id: 203, name: '科沃斯 ECOVACS X2 Pro 扫地机器人 自动上下水', pic: 'https://images.unsplash.com/photo-1588854337221-4cf9fa96059c?w=300&h=300&fit=crop', price: 4999, originalPrice: 6499, sale: 260, brandId: 10, brandName: '科沃斯', productCategoryId: 3, productCategoryName: '家用电器', subTitle: '方形旗舰', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 1, recommandStatus: 1, verifyStatus: 1, sort: 3, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '2026-06-06', updateTime: '' },
-  { id: 204, name: 'Lululemon Align 女士运动瑜伽裤 高腰裸感', pic: 'https://images.unsplash.com/photo-1506629082955-511b1aa562c8?w=300&h=300&fit=crop', price: 850, originalPrice: 1080, sale: 410, brandId: 18, brandName: 'Lululemon', productCategoryId: 5, productCategoryName: '服装服饰', subTitle: 'Nulu面料', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 1, recommandStatus: 1, verifyStatus: 1, sort: 4, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '2026-06-05', updateTime: '' },
-  { id: 205, name: 'Anker 737 240W 氮化镓充电器 三口快充', pic: 'https://images.unsplash.com/photo-1583863788434-e58a36330cf0?w=300&h=300&fit=crop', price: 399, originalPrice: 599, sale: 580, brandId: 15, brandName: 'Anker', productCategoryId: 1, productCategoryName: '手机数码', subTitle: 'GaNPrime', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 1, recommandStatus: 1, verifyStatus: 1, sort: 5, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '2026-06-04', updateTime: '' },
-  { id: 206, name: 'Philips 飞利浦 Sonicare 钻石牙刷 HX9912', pic: 'https://images.unsplash.com/photo-1559671088-795c52083351?w=300&h=300&fit=crop', price: 1299, originalPrice: 1899, sale: 230, brandId: 19, brandName: 'Philips', productCategoryId: 6, productCategoryName: '美妆个护', subTitle: '智能传感', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 1, recommandStatus: 1, verifyStatus: 1, sort: 6, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '2026-06-03', updateTime: '' },
-  { id: 207, name: 'Bose QuietComfort Ultra 无线消噪耳机', pic: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&h=300&fit=crop', price: 2299, originalPrice: 2999, sale: 170, brandId: 15, brandName: 'Bose', productCategoryId: 1, productCategoryName: '手机数码', subTitle: '沉浸音频', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 1, recommandStatus: 1, verifyStatus: 1, sort: 7, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '2026-06-02', updateTime: '' },
-  { id: 208, name: '戴森 Dyson Airwrap 多功能造型器 长发版', pic: 'https://images.unsplash.com/photo-1522338140262-f46f5913618a?w=300&h=300&fit=crop', price: 3999, originalPrice: 4590, sale: 120, brandId: 7, brandName: 'Dyson', productCategoryId: 6, productCategoryName: '美妆个护', subTitle: '气流造型', productSn: '', albumPics: '', description: '', detailTitle: '', detailMobileHtml: '', publishStatus: 1, newStatus: 1, recommandStatus: 1, verifyStatus: 1, sort: 8, promotionPrice: 0, promotionType: 0, promotionStartTime: '', promotionEndTime: '', serviceIds: '', createTime: '2026-06-01', updateTime: '' },
-])
+const loading = ref(false)
+const products = ref<PmsProduct[]>([])
+
+async function loadProducts() {
+  loading.value = true
+  try {
+    const res = await searchProductListAPI({
+      sort: 1, // new
+      pageNum: 1,
+      pageSize: 20,
+    }) as unknown as { items: PmsProduct[] }
+    products.value = res.items || []
+  } catch (err: any) {
+    console.error('加载新品失败:', err?.message || err)
+  } finally {
+    loading.value = false
+  }
+}
 
 const formatPrice = (p: number) => p.toLocaleString('zh-CN')
+
+onMounted(() => {
+  loadProducts()
+})
 </script>
 
 <template>
@@ -44,8 +56,11 @@ const formatPrice = (p: number) => p.toLocaleString('zh-CN')
       </div>
     </div>
 
+    <!-- 加载中 -->
+    <div v-if="loading" class="flex justify-center py-20 text-gray-400">加载中...</div>
+
     <!-- ====== 新品商品网格 ====== -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
       <button
         v-for="product in products"
         :key="product.id"

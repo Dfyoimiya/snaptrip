@@ -1,6 +1,6 @@
 /** 订单设置 */
 export interface OmsOrderSetting {
-  id?: number
+  id?: string
   flashOrderOvertime?: number
   normalOrderOvertime?: number
   confirmOvertime?: number

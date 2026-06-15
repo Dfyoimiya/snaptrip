@@ -69,7 +69,7 @@ export function setupRouterGuard(router: Router) {
             console.error('动态路由生成失败:', error)
             ElMessage.error('路由初始化失败')
             await userStore.logout()
-            next(`/login?redirect=${to.path}`)
+            next(`/login?redirect=${encodeURIComponent(to.fullPath)}`)
             NProgress.done()
           }
         } else {
@@ -110,7 +110,7 @@ export function setupRouterGuard(router: Router) {
             } catch (error) {
               console.error('动态路由生成失败:', error)
               clearAuth()
-              next(`/login?redirect=${to.path}`)
+              next(`/login?redirect=${encodeURIComponent(to.fullPath)}`)
             }
           } else {
             next()
@@ -125,7 +125,7 @@ export function setupRouterGuard(router: Router) {
       if (whiteList.includes(to.path)) {
         next()
       } else {
-        next(`/login?redirect=${to.path}`)
+        next(`/login?redirect=${encodeURIComponent(to.fullPath)}`)
       }
       NProgress.done()
       return
@@ -135,7 +135,7 @@ export function setupRouterGuard(router: Router) {
     if (whiteList.includes(to.path)) {
       next()
     } else {
-      next(`/login?redirect=${to.path}`)
+      next(`/login?redirect=${encodeURIComponent(to.fullPath)}`)
       NProgress.done()
     }
   })

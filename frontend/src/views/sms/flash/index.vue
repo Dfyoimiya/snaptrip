@@ -53,8 +53,8 @@ const filteredActivityList = computed(() => {
 async function loadActivityList() {
   activityLoading.value = true
   try {
-    const res = await fetchFlashPromotionList({})
-    activityList.value = res.data.list
+    const res = await fetchFlashPromotionList({ page: 1, page_size: 100 })
+    activityList.value = res.data.items
   } catch {
     ElMessage.error('加载失败')
   } finally {
@@ -111,7 +111,7 @@ async function handleDeleteActivity(row: SmsFlashPromotion) {
 
 async function handleToggleActivityStatus(row: SmsFlashPromotion) {
   const newStatus = row.status === 1 ? 0 : 1
-  await updateFlashPromotionStatus(row.id!, newStatus)
+  await updateFlashPromotionStatus(row.id!, { status: newStatus })
   row.status = newStatus
   ElMessage.success('状态更新成功')
 }
@@ -187,7 +187,7 @@ async function handleDeleteSession(row: SmsFlashPromotionSession) {
 
 async function handleToggleSessionStatus(row: SmsFlashPromotionSession) {
   const newStatus = row.status === 1 ? 0 : 1
-  await updateSessionStatus(row.id!, newStatus)
+  await updateSessionStatus(row.id!, { status: newStatus })
   row.status = newStatus
   ElMessage.success('状态更新成功')
 }
@@ -225,8 +225,15 @@ const productRules = {
 async function loadProductList() {
   productLoading.value = true
   try {
-    const res = await fetchFlashProductList({ ...productSearch })
-    productList.value = res.data.list
+    const res = await fetchFlashProductList({
+      promotionId: productSearch.flashPromotionId,
+      sessionId: productSearch.flashPromotionSessionId,
+      flashPromotionId: productSearch.flashPromotionId != null ? String(productSearch.flashPromotionId) : '',
+      flashPromotionSessionId: productSearch.flashPromotionSessionId != null ? String(productSearch.flashPromotionSessionId) : '',
+      page: 1,
+      page_size: 100,
+    })
+    productList.value = res.data.items
   } catch {
     ElMessage.error('加载失败')
   } finally {
@@ -264,7 +271,7 @@ function handleEditProduct(row: SmsFlashPromotionProduct) {
 async function handleSaveProduct() {
   const valid = await productFormRef.value?.validate().catch(() => false)
   if (!valid) return
-  await saveFlashProduct({ ...productForm })
+  await saveFlashProduct([{ ...productForm }])
   ElMessage.success('保存成功')
   productDialogVisible.value = false
   loadProductList()

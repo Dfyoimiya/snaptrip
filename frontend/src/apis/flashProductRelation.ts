@@ -4,12 +4,14 @@ import request from '@/utils/request'
 
 /** 秒杀商品列表 —— GET /admin/flash-promotions/{promoId}/sessions/{sessionId}/products */
 export function getFlashProductRelationListAPI(params: FlashProductQueryParam & { promotionId?: number; sessionId?: number }) {
-  const promoId = params.promotionId ? '/' + params.promotionId : ''
-  const sessionId = params.sessionId ? '/' + params.sessionId : ''
+  const { promotionId, sessionId, ...queryParams } = params
+  if (!promotionId || !sessionId) {
+    return Promise.reject(new Error('请先选择秒杀活动和场次'))
+  }
   return request<CommonResult<CommonPage<SmsFlashPromotionProductRelation>>>({
-    url: '/admin/flash-promotions' + promoId + '/sessions' + sessionId + '/products',
+    url: '/admin/flash-promotions/' + promotionId + '/sessions/' + sessionId + '/products',
     method: 'get',
-    params,
+    params: queryParams,
   })
 }
 
@@ -26,7 +28,7 @@ export function flashProductRelationCreateAPI(data: SmsFlashPromotionProductRela
 }
 
 /** 删除秒杀商品 —— DELETE /admin/flash-promotions/{promoId}/sessions/{sessionId}/products/{productId} */
-export function flashProductRelationDeleteByIdAPI(id: number, params?: { promotionId?: number; sessionId?: number }) {
+export function flashProductRelationDeleteByIdAPI(id: string, params?: { promotionId?: number; sessionId?: number }) {
   const promoId = params?.promotionId ? '/' + params.promotionId : ''
   const sessionId = params?.sessionId ? '/' + params.sessionId : ''
   return request<CommonResult<number>>({
@@ -36,7 +38,7 @@ export function flashProductRelationDeleteByIdAPI(id: number, params?: { promoti
 }
 
 /** 编辑秒杀商品 —— PUT /admin/flash-promotions/{promoId}/sessions/{sessionId}/products/{id} */
-export function flashProductRelationUpdateByIdAPI(id: number, data: SmsFlashPromotionProductRelation & { promotionId?: number; sessionId?: number }) {
+export function flashProductRelationUpdateByIdAPI(id: string, data: SmsFlashPromotionProductRelation & { promotionId?: number; sessionId?: number }) {
   const promoId = data.promotionId ? '/' + data.promotionId : ''
   const sessionId = data.sessionId ? '/' + data.sessionId : ''
   return request<CommonResult<number>>({

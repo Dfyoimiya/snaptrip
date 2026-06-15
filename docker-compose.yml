@@ -110,6 +110,7 @@ services:
       APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ES_HOSTS: http://elasticsearch:9200
     ports:
       - "127.0.0.1:8080:8000"
     depends_on:
@@ -118,6 +119,8 @@ services:
       redis:
         condition: service_healthy
       litellm-proxy:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
@@ -157,12 +160,15 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       AGENT_TIMEOUT: ${AGENT_TIMEOUT:-300}
+      ES_HOSTS: http://elasticsearch:9200
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
       litellm-proxy:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "celery -A marketplace.app.celery_app inspect ping -d celery@$$HOSTNAME 2>/dev/null || exit 1"]
@@ -204,5 +210,54 @@ services:
     command: celery -A marketplace.app.celery_app beat -l info
 
 
+  # ===== Elasticsearch — 商品全文搜索 =====
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
+    container_name: snaptrip-elasticsearch
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: -Xms256m -Xmx256m
+      xpack.security.enabled: "false"
+    ports:
+      - "127.0.0.1:9200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+
+  # ===== Mall-Web — C端购物网站 (Vue 3 + Vite + Tailwind) =====
+  mall-web:
+    build:
+      context: ./mall-web
+      dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-production}
+    container_name: snaptrip-mall-web
+    environment:
+      VITE_API_BASE_URL: ${MALL_WEB_API_BASE_URL:-http://localhost:8080}
+    ports:
+      - "127.0.0.1:5175:5175"
+    profiles:
+      - full
+      - dev
+    depends_on:
+      - marketplace
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+
 volumes:
   postgres_data:
+  es_data:

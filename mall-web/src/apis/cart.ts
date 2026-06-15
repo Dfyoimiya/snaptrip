@@ -5,30 +5,30 @@
  * ============================================
  */
 
-import { get, post } from '@/utils/request'
+import { get, post, put, del, patch } from '@/utils/request'
 import type { CartItem } from '@/types/cart'
 
 /**
  * 添加商品到购物车
- * @param data 购物车项数据
+ * @param data { product_id, sku_id, quantity }
  */
-export const addCartAPI = (data: Partial<CartItem>) => {
-  return post<unknown>('/cart/add', data)
+export const addCartAPI = (data: { product_id: string; sku_id: string; quantity: number }) => {
+  return post<CartItem>('/api/v1/portal/cart', data)
 }
 
 /**
  * 获取购物车列表
  */
 export const getCartListAPI = () => {
-  return get<CartItem[]>('/cart/list')
+  return get<CartItem[]>('/api/v1/portal/cart')
 }
 
 /**
  * 删除购物车商品
- * @param ids 购物车项ID，多个用逗号分隔
+ * @param id 购物车项ID
  */
-export const deleteCartAPI = (ids: string) => {
-  return post<unknown>('/cart/delete', null, { params: { ids } })
+export const deleteCartAPI = (id: string) => {
+  return del(`/api/v1/portal/cart/${id}`)
 }
 
 /**
@@ -37,12 +37,21 @@ export const deleteCartAPI = (ids: string) => {
  * @param quantity 数量
  */
 export const updateCartQuantityAPI = (id: string, quantity: number) => {
-  return get<unknown>('/cart/update/quantity', { id, quantity })
+  return put<CartItem>(`/api/v1/portal/cart/${id}`, { quantity })
 }
 
 /**
  * 清空购物车
  */
 export const clearCartAPI = () => {
-  return post<unknown>('/cart/clear')
+  return del('/api/v1/portal/cart')
+}
+
+/**
+ * 切换购物车项选中状态
+ * @param id 购物车项ID
+ * @param checked 选中状态 0或1
+ */
+export const toggleCartCheckedAPI = (id: string, checked: number) => {
+  return patch<CartItem>(`/api/v1/portal/cart/${id}/checked?checked=${checked}`)
 }

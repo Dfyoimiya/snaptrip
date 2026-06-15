@@ -5,50 +5,31 @@
  * 独立营销聚合页：顶部 Banner + 优惠券网格列表
  * ============================================
  */
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { getAvailableCouponsAPI, addMemberCouponAPI } from '@/apis/coupon'
+import type { SmsCoupon } from '@/types/coupon'
 
 const router = useRouter()
 
-interface Coupon {
-  id: number
-  name: string
-  amount: number
-  minPoint: number
-  type: string
-  startTime: string
-  endTime: string
-  total: number
-  received: number
-  code: string
-}
+/** 加载状态 */
+const loading = ref(false)
 
-/** Mock 优惠券数据 */
-const coupons = ref<Coupon[]>([
-  { id: 1, name: '新客专享券', amount: 200, minPoint: 800, type: '全品类', startTime: '2026-06-01', endTime: '2026-06-30', total: 1000, received: 456, code: 'NEW200' },
-  { id: 2, name: '数码品类券', amount: 500, minPoint: 5000, type: '数码电器', startTime: '2026-06-01', endTime: '2026-06-15', total: 500, received: 328, code: 'DIG500' },
-  { id: 3, name: '满减优惠券', amount: 100, minPoint: 1000, type: '全品类', startTime: '2026-06-01', endTime: '2026-06-20', total: 2000, received: 1200, code: 'MAN100' },
-  { id: 4, name: '生日礼遇券', amount: 300, minPoint: 2000, type: '全品类', startTime: '2026-06-01', endTime: '2026-07-01', total: 300, received: 89, code: 'BDAY300' },
-  { id: 5, name: '会员专享券', amount: 150, minPoint: 1500, type: '全品类', startTime: '2026-06-01', endTime: '2026-06-25', total: 800, received: 567, code: 'VIP150' },
-  { id: 6, name: '美妆护肤券', amount: 80, minPoint: 600, type: '美妆个护', startTime: '2026-06-01', endTime: '2026-06-18', total: 1500, received: 890, code: 'BEAUTY80' },
-  { id: 7, name: '运动户外券', amount: 120, minPoint: 800, type: '运动户外', startTime: '2026-06-01', endTime: '2026-06-22', total: 600, received: 234, code: 'SPORT120' },
-  { id: 8, name: '家电大额券', amount: 800, minPoint: 8000, type: '家用电器', startTime: '2026-06-01', endTime: '2026-06-30', total: 200, received: 67, code: 'HOME800' },
-  { id: 9, name: '618狂欢券', amount: 618, minPoint: 3000, type: '全品类', startTime: '2026-06-10', endTime: '2026-06-18', total: 1000, received: 0, code: '618GO' },
-  { id: 10, name: '首单立减券', amount: 50, minPoint: 200, type: '全品类', startTime: '2026-06-01', endTime: '2026-06-30', total: 5000, received: 3456, code: 'FIRST50' },
-])
+/** 优惠券列表 */
+const coupons = ref<SmsCoupon[]>([])
 
 /** 已领取的券 ID */
-const receivedIds = ref<Set<number>>(new Set([1, 3]))
+const receivedIds = ref<Set<number>>(new Set())
+/** 正在领取中的券 ID */
+const claimingIds = ref<Set<number>>(new Set())
 
-/** 分类筛选 */
-const activeCategory = ref('all')
+/** 分类筛选 — useType: 0=全场 1=品类 2=品牌 */
+const activeCategory = ref<number | 'all'>('all')
 const categories = [
-  { key: 'all', label: '全部' },
-  { key: '全品类', label: '全品类' },
-  { key: '数码电器', label: '数码电器' },
-  { key: '家用电器', label: '家用电器' },
-  { key: '美妆个护', label: '美妆个护' },
-  { key: '运动户外', label: '运动户外' },
+  { key: 'all' as const, label: '全部' },
+  { key: 0, label: '全场通用' },
+  { key: 1, label: '品类券' },
+  { key: 2, label: '品牌券' },
 ]
 
 /** 过滤后的券 */
@@ -58,13 +39,41 @@ const filteredCoupons = computed(() => {
 })
 
 /** 领取优惠券 */
-const receiveCoupon = (id: number) => {
-  if (receivedIds.value.has(id)) return
-  receivedIds.value.add(id)
+const receiveCoupon = async (couponId: number) => {
+  if (receivedIds.value.has(couponId) || claimingIds.value.has(couponId)) return
+  claimingIds.value.add(couponId)
+  try {
+    await addMemberCouponAPI(String(couponId))
+    receivedIds.value.add(couponId)
+  } catch (err: any) {
+    console.error('领取失败:', err?.message || err)
+  } finally {
+    claimingIds.value.delete(couponId)
+  }
 }
 
 /** 获取进度百分比 */
-const getProgress = (c: Coupon) => Math.round((c.received / c.total) * 100)
+const getProgress = (c: SmsCoupon) => {
+  const total = c.publishCount || c.count || 1
+  return Math.round(((c.receiveCount || 0) / total) * 100)
+}
+
+/** 加载优惠券列表 */
+async function loadCoupons() {
+  loading.value = true
+  try {
+    const res = await getAvailableCouponsAPI(1, 100) as unknown as { items: SmsCoupon[] }
+    coupons.value = res.items || []
+  } catch (err: any) {
+    console.error('加载优惠券失败:', err?.message || err)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  loadCoupons()
+})
 </script>
 
 <template>
@@ -97,7 +106,7 @@ const getProgress = (c: Coupon) => Math.round((c.received / c.total) * 100)
       <div class="flex items-center gap-2">
         <button
           v-for="cat in categories"
-          :key="cat.key"
+          :key="String(cat.key)"
           :class="['px-4 py-2 text-sm rounded-lg transition-colors', activeCategory === cat.key ? 'bg-red-600 text-white font-medium' : 'text-gray-600 hover:bg-gray-100']"
           @click="activeCategory = cat.key"
         >
@@ -106,8 +115,11 @@ const getProgress = (c: Coupon) => Math.round((c.received / c.total) * 100)
       </div>
     </div>
 
+    <!-- 加载中 -->
+    <div v-if="loading" class="flex justify-center py-20 text-gray-400">加载中...</div>
+
     <!-- ====== 优惠券网格 ====== -->
-    <div class="grid grid-cols-2 gap-4">
+    <div v-else class="grid grid-cols-2 gap-4">
       <div
         v-for="coupon in filteredCoupons"
         :key="coupon.id"
@@ -128,7 +140,7 @@ const getProgress = (c: Coupon) => Math.round((c.received / c.total) * 100)
           <div>
             <div class="flex items-center gap-2 mb-1">
               <h4 class="text-base font-bold text-gray-900">{{ coupon.name }}</h4>
-              <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">{{ coupon.type }}</span>
+              <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded">{{ ({ 0: '全场通用', 1: '品类券', 2: '品牌券' } as Record<number, string>)[coupon.type] || '通用' }}</span>
             </div>
             <p class="text-xs text-gray-400">有效期：{{ coupon.startTime }} 至 {{ coupon.endTime }}</p>
             <!-- 进度条 -->
@@ -138,13 +150,13 @@ const getProgress = (c: Coupon) => Math.round((c.received / c.total) * 100)
               </div>
               <span class="text-xs text-gray-400">{{ getProgress(coupon) }}%</span>
             </div>
-            <p class="text-xs text-gray-400 mt-1">已领 {{ coupon.received }}/{{ coupon.total }}</p>
+            <p class="text-xs text-gray-400 mt-1">已领 {{ coupon.receiveCount || 0 }}/{{ coupon.publishCount || coupon.count || 0 }}</p>
           </div>
 
           <div class="flex items-center justify-between mt-3">
             <span class="text-xs text-gray-300 font-mono">{{ coupon.code }}</span>
             <button
-              :disabled="receivedIds.has(coupon.id) || getProgress(coupon) >= 100"
+              :disabled="receivedIds.has(coupon.id) || getProgress(coupon) >= 100 || claimingIds.has(coupon.id)"
               :class="[
                 'px-5 py-1.5 text-sm rounded-lg font-medium transition-colors',
                 receivedIds.has(coupon.id)
@@ -155,7 +167,7 @@ const getProgress = (c: Coupon) => Math.round((c.received / c.total) * 100)
               ]"
               @click="receiveCoupon(coupon.id)"
             >
-              {{ receivedIds.has(coupon.id) ? '已领取' : getProgress(coupon) >= 100 ? '已抢完' : '立即领取' }}
+              {{ claimingIds.has(coupon.id) ? '领取中...' : receivedIds.has(coupon.id) ? '已领取' : getProgress(coupon) >= 100 ? '已抢完' : '立即领取' }}
             </button>
           </div>
         </div>

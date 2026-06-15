@@ -22,8 +22,7 @@ const loading = ref(false)
 const loadData = async (outTradeNo: string) => {
   loading.value = true
   try {
-    const res = await fetchAlipayStatusAPI(outTradeNo)
-    const tradeStatus = res.data
+    const tradeStatus = await fetchAlipayStatusAPI(outTradeNo)
     if (tradeStatus != null && tradeStatus === 'TRADE_SUCCESS') {
       payText.value = '支付成功'
     } else {

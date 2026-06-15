@@ -77,6 +77,8 @@ class CmsService:
         return [BannerResponse.model_validate(b) for b in result.scalars().all()]
 
     async def toggle_banner(self, banner_id: UUID, field: str, value: int) -> BannerResponse:
+        if field not in ("status", "sort"):
+            raise ValueError(f"不允许更新字段: {field}")
         from app.models.cms.content import CmsBanner
         stmt = update(CmsBanner).where(CmsBanner.id == banner_id).values(**{field: value}).returning(CmsBanner)
         result = await self.db.execute(stmt)
@@ -132,6 +134,15 @@ class CmsService:
             base.order_by(CmsSubject.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
         )
         return [SubjectResponse.model_validate(s) for s in result.scalars().all()], total
+
+    async def list_subject_categories(self) -> list[dict]:
+        """返回所有专题的分类名（去重+排序），格式 [{id, name}]"""
+        from app.models.cms.content import CmsSubject
+        result = await self.db.execute(
+            select(CmsSubject.category_name).where(CmsSubject.category_name.isnot(None)).distinct()
+        )
+        names = sorted([r for r in result.scalars().all() if r])
+        return [{"id": i + 1, "name": name} for i, name in enumerate(names)]
 
     # ── Help ──
 

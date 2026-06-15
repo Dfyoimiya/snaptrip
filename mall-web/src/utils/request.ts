@@ -13,10 +13,71 @@ import axios, {
 } from 'axios'
 import type { CommonResult } from '@/types/common'
 import { useMemberStore } from '@/stores/member'
+import { isTokenExpired } from './jwt'
 import router from '@/router'
 
 // 请求基地址（从环境变量读取）
-const baseURL = import.meta.env.VITE_API_BASE_URL || '/api'
+const baseURL = import.meta.env.VITE_API_BASE_URL || ''
+
+// ── snake_case → camelCase 深度转换 ────────────────────────────────────────
+
+const snakeToCamel = (key: string): string =>
+  key.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
+
+const deepConvertKeys = (obj: unknown): unknown => {
+  if (Array.isArray(obj)) return obj.map(deepConvertKeys)
+  if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
+    const result: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      result[snakeToCamel(key)] = deepConvertKeys(value)
+    }
+    return result
+  }
+  return obj
+}
+
+// ── Token 刷新队列（防止并发 401 时重复刷新） ────────────────────────
+
+let isRefreshing = false
+let pendingRequests: Array<{
+  resolve: (token: string) => void
+  reject: (error: any) => void
+}> = []
+
+function addPendingRequest(resolve: (token: string) => void, reject: (error: any) => void) {
+  pendingRequests.push({ resolve, reject })
+}
+
+function processPendingRequests(token: string) {
+  pendingRequests.forEach(({ resolve }) => resolve(token))
+  pendingRequests = []
+}
+
+function rejectPendingRequests(error: any) {
+  pendingRequests.forEach(({ reject }) => reject(error))
+  pendingRequests = []
+}
+
+async function refreshAndRetry(): Promise<string> {
+  const memberStore = useMemberStore()
+  const refreshToken = memberStore.refreshToken
+  if (!refreshToken) {
+    throw new Error('No refresh token available')
+  }
+
+  const response = await axios.post(
+    `${baseURL}/api/v1/auth/refresh`,
+    { refresh_token: refreshToken },
+    { timeout: 10000 },
+  )
+  const res = response.data
+  if (res.code !== 0 || !res.data) {
+    throw new Error(res.message || 'Token refresh failed')
+  }
+  const { accessToken, refreshToken: newRefreshToken } = res.data
+  memberStore.setLoginInfo(accessToken, newRefreshToken, memberStore.memberInfo)
+  return accessToken
+}
 
 // 创建 Axios 实例
 const request: AxiosInstance = axios.create({
@@ -31,14 +92,46 @@ const request: AxiosInstance = axios.create({
 /**
  * 请求拦截器
  * 1. 添加 Authorization Token
- * 2. 设置请求头
+ * 2. Token 即将过期时提前刷新
  */
 request.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
+  async (config: InternalAxiosRequestConfig) => {
     const memberStore = useMemberStore()
     const token = memberStore.token
+
+    // 检查 token 是否即将过期，提前刷新
+    if (token && isTokenExpired(token) && !config.url?.includes('/auth/refresh') && !config.url?.includes('/auth/logout')) {
+      if (isRefreshing) {
+        return new Promise<InternalAxiosRequestConfig>((resolve, reject) => {
+          addPendingRequest(
+            (newToken: string) => {
+              config.headers.Authorization = `Bearer ${newToken}`
+              resolve(config)
+            },
+            (err: any) => reject(err),
+          )
+        })
+      }
+
+      isRefreshing = true
+      try {
+        const newToken = await refreshAndRetry()
+        isRefreshing = false
+        processPendingRequests(newToken)
+        config.headers.Authorization = `Bearer ${newToken}`
+        return config
+      } catch {
+        isRefreshing = false
+        rejectPendingRequests(new Error('Token refresh failed'))
+        // 刷新失败，清除过期 token，以无认证状态发送请求
+        memberStore.memberLogout()
+        delete config.headers.Authorization
+        return config
+      }
+    }
+
     if (token) {
-      config.headers.Authorization = `${memberStore.tokenHead}${token}`
+      config.headers.Authorization = `Bearer ${token}`
     }
     return config
   },
@@ -51,12 +144,17 @@ request.interceptors.request.use(
  * 响应拦截器
  * 1. 提取核心数据
  * 2. 统一错误处理
- * 3. 401 未授权处理
+ * 3. 401 未授权处理 + 静默刷新
  */
 request.interceptors.response.use(
   (response: AxiosResponse<CommonResult<unknown>>) => {
     const { data } = response
-    if (data.code === 200) {
+    // Backend returns code=0 for success
+    if (data.code === 0) {
+      // 深度转换 snake_case → camelCase
+      if (data.data) {
+        response.data = { ...data, data: deepConvertKeys(data.data) }
+      }
       return response
     }
     // mall 后端认证过期返回 HTTP 200 + code=401
@@ -72,15 +170,49 @@ request.interceptors.response.use(
     console.error(`[API Error] ${errorMsg}`, data)
     return Promise.reject(new Error(errorMsg))
   },
-  (error) => {
+  async (error) => {
     if (error.response) {
       const status = error.response.status
       const data = error.response.data as CommonResult<unknown> | undefined
       const message = data?.message || '请求错误'
 
       if (status === 401) {
-        // HTTP 401 兜底
+        // 登录/注册端点的 401 是正常业务响应，不应触发 token 刷新
+        const isAuthEndpoint = error.config?.url?.includes('/auth/login') || error.config?.url?.includes('/auth/register')
+        if (isAuthEndpoint) {
+          return Promise.reject(new Error(message))
+        }
+
+        // HTTP 401 — 尝试静默刷新 token
         const memberStore = useMemberStore()
+        if (memberStore.refreshToken && !error.config?.url?.includes('/auth/refresh') && !error.config?.url?.includes('/auth/logout')) {
+          if (!isRefreshing) {
+            isRefreshing = true
+            try {
+              const newToken = await refreshAndRetry()
+              isRefreshing = false
+              processPendingRequests(newToken)
+              // 重试原始请求
+              error.config.headers.Authorization = `Bearer ${newToken}`
+              return request(error.config)
+            } catch {
+              isRefreshing = false
+              rejectPendingRequests(new Error('Token refresh failed'))
+            }
+          } else {
+            // 已在刷新中，将请求加入队列
+            return new Promise((resolve, reject) => {
+              addPendingRequest(
+                (newToken: string) => {
+                  error.config.headers.Authorization = `Bearer ${newToken}`
+                  resolve(request(error.config))
+                },
+                (err: any) => reject(err),
+              )
+            })
+          }
+        }
+        // 无 refresh token 或刷新本身失败 → 跳转登录
         memberStore.memberLogout()
         router.push('/login')
         console.error('[Auth Error] 登录已过期，请重新登录')
@@ -97,9 +229,6 @@ request.interceptors.response.use(
 
 /**
  * 封装 GET 请求
- * @param url 请求地址
- * @param params 查询参数
- * @param config 额外配置
  */
 export function get<T>(url: string, params?: Record<string, unknown>, config?: AxiosRequestConfig): Promise<T> {
   return request
@@ -109,9 +238,6 @@ export function get<T>(url: string, params?: Record<string, unknown>, config?: A
 
 /**
  * 封装 POST 请求
- * @param url 请求地址
- * @param data 请求体数据
- * @param config 额外配置
  */
 export function post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
   return request
@@ -121,9 +247,6 @@ export function post<T>(url: string, data?: unknown, config?: AxiosRequestConfig
 
 /**
  * 封装 PUT 请求
- * @param url 请求地址
- * @param data 请求体数据
- * @param config 额外配置
  */
 export function put<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
   return request
@@ -133,13 +256,19 @@ export function put<T>(url: string, data?: unknown, config?: AxiosRequestConfig)
 
 /**
  * 封装 DELETE 请求
- * @param url 请求地址
- * @param params 查询参数
- * @param config 额外配置
  */
 export function del<T>(url: string, params?: Record<string, unknown>, config?: AxiosRequestConfig): Promise<T> {
   return request
     .delete<CommonResult<T>>(url, { params, ...config })
+    .then((res) => res.data.data)
+}
+
+/**
+ * 封装 PATCH 请求
+ */
+export function patch<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
+  return request
+    .patch<CommonResult<T>>(url, data, config)
     .then((res) => res.data.data)
 }
 

@@ -1,44 +1,18 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { formatDateTime } from '@/utils/datetime'
+import { getOrderDetailByIdAPI } from '@/apis/order'
 
 const route = useRoute()
 const router = useRouter()
-const orderId = ref(route.query.id as string || '')
+const orderId = ref('')
 
 const loading = ref(true)
 const order = ref<any>(null)
 
-// 模拟订单详情数据
-const orderDataMap: Record<string, any> = {
-  '1': {
-    id: 1, orderSn: 'ORD202506010001', createTime: '2025-06-01 10:23:15',
-    memberUsername: 'zhangsan', receiverName: '张三', receiverPhone: '13800138001',
-    receiverDetailAddress: '北京市朝阳区建国路88号', totalAmount: 8999.00, freightAmount: 0.00,
-    discountAmount: 500.00, payAmount: 8499.00, payType: 1, sourceType: 0,
-    status: 2, deliveryCompany: '顺丰速运', deliverySn: 'SF1234567890',
-    autoConfirmDay: 7, remark: '请尽快发货', deleteStatus: 0,
-    items: [
-      { id: 1, productId: 1, productName: 'iPhone 15 Pro', productPic: '', productPrice: 8999, productQuantity: 1, productAttr: '256GB 黑色' },
-    ]
-  },
-  '2': {
-    id: 2, orderSn: 'ORD202506010002', createTime: '2025-06-01 11:05:30',
-    memberUsername: 'lisi', receiverName: '李四', receiverPhone: '13800138002',
-    receiverDetailAddress: '上海市浦东新区陆家嘴环路1000号', totalAmount: 12597.00, freightAmount: 15.00,
-    discountAmount: 1000.00, payAmount: 11612.00, payType: 2, sourceType: 1,
-    status: 1, deliveryCompany: '', deliverySn: '',
-    autoConfirmDay: 7, remark: '', deleteStatus: 0,
-    items: [
-      { id: 2, productId: 2, productName: '华为Mate60 Pro', productPic: '', productPrice: 6999, productQuantity: 1, productAttr: '12+512GB 雅丹黑' },
-      { id: 3, productId: 3, productName: 'AirPods Pro 2', productPic: '', productPrice: 1599, productQuantity: 1, productAttr: '白色' },
-    ]
-  },
-}
-
-const statusMap: Record<number, { label: string; type: string }> = {
+const statusMap: Record<number, { label: string; type: 'primary' | 'success' | 'warning' | 'info' | 'danger' }> = {
   0: { label: '待付款', type: 'warning' },
   1: { label: '待发货', type: 'primary' },
   2: { label: '已发货', type: 'success' },
@@ -51,20 +25,24 @@ const payTypeMap: Record<number, string> = {
   0: '未支付', 1: '支付宝', 2: '微信支付', 3: '银行卡',
 }
 
-function loadOrder() {
+async function loadOrder() {
   loading.value = true
-  setTimeout(() => {
-    order.value = orderDataMap[orderId.value] || {
-      id: Number(orderId.value), orderSn: `ORD20250601${String(orderId.value).padStart(4, '0')}`,
-      createTime: '2025-06-01 12:00:00',
-      memberUsername: 'unknown', receiverName: '未知用户', receiverPhone: '--',
-      receiverDetailAddress: '--', totalAmount: 0, freightAmount: 0,
-      discountAmount: 0, payAmount: 0, payType: 0, sourceType: 0,
-      status: 0, deliveryCompany: '', deliverySn: '',
-      autoConfirmDay: 7, remark: '', deleteStatus: 0, items: [],
+  try {
+    const res = await getOrderDetailByIdAPI(orderId.value)
+    const detail = (res as any).data || res
+    // 映射 API 字段 → 模板兼容字段
+    order.value = {
+      ...detail,
+      items: detail.orderItemList || detail.items || [],
+      memberUsername: detail.memberUsername || detail.memberName || '',
+      receiverDetailAddress: detail.receiverDetailAddress || detail.receiverAddress || '',
     }
+  } catch {
+    ElMessage.error('加载订单详情失败')
+    order.value = null
+  } finally {
     loading.value = false
-  }, 300)
+  }
 }
 
 function handleBack() {
@@ -72,12 +50,21 @@ function handleBack() {
 }
 
 onMounted(() => {
-  if (!orderId.value) {
+  const id = route.query.id as string
+  if (!id) {
     ElMessage.error('订单ID不能为空')
-    router.push('/oms/order')
+    router.replace('/oms/order')
     return
   }
+  orderId.value = id
   loadOrder()
+})
+
+watch(() => route.query.id, (newId) => {
+  if (newId) {
+    orderId.value = newId as string
+    loadOrder()
+  }
 })
 </script>
 

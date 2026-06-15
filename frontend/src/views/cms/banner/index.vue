@@ -10,7 +10,7 @@ const search = reactive({
   name: '',
   type: '' as number | '',
 })
-const selectedIds = ref<number[]>([])
+const selectedIds = ref<string[]>([])
 
 const filteredList = computed(() => {
   let result = list.value
@@ -27,7 +27,7 @@ async function loadList() {
   loading.value = true
   try {
     const res = await fetchBannerList({})
-    list.value = res.data.list
+    list.value = res.data.items
   } catch {
     ElMessage.error('加载失败')
   } finally {

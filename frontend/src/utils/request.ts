@@ -64,6 +64,24 @@ async function refreshAndRetry(): Promise<string> {
   }
 }
 
+// ── snake_case → camelCase 深度转换 ────────────────────────────────────────
+
+function snakeToCamel(key: string): string {
+  return key.replace(/_([a-z])/g, (_, c: string) => c.toUpperCase())
+}
+
+function deepConvertKeys(obj: unknown): unknown {
+  if (Array.isArray(obj)) return obj.map(deepConvertKeys)
+  if (obj !== null && typeof obj === 'object' && !(obj instanceof Date)) {
+    const result: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(obj as Record<string, unknown>)) {
+      result[snakeToCamel(key)] = deepConvertKeys(value)
+    }
+    return result
+  }
+  return obj
+}
+
 // ── 请求拦截器 ──────────────────────────────────────────────────────────
 
 request.interceptors.request.use(
@@ -118,6 +136,10 @@ request.interceptors.response.use(
     if (res.code !== 0) {
       ElMessage.error(res.message || '请求失败')
       return Promise.reject(new Error(res.message || '请求失败'))
+    }
+    // 深度转换 snake_case → camelCase
+    if (res.data) {
+      res.data = deepConvertKeys(res.data)
     }
     return res
   },

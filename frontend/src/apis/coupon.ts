@@ -26,7 +26,7 @@ export function createCouponAPI(data: SmsCouponExt) {
 }
 
 /** 优惠券详情 —— GET /admin/coupons/{id} */
-export function getCouponByIdAPI(id: number) {
+export function getCouponByIdAPI(id: string) {
   return request<CommonResult<SmsCouponExt>>({
     url: '/admin/coupons/' + id,
     method: 'get',
@@ -34,7 +34,7 @@ export function getCouponByIdAPI(id: number) {
 }
 
 /** 编辑优惠券 —— PUT /admin/coupons/{id} */
-export function updateCouponByIdAPI(id: number, data: SmsCouponExt) {
+export function updateCouponByIdAPI(id: string, data: SmsCouponExt) {
   return request<CommonResult<number>>({
     url: '/admin/coupons/' + id,
     method: 'put',
@@ -43,7 +43,7 @@ export function updateCouponByIdAPI(id: number, data: SmsCouponExt) {
 }
 
 /** 删除优惠券 —— DELETE /admin/coupons/{id} */
-export function deleteCouponByIdAPI(id: number) {
+export function deleteCouponByIdAPI(id: string) {
   return request<CommonResult<number>>({
     url: '/admin/coupons/' + id,
     method: 'delete',

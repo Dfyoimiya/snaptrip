@@ -2,7 +2,7 @@
  * 首页品牌推荐
  */
 export interface SmsHomeBrand {
-  id?: number
+  id?: string
   brandId?: number
   brandName?: string
   recommendStatus?: number // 0->不推荐 1->推荐

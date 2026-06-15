@@ -11,7 +11,7 @@ const props = defineProps<{
 
 const onlyOneChild = computed(() => {
   const children = props.item.children || []
-  const showingChildren = children.filter((child) => !child.hidden)
+  const showingChildren = children.filter((child: any) => !child.hidden)
 
   if (showingChildren.length === 1) {
     return showingChildren[0]
@@ -46,7 +46,7 @@ function getIcon(iconName: string): string {
     <SidebarItemLink :to="resolvePath(onlyOneChild.path)" v-if="onlyOneChild.meta">
       <el-menu-item :index="resolvePath(onlyOneChild.path)" :class="{ 'submenu-title-noDropdown': !isNest }">
         <el-icon :size="16">
-          <component :is="getIcon(onlyOneChild.meta?.icon || item.meta?.icon || 'Document')" />
+          <component :is="getIcon((onlyOneChild.meta?.icon || item.meta?.icon || 'Document') as string)" />
         </el-icon>
         <template #title>
           <span class="menu-title">{{ onlyOneChild.meta?.title || item.meta?.title }}</span>

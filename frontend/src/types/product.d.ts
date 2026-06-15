@@ -1,6 +1,8 @@
+import type { PageParam } from './common'
+
 /** 商品 */
 export interface PmsProduct {
-  id?: number
+  id?: string
   brandId: number
   brandName?: string
   productCategoryId: number
@@ -46,11 +48,12 @@ export interface PmsProduct {
 
 /** 商品查询参数 */
 export interface ProductQueryParam extends PageParam {
+  keyword?: string
   publishStatus?: number
   verifyStatus?: number
   productSn?: string
-  productCategoryId?: number
-  brandId?: number
+  productCategoryId?: string | number
+  brandId?: string | number
 }
 
 /** 商品参数（创建/更新） */
@@ -65,7 +68,7 @@ export interface PmsProductParam extends PmsProduct {
 
 /** 商品属性值 */
 export interface ProductAttrValue {
-  id?: number
+  id?: string
   productId?: number
   productAttributeId: number
   value: string
@@ -73,7 +76,7 @@ export interface ProductAttrValue {
 
 /** SKU库存 */
 export interface SkuStock {
-  id?: number
+  id?: string
   productId?: number
   skuCode?: string
   price?: number
@@ -88,7 +91,7 @@ export interface SkuStock {
 
 /** 商品参数值 */
 export interface ProductParamValue {
-  id?: number
+  id?: string
   productId?: number
   productAttributeId: number
   value: string
