@@ -43,7 +43,9 @@ class TestAgentServiceInvoke:
         result = await svc.invoke({"plan_id": "p1"}, "p1")
 
         assert result == {"status": "completed", "plan_id": "p1"}
-        mock_graph.ainvoke.assert_awaited_once_with({"plan_id": "p1"}, {"configurable": {"thread_id": "p1"}, "recursion_limit": 15})
+        mock_graph.ainvoke.assert_awaited_once_with(
+            {"plan_id": "p1"}, {"configurable": {"thread_id": "p1"}, "recursion_limit": 15}
+        )
 
     @pytest.mark.asyncio
     async def test_invoke_raises_interrupted(self):

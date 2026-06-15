@@ -13,7 +13,7 @@ const router = useRouter()
 const listQuery = ref({
   orderSn: '',
   receiverKeyword: '',
-  createTime: '',
+  createdAt: '',
   status: undefined as number | undefined,
   orderType: undefined as number | undefined,
   sourceType: undefined as number | undefined,
@@ -90,7 +90,7 @@ async function fetchData() {
 onMounted(() => { fetchData() })
 
 const handleResetSearch = () => {
-  listQuery.value = { orderSn: '', receiverKeyword: '', createTime: '', status: undefined, orderType: undefined, sourceType: undefined, page: 1, page_size: 10 }
+  listQuery.value = { orderSn: '', receiverKeyword: '', createdAt: '', status: undefined, orderType: undefined, sourceType: undefined, page: 1, page_size: 10 }
   fetchData()
 }
 
@@ -121,7 +121,7 @@ const handleViewLogistics = (_index: number, _row: OmsOrder) => {
 
 const handleDeleteOrder = async (_index: number, row: OmsOrder) => {
   await ElMessageBox.confirm('是否要进行该删除操作?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
-  await orderDeleteByIdsAPI({ ids: String(row.id) })
+  await orderDeleteByIdsAPI(String(row.id))
   fetchData()
   ElMessage({ message: '删除成功！', type: 'success', duration: 1000 })
 }
@@ -189,7 +189,7 @@ const deleteOrderFn = async (ids: string[]) => {
             <el-input v-model="listQuery.receiverKeyword" class="input-width" placeholder="收货人姓名/手机号码" />
           </el-form-item>
           <el-form-item label="提交时间：">
-            <el-date-picker class="input-width" v-model="listQuery.createTime" value-format="YYYY-MM-DD" type="date" placeholder="请选择时间" />
+            <el-date-picker class="input-width" v-model="listQuery.createdAt" value-format="YYYY-MM-DD" type="date" placeholder="请选择时间" />
           </el-form-item>
           <el-form-item label="订单状态：">
             <el-select v-model="listQuery.status" class="input-width" placeholder="全部" clearable>
@@ -225,7 +225,7 @@ const deleteOrderFn = async (ids: string[]) => {
           <template #default="scope">{{ scope.row.orderSn }}</template>
         </el-table-column>
         <el-table-column label="提交时间" width="180" align="center">
-          <template #default="scope">{{ formatDateTime(scope.row.createTime) }}</template>
+          <template #default="scope">{{ formatDateTime(scope.row.createdAt) }}</template>
         </el-table-column>
         <el-table-column label="用户账号" align="center">
           <template #default="scope">{{ scope.row.memberUsername }}</template>

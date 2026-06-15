@@ -20,16 +20,10 @@ export interface CartPromotionItem {
   productPic: string
   /** 商品销售属性 JSON 字符串 */
   productAttr: string
-  /** 商品品牌 */
-  productBrand: string
-  /** 商品分类ID */
-  productCategoryId: number
   /** 商品SKU条码 */
-  productSkuCode: string
+  skuCode: string
   /** 商品SKU ID */
-  productSkuId: number
-  /** 商品编号 */
-  productSn: string
+  skuId: number
   /** 商品副标题（卖点） */
   productSubTitle: string
   /** 促销活动信息 */
@@ -42,20 +36,10 @@ export interface CartPromotionItem {
   reduceAmount: number
   /** 剩余库存-锁定库存 */
   realStock: number
-  /** 购买商品赠送积分 */
-  integration: number
-  /** 购买商品赠送成长值 */
-  growth: number
-  /** 会员ID */
-  memberId: number
   /** 会员昵称 */
   memberNickname: string
   /** 创建时间 */
   createDate: string
-  /** 修改时间 */
-  modifyDate: string
-  /** 是否删除 */
-  deleteStatus: number
 }
 
 /** 计算金额 */
@@ -64,8 +48,6 @@ export interface CalcAmount {
   totalAmount: number
   /** 运费 */
   freightAmount: number
-  /** 活动优惠金额 */
-  promotionAmount: number
   /** 应付金额 */
   payAmount: number
 }
@@ -92,9 +74,7 @@ export interface SmsCouponHistoryDetail {
   couponId: number
   /** 优惠券码 */
   couponCode: string
-  /** 会员ID */
-  memberId: number
-  /** 领取人昵称 */
+  /** 会员昵称 */
   memberNickname: string
   /** 优惠券信息 */
   coupon: SmsCoupon
@@ -105,11 +85,9 @@ export interface SmsCouponHistoryDetail {
   /** 使用时间 */
   useTime: string
   /** 创建时间 */
-  createTime: string
+  createdAt: string
   /** 订单编号 */
   orderId: number
-  /** 订单号码 */
-  orderSn: string
 }
 
 /** 确认订单返回结果 */
@@ -156,8 +134,6 @@ export interface OmsOrderItem {
   id: number
   /** 订单ID */
   orderId: number
-  /** 订单编号 */
-  orderSn: string
   /** 商品ID */
   productId: number
   /** 商品名称 */
@@ -166,90 +142,42 @@ export interface OmsOrderItem {
   productPic: string
   /** 商品销售属性 JSON 字符串 */
   productAttr: string
-  /** 商品品牌 */
-  productBrand: string
-  /** 商品分类ID */
-  productCategoryId: number
   /** 商品SKU ID */
-  productSkuId: number
+  skuId: number
   /** 商品SKU条码 */
-  productSkuCode: string
-  /** 商品编号 */
-  productSn: string
+  skuCode: string
   /** 销售价格 */
-  productPrice: number
+  price: number
   /** 购买数量 */
-  productQuantity: number
-  /** 商品促销名称 */
-  promotionName: string
-  /** 商品促销分解金额 */
-  promotionAmount: number
-  /** 优惠券优惠分解金额 */
-  couponAmount: number
-  /** 积分优惠分解金额 */
-  integrationAmount: number
-  /** 该商品经过优惠后的分解金额 */
-  realAmount: number
-  /** 购买商品赠送积分 */
-  giftIntegration: number
-  /** 购买商品赠送成长值 */
-  giftGrowth: number
+  quantity: number
 }
 
 /** 订单详情（对应API文档 OmsOrderDetail） */
 export interface OmsOrderDetail {
   /** 订单ID */
   id: number
-  /** 订单编号 */
-  orderSn: string
-  /** 会员ID */
-  memberId: number
   /** 用户帐号 */
   memberUsername: string
   /** 订单总金额 */
   totalAmount: number
   /** 运费金额 */
   freightAmount: number
-  /** 促销优化金额 */
-  promotionAmount: number
-  /** 优惠券抵扣金额 */
-  couponAmount: number
-  /** 积分抵扣金额 */
-  integrationAmount: number
   /** 应付金额 */
   payAmount: number
   /** 支付方式：0->未支付；1->支付宝；2->微信 */
   payType: number
   /** 订单状态：0->待付款；1->待发货；2->已发货；3->已完成；4->已关闭；5->无效订单 */
   status: number
-  /** 订单类型：0->正常订单；1->秒杀订单 */
-  orderType: number
-  /** 订单来源：0->PC订单；1->app订单 */
-  sourceType: number
-  /** 活动信息 */
-  promotionInfo: string
-  /** 可以获得的积分 */
-  integration: number
-  /** 可以活动的成长值 */
-  growth: number
-  /** 下单时使用的积分 */
-  useIntegration: number
   /** 优惠券ID */
   couponId: number
   /** 订单备注 */
   note: string
   /** 提交时间 */
-  createTime: string
+  createdAt: string
   /** 支付时间 */
   paymentTime: string
   /** 发货时间 */
   deliveryTime: string
-  /** 评价时间 */
-  commentTime: string
-  /** 确认收货状态：0->未确认；1->已确认 */
-  confirmStatus: number
-  /** 删除状态：0->未删除；1->已删除 */
-  deleteStatus: number
   /** 收货人姓名 */
   receiverName: string
   /** 收货人电话 */
@@ -270,20 +198,8 @@ export interface OmsOrderDetail {
   deliverySn: string
   /** 管理员后台调整订单使用的折扣金额 */
   discountAmount: number
-  /** 自动确认时间（天） */
-  autoConfirmDay: number
-  /** 发票类型：0->不开发票；1->电子发票；2->纸质发票 */
-  billType: number
-  /** 发票抬头 */
-  billHeader: string
-  /** 发票内容 */
-  billContent: string
-  /** 收票人电话 */
-  billReceiverPhone: string
-  /** 收票人邮箱 */
-  billReceiverEmail: string
   /** 订单商品列表 */
-  orderItemList: OmsOrderItem[]
+  items: OmsOrderItem[]
 }
 
 /** 退货申请请求参数 */

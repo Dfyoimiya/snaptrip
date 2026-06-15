@@ -81,6 +81,48 @@ class TestCommerceExceptions:
         assert exc.code == "COUPON_ALREADY_CLAIMED"
         assert exc.status_code == 409
 
+    def test_coupon_expired(self):
+        from app.core.exceptions import CouponExpiredError
+
+        exc = CouponExpiredError("c-002")
+        assert exc.code == "COUPON_EXPIRED"
+        assert exc.status_code == 400
+
+    def test_coupon_exhausted(self):
+        from app.core.exceptions import CouponExhaustedError
+
+        exc = CouponExhaustedError("c-003")
+        assert exc.code == "COUPON_EXHAUSTED"
+        assert exc.status_code == 409
+
+    def test_product_off_shelf(self):
+        from app.core.exceptions import ProductOffShelfError
+
+        exc = ProductOffShelfError("p-002")
+        assert exc.code == "PRODUCT_OFF_SHELF"
+        assert exc.status_code == 400
+
+    def test_order_not_found(self):
+        from app.core.exceptions import OrderNotFoundError
+
+        exc = OrderNotFoundError("o-002")
+        assert exc.code == "ORDER_NOT_FOUND"
+        assert exc.status_code == 404
+
+    def test_commerce_exception_defaults(self):
+        from app.core.exceptions import CommerceException
+
+        exc = CommerceException(code="TEST", message="test error")
+        assert exc.code == "TEST"
+        assert exc.status_code == 500
+
+    def test_cart_error(self):
+        from app.core.exceptions import CartError
+
+        exc = CartError(code="CART_ERROR", message="cart error message")
+        assert exc.code == "CART_ERROR"
+        assert exc.status_code == 400
+
     def test_all_exceptions_inherit_from_snaptrip(self):
         from snaptrip_shared.core.exceptions import SnapTripException
 
@@ -163,6 +205,22 @@ class TestPagination:
         params = PaginationParams(page=1, page_size=3)
         result = PaginatedResult.create(items=[], total=10, params=params)
         assert result.total_pages == 4  # ceil(10/3) = 4
+
+    def test_paginated_result_zero_total(self):
+        from app.core.pagination import PaginatedResult, PaginationParams
+
+        params = PaginationParams(page=1, page_size=20)
+        result = PaginatedResult.create(items=[], total=0, params=params)
+        assert result.total_pages == 0
+        assert len(result.items) == 0
+
+    def test_paginated_result_large_page_number(self):
+        from app.core.pagination import PaginatedResult, PaginationParams
+
+        params = PaginationParams(page=100, page_size=20)
+        result = PaginatedResult.create(items=[], total=50, params=params)
+        assert result.total_pages == 3
+        assert result.page == 100
 
 
 # ============================================================================

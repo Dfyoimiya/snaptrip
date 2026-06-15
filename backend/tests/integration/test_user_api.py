@@ -14,7 +14,7 @@ from httpx import ASGITransport, AsyncClient
 from marketplace.app.main import app
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 async def client_and_user():
     suffix = uuid.uuid4().hex[:8]
     email = f"user-{suffix}@snaptrip.cn"

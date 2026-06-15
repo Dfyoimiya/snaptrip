@@ -123,7 +123,7 @@ const handleSelectResource = (_index: number, row: UmsRole) => {
         <el-table-column label="角色名称" align="center"><template #default="scope">{{ scope.row.name }}</template></el-table-column>
         <el-table-column label="描述" align="center"><template #default="scope">{{ scope.row.description }}</template></el-table-column>
         <el-table-column label="用户数" width="100" align="center"><template #default="scope">{{ scope.row.adminCount }}</template></el-table-column>
-        <el-table-column label="添加时间" width="160" align="center"><template #default="scope">{{ formatDateTime(scope.row.createTime) }}</template></el-table-column>
+        <el-table-column label="添加时间" width="160" align="center"><template #default="scope">{{ formatDateTime(scope.row.createdAt) }}</template></el-table-column>
         <el-table-column label="是否启用" width="140" align="center">
           <template #default="scope"><el-switch @change="handleStatusChange(scope.$index, scope.row)" :active-value="1" :inactive-value="0" v-model="scope.row.status" /></template>
         </el-table-column>

@@ -132,7 +132,7 @@ const handleCheckout = () => {
   if (!cartStore.hasChecked) return
   const checkedIds = cartStore.cartList
     .filter((item) => item.checked)
-    .map((item) => Number(item.id))
+    .map((item) => item.id)
   router.push({
     path: '/order-confirm',
     query: { cartIds: checkedIds.join(',') },
@@ -142,7 +142,7 @@ const handleCheckout = () => {
 /**
  * 跳转到商品详情
  */
-const goProductDetail = (productId: number) => {
+const goProductDetail = (productId: string) => {
   router.push(`/product/${productId}`)
 }
 
@@ -269,7 +269,7 @@ onMounted(() => {
                 {{ item.productName }}
               </button>
               <p class="text-xs text-gray-400 mt-1.5 truncate">
-                {{ item.spDataStr || item.productSkuCode }}
+                {{ item.spec || item.skuCode }}
               </p>
             </div>
           </div>

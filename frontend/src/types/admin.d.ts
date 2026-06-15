@@ -7,7 +7,7 @@ export interface UmsAdmin {
   email?: string
   nickName?: string
   note?: string
-  createTime?: string
+  createdAt?: string
   loginTime?: string
   status?: number
 }

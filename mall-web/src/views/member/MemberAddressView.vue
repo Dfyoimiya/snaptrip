@@ -53,13 +53,13 @@ const showDialog = ref(false)
 const dialogTitle = ref('新增地址')
 const saving = ref(false)
 const editingAddress = ref<Partial<MemberReceiveAddress>>({
-  name: '', phoneNumber: '', detailAddress: '', defaultStatus: 0,
+  name: '', phone: '', detailAddress: '', defaultStatus: 0,
 })
 const formErrors = ref<Record<string, string>>({})
 
 // ===== 操作 =====
 const resetForm = () => {
-  editingAddress.value = { name: '', phoneNumber: '', detailAddress: '', defaultStatus: 0 }
+  editingAddress.value = { name: '', phone: '', detailAddress: '', defaultStatus: 0 }
   selectedProvince.value = ''
   selectedCity.value = ''
   selectedRegion.value = ''
@@ -99,8 +99,8 @@ const onCityChange = () => {
 const validateForm = () => {
   const errors: Record<string, string> = {}
   if (!editingAddress.value.name?.trim()) errors.name = '请输入收货人姓名'
-  if (!editingAddress.value.phoneNumber) errors.phoneNumber = '请输入手机号'
-  else if (!/^1[3-9]\d{9}$/.test(editingAddress.value.phoneNumber)) errors.phoneNumber = '手机号格式不正确'
+  if (!editingAddress.value.phone) errors.phone = '请输入手机号'
+  else if (!/^1[3-9]\d{9}$/.test(editingAddress.value.phone)) errors.phone = '手机号格式不正确'
   if (!selectedProvince.value || !selectedCity.value || !selectedRegion.value) errors.region = '请选择完整的省市区'
   if (!editingAddress.value.detailAddress?.trim()) errors.detailAddress = '请输入详细地址'
   formErrors.value = errors
@@ -111,7 +111,7 @@ const handleSave = async () => {
   if (!validateForm() || saving.value) return
   const data = {
     name: editingAddress.value.name!,
-    phoneNumber: editingAddress.value.phoneNumber!,
+    phone: editingAddress.value.phone!,
     province: selectedProvince.value,
     city: selectedCity.value,
     region: selectedRegion.value,
@@ -203,7 +203,7 @@ onMounted(() => {
         <div class="pr-16">
           <div class="flex items-center gap-2 mb-1.5">
             <span class="text-sm font-bold text-gray-900">{{ addr.name }}</span>
-            <span class="text-sm text-gray-500">{{ addr.phoneNumber }}</span>
+            <span class="text-sm text-gray-500">{{ addr.phone }}</span>
           </div>
           <p class="text-sm text-gray-600 leading-5">
             {{ addr.province }} {{ addr.city }} {{ addr.region }}
@@ -260,13 +260,13 @@ onMounted(() => {
             <div>
               <label class="block text-sm font-medium text-gray-700 mb-1">手机号 <span class="text-red-500">*</span></label>
               <input
-                v-model="editingAddress.phoneNumber"
+                v-model="editingAddress.phone"
                 type="tel"
                 maxlength="11"
                 placeholder="11位手机号"
-                :class="['w-full h-10 px-3 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent', formErrors.phoneNumber ? 'border-red-300' : 'border-gray-300']"
+                :class="['w-full h-10 px-3 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent', formErrors.phone ? 'border-red-300' : 'border-gray-300']"
               />
-              <p v-if="formErrors.phoneNumber" class="text-xs text-red-500 mt-1">{{ formErrors.phoneNumber }}</p>
+              <p v-if="formErrors.phone" class="text-xs text-red-500 mt-1">{{ formErrors.phone }}</p>
             </div>
           </div>
 

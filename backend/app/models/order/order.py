@@ -95,6 +95,7 @@ class OmsOrder(CommerceBase, AuditMixin):
     )
     coupon_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
+        ForeignKey("sms_coupons.id", ondelete="SET NULL"),
         nullable=True,
         comment="使用的优惠券ID",
     )

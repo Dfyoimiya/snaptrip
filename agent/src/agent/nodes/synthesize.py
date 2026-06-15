@@ -6,7 +6,7 @@ import json
 import logging
 import re
 import time
-from typing import Any
+from typing import Any, cast
 
 from agent.schemas.state import PlanState
 
@@ -74,7 +74,7 @@ def _extract_json_content(text: str) -> str:
         try:
             data = json.loads(match.group())
             if isinstance(data, dict) and "answer" in data:
-                return data["answer"]
+                return cast(str, data["answer"])
         except (json.JSONDecodeError, TypeError):
             pass
 
@@ -141,7 +141,12 @@ async def synthesize_node(state: PlanState) -> dict:
 
     if adapter is None:
         logger.error("synthesize: no LLM adapter available")
-        return {"phase": "done", "status": "done", "sub_results": sub_results, "messages": messages}
+        return {
+            "phase": "done",
+            "status": "done",
+            "sub_results": sub_results,
+            "messages": messages,
+        }
 
     try:
         response = await adapter.chat(
@@ -150,7 +155,9 @@ async def synthesize_node(state: PlanState) -> dict:
             max_tokens=2048,
         )
         # Extract structured JSON content for cleaner display
-        raw_content = response.content if hasattr(response, "content") else str(response)
+        raw_content = (
+            response.content if hasattr(response, "content") else str(response)
+        )
         cleaned = _extract_json_content(str(raw_content))
         if cleaned != raw_content:
             if hasattr(response, "content"):
@@ -162,7 +169,12 @@ async def synthesize_node(state: PlanState) -> dict:
             "node_trace name=synthesize elapsed_ms=%.1f success=false error=llm_error",
             elapsed,
         )
-        return {"phase": "done", "status": "done", "sub_results": sub_results, "messages": messages}
+        return {
+            "phase": "done",
+            "status": "done",
+            "sub_results": sub_results,
+            "messages": messages,
+        }
 
     elapsed = (time.monotonic() - t0) * 1000
     _trace_logger.info(

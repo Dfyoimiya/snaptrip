@@ -6,9 +6,9 @@ import { formatDateTime } from '@/utils/datetime'
 import { getResourceCategoryListAllAPI, fetchAllResourceList, resourceCreateAPI, resourceUpdateByIdAPI, resourceDeleteByIdAPI } from '@/apis/resource'
 import type { UmsResource, UmsResourceCategory } from '@/types/resource'
 
-const listQuery = ref({ categoryId: undefined as number | undefined, nameKeyword: '', urlKeyword: '', pageNum: 1, pageSize: 10 })
+const listQuery = ref({ categoryId: undefined as string | undefined, nameKeyword: '', urlKeyword: '', pageNum: 1, pageSize: 10 })
 
-const categoryOptions = ref<{ label: string; value: number }[]>([])
+const categoryOptions = ref<{ label: string; value: string }[]>([])
 const allResources = ref<UmsResource[]>([])
 const list = ref<UmsResource[]>([])
 const total = ref(0)
@@ -19,7 +19,7 @@ const operateOptions = ref([{ label: '删除', value: 1 }])
 
 const dialogVisible = ref(false)
 const isEdit = ref(false)
-const resource = ref<UmsResource>({ name: '', url: '', categoryId: 1, description: '' })
+const resource = ref<UmsResource>({ name: '', url: '', categoryId: '', description: '' })
 
 const fetchData = async () => {
   listLoading.value = true
@@ -28,7 +28,7 @@ const fetchData = async () => {
       getResourceCategoryListAllAPI(),
       fetchAllResourceList(),
     ])
-    categoryOptions.value = (categories.data || []).map((item: UmsResourceCategory) => ({ label: item.name || '', value: Number(item.id) || 0 }))
+    categoryOptions.value = (categories.data || []).map((item: UmsResourceCategory) => ({ label: item.name || '', value: item.id || '' }))
     allResources.value = resources.data || []
   } catch {
     allResources.value = []
@@ -55,7 +55,7 @@ const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQue
 const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; applyFilters() }
 const handleSelectionChange = (val: UmsResource[]) => { multipleSelection.value = val }
 
-const handleAdd = () => { dialogVisible.value = true; isEdit.value = false; resource.value = { name: '', url: '', categoryId: listQuery.value.categoryId || 1, description: '' } }
+const handleAdd = () => { dialogVisible.value = true; isEdit.value = false; resource.value = { name: '', url: '', categoryId: String(listQuery.value.categoryId || ''), description: '' } }
 const handleUpdate = (_index: number, row: UmsResource) => { dialogVisible.value = true; isEdit.value = true; resource.value = { ...row } }
 const handleDelete = async (_index: number, row: UmsResource) => {
   await ElMessageBox.confirm('是否要删除该资源?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
@@ -99,7 +99,7 @@ const handleBatchOperate = async () => {
   }
 }
 
-const getCategoryName = (categoryId?: number) => categoryOptions.value.find(item => item.value === categoryId)?.label || ''
+const getCategoryName = (categoryId?: string) => categoryOptions.value.find(item => item.value === categoryId)?.label || ''
 </script>
 
 <template>
@@ -136,7 +136,7 @@ const getCategoryName = (categoryId?: number) => categoryOptions.value.find(item
         <el-table-column label="资源路径" align="center"><template #default="scope">{{ scope.row.url }}</template></el-table-column>
         <el-table-column label="资源分类" width="120" align="center"><template #default="scope">{{ getCategoryName(scope.row.categoryId) }}</template></el-table-column>
         <el-table-column label="描述" align="center"><template #default="scope">{{ scope.row.description }}</template></el-table-column>
-        <el-table-column label="添加时间" width="180" align="center"><template #default="scope">{{ formatDateTime(scope.row.createTime) }}</template></el-table-column>
+        <el-table-column label="添加时间" width="180" align="center"><template #default="scope">{{ formatDateTime(scope.row.createdAt) }}</template></el-table-column>
         <el-table-column label="操作" width="160" align="center">
           <template #default="scope">
             <el-button size="small" type="primary" link @click="handleUpdate(scope.$index, scope.row)">编辑</el-button>

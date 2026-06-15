@@ -4,6 +4,8 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getCouponByIdAPI, createCouponAPI, updateCouponByIdAPI } from '@/apis/coupon'
 import { couponTypes, couponPlatforms, useTypeOptions } from '@/utils/constant'
+import { getProductListAPI } from '@/apis/product'
+import { getProductCategoryListWithChildrenAPI } from '@/apis/productCate'
 
 const router = useRouter()
 const route = useRoute()
@@ -19,29 +21,35 @@ const coupon = ref<any>({
   code: '', memberLevel: 1, productRelationList: [], productCategoryRelationList: [],
 })
 
-const selectProduct = ref<number[]>([])
-const selectProductCate = ref<number[]>([])
+const selectProduct = ref<string[]>([])
+const selectProductCate = ref<string[]>([])
 
-const productOptions = [
-  { productId: 1, productName: 'iPhone 15 Pro Max', productSn: 'APP-2024-001' },
-  { productId: 2, productName: '华为 Mate 60 Pro', productSn: 'HW-2024-002' },
-  { productId: 3, productName: '小米14 Ultra', productSn: 'XM-2024-003' },
-  { productId: 4, productName: 'MacBook Pro 14英寸', productSn: 'APP-2024-004' },
-  { productId: 5, productName: 'AirPods Pro 2', productSn: 'APP-2024-005' },
-  { productId: 6, productName: '华为 Watch GT 4', productSn: 'HW-2024-006' },
-]
-
-const productCateOptions = [
-  { id: 1, name: '手机数码', parentName: null },
-  { id: 11, name: '手机', parentName: '手机数码' },
-  { id: 12, name: '平板电脑', parentName: '手机数码' },
-  { id: 2, name: '电脑办公', parentName: null },
-  { id: 21, name: '笔记本电脑', parentName: '电脑办公' },
-  { id: 22, name: '台式机', parentName: '电脑办公' },
-]
+// 从 API 获取的真实商品/分类数据
+const productOptions = ref<{ productId: string; productName: string; productSn: string }[]>([])
+const productCateOptions = ref<{ id: string; name: string; parentName: string | null }[]>([])
 
 // ── load existing data ──
 onMounted(async () => {
+  // 并行加载产品和分类列表
+  try {
+    const [prodRes, cateRes] = await Promise.all([
+      getProductListAPI({ keyword: '', page: 1, page_size: 100 }),
+      getProductCategoryListWithChildrenAPI(),
+    ])
+    productOptions.value = (prodRes.data?.items || []).map((p: any) => ({
+      productId: p.id || '',
+      productName: p.name || '',
+      productSn: p.productSn || '',
+    }))
+    productCateOptions.value = (cateRes.data || []).map((c: any) => ({
+      id: c.id || '',
+      name: c.name || '',
+      parentName: c.parentName || null,
+    }))
+  } catch {
+    // 静默失败，选项保持为空
+  }
+
   if (isCreate.value) return
 
   const id = route.query.id as string
@@ -52,8 +60,8 @@ onMounted(async () => {
   }
   try {
     coupon.value = await getCouponByIdAPI(id)
-    selectProduct.value = coupon.value.productRelationList?.map((item: any) => item.productId) || []
-    selectProductCate.value = coupon.value.productCategoryRelationList?.map((item: any) => item.productCategoryId) || []
+    selectProduct.value = coupon.value.productRelationList?.map((item: any) => String(item.productId)) || []
+    selectProductCate.value = coupon.value.productCategoryRelationList?.map((item: any) => String(item.productCategoryId)) || []
   } catch {
     ElMessage.error('加载优惠券详情失败')
   }

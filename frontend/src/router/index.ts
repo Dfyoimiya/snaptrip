@@ -33,6 +33,12 @@ export const constantRouterMap: RouteRecordExt[] = [
       },
     ],
   },
+  // 兜底路由：避免异步路由加载前 URL 匹配警告
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/404',
+    hidden: true,
+  },
 ]
 
 // ========== 动态路由（需要权限） ==========

@@ -8,7 +8,7 @@ export interface UmsMenu {
   level?: number
   sort?: number
   hidden?: number
-  createTime?: string
+  createdAt?: string
   children?: UmsMenu[]
 }
 

@@ -12,8 +12,10 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { addCartAPI } from '@/apis/cart'
 import { getProductDetailAPI } from '@/apis/product'
+import { createProductCollectionAPI, deleteProductCollectionAPI, fetchProductCollectionListAPI } from '@/apis/memberProductCollection'
 import { useCartStore } from '@/stores/cart'
 import { useMemberStore } from '@/stores/member'
+import DOMPurify from 'dompurify'
 import type { PmsSkuStock } from '@/types/product'
 import type { PmsBrand } from '@/types/brand'
 import type { SmsCoupon } from '@/types/coupon'
@@ -56,16 +58,15 @@ interface MockProductDetail {
 }
 
 const defaultBrand: PmsBrand = {
-  id: 0, name: '', firstLetter: '', logo: '', bigPic: '',
-  brandStory: '', sort: 0, showStatus: 0, productCount: 0, productCommentCount: 0,
-  pic: '', createTime: '',
+  id: '', name: '', firstLetter: '', logo: '', bigPic: '',
+  brandStory: '', sort: 0, showStatus: 0, createdAt: '',
 }
 
 const productImages = ref<string[]>([])
 
 const mockProduct = ref<MockProductDetail>({
   product: {
-    id: 0, name: '', subTitle: '', price: 0, originalPrice: 0,
+    id: '', name: '', subTitle: '', price: 0, originalPrice: 0,
     sale: 0, stock: 0, brandName: '', productCategoryName: '',
     pic: '', albumPics: '', description: '', serviceIds: '',
     detailMobileHtml: '', productSn: '', promotionType: 0,
@@ -106,7 +107,7 @@ async function loadProduct() {
     const data = await getProductDetailAPI(productId) as Record<string, unknown>
 
     // 图片列表
-    const pics = (data.pics || data.defaultPic || '') as string
+    const pics = (data.defaultPic || '') as string
     const albumPics = (data.albumPics || '') as string
     const allPics = [pics, ...albumPics.split(',').filter(Boolean)].filter(Boolean)
     productImages.value = allPics.length > 0 ? allPics : ['']
@@ -156,7 +157,7 @@ async function loadProduct() {
         productSn: (data.productSn || '') as string,
         promotionType: (data.promotionType as number) || 0,
       },
-      brand: { ...defaultBrand, id: data.brandId as number || 0, name: (data.brandName || '') as string },
+      brand: { ...defaultBrand, id: (data.brandId as string) || '', name: (data.brandName || '') as string },
       skuStockList,
       productAttributeList,
       productAttributeValueList,
@@ -205,8 +206,15 @@ const currentMainImage = computed(() => {
 
 /** 格式化价格 */
 const formatPrice = (price: number) => {
-  return price.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+  return price.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
+
+/** Sanitized detail HTML to prevent stored XSS via v-html */
+const sanitizedDetailHtml = computed(() => {
+  const raw = mockProduct.value.product.detailMobileHtml
+  if (!raw) return ''
+  return DOMPurify.sanitize(raw)
+})
 
 // ============================================================
 // SKU 规格选择逻辑
@@ -348,8 +356,8 @@ const handleAddToCart = async () => {
     setTimeout(() => toast.remove(), 2000)
   } catch {
     const toast = document.createElement('div')
-    toast.className = 'fixed top-20 left-1/2 -translate-x-1/2 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 text-sm font-medium'
-    toast.textContent = '已成功添加到购物车'
+    toast.className = 'fixed top-20 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 text-sm font-medium'
+    toast.textContent = '添加到购物车失败，请重试'
     document.body.appendChild(toast)
     setTimeout(() => toast.remove(), 2000)
   }
@@ -370,6 +378,54 @@ const handleBuyNow = () => {
   })
 }
 
+/** 收藏状态 */
+const isFavorited = ref(false)
+const isFavoriting = ref(false)
+
+/** 轻量 Toast 提示 */
+function showToast(msg: string, type: 'success' | 'error' = 'success') {
+  const toast = document.createElement('div')
+  toast.className = `fixed top-20 left-1/2 -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-50 text-sm font-medium animate-fade-in ${type === 'error' ? 'bg-red-600' : 'bg-green-600'} text-white`
+  toast.textContent = msg
+  document.body.appendChild(toast)
+  setTimeout(() => toast.remove(), 2000)
+}
+
+/** 切换收藏 */
+const handleToggleFavorite = async () => {
+  if (!memberStore.isLoggedIn) {
+    router.push(`/login?redirect=/product/${productId.value}`)
+    return
+  }
+  if (isFavoriting.value) return
+  isFavoriting.value = true
+  try {
+    if (isFavorited.value) {
+      await deleteProductCollectionAPI({ productId: productId.value })
+      isFavorited.value = false
+      showToast('已取消收藏')
+    } else {
+      await createProductCollectionAPI({ productId: productId.value })
+      isFavorited.value = true
+      showToast('收藏成功')
+    }
+  } catch (err: any) {
+    showToast(err?.message || '操作失败', 'error')
+  } finally {
+    isFavoriting.value = false
+  }
+}
+
+/** 检查商品是否已收藏 */
+async function checkFavoriteStatus() {
+  if (!memberStore.isLoggedIn) return
+  try {
+    const res = await fetchProductCollectionListAPI({ pageNum: 1, pageSize: 100 }) as unknown as { items: { productId: string }[] }
+    const items = res?.items || []
+    isFavorited.value = items.some(item => String(item.productId) === productId.value)
+  } catch { /* ignore */ }
+}
+
 /** 领取优惠券 */
 const receivedCoupons = ref<Set<number>>(new Set())
 const receiveCoupon = (couponId: number) => {
@@ -386,7 +442,7 @@ const receiveCoupon = (couponId: number) => {
 // ============================================================
 
 onMounted(() => {
-  loadProduct()
+  loadProduct().then(() => checkFavoriteStatus())
 })
 
 onUnmounted(() => {
@@ -501,11 +557,16 @@ onUnmounted(() => {
                 </svg>
                 分享
               </button>
-              <button class="flex items-center gap-1 hover:text-red-600 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <button
+                class="flex items-center gap-1 hover:text-red-600 transition-colors"
+                :class="{ 'text-red-600': isFavorited }"
+                :disabled="isFavoriting"
+                @click="handleToggleFavorite"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" :fill="isFavorited ? 'currentColor' : 'none'" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                 </svg>
-                收藏
+                {{ isFavoriting ? '...' : (isFavorited ? '已收藏' : '收藏') }}
               </button>
             </div>
           </div>
@@ -682,7 +743,7 @@ onUnmounted(() => {
             >
               <div class="bg-red-600 text-white px-4 py-3 flex flex-col items-center justify-center flex-shrink-0">
                 <span class="text-lg font-bold">&yen;{{ coupon.amount }}</span>
-                <span class="text-xs opacity-80">满{{ coupon.minPoint }}可用</span>
+                <span class="text-xs opacity-80">满{{ coupon.minAmount }}可用</span>
               </div>
               <div class="flex-1 px-3 py-2 flex flex-col justify-center">
                 <span class="text-sm font-medium text-gray-800">{{ coupon.name }}</span>
@@ -795,8 +856,8 @@ onUnmounted(() => {
               <p>{{ mockProduct.product.description }}</p>
             </div>
 
-            <!-- 详情 HTML -->
-            <div v-if="mockProduct.product.detailMobileHtml" v-html="mockProduct.product.detailMobileHtml" class="prose max-w-none" />
+            <!-- 详情 HTML (sanitized via DOMPurify to prevent XSS) -->
+            <div v-if="sanitizedDetailHtml" v-html="sanitizedDetailHtml" class="prose max-w-none" />
           </div>
 
           <!-- 规格参数 -->

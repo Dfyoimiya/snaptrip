@@ -9,14 +9,12 @@ import { getMemberCouponListAPI } from '@/apis/coupon'
 
 interface CouponItem {
   id: string
-  name?: string
-  amount?: number
-  minPoint?: number
-  endTime?: string
+  couponName?: string
+  couponAmount?: number
+  couponMinAmount?: number
+  expireTime?: string
   useStatus?: number
-  usedTime?: string
-  type?: string
-  code?: string
+  useTime?: string
 }
 
 const activeTab = ref<'valid' | 'used' | 'expired'>('valid')
@@ -80,13 +78,13 @@ onMounted(loadCoupons)
           class="flex border border-red-100 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
         >
           <div class="w-28 bg-red-600 text-white flex flex-col items-center justify-center flex-shrink-0 py-4">
-            <div class="text-2xl font-bold">&yen;{{ coupon.amount }}</div>
-            <div class="text-xs opacity-80 mt-1">满{{ coupon.minPoint }}可用</div>
+            <div class="text-2xl font-bold">&yen;{{ coupon.couponAmount }}</div>
+            <div class="text-xs opacity-80 mt-1">满{{ coupon.couponMinAmount }}可用</div>
           </div>
           <div class="flex-1 p-4 flex flex-col justify-between">
             <div>
-              <h4 class="text-sm font-bold text-gray-900">{{ coupon.name }}</h4>
-              <p v-if="coupon.endTime" class="text-xs text-gray-400 mt-1">有效期至 {{ coupon.endTime }}</p>
+              <h4 class="text-sm font-bold text-gray-900">{{ coupon.couponName }}</h4>
+              <p v-if="coupon.expireTime" class="text-xs text-gray-400 mt-1">有效期至 {{ coupon.expireTime }}</p>
             </div>
           </div>
         </div>
@@ -105,13 +103,13 @@ onMounted(loadCoupons)
           class="flex border border-gray-200 rounded-lg overflow-hidden opacity-60"
         >
           <div class="w-28 bg-gray-400 text-white flex flex-col items-center justify-center flex-shrink-0 py-4">
-            <div class="text-2xl font-bold">&yen;{{ coupon.amount }}</div>
-            <div class="text-xs opacity-80 mt-1">满{{ coupon.minPoint }}可用</div>
+            <div class="text-2xl font-bold">&yen;{{ coupon.couponAmount }}</div>
+            <div class="text-xs opacity-80 mt-1">满{{ coupon.couponMinAmount }}可用</div>
           </div>
           <div class="flex-1 p-4 flex flex-col justify-between">
             <div>
-              <h4 class="text-sm font-bold text-gray-500">{{ coupon.name }}</h4>
-              <p v-if="coupon.usedTime" class="text-xs text-gray-400 mt-1">使用时间 {{ coupon.usedTime }}</p>
+              <h4 class="text-sm font-bold text-gray-500">{{ coupon.couponName }}</h4>
+              <p v-if="coupon.useTime" class="text-xs text-gray-400 mt-1">使用时间 {{ coupon.useTime }}</p>
             </div>
             <div class="mt-2">
               <span class="text-xs bg-gray-100 text-gray-400 px-2 py-0.5 rounded">已使用</span>
@@ -133,13 +131,13 @@ onMounted(loadCoupons)
           class="flex border border-gray-200 rounded-lg overflow-hidden opacity-50"
         >
           <div class="w-28 bg-gray-400 text-white flex flex-col items-center justify-center flex-shrink-0 py-4">
-            <div class="text-2xl font-bold">&yen;{{ coupon.amount }}</div>
-            <div class="text-xs opacity-80 mt-1">满{{ coupon.minPoint }}可用</div>
+            <div class="text-2xl font-bold">&yen;{{ coupon.couponAmount }}</div>
+            <div class="text-xs opacity-80 mt-1">满{{ coupon.couponMinAmount }}可用</div>
           </div>
           <div class="flex-1 p-4 flex flex-col justify-between">
             <div>
-              <h4 class="text-sm font-bold text-gray-500">{{ coupon.name }}</h4>
-              <p v-if="coupon.endTime" class="text-xs text-gray-400 mt-1">已于 {{ coupon.endTime }} 过期</p>
+              <h4 class="text-sm font-bold text-gray-500">{{ coupon.couponName }}</h4>
+              <p v-if="coupon.expireTime" class="text-xs text-gray-400 mt-1">已于 {{ coupon.expireTime }} 过期</p>
             </div>
             <div class="mt-2">
               <span class="text-xs bg-gray-100 text-gray-400 px-2 py-0.5 rounded">已过期</span>

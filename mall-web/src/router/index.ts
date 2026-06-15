@@ -125,13 +125,6 @@ const router = createRouter({
       component: () => import('@/views/HelpView.vue'),
       meta: { title: '帮助中心' },
     },
-    // 404 catch-all
-    {
-      path: '/:pathMatch(.*)*',
-      name: 'not-found',
-      component: () => import('@/views/NotFoundView.vue'),
-      meta: { title: '页面未找到' },
-    },
     // ===== 会员中心嵌套路由 =====
     {
       path: '/member',
@@ -187,6 +180,13 @@ const router = createRouter({
           meta: { title: '账号设置' },
         },
       ],
+    },
+    // 404 catch-all (must be last)
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('@/views/NotFoundView.vue'),
+      meta: { title: '页面未找到' },
     },
   ],
   scrollBehavior() {

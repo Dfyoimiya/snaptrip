@@ -17,7 +17,7 @@ interface ResourceItem {
   name?: string
   url?: string
   description?: string
-  createTime?: string
+  createdAt?: string
 }
 
 interface CategoryItem {

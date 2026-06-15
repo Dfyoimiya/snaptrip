@@ -22,6 +22,7 @@ from snaptrip_shared.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.common import PaginatedResponse, PaginationParams
+from app.schemas.product import PortalProductDetailResponse, PortalProductResponse
 from app.services.product_service import ProductService
 
 router = APIRouter(prefix="/portal/products", tags=["Portal - 商品浏览"])
@@ -57,7 +58,7 @@ async def search(
         page_size=page_size,
     )
     resp = PaginatedResponse.of(
-        items=[item.model_dump() for item in items],
+        items=[PortalProductResponse(**item.model_dump()).model_dump() for item in items],
         total=total,
         params=PaginationParams(page=page, page_size=page_size),
     )
@@ -69,16 +70,11 @@ async def get_detail(
     product_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    """
-    商品详情页 —— 返回基础信息 + SKU列表 + 属性值。
-
-    前台不需要 publish_status/verify_status 字段，
-    但 ProductDetailResponse 目前返回所有字段，
-    后续可新增 PortalProductDetail schema 精简返回。
-    """
+    """商品详情页 —— 返回基础信息 + SKU列表 + 属性值（已排除后台管理字段）。"""
     svc = ProductService(db)
     result = await svc.get_detail(product_id)
-    return success(result.model_dump())
+    portal_result = PortalProductDetailResponse(**result.model_dump())
+    return success(portal_result.model_dump())
 
 
 @router.get("/category/{category_id}", summary="按分类浏览")
@@ -98,7 +94,7 @@ async def by_category(
         page_size=page_size,
     )
     resp = PaginatedResponse.of(
-        items=[item.model_dump() for item in items],
+        items=[PortalProductResponse(**item.model_dump()).model_dump() for item in items],
         total=total,
         params=PaginationParams(page=page, page_size=page_size),
     )

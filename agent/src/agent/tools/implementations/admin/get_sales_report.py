@@ -16,7 +16,9 @@ MARKETPLACE_URL = os.getenv("SNAPTRIP_MARKETPLACE_URL", "http://localhost:8000")
 
 
 class GetSalesReportArgs(BaseModel):
-    days: int = Field(7, description="Number of days to analyze (1=today, 7=week, 30=month)")
+    days: int = Field(
+        7, description="Number of days to analyze (1=today, 7=week, 30=month)"
+    )
 
 
 class GetSalesReportTool(SmartDayBaseTool):
@@ -78,13 +80,17 @@ class GetSalesReportTool(SmartDayBaseTool):
                     # Snapshot
                     "today_orders": dash_inner.get("today_orders", 0),
                     "today_revenue": dash_inner.get("today_revenue", 0),
-                    "today_revenue_display": dash_inner.get("today_revenue_display", "¥0"),
+                    "today_revenue_display": dash_inner.get(
+                        "today_revenue_display", "¥0"
+                    ),
                     "pending_returns": dash_inner.get("pending_returns", 0),
                     "new_members": dash_inner.get("new_members", 0),
                     "order_status_counts": dash_inner.get("order_status_counts", []),
                     # Overview
                     "total_products": overview_inner.get("total_product_count", 0),
-                    "on_shelf_products": overview_inner.get("on_shelf_product_count", 0),
+                    "on_shelf_products": overview_inner.get(
+                        "on_shelf_product_count", 0
+                    ),
                     # Trend
                     "days_requested": days,
                     "daily_sales_trend": [

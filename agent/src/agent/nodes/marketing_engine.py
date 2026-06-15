@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from agent.nodes.base import BaseSpecialist
 from agent.schemas.state import PlanState
@@ -117,4 +117,4 @@ async def marketing_engine_node(state: PlanState) -> dict:
         dict with updated messages and phase. AIMessage may contain tool_calls
         which the graph routes to tool_node.
     """
-    return await _instance.execute(state)
+    return cast(dict, await _instance.execute(state))

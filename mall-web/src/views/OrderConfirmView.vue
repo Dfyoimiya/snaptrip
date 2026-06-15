@@ -42,7 +42,7 @@ const discount = computed(() => {
 })
 const payableAmount = computed(() => goodsTotal.value + freight.value - discount.value)
 
-const formatPrice = (p: number) => p.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const formatPrice = (p: number | null | undefined) => (p ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 onMounted(async () => {
   try {
@@ -56,8 +56,8 @@ onMounted(async () => {
       selectedAddressId.value = defaultAddr ? String(defaultAddr.id) : String(addresses.value[0].id)
     }
 
-    // Get selected cart items
-    const cartItems = cartStore.checkedItems || cartStore.cartItems || []
+    // Get selected cart items (checked items from cart store)
+    const cartItems = cartStore.cartList.filter(item => item.checked)
     orderItems.value = cartItems.map((item: any) => ({
       id: item.id,
       productName: item.productName || item.name,
@@ -83,14 +83,20 @@ const handleSubmitOrder = async () => {
   }
   submitting.value = true
   try {
+    const addr = selectedAddress.value
+    const cartItemIds = cartStore.cartList.filter(item => item.checked).map(item => item.id)
     const result = await generateOrderAPI({
-      addressId: selectedAddressId.value,
-      payType: payType.value,
-      items: orderItems.value.map(item => ({
-        productId: item.productId || item.id,
-        quantity: item.quantity,
-      })),
-      remark: '',
+      cart_item_ids: cartItemIds,
+      receiver_name: addr.name,
+      receiver_phone: addr.phone,
+      receiver_province: addr.province || '',
+      receiver_city: addr.city || '',
+      receiver_region: addr.region || '',
+      receiver_detail_address: addr.detailAddress || '',
+      receiver_post_code: addr.postCode || '',
+      note: '',
+      pay_type: payType.value,
+      coupon_id: null,
     } as any)
     const orderData = result as any
     const orderId = orderData?.id || orderData?.orderId || ''
@@ -146,7 +152,7 @@ const handleSubmitOrder = async () => {
           </div>
           <div class="flex items-center gap-2 mb-1.5">
             <span class="text-sm font-bold text-gray-900">{{ addr.name }}</span>
-            <span class="text-sm text-gray-500">{{ addr.phoneNumber }}</span>
+            <span class="text-sm text-gray-500">{{ addr.phone }}</span>
           </div>
           <p class="text-xs text-gray-600 leading-5">
             {{ addr.province }} {{ addr.city }} {{ addr.region }} {{ addr.detailAddress }}

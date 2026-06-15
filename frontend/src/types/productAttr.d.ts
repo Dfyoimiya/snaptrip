@@ -1,7 +1,7 @@
 /** 商品分类对应属性信息 */
 export interface ProductAttrInfo {
-  attributeId: number
-  attributeCategoryId: number
+  attributeId: string
+  attributeCategoryId: string
 }
 
 /** 商品属性分类 */
@@ -20,13 +20,13 @@ export interface PmsProductAttributeCategoryExt extends PmsProductAttributeCateg
 /** 商品属性 */
 export interface PmsProductAttribute {
   id?: string
-  productAttributeCategoryId: number
+  categoryId: string
   name: string
   selectType?: number
   inputType?: number
   inputList?: string
   sort?: number
-  type?: number
+  attrType?: number
   handAddStatus?: number
   searchType?: number
   relatedStatus?: number

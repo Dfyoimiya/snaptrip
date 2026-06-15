@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any
+from typing import cast
 
 from agent.schemas.state import PlanState
 
@@ -51,7 +51,7 @@ def _mask_pii(text: str, match: re.Match) -> str:
     original = match.group()
     if len(original) <= 4:
         return "****"
-    return original[:3] + "*" * (len(original) - 6) + original[-3:]
+    return cast(str, original[:3] + "*" * (len(original) - 6) + original[-3:])
 
 
 async def compliance_node(state: PlanState) -> dict:

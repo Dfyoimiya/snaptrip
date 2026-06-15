@@ -140,10 +140,16 @@ class TestPhase2Portal:
         assert "total" in data
 
     @pytest.mark.asyncio
-    async def test_portal_category_browse(self, public_client: AsyncClient):
-        """按分类浏览"""
-        # 需要先创建分类 → 这里可能返回空结果也是合法的
-        url = "/api/v1/portal/products/category/00000000-0000-0000-0000-000000000001?page=1&page_size=5"
-        resp = await public_client.get(url)
-        assert resp.status_code == 200
-        assert resp.json()["code"] == 0
+    async def test_portal_category_browse_valid_uuid(self, public_client: AsyncClient):
+        """按分类浏览 —— 使用 UUID 格式值保证路由匹配正确."""
+        # Use a valid UUID format — this category may not exist, but the route
+        # must match and return 200 (with empty items) rather than 422 or 404.
+        valid_uuid = "00000000-0000-0000-0000-000000000001"
+        resp = await public_client.get(
+            f"/api/v1/portal/products/category/{valid_uuid}",
+            params={"page": 1, "page_size": 5},
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["code"] == 0
+        assert "items" in body["data"]

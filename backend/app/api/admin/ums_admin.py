@@ -30,6 +30,7 @@ router = APIRouter(prefix="/admin", tags=["System - 用户管理"])
 
 
 async def _get_user_roles(db: AsyncSession, user_id: UUID) -> list[RoleResponse]:
+    """Load roles for a single user (used by single-admin endpoints)."""
     result = await db.execute(
         select(Role)
         .join(UserRole, UserRole.role_id == Role.id)
@@ -39,8 +40,25 @@ async def _get_user_roles(db: AsyncSession, user_id: UUID) -> list[RoleResponse]
     return [RoleResponse.model_validate(r) for r in roles]
 
 
-async def _build_admin_response(db: AsyncSession, row) -> dict:
-    roles = await _get_user_roles(db, row.id)
+async def _get_user_roles_batch(
+    db: AsyncSession, user_ids: list[UUID],
+) -> dict[UUID, list[RoleResponse]]:
+    """Batch load roles for multiple users in a single query (avoids N+1)."""
+    if not user_ids:
+        return {}
+    result = await db.execute(
+        select(UserRole.user_id, Role)
+        .join(Role, UserRole.role_id == Role.id)
+        .where(UserRole.user_id.in_(user_ids))
+    )
+    role_map: dict[UUID, list[RoleResponse]] = {uid: [] for uid in user_ids}
+    for user_id, role in result:
+        role_map[user_id].append(RoleResponse.model_validate(role))
+    return role_map
+
+
+def _build_admin_response(row, roles: list[RoleResponse]) -> dict:
+    """Build admin response dict from row and pre-loaded roles."""
     return {
         "id": row.id,
         "email": row.email,
@@ -68,9 +86,13 @@ async def list_admins(
     )
     rows = result.fetchall()
 
+    # Batch-load roles for all returned admins to avoid N+1 queries
+    user_ids = [row.id for row in rows]
+    role_map = await _get_user_roles_batch(db, user_ids)
+
     items = []
     for row in rows:
-        items.append(await _build_admin_response(db, row))
+        items.append(_build_admin_response(row, role_map.get(row.id, [])))
 
     resp = PaginatedResponse.of(
         items=items,
@@ -88,7 +110,7 @@ async def register_admin(
 ):
     from snaptrip_shared.core.security import hash_password
     from sqlalchemy import text
-    user_id = __uuid.uuid4()
+    user_id = _uuid.uuid4()
     hashed = hash_password(data.password)
 
     await db.execute(

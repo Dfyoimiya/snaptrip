@@ -9,31 +9,10 @@ Date: 2026-06-08
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-
-
-async def _refresh_fake(obj: object) -> None:
-    from uuid import uuid4
-
-    obj.id = uuid4()  # type: ignore[attr-defined]
-
-
-@pytest.fixture
-def mock_db() -> AsyncSession:
-    db = AsyncMock(spec=AsyncSession)
-    db.add = MagicMock()
-    db.flush = AsyncMock()
-    db.refresh = AsyncMock(side_effect=_refresh_fake)
-    db.commit = AsyncMock()
-    db.rollback = AsyncMock()
-    db.execute = AsyncMock()
-    db.get = AsyncMock()
-    db.delete = AsyncMock()
-    return db
 
 
 def _make_address_mock(addr_id: UUID | None = None) -> MagicMock:
@@ -253,7 +232,8 @@ async def test_add_favorite_success(mock_db):
         resp = await svc.add_favorite(uuid4(), uuid4())
 
     assert mock_db.add.called
-    assert resp is not None
+    assert resp.id == fav_mock.id
+    assert resp.product_name == "Test Product"
 
 
 @pytest.mark.asyncio
@@ -322,3 +302,37 @@ async def test_list_favorites_success(mock_db):
 
     assert total == 2
     assert len(items) == 1
+
+
+@pytest.mark.asyncio
+async def test_list_addresses_empty(mock_db):
+    """list_addresses: returns empty list when user has no addresses."""
+    from app.services.member_service import MemberService
+
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = []
+    mock_db.execute.return_value = list_result
+
+    svc = MemberService(mock_db)
+    items = await svc.list_addresses(uuid4())
+
+    assert len(items) == 0
+
+
+@pytest.mark.asyncio
+async def test_list_favorites_empty(mock_db):
+    """list_favorites: returns empty list when user has no favorites."""
+    from app.services.member_service import MemberService
+
+    count_result = MagicMock()
+    count_result.scalar.return_value = 0
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = []
+
+    mock_db.execute.side_effect = [count_result, list_result]
+
+    svc = MemberService(mock_db)
+    items, total = await svc.list_favorites(uuid4(), page=1, page_size=20)
+
+    assert total == 0
+    assert len(items) == 0

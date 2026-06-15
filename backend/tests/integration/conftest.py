@@ -1,7 +1,8 @@
-"""Integration test fixtures —— mock LLM adapter for fast test execution.
+"""Integration test fixtures —— mock external dependencies for fast test execution.
 
-LLM calls (intent_parser, planning_engine Phase 2) are mocked to fail immediately,
-triggering fast keyword/template fallback paths.
+Mocked:
+  - LLM adapter: fail immediately → trigger keyword/template fallback paths
+  - Rate limiter: no-op → skip Redis-dependent rate limiting (no Redis in CI)
 """
 
 from __future__ import annotations
@@ -28,4 +29,17 @@ def _mock_llm_adapter(monkeypatch):
     monkeypatch.setattr(
         "agent.adapters.langchain_adapter.LangChainAdapter.chat_json",
         _fast_fail,
+    )
+
+
+@pytest.fixture(autouse=True)
+def _mock_rate_limiter(monkeypatch):
+    """Mock RateLimiter.__call__ → no-op (skip Redis in test env)."""
+
+    async def _noop(self, request):
+        return None
+
+    monkeypatch.setattr(
+        "marketplace.app.core.rate_limit.RateLimiter.__call__",
+        _noop,
     )

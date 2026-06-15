@@ -79,8 +79,7 @@ class AuthHook(PreHook):
         if not is_read_only and not session.user_id:
             ctx.aborted = True
             ctx.abort_reason = (
-                f"Authentication required for '{ctx.tool_name}': "
-                "no user_id in session"
+                f"Authentication required for '{ctx.tool_name}': no user_id in session"
             )
         return ctx
 

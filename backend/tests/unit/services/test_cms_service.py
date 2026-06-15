@@ -9,31 +9,10 @@ Date: 2026-06-08
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-
-
-async def _refresh_fake(obj: object) -> None:
-    from uuid import uuid4
-
-    obj.id = uuid4()  # type: ignore[attr-defined]
-
-
-@pytest.fixture
-def mock_db() -> AsyncSession:
-    db = AsyncMock(spec=AsyncSession)
-    db.add = MagicMock()
-    db.flush = AsyncMock()
-    db.refresh = AsyncMock(side_effect=_refresh_fake)
-    db.commit = AsyncMock()
-    db.rollback = AsyncMock()
-    db.execute = AsyncMock()
-    db.get = AsyncMock()
-    db.delete = AsyncMock()
-    return db
 
 
 def _make_banner_mock(banner_id: UUID | None = None) -> MagicMock:
@@ -187,6 +166,21 @@ async def test_list_banners_success(mock_db):
     assert len(items) == 1
 
 
+@pytest.mark.asyncio
+async def test_list_banners_empty(mock_db):
+    """list_banners: returns empty list when no banners exist."""
+    from app.services.cms_service import CmsService
+
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = []
+    mock_db.execute.return_value = list_result
+
+    svc = CmsService(mock_db)
+    items = await svc.list_banners()
+
+    assert len(items) == 0
+
+
 # ===========================================================================
 #  Subject tests
 # ===========================================================================
@@ -264,6 +258,46 @@ async def test_delete_subject_not_found(mock_db):
         await svc.delete_subject(uuid4())
 
 
+@pytest.mark.asyncio
+async def test_list_subjects_success(mock_db):
+    """list_subjects: returns paginated subjects with total."""
+    from app.services.cms_service import CmsService
+
+    subject_mock = _make_subject_mock()
+    count_result = MagicMock()
+    count_result.scalar.return_value = 1
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = [subject_mock]
+
+    mock_db.execute.side_effect = [count_result, list_result]
+
+    svc = CmsService(mock_db)
+    items, total = await svc.list_subjects(page=1, page_size=20)
+
+    assert total == 1
+    assert len(items) == 1
+    assert items[0].title == "Test Subject"
+
+
+@pytest.mark.asyncio
+async def test_list_subjects_empty(mock_db):
+    """list_subjects: returns empty list with zero total."""
+    from app.services.cms_service import CmsService
+
+    count_result = MagicMock()
+    count_result.scalar.return_value = 0
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = []
+
+    mock_db.execute.side_effect = [count_result, list_result]
+
+    svc = CmsService(mock_db)
+    items, total = await svc.list_subjects(page=1, page_size=20)
+
+    assert total == 0
+    assert len(items) == 0
+
+
 # ===========================================================================
 #  Help tests
 # ===========================================================================
@@ -339,3 +373,43 @@ async def test_delete_help_not_found(mock_db):
     svc = CmsService(mock_db)
     with pytest.raises(ProductNotFoundError):
         await svc.delete_help(uuid4())
+
+
+@pytest.mark.asyncio
+async def test_list_helps_success(mock_db):
+    """list_helps: returns paginated help entries with total."""
+    from app.services.cms_service import CmsService
+
+    help_mock = _make_help_mock()
+    count_result = MagicMock()
+    count_result.scalar.return_value = 1
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = [help_mock]
+
+    mock_db.execute.side_effect = [count_result, list_result]
+
+    svc = CmsService(mock_db)
+    items, total = await svc.list_helps(page=1, page_size=20)
+
+    assert total == 1
+    assert len(items) == 1
+    assert items[0].title == "Test Help"
+
+
+@pytest.mark.asyncio
+async def test_list_helps_empty(mock_db):
+    """list_helps: returns empty list with zero total."""
+    from app.services.cms_service import CmsService
+
+    count_result = MagicMock()
+    count_result.scalar.return_value = 0
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = []
+
+    mock_db.execute.side_effect = [count_result, list_result]
+
+    svc = CmsService(mock_db)
+    items, total = await svc.list_helps(page=1, page_size=20)
+
+    assert total == 0
+    assert len(items) == 0

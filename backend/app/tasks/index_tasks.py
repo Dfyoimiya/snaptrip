@@ -73,7 +73,7 @@ def sync_all_products_to_es() -> dict:
         logger.info("es_full_sync_done", total=len(products), success=success)
         return {"total": len(products), "indexed": success}
 
-    return asyncio.get_event_loop().run_until_complete(_run())
+    return asyncio.run(_run())
 
 
 @shared_task(name="sync_product_to_es_by_id")
@@ -97,4 +97,4 @@ def sync_product_to_es_by_id(product_id: str) -> bool:
             await _sync_product_to_es(product)
             return True
 
-    return asyncio.get_event_loop().run_until_complete(_run())
+    return asyncio.run(_run())

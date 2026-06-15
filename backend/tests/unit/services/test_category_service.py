@@ -9,31 +9,10 @@ Date: 2026-06-08
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-
-
-async def _refresh_fake(obj: object) -> None:
-    from uuid import uuid4
-
-    obj.id = uuid4()  # type: ignore[attr-defined]
-
-
-@pytest.fixture
-def mock_db() -> AsyncSession:
-    db = AsyncMock(spec=AsyncSession)
-    db.add = MagicMock()
-    db.flush = AsyncMock()
-    db.refresh = AsyncMock(side_effect=_refresh_fake)
-    db.commit = AsyncMock()
-    db.rollback = AsyncMock()
-    db.execute = AsyncMock()
-    db.get = AsyncMock()
-    db.delete = AsyncMock()
-    return db
 
 
 def _make_category_mock(cat_id: UUID | None = None, parent_id: UUID | None = None) -> MagicMock:
@@ -228,6 +207,25 @@ async def test_list_paginated_success(mock_db):
     assert len(items) == 1
 
 
+@pytest.mark.asyncio
+async def test_list_paginated_empty(mock_db):
+    """list_paginated: returns empty list with zero total."""
+    from app.services.category_service import CategoryService
+
+    count_result = MagicMock()
+    count_result.scalar.return_value = 0
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = []
+
+    mock_db.execute.side_effect = [count_result, list_result]
+
+    svc = CategoryService(mock_db)
+    items, total = await svc.list_paginated(page=1, page_size=20)
+
+    assert total == 0
+    assert len(items) == 0
+
+
 # ---------------------------------------------------------------------------
 #  get_tree
 # ---------------------------------------------------------------------------
@@ -244,7 +242,7 @@ async def test_get_tree_success(mock_db):
     root_cat.children = [child_cat]
 
     tree_result = MagicMock()
-    tree_result.unique.return_value.scalars.return_value.all.return_value = [root_cat]
+    tree_result.scalars.return_value.all.return_value = [root_cat, child_cat]
     mock_db.execute.return_value = tree_result
 
     svc = CategoryService(mock_db)
@@ -261,7 +259,7 @@ async def test_get_tree_empty(mock_db):
     from app.services.category_service import CategoryService
 
     tree_result = MagicMock()
-    tree_result.unique.return_value.scalars.return_value.all.return_value = []
+    tree_result.scalars.return_value.all.return_value = []
     mock_db.execute.return_value = tree_result
 
     svc = CategoryService(mock_db)
@@ -282,6 +280,7 @@ async def test_toggle_status_success(mock_db):
 
     cat_id = uuid4()
     cat_mock = _make_category_mock(cat_id)
+    cat_mock.show_status = 0  # toggled from 1 to 0
     exec_result = MagicMock()
     exec_result.scalar_one_or_none.return_value = cat_mock
     mock_db.execute.return_value = exec_result
@@ -290,6 +289,7 @@ async def test_toggle_status_success(mock_db):
     resp = await svc.toggle_status(cat_id, "show_status", 0)
 
     assert resp.id == cat_id
+    assert resp.show_status == 0  # verify the toggle was applied
 
 
 @pytest.mark.asyncio

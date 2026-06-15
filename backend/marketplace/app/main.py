@@ -15,6 +15,7 @@ Date: 2026-05-13
 
 from __future__ import annotations
 
+import os
 from contextlib import asynccontextmanager
 
 from agent.adapters.persistence.runtime_event import SQLRuntimeEventRepository
@@ -88,9 +89,24 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+def _get_cors_origins() -> list[str]:
+    """Resolve allowed CORS origins from environment, safe by default in production."""
+    cors_origins_env = os.getenv("CORS_ORIGINS", "")
+    if cors_origins_env:
+        return [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+    if settings.APP_ENV in ("development", "test"):
+        return ["*"]
+    raise ValueError(
+        "CORS_ORIGINS environment variable must be set in production mode. "
+        "Set it to a comma-separated list of allowed origins, e.g. "
+        "CORS_ORIGINS=https://example.com,https://admin.example.com"
+    )
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_get_cors_origins(),
     allow_methods=["*"],
     allow_headers=["*"],
 )

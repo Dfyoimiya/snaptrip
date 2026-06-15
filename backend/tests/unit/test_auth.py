@@ -58,3 +58,18 @@ class TestJWT:
         token = jwt.encode({"sub": "x"}, "wrong-secret", algorithm="HS256")
         with pytest.raises(HTTPException):
             verify_token(token)
+
+    def test_token_missing_sub_raises(self):
+        from jose import jwt
+
+        token = jwt.encode({"type": "access", "exp": 9999999999}, "test-secret", algorithm="HS256")
+        with pytest.raises(HTTPException):
+            verify_token(token)
+
+    def test_token_empty_string_rejected(self):
+        with pytest.raises(HTTPException):
+            verify_token("")
+
+    def test_token_malformed_rejected(self):
+        with pytest.raises(HTTPException):
+            verify_token("not-a-jwt-at-all-just-garbage")

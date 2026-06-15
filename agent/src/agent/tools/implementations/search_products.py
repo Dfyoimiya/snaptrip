@@ -15,11 +15,15 @@ MARKETPLACE_URL = os.getenv("SNAPTRIP_MARKETPLACE_URL", "http://localhost:8000")
 
 
 class SearchProductsArgs(BaseModel):
-    query: str = Field(..., description="Natural language search query describing what the user wants")
+    query: str = Field(
+        ..., description="Natural language search query describing what the user wants"
+    )
     category: str | None = Field(
         None, description="Product category: hotel, flight, tour, package, all"
     )
-    max_results: int = Field(5, description="Maximum results to return (default 5, max 20)")
+    max_results: int = Field(
+        5, description="Maximum results to return (default 5, max 20)"
+    )
     sort_by: str = Field(
         "default", description="Sort order: default, sales, new, price_asc, price_desc"
     )
@@ -48,7 +52,9 @@ class SearchProductsTool(SmartDayBaseTool):
             category = kwargs.get("category")
             sort_by = kwargs.get("sort_by", "default")
             page = kwargs.get("page", 1)
-            page_size = min(kwargs.get("page_size", 10), int(kwargs.get("max_results", 20)))
+            page_size = min(
+                kwargs.get("page_size", 10), int(kwargs.get("max_results", 20))
+            )
 
             # Map 'all' -> None (no category filter)
             if category and category.lower() == "all":

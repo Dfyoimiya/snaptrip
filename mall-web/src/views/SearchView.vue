@@ -11,16 +11,18 @@
  */
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { searchProductListAPI } from '@/apis/product'
-import type { PmsProduct } from '@/types/product'
+import { searchProductListAPI, getCategoryTreeAPI } from '@/apis/product'
+import { getBrandRecommendListAPI } from '@/apis/brand'
+import type { PmsProduct, CategoryTreeNode } from '@/types/product'
+import type { PmsBrand } from '@/types/brand'
 
 const route = useRoute()
 const router = useRouter()
 
 // ===== 筛选状态 =====
 const keyword = ref((route.query.keyword as string) || '')
-const categoryId = ref<number | undefined>(route.query.categoryId ? Number(route.query.categoryId) : undefined)
-const brandId = ref<number | undefined>(route.query.brandId ? Number(route.query.brandId) : undefined)
+const categoryId = ref<string | undefined>(route.query.categoryId as string | undefined)
+const brandId = ref<string | undefined>(route.query.brandId as string | undefined)
 const sortType = ref(0)
 const minPrice = ref<number | undefined>(undefined)
 const maxPrice = ref<number | undefined>(undefined)
@@ -31,6 +33,8 @@ const loading = ref(false)
 // ===== 数据 =====
 const total = ref(0)
 const productList = ref<PmsProduct[]>([])
+const categoryOptions = ref<{ id: string; name: string }[]>([])
+const brandOptions = ref<{ id: string; name: string }[]>([])
 
 /** 排序选项 */
 const sortOptions = [
@@ -38,32 +42,6 @@ const sortOptions = [
   { label: '销量', value: 2, icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6' },
   { label: '价格从低到高', value: 3 },
   { label: '价格从高到低', value: 4 },
-]
-
-/** 分类筛选选项 */
-const categoryOptions = [
-  { id: 1, name: '手机数码' },
-  { id: 2, name: '电脑办公' },
-  { id: 3, name: '家用电器' },
-  { id: 4, name: '家居家装' },
-  { id: 5, name: '服装服饰' },
-  { id: 6, name: '美妆个护' },
-  { id: 7, name: '运动户外' },
-  { id: 8, name: '食品生鲜' },
-]
-
-/** 品牌筛选选项 */
-const brandOptions = [
-  { id: 1, name: 'Apple' },
-  { id: 2, name: '华为' },
-  { id: 3, name: '小米' },
-  { id: 4, name: 'Nike' },
-  { id: 5, name: 'Adidas' },
-  { id: 6, name: 'Sony' },
-  { id: 7, name: 'Dyson' },
-  { id: 8, name: '三星' },
-  { id: 9, name: '联想' },
-  { id: 10, name: '海尔' },
 ]
 
 /** 价格区间预设 */
@@ -77,6 +55,34 @@ const priceRanges = [
 
 /** 选中价格区间索引 */
 const selectedPriceRange = ref(-1)
+
+// ===== 加载筛选选项数据 =====
+async function loadFilterOptions() {
+  try {
+    const [catRes, brandRes] = await Promise.all([
+      getCategoryTreeAPI().catch(() => null),
+      getBrandRecommendListAPI({ page: 1, page_size: 100 }).catch(() => null),
+    ])
+    if (catRes) {
+      // Flatten category tree to flat list for filter display
+      const flat: { id: string; name: string }[] = []
+      function walk(nodes: CategoryTreeNode[]) {
+        for (const n of nodes) {
+          flat.push({ id: n.id, name: n.name })
+          if (n.children) walk(n.children)
+        }
+      }
+      walk(Array.isArray(catRes) ? catRes : (catRes as unknown as { data: CategoryTreeNode[] }).data || [])
+      categoryOptions.value = flat
+    }
+    if (brandRes) {
+      const brands = Array.isArray(brandRes) ? brandRes : (brandRes as unknown as { data: { items: PmsBrand[] } }).data?.items || []
+      brandOptions.value = brands.map(b => ({ id: b.id, name: b.name }))
+    }
+  } catch {
+    // Silently ignore filter loading errors — search still works without filters
+  }
+}
 
 // ===== 从后端 API 搜索 =====
 async function fetchProducts() {
@@ -112,11 +118,11 @@ const totalPages = ref(1)
 const activeFilters = computed(() => {
   const filters: { key: string; label: string }[] = []
   if (categoryId.value) {
-    const cat = categoryOptions.find(c => c.id === categoryId.value)
+    const cat = categoryOptions.value.find(c => c.id === categoryId.value)
     if (cat) filters.push({ key: 'category', label: `分类: ${cat.name}` })
   }
   if (brandId.value) {
-    const brand = brandOptions.find(b => b.id === brandId.value)
+    const brand = brandOptions.value.find(b => b.id === brandId.value)
     if (brand) filters.push({ key: 'brand', label: `品牌: ${brand.name}` })
   }
   if (minPrice.value !== undefined || maxPrice.value !== undefined) {
@@ -131,12 +137,12 @@ const activeFilters = computed(() => {
 const hasActiveFilters = computed(() => activeFilters.value.length > 0)
 
 // ===== 操作 =====
-const selectCategory = (id: number) => {
+const selectCategory = (id: string) => {
   categoryId.value = categoryId.value === id ? undefined : id
   currentPage.value = 1
 }
 
-const selectBrand = (id: number) => {
+const selectBrand = (id: string) => {
   brandId.value = brandId.value === id ? undefined : id
   currentPage.value = 1
 }
@@ -186,7 +192,7 @@ const goPage = (page: number) => {
   currentPage.value = page
 }
 
-const goProductDetail = (id: number) => {
+const goProductDetail = (id: string) => {
   router.push(`/product/${id}`)
 }
 
@@ -195,8 +201,8 @@ watch(
   () => [route.query.keyword, route.query.categoryId, route.query.brandId],
   ([kw, cat, brand]) => {
     keyword.value = (kw as string) || ''
-    categoryId.value = cat ? Number(cat) : undefined
-    brandId.value = brand ? Number(brand) : undefined
+    categoryId.value = (cat as string) || undefined
+    brandId.value = (brand as string) || undefined
     currentPage.value = 1
     fetchProducts()
   },
@@ -209,6 +215,7 @@ watch([categoryId, brandId, sortType, minPrice, maxPrice, currentPage], () => {
 })
 
 onMounted(() => {
+  loadFilterOptions()
   fetchProducts()
 })
 </script>
@@ -350,13 +357,13 @@ onMounted(() => {
       >
         <!-- 商品图片 -->
         <div class="aspect-square bg-gray-50 overflow-hidden relative">
-          <img :src="product.pic" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+          <img :src="product.defaultPic" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
           <!-- 促销标签 -->
           <span
-            v-if="product.originalPrice > product.price"
+            v-if="(product.originalPrice ?? 0) > product.price"
             class="absolute top-2 left-2 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded font-medium"
           >
-            省{{ Math.round((1 - product.price / product.originalPrice) * 100) }}%
+            省{{ Math.round((1 - product.price / (product.originalPrice || product.price)) * 100) }}%
           </span>
         </div>
         <!-- 商品信息 -->
@@ -364,11 +371,11 @@ onMounted(() => {
           <p class="text-sm text-gray-800 line-clamp-2 leading-5 min-h-[40px] mb-2 group-hover:text-red-600 transition-colors">{{ product.name }}</p>
           <div class="flex items-baseline gap-2">
             <span class="text-red-600 font-bold text-base"><span class="text-xs">&yen;</span>{{ product.price }}</span>
-            <span class="text-xs text-gray-400 line-through">&yen;{{ product.originalPrice }}</span>
+            <span v-if="product.originalPrice" class="text-xs text-gray-400 line-through">&yen;{{ product.originalPrice }}</span>
           </div>
           <div class="flex items-center justify-between mt-2">
-            <span class="text-xs text-gray-400">已售 {{ product.sale >= 10000 ? (product.sale / 10000).toFixed(1) + '万' : product.sale }}</span>
-            <span class="text-xs text-gray-400">{{ product.brandName }}</span>
+            <span class="text-xs text-gray-400">已售 {{ (product.saleCount ?? 0) >= 10000 ? ((product.saleCount ?? 0) / 10000).toFixed(1) + '万' : (product.saleCount ?? 0) }}</span>
+            <span class="text-xs text-gray-400">{{ product.brandName || '' }}</span>
           </div>
         </div>
       </button>

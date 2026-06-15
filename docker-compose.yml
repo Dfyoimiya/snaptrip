@@ -170,6 +170,8 @@ services:
         condition: service_healthy
       elasticsearch:
         condition: service_healthy
+      marketplace:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "celery -A marketplace.app.celery_app inspect ping -d celery@$$HOSTNAME 2>/dev/null || exit 1"]
       interval: 30s
@@ -199,7 +201,11 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
+        condition: service_healthy
+      marketplace:
         condition: service_healthy
     restart: unless-stopped
     deploy:
@@ -241,11 +247,13 @@ services:
       context: ./mall-web
       dockerfile: Dockerfile
       target: ${BUILD_TARGET:-production}
+      args:
+        VITE_API_BASE_URL: ${MALL_WEB_API_BASE_URL:-http://localhost:8080}
     container_name: snaptrip-mall-web
     environment:
       VITE_API_BASE_URL: ${MALL_WEB_API_BASE_URL:-http://localhost:8080}
     ports:
-      - "127.0.0.1:5175:5175"
+      - "127.0.0.1:5175:${MALL_WEB_PORT:-80}"
     profiles:
       - full
       - dev

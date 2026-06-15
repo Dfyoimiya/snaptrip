@@ -31,7 +31,7 @@ async function loadProducts() {
   }
 }
 
-const formatPrice = (p: number) => p.toLocaleString('zh-CN')
+const formatPrice = (p: number | null | undefined) => (p ?? 0).toLocaleString('zh-CN')
 
 onMounted(() => {
   loadProducts()
@@ -78,7 +78,7 @@ onMounted(() => {
         </div>
 
         <div class="aspect-square bg-gray-50 overflow-hidden relative">
-          <img :src="product.pic" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+          <img :src="product.defaultPic" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
         </div>
         <div class="p-3.5">
           <p class="text-sm text-gray-800 line-clamp-2 leading-5 min-h-[40px] mb-2 group-hover:text-red-600 transition-colors">{{ product.name }}</p>
@@ -87,8 +87,7 @@ onMounted(() => {
             <span class="text-xs text-gray-400 line-through">&yen;{{ formatPrice(product.originalPrice) }}</span>
           </div>
           <div class="flex items-center justify-between mt-2">
-            <span class="text-xs text-orange-500 font-medium">已售 {{ product.sale >= 10000 ? (product.sale / 10000).toFixed(1) + '万' : product.sale }}</span>
-            <span class="text-xs text-gray-400">{{ product.brandName }}</span>
+            <span class="text-xs text-orange-500 font-medium">已售 {{ (product.saleCount ?? 0) >= 10000 ? ((product.saleCount ?? 0) / 10000).toFixed(1) + '万' : (product.saleCount ?? 0) }}</span>
           </div>
         </div>
       </button>

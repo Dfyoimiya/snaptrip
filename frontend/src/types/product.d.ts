@@ -3,21 +3,20 @@ import type { PageParam } from './common'
 /** 商品 */
 export interface PmsProduct {
   id?: string
-  brandId: number
+  brandId: string
   brandName?: string
-  productCategoryId: number
+  categoryId: string
   productCategoryName?: string
-  productAttributeCategoryId?: number
+  productAttributeCategoryId?: string
   name: string
-  pic: string
+  defaultPic: string
   productSn: string
   deleteStatus?: number
   publishStatus?: number
   newStatus?: number
-  recommandStatus?: number
+  recommendStatus?: number
   verifyStatus?: number
-  sort?: number
-  sale?: number
+  saleCount?: number
   price: number
   promotionPrice?: number
   giftGrowth?: number
@@ -44,6 +43,8 @@ export interface PmsProduct {
   promotionType?: number
   brandNameCn?: string
   productCategoryNameCn?: string
+  /** 排序 */
+  sort?: number
 }
 
 /** 商品查询参数 */
@@ -52,8 +53,8 @@ export interface ProductQueryParam extends PageParam {
   publishStatus?: number
   verifyStatus?: number
   productSn?: string
-  productCategoryId?: string | number
-  brandId?: string | number
+  categoryId?: string
+  brandId?: string
 }
 
 /** 商品参数（创建/更新） */
@@ -69,30 +70,30 @@ export interface PmsProductParam extends PmsProduct {
 /** 商品属性值 */
 export interface ProductAttrValue {
   id?: string
-  productId?: number
-  productAttributeId: number
+  productId?: string
+  productAttributeId: string
   value: string
 }
 
 /** SKU库存 */
 export interface SkuStock {
   id?: string
-  productId?: number
+  productId?: string
   skuCode?: string
   price?: number
   stock?: number
   lowStock?: number
-  pic?: string
-  sale?: number
+  defaultPic?: string
+  saleCount?: number
   promotionPrice?: number
   lockStock?: number
-  spData?: string
+  spec?: string
 }
 
 /** 商品参数值 */
 export interface ProductParamValue {
   id?: string
-  productId?: number
-  productAttributeId: number
+  productId?: string
+  productAttributeId: string
   value: string
 }

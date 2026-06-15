@@ -17,10 +17,9 @@ from agent.services.agent import AgentService
 from fastapi import APIRouter, Depends, Request
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
-from snaptrip_shared.core.response import APIServiceError
+from snaptrip_shared.core.response import APIServiceError, success
 
 from marketplace.app.core.security import get_current_user  # JWT 认证
-from snaptrip_shared.core.response import success
 
 router = APIRouter(prefix="/admin/agent", tags=["admin-agent"])
 
@@ -57,25 +56,15 @@ def _build_admin_state(req: AgentChatRequest, auth_token: str = "") -> dict:
 
 def _get_agent_service(request: Request) -> AgentService:
     """Resolve AgentService from lifespan or build fallback."""
-    if (
-        not hasattr(request.app.state, "_agent_service")
-        or request.app.state._agent_service is None
-    ):
-        if (
-            hasattr(request.app.state, "plan_graph")
-            and request.app.state.plan_graph is not None
-        ):
-            request.app.state._agent_service = AgentService(
-                request.app.state.plan_graph
-            )
+    if not hasattr(request.app.state, "_agent_service") or request.app.state._agent_service is None:
+        if hasattr(request.app.state, "plan_graph") and request.app.state.plan_graph is not None:
+            request.app.state._agent_service = AgentService(request.app.state.plan_graph)
         else:
             import asyncio
 
             from agent.graph import build_graph as _build
 
-            request.app.state._agent_service = AgentService(
-                asyncio.get_event_loop().run_until_complete(_build())
-            )
+            request.app.state._agent_service = AgentService(asyncio.run(_build()))
     return request.app.state._agent_service
 
 

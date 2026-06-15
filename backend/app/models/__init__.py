@@ -17,7 +17,15 @@ from app.models.checkpoint import Checkpoint  # noqa: F401
 from app.models.cms import CmsBanner, CmsHelp, CmsSubject  # noqa: F401
 from app.models.llm_usage_log import LLMUsageLog  # noqa: F401
 from app.models.member import UmsMemberAddress, UmsMemberFavorite  # noqa: F401
-from app.models.order import OmsCartItem, OmsOrder, OmsOrderItem, OmsOrderOperateLog  # noqa: F401
+from app.models.order import (  # noqa: F401
+    OmsCartItem,
+    OmsOrder,
+    OmsOrderItem,
+    OmsOrderOperateLog,
+    OmsOrderSetting,
+    OmsReturnApply,
+    OmsReturnReason,
+)
 from app.models.product import (  # noqa: F401
     PmsBrand,
     PmsCategory,
@@ -33,7 +41,7 @@ from app.models.promotion import (  # noqa: F401
     SmsFlashPromotionProduct,
     SmsFlashPromotionSession,
 )
-from app.models.menu import Menu, Resource, ResourceCategory  # noqa: F401
+from app.models.menu import Menu, Resource, ResourceCategory, RoleMenu, RoleResource  # noqa: F401
 from app.models.rbac import Permission, Role, RolePermission, UserRole  # noqa: F401
 from app.models.trip_history import TripHistory  # noqa: F401
 
@@ -60,6 +68,9 @@ __all__ = [
     "OmsOrder",
     "OmsOrderItem",
     "OmsOrderOperateLog",
+    "OmsOrderSetting",
+    "OmsReturnApply",
+    "OmsReturnReason",
     "SmsCoupon",
     "SmsCouponHistory",
     "SmsFlashPromotion",
@@ -70,5 +81,7 @@ __all__ = [
     "Menu",
     "Resource",
     "ResourceCategory",
+    "RoleMenu",
+    "RoleResource",
     "TripHistory",
 ]

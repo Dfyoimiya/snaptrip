@@ -18,67 +18,80 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+def _table_exists(name: str) -> bool:
+    """Check if a table exists in the current database."""
+    from sqlalchemy import inspect
+
+    conn = op.get_bind()
+    inspector = inspect(conn)
+    return name in inspector.get_table_names()
+
+
 def upgrade() -> None:
     """Phase 1 — 创建 RBAC 表 + 系统角色权限 + 管理账号"""
 
     # ── ums_roles ──
-    op.create_table(
-        'ums_roles',
-        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('name', sa.String(64), nullable=False),
-        sa.Column('description', sa.String(255), nullable=True),
-        sa.Column('status', sa.Integer(), nullable=False, server_default='1'),
-        sa.Column('sort', sa.Integer(), nullable=False, server_default='0'),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-        sa.Column('created_by', postgresql.UUID(as_uuid=True), nullable=True),
-        sa.Column('updated_by', postgresql.UUID(as_uuid=True), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('name', name='uq_ums_roles_name'),
-    )
+    if not _table_exists("ums_roles"):
+        op.create_table(
+            'ums_roles',
+            sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('name', sa.String(64), nullable=False),
+            sa.Column('description', sa.String(255), nullable=True),
+            sa.Column('status', sa.Integer(), nullable=False, server_default='1'),
+            sa.Column('sort', sa.Integer(), nullable=False, server_default='0'),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+            sa.Column('created_by', postgresql.UUID(as_uuid=True), nullable=True),
+            sa.Column('updated_by', postgresql.UUID(as_uuid=True), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('name', name='uq_ums_roles_name'),
+        )
 
     # ── ums_permissions ──
-    op.create_table(
-        'ums_permissions',
-        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('name', sa.String(64), nullable=False),
-        sa.Column('description', sa.String(255), nullable=True),
-        sa.Column('resource', sa.String(128), nullable=False),
-        sa.Column('method', sa.String(16), nullable=True),
-        sa.Column('status', sa.Integer(), nullable=False, server_default='1'),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-        sa.Column('created_by', postgresql.UUID(as_uuid=True), nullable=True),
-        sa.Column('updated_by', postgresql.UUID(as_uuid=True), nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-    )
+    if not _table_exists("ums_permissions"):
+        op.create_table(
+            'ums_permissions',
+            sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('name', sa.String(64), nullable=False),
+            sa.Column('description', sa.String(255), nullable=True),
+            sa.Column('resource', sa.String(128), nullable=False),
+            sa.Column('method', sa.String(16), nullable=True),
+            sa.Column('status', sa.Integer(), nullable=False, server_default='1'),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+            sa.Column('created_by', postgresql.UUID(as_uuid=True), nullable=True),
+            sa.Column('updated_by', postgresql.UUID(as_uuid=True), nullable=True),
+            sa.PrimaryKeyConstraint('id'),
+        )
 
     # ── ums_role_permissions ──
-    op.create_table(
-        'ums_role_permissions',
-        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('role_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('permission_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.ForeignKeyConstraint(['role_id'], ['ums_roles.id'], ondelete='CASCADE'),
-        sa.ForeignKeyConstraint(['permission_id'], ['ums_permissions.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id', 'role_id', 'permission_id'),
-        sa.UniqueConstraint('role_id', 'permission_id', name='uq_role_permission'),
-    )
+    if not _table_exists("ums_role_permissions"):
+        op.create_table(
+            'ums_role_permissions',
+            sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('role_id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('permission_id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.ForeignKeyConstraint(['role_id'], ['ums_roles.id'], ondelete='CASCADE'),
+            sa.ForeignKeyConstraint(['permission_id'], ['ums_permissions.id'], ondelete='CASCADE'),
+            sa.PrimaryKeyConstraint('id', 'role_id', 'permission_id'),
+            sa.UniqueConstraint('role_id', 'permission_id', name='uq_role_permission'),
+        )
 
     # ── ums_user_roles ──
-    op.create_table(
-        'ums_user_roles',
-        sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('role_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-        sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
-        sa.Column('created_by', postgresql.UUID(as_uuid=True), nullable=True),
-        sa.Column('updated_by', postgresql.UUID(as_uuid=True), nullable=True),
-        sa.ForeignKeyConstraint(['role_id'], ['ums_roles.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('user_id', 'role_id', name='uq_user_role'),
-    )
+    if not _table_exists("ums_user_roles"):
+        op.create_table(
+            'ums_user_roles',
+            sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('role_id', postgresql.UUID(as_uuid=True), nullable=False),
+            sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+            sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+            sa.Column('created_by', postgresql.UUID(as_uuid=True), nullable=True),
+            sa.Column('updated_by', postgresql.UUID(as_uuid=True), nullable=True),
+            sa.ForeignKeyConstraint(['role_id'], ['ums_roles.id'], ondelete='CASCADE'),
+            sa.PrimaryKeyConstraint('id'),
+            sa.UniqueConstraint('user_id', 'role_id', name='uq_user_role'),
+        )
     op.create_index('ix_ums_user_roles_user_id', 'ums_user_roles', ['user_id'])
     op.create_index('ix_ums_user_roles_role_id', 'ums_user_roles', ['role_id'])
 

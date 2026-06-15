@@ -82,7 +82,7 @@ def auto_cancel_expired_orders() -> dict:
                 logger.info("auto_cancel_done", cancelled=cancelled, deadline=str(deadline))
             return {"cancelled": cancelled}
 
-    return asyncio.get_event_loop().run_until_complete(_run())
+    return asyncio.run(_run())
 
 
 @shared_task(name="auto_confirm_receipt_orders", max_retries=1)
@@ -138,7 +138,7 @@ def auto_confirm_receipt_orders() -> dict:
                 logger.info("auto_confirm_done", confirmed=confirmed)
             return {"confirmed": confirmed}
 
-    return asyncio.get_event_loop().run_until_complete(_run())
+    return asyncio.run(_run())
 
 
 def _get_session():

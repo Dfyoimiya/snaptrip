@@ -11,11 +11,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def _make_flash_promotion_mock(promo_id=None) -> MagicMock:
@@ -55,26 +54,6 @@ def _make_flash_product_mock(fp_id=None) -> MagicMock:
     p.flash_limit = 2
     p.sort = 0
     return p
-
-
-async def _refresh_fake(obj: object) -> None:
-    from uuid import uuid4
-
-    obj.id = uuid4()  # type: ignore[attr-defined]
-
-
-@pytest.fixture
-def mock_db() -> AsyncSession:
-    db = AsyncMock(spec=AsyncSession)
-    db.add = MagicMock()
-    db.flush = AsyncMock()
-    db.refresh = AsyncMock(side_effect=_refresh_fake)
-    db.commit = AsyncMock()
-    db.rollback = AsyncMock()
-    db.execute = AsyncMock()
-    db.get = AsyncMock()
-    db.delete = AsyncMock()
-    return db
 
 
 @patch("app.services.flash_service.FlashPromotionResponse.model_validate")
@@ -340,3 +319,35 @@ async def test_list_promotions_success(mock_db):
 
     assert total == 2
     assert len(items) == 1
+
+
+@pytest.mark.asyncio
+async def test_list_promotions_empty(mock_db):
+    """list_promotions: returns empty list when no promotions exist."""
+    from app.services.flash_service import FlashService
+
+    count_result = MagicMock()
+    count_result.scalar.return_value = 0
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = []
+
+    mock_db.execute.side_effect = [count_result, list_result]
+
+    svc = FlashService(mock_db)
+    items, total = await svc.list_promotions(page=1, page_size=10)
+
+    assert total == 0
+    assert len(items) == 0
+
+
+@pytest.mark.asyncio
+async def test_update_session_empty_data_raises(mock_db):
+    """update_session: empty FlashSessionUpdate raises CommerceException."""
+    from app.core.exceptions import CommerceException
+    from app.schemas.promotion import FlashSessionUpdate
+    from app.services.flash_service import FlashService
+
+    svc = FlashService(mock_db)
+    with pytest.raises(CommerceException) as exc:
+        await svc.update_session(uuid4(), FlashSessionUpdate())
+    assert exc.value.code == "NO_FIELDS"

@@ -96,7 +96,11 @@ class OrderCreateFromCart(BaseModel):
     """从购物车提交订单 —— 需要收货地址 + 勾选的购物车项ID列表"""
     cart_item_ids: list[UUID] = Field(..., min_length=1, max_length=50, description="勾选的购物车项ID")
     receiver_name: str = Field(..., min_length=1, max_length=100)
-    receiver_phone: str = Field(..., min_length=1, max_length=32)
+    receiver_phone: str = Field(
+        ..., min_length=1, max_length=32,
+        pattern=r"^1[3-9]\d{9}$",
+        description="收货人手机号 (中国大陆 11 位)",
+    )
     receiver_province: str | None = Field(None, max_length=32)
     receiver_city: str | None = Field(None, max_length=32)
     receiver_region: str | None = Field(None, max_length=32)

@@ -17,7 +17,8 @@ MARKETPLACE_URL = os.getenv("SNAPTRIP_MARKETPLACE_URL", "http://localhost:8000")
 
 class AnalyzeCouponEffectArgs(BaseModel):
     coupon_id: str | None = Field(
-        None, description="Specific coupon ID to analyze, or omit for all-coupons overview"
+        None,
+        description="Specific coupon ID to analyze, or omit for all-coupons overview",
     )
 
 
@@ -73,9 +74,7 @@ class AnalyzeCouponEffectTool(SmartDayBaseTool):
 
         used_count = coupon.get("used_count", coupon.get("use_count", 0))
         total_count = coupon.get("total_count", coupon.get("count", 0))
-        usage_rate = (
-            round(used_count / max(total_count, 1), 4) if total_count else 0
-        )
+        usage_rate = round(used_count / max(total_count, 1), 4) if total_count else 0
 
         return {
             "coupon_id": coupon.get("id", coupon_id),
@@ -102,7 +101,9 @@ class AnalyzeCouponEffectTool(SmartDayBaseTool):
             ],
         }
 
-    async def _analyze_all(self, client: httpx.AsyncClient, hdrs: dict[str, str]) -> dict:
+    async def _analyze_all(
+        self, client: httpx.AsyncClient, hdrs: dict[str, str]
+    ) -> dict:
         # Fetch all coupons (first 2 pages to capture most)
         all_coupons: list[dict[str, Any]] = []
         for page in (1, 2):
@@ -128,7 +129,11 @@ class AnalyzeCouponEffectTool(SmartDayBaseTool):
         coupon_stats: list[dict[str, Any]] = []
 
         # Coupon type mapping
-        type_map: dict[int, str] = {0: "full_reduction", 1: "fixed_amount", 2: "discount"}
+        type_map: dict[int, str] = {
+            0: "full_reduction",
+            1: "fixed_amount",
+            2: "discount",
+        }
 
         for c in all_coupons:
             used = c.get("used_count", c.get("use_count", 0))
@@ -170,9 +175,7 @@ class AnalyzeCouponEffectTool(SmartDayBaseTool):
             "total_used": total_used,
             "total_issued": total_issued,
             "overall_usage_rate": (
-                round(total_used / max(total_issued, 1), 4)
-                if total_issued
-                else 0
+                round(total_used / max(total_issued, 1), 4) if total_issued else 0
             ),
             "top_performers": top_performers,
             "low_performers": bottom_performers,

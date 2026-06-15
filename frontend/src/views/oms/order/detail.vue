@@ -91,7 +91,7 @@ watch(() => route.query.id, (newId) => {
           </template>
           <el-descriptions :column="4" border>
             <el-descriptions-item label="订单编号">{{ order?.orderSn }}</el-descriptions-item>
-            <el-descriptions-item label="下单时间">{{ order?.createTime }}</el-descriptions-item>
+            <el-descriptions-item label="下单时间">{{ order?.createdAt }}</el-descriptions-item>
             <el-descriptions-item label="支付方式">{{ payTypeMap[order?.payType] || '--' }}</el-descriptions-item>
             <el-descriptions-item label="订单来源">
               {{ order?.sourceType === 0 ? 'PC端' : order?.sourceType === 1 ? 'APP端' : '小程序' }}
@@ -156,16 +156,16 @@ watch(() => route.query.id, (newId) => {
               </template>
             </el-table-column>
             <el-table-column label="商品名称" prop="productName" min-width="180" />
-            <el-table-column label="商品属性" prop="productAttr" width="160" />
-            <el-table-column label="单价" prop="productPrice" width="100" align="center">
+            <el-table-column label="商品属性" prop="spec" width="160" />
+            <el-table-column label="单价" prop="price" width="100" align="center">
               <template #default="{ row }">
-                <span>￥{{ row.productPrice }}</span>
+                <span>￥{{ row.price }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="数量" prop="productQuantity" width="80" align="center" />
+            <el-table-column label="数量" prop="quantity" width="80" align="center" />
             <el-table-column label="小计" width="100" align="center">
               <template #default="{ row }">
-                <span style="color: #f56c6c; font-weight: bold">￥{{ row.productPrice * row.productQuantity }}</span>
+                <span style="color: #f56c6c; font-weight: bold">￥{{ row.price * row.quantity }}</span>
               </template>
             </el-table-column>
           </el-table>

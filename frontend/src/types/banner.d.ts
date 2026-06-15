@@ -14,5 +14,5 @@ export interface SmsHomeAdvertise {
   url?: string
   note?: string
   sort?: number
-  createTime?: string
+  createdAt?: string
 }

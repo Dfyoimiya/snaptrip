@@ -8,18 +8,18 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { fetchProductCollectionListAPI, deleteProductCollectionAPI } from '@/apis/memberProductCollection'
-import type { PmsProduct } from '@/types/product'
+import type { MemberProductCollection } from '@/types/memberProductCollection'
 
 const router = useRouter()
 
 const loading = ref(false)
-const favorites = ref<PmsProduct[]>([])
+const favorites = ref<MemberProductCollection[]>([])
 
 async function loadFavorites() {
   loading.value = true
   try {
     const res = await fetchProductCollectionListAPI({ pageNum: 1, pageSize: 50 })
-    favorites.value = (res as unknown as { items: PmsProduct[] }).items || []
+    favorites.value = (res as unknown as { items: MemberProductCollection[] }).items || []
   } catch (err: any) {
     console.error('加载收藏失败:', err?.message || err)
   } finally {
@@ -29,11 +29,11 @@ async function loadFavorites() {
 
 /** 批量选中模式 */
 const batchMode = ref(false)
-/** 选中的 ID */
-const selectedIds = ref<Set<number>>(new Set())
+/** 选中的 productId */
+const selectedIds = ref<Set<string>>(new Set())
 
 /** 是否全选 */
-const isAllSelected = () => favorites.value.length > 0 && favorites.value.every(f => selectedIds.value.has(f.id))
+const isAllSelected = () => favorites.value.length > 0 && favorites.value.every(f => selectedIds.value.has(f.productId))
 
 /** 切换批量模式 */
 const toggleBatchMode = () => {
@@ -42,7 +42,7 @@ const toggleBatchMode = () => {
 }
 
 /** 切换选中 */
-const toggleSelect = (id: number) => {
+const toggleSelect = (id: string) => {
   if (selectedIds.value.has(id)) selectedIds.value.delete(id)
   else selectedIds.value.add(id)
 }
@@ -50,7 +50,7 @@ const toggleSelect = (id: number) => {
 /** 全选/取消全选 */
 const toggleSelectAll = () => {
   if (isAllSelected()) selectedIds.value.clear()
-  else favorites.value.forEach(f => selectedIds.value.add(f.id))
+  else favorites.value.forEach(f => selectedIds.value.add(f.productId))
 }
 
 /** 批量删除 */
@@ -70,7 +70,7 @@ const batchDelete = async () => {
 }
 
 /** 单个删除 */
-const removeItem = async (id: number) => {
+const removeItem = async (id: string) => {
   try {
     await deleteProductCollectionAPI({ productId: String(id) })
     await loadFavorites()
@@ -125,15 +125,15 @@ onMounted(() => {
         v-for="item in favorites"
         :key="item.id"
         class="group relative rounded-lg border border-gray-100 hover:border-red-200 hover:shadow-md transition-all overflow-hidden"
-        :class="{ 'ring-2 ring-red-500': batchMode && selectedIds.has(item.id) }"
+        :class="{ 'ring-2 ring-red-500': batchMode && selectedIds.has(item.productId) }"
       >
         <!-- 批量选择复选框 -->
         <div v-if="batchMode" class="absolute top-2 left-2 z-20">
           <input
             type="checkbox"
-            :checked="selectedIds.has(item.id)"
+            :checked="selectedIds.has(item.productId)"
             class="w-5 h-5 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
-            @click.stop="toggleSelect(item.id)"
+            @click.stop="toggleSelect(item.productId)"
           />
         </div>
 
@@ -141,7 +141,7 @@ onMounted(() => {
         <button
           v-if="!batchMode"
           class="absolute top-2 right-2 z-20 w-7 h-7 bg-white/80 backdrop-blur rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-white transition-all opacity-0 group-hover:opacity-100"
-          @click.stop="removeItem(item.id)"
+          @click.stop="removeItem(item.productId)"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -149,18 +149,14 @@ onMounted(() => {
         </button>
 
         <!-- 商品卡片 -->
-        <button class="w-full text-left" @click="!batchMode && router.push(`/product/${item.id}`)">
+        <button class="w-full text-left" @click="!batchMode && router.push(`/product/${item.productId}`)">
           <div class="aspect-square bg-gray-50 overflow-hidden">
-            <img :src="item.pic" :alt="item.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+            <img :src="item.productPic" :alt="item.productName" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
           </div>
           <div class="p-3">
-            <p class="text-sm text-gray-800 line-clamp-2 min-h-[40px] mb-2 group-hover:text-red-600 transition-colors">{{ item.name }}</p>
+            <p class="text-sm text-gray-800 line-clamp-2 min-h-[40px] mb-2 group-hover:text-red-600 transition-colors">{{ item.productName }}</p>
             <div class="flex items-baseline gap-2">
-              <span class="text-red-600 font-bold">&yen;{{ item.price }}</span>
-              <span class="text-xs text-gray-400 line-through">&yen;{{ item.originalPrice }}</span>
-            </div>
-            <div class="flex items-center justify-between mt-1.5">
-              <span class="text-xs text-gray-400">{{ item.brandName }}</span>
+              <span class="text-red-600 font-bold">&yen;{{ item.productPrice }}</span>
             </div>
           </div>
         </button>

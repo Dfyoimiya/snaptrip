@@ -21,7 +21,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Integer, Numeric, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -59,12 +59,14 @@ class PmsProduct(CommerceBase, AuditMixin, SoftDeleteMixin):
     )
     brand_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
+        ForeignKey("pms_brands.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
         comment="品牌ID",
     )
     category_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
+        ForeignKey("pms_categories.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
         comment="分类ID",
@@ -230,7 +232,8 @@ class PmsProduct(CommerceBase, AuditMixin, SoftDeleteMixin):
     # ===========================================================================
     #  运费模板
     # ===========================================================================
-    feight_template_id: Mapped[uuid.UUID | None] = mapped_column(
+    freight_template_id: Mapped[uuid.UUID | None] = mapped_column(
+        "freight_template_id",
         UUID(as_uuid=True),
         nullable=True,
         comment="运费模板ID",

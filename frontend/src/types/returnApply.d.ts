@@ -1,10 +1,10 @@
 /** 退货申请 */
 export interface OmsOrderReturnApply {
   id?: string
-  orderId?: number
-  productId?: number
+  orderId?: string
+  productId?: string
   orderSn?: string
-  createTime?: string
+  createdAt?: string
   memberUsername?: string
   returnAmount?: number
   returnName?: string
@@ -25,14 +25,14 @@ export interface OmsOrderReturnApply {
   receiveMan?: string
   receiveTime?: string
   receiveNote?: string
-  companyAddressId?: number
+  companyAddressId?: string
 }
 
 /** 退货申请查询参数 */
 export interface ReturnApplyQueryParam {
   id?: string
   status?: number
-  createTime?: string
+  createdAt?: string
   handleMan?: string
   handleTime?: string
   page: number
@@ -41,8 +41,8 @@ export interface ReturnApplyQueryParam {
 
 /** 更新退货申请状态参数 */
 export interface OmsUpdateStatusParam {
-  id: number
-  companyAddressId: number
+  id: string
+  companyAddressId: string
   handleMan: string
   handleNote: string
   receiveMan: string

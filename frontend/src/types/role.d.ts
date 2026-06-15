@@ -6,5 +6,5 @@ export interface UmsRole {
   adminCount?: number
   status?: number
   sort?: number
-  createTime?: string
+  createdAt?: string
 }

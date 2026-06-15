@@ -128,7 +128,7 @@ onMounted(() => {
         <!-- 左侧金额区 -->
         <div class="w-32 bg-gradient-to-br from-red-600 to-red-500 text-white flex flex-col items-center justify-center flex-shrink-0 py-5 relative">
           <div class="text-3xl font-bold">&yen;{{ coupon.amount }}</div>
-          <div class="text-xs opacity-80 mt-1">满{{ coupon.minPoint }}可用</div>
+          <div class="text-xs opacity-80 mt-1">满{{ coupon.minAmount }}可用</div>
           <!-- 锯齿边缘 -->
           <div class="absolute right-0 top-0 bottom-0 w-2 flex flex-col justify-around">
             <div v-for="i in 8" :key="i" class="w-2 h-2 rounded-full bg-gray-50 -mr-1" />

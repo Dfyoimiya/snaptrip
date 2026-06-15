@@ -111,7 +111,7 @@ class TestCategorySchema:
     def test_category_tree_children_default(self):
         from app.schemas.product import CategoryTreeResponse
 
-        tree = CategoryTreeResponse(id=uuid.uuid4(), name="Root", level=0, sort=0)
+        tree = CategoryTreeResponse(id=uuid.uuid4(), name="Root", level=0, sort=0, nav_status=1, show_status=1)
         assert tree.children == []
 
 

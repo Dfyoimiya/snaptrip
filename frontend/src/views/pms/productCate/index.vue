@@ -116,12 +116,12 @@ async function handleSaveCate() {
         <el-table-column label="数量单位" prop="productUnit" width="80" align="center" />
         <el-table-column label="导航栏" width="90" align="center">
           <template #default="{ row }">
-            <el-switch v-model="row.navStatus" :active-value="1" :inactive-value="0" @change="(val: number) => handleToggleNav(row, val)" />
+            <el-switch v-model="row.navStatus" :active-value="1" :inactive-value="0" @change="(val) => handleToggleNav(row, Number(val))" />
           </template>
         </el-table-column>
         <el-table-column label="是否显示" width="90" align="center">
           <template #default="{ row }">
-            <el-switch v-model="row.showStatus" :active-value="1" :inactive-value="0" @change="(val: number) => handleToggleShow(row, val)" />
+            <el-switch v-model="row.showStatus" :active-value="1" :inactive-value="0" @change="(val) => handleToggleShow(row, Number(val))" />
           </template>
         </el-table-column>
         <el-table-column label="排序" prop="sort" width="70" align="center" />

@@ -39,6 +39,12 @@ class RateLimiter:
 
     async def __call__(self, request: Request) -> None:
         """FastAPI 依赖 —— 检查并递增计数。"""
+        import os
+
+        # 测试环境跳过限流
+        if os.getenv("APP_ENV") == "test":
+            return
+
         from snaptrip_shared.db.redis import get_redis_client
 
         redis = await get_redis_client()

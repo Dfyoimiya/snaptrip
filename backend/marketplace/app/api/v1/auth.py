@@ -13,6 +13,7 @@ Date: 2026-05-17
 
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Any
 
@@ -48,6 +49,8 @@ from marketplace.app.schemas.auth import (
     TokenResponse,
     UserMeResponse,
 )
+
+_logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -169,9 +172,6 @@ async def logout(
     data: dict[str, Any] = success(message="已登出")
     return data
 
-
-import logging
-_logger = logging.getLogger(__name__)
 
 @router.get("/me", response_model=dict)
 async def me(

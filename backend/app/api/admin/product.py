@@ -225,16 +225,20 @@ async def manage_skus(
         sql_update(PmsSku).where(PmsSku.id == sku_id).values(stock=stock)
     )
 
-    # 重算商品总库存 —— 汇总该商品所有 SKU 的库存
+    # 原子重算商品总库存 —— 使用子查询避免 SELECT-then-UPDATE 竞态。
+    # 子查询在 UPDATE 执行时读取 SKU 表的当前已提交状态，与 UPDATE 同为
+    # 一条语句，PostgreSQL 行级锁保证不会丢失其他并发 SKU 更新的写入。
     from sqlalchemy import func
     from sqlalchemy import select as sql_select
-    total_result = await db.execute(
-        sql_select(func.sum(PmsSku.stock)).where(PmsSku.product_id == product_id)
+    stock_subq = (
+        sql_select(func.coalesce(func.sum(PmsSku.stock), 0))
+        .where(PmsSku.product_id == product_id)
+        .scalar_subquery()
     )
-    total_stock = total_result.scalar() or 0
-
     await db.execute(
-        sql_update(PmsProduct).where(PmsProduct.id == product_id).values(stock=total_stock)
+        sql_update(PmsProduct)
+        .where(PmsProduct.id == product_id)
+        .values(stock=stock_subq)
     )
 
     return success(message="SKU库存已更新")

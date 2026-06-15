@@ -20,9 +20,9 @@ export interface CommonPage<T> {
   /** 当前页码 */
   page: number
   /** 每页数量 */
-  page_size: number
+  pageSize: number
   /** 总页数 */
-  total_pages: number
+  totalPages: number
   /** 总条数 */
   total: number
   /** 分页数据 */

@@ -9,32 +9,10 @@ Date: 2026-06-08
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-
-
-async def _refresh_fake(obj: object) -> None:
-    """Simulate flush/refresh generating the primary key."""
-    from uuid import uuid4
-
-    obj.id = uuid4()  # type: ignore[attr-defined]
-
-
-@pytest.fixture
-def mock_db() -> AsyncSession:
-    db = AsyncMock(spec=AsyncSession)
-    db.add = MagicMock()
-    db.flush = AsyncMock()
-    db.refresh = AsyncMock(side_effect=_refresh_fake)
-    db.commit = AsyncMock()
-    db.rollback = AsyncMock()
-    db.execute = AsyncMock()
-    db.get = AsyncMock()
-    db.delete = AsyncMock()
-    return db
 
 
 def _make_brand_mock(brand_id: UUID | None = None) -> MagicMock:
@@ -260,20 +238,23 @@ async def test_list_all_success(mock_db):
 
 @pytest.mark.asyncio
 async def test_toggle_status_success(mock_db):
-    """toggle_status: toggles factory_status and returns BrandResponse."""
+    """toggle_status: toggles show_status and returns BrandResponse."""
     from app.services.brand_service import BrandService
 
     brand_id = uuid4()
     brand_mock = _make_brand_mock(brand_id)
+    brand_mock.show_status = 0  # was 1, being toggled to 0
+    brand_mock.factory_status = 1
     exec_result = MagicMock()
     exec_result.scalar_one_or_none.return_value = brand_mock
     mock_db.execute.return_value = exec_result
 
     svc = BrandService(mock_db)
-    resp = await svc.toggle_status(brand_id, "factory_status", 0)
+    resp = await svc.toggle_status(brand_id, "show_status", 0)
 
     assert resp.id == brand_id
-    assert resp.factory_status == 1
+    assert resp.show_status == 0
+    assert resp.factory_status == 1  # other fields unchanged
 
 
 @pytest.mark.asyncio
@@ -289,3 +270,37 @@ async def test_toggle_status_not_found(mock_db):
     svc = BrandService(mock_db)
     with pytest.raises(ProductNotFoundError):
         await svc.toggle_status(uuid4(), "factory_status", 1)
+
+
+@pytest.mark.asyncio
+async def test_list_paginated_empty(mock_db):
+    """list_paginated: returns empty list with zero total."""
+    from app.services.brand_service import BrandService
+
+    count_result = MagicMock()
+    count_result.scalar.return_value = 0
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = []
+
+    mock_db.execute.side_effect = [count_result, list_result]
+
+    svc = BrandService(mock_db)
+    items, total = await svc.list_paginated(page=1, page_size=20)
+
+    assert total == 0
+    assert len(items) == 0
+
+
+@pytest.mark.asyncio
+async def test_list_all_empty(mock_db):
+    """list_all: returns empty list when no brands exist."""
+    from app.services.brand_service import BrandService
+
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = []
+    mock_db.execute.return_value = list_result
+
+    svc = BrandService(mock_db)
+    items = await svc.list_all()
+
+    assert len(items) == 0

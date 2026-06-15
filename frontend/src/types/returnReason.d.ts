@@ -4,5 +4,5 @@ export interface OmsOrderReturnReason {
   name?: string
   sort?: number
   status?: number
-  createTime?: string
+  createdAt?: string
 }

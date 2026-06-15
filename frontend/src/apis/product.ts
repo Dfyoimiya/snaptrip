@@ -7,7 +7,7 @@ function mapProductParams(params: ProductQueryParam) {
   return {
     keyword: params.keyword,
     product_sn: params.productSn,
-    category_id: params.productCategoryId,
+    category_id: params.categoryId,
     brand_id: params.brandId,
     publish_status: params.publishStatus,
     verify_status: params.verifyStatus,

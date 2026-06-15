@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -47,3 +47,43 @@ class Resource(CommerceBase):
     description: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     category: Mapped[ResourceCategory | None] = relationship(back_populates="resources", lazy="joined")
+
+
+class RoleMenu(CommerceBase):
+    """角色-菜单关联表 —— ums_role_menus"""
+
+    __tablename__ = "ums_role_menus"
+    __table_args__ = (
+        UniqueConstraint("role_id", "menu_id", name="uq_role_menu"),
+    )
+
+    role_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("ums_roles.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    menu_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("ums_menus.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+
+
+class RoleResource(CommerceBase):
+    """角色-资源关联表 —— ums_role_resources"""
+
+    __tablename__ = "ums_role_resources"
+    __table_args__ = (
+        UniqueConstraint("role_id", "resource_id", name="uq_role_resource"),
+    )
+
+    role_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("ums_roles.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    resource_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("ums_resources.id", ondelete="CASCADE"),
+        primary_key=True,
+    )

@@ -17,6 +17,7 @@ from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.order.return_apply import OmsReturnApply
+from app.core.exceptions import CommerceException
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.order_setting import ReturnApplyResponse, ReturnApplyUpdateStatus
 from marketplace.app.core.security import get_current_user
@@ -89,7 +90,7 @@ async def get_apply(
 ):
     apply = await db.get(OmsReturnApply, apply_id)
     if not apply:
-        return success({})
+        raise CommerceException(code="RETURN_APPLY_NOT_FOUND", message="退货申请不存在", status_code=404)
     return success(ReturnApplyResponse.model_validate(apply).model_dump())
 
 
@@ -102,7 +103,7 @@ async def update_status(
 ):
     apply = await db.get(OmsReturnApply, apply_id)
     if not apply:
-        return success(message="退货申请不存在")
+        raise CommerceException(code="RETURN_APPLY_NOT_FOUND", message="退货申请不存在", status_code=404)
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(apply, field, value)
     if data.status in (1, 2, 3):

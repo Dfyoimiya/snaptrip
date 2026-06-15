@@ -22,11 +22,11 @@ interface BrandInfo {
 interface ProductItem {
   id: string
   name: string
-  pic?: string
+  defaultPic?: string | null
   price: number
-  originalPrice?: number
-  sale?: number
-  subTitle?: string
+  originalPrice?: number | null
+  saleCount?: number
+  subTitle?: string | null
 }
 
 const brand = ref<BrandInfo | null>(null)
@@ -49,7 +49,7 @@ const totalPages = computed(() => Math.ceil(total.value / pageSize))
 
 const paginatedProducts = computed(() => {
   let result = [...products.value]
-  if (sortType.value === 2) result.sort((a, b) => (b.sale || 0) - (a.sale || 0))
+  if (sortType.value === 2) result.sort((a, b) => (b.saleCount || 0) - (a.saleCount || 0))
   else if (sortType.value === 3) result.sort((a, b) => a.price - b.price)
   else if (sortType.value === 4) result.sort((a, b) => b.price - a.price)
   return result
@@ -137,7 +137,7 @@ watch(currentPage, () => loadData())
         @click="goProductDetail(product.id)"
       >
         <div class="aspect-square bg-gray-50 overflow-hidden relative">
-          <img v-if="product.pic" :src="product.pic" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+          <img v-if="product.defaultPic" :src="product.defaultPic" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
           <div v-else class="w-full h-full flex items-center justify-center text-gray-300">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
           </div>
@@ -152,7 +152,7 @@ watch(currentPage, () => loadData())
             <span v-if="product.originalPrice && product.originalPrice > product.price" class="text-xs text-gray-400 line-through">&yen;{{ product.originalPrice }}</span>
           </div>
           <div class="flex items-center justify-between mt-2">
-            <span v-if="product.sale" class="text-xs text-gray-400">已售 {{ product.sale >= 10000 ? (product.sale / 10000).toFixed(1) + '万' : product.sale }}</span>
+            <span v-if="product.saleCount" class="text-xs text-gray-400">已售 {{ (product.saleCount ?? 0) >= 10000 ? ((product.saleCount ?? 0) / 10000).toFixed(1) + '万' : (product.saleCount ?? 0) }}</span>
             <span v-if="product.subTitle" class="text-xs text-gray-400">{{ product.subTitle }}</span>
           </div>
         </div>

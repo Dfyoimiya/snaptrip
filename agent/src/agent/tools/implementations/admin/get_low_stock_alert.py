@@ -21,8 +21,12 @@ _MAX_PRODUCTS_TO_SCAN = 500
 
 
 class GetLowStockAlertArgs(BaseModel):
-    threshold: int = Field(20, description="Stock threshold — products below this count are flagged")
-    publish_status: int = Field(1, description="Filter: 1=on-shelf only, 0=off-shelf, omit for all")
+    threshold: int = Field(
+        20, description="Stock threshold — products below this count are flagged"
+    )
+    publish_status: int = Field(
+        1, description="Filter: 1=on-shelf only, 0=off-shelf, omit for all"
+    )
 
 
 class GetLowStockAlertTool(SmartDayBaseTool):
@@ -95,7 +99,9 @@ class GetLowStockAlertTool(SmartDayBaseTool):
                     page += 1
 
                 # Sort: critical first, then by stock ascending
-                low_stock.sort(key=lambda x: (0 if x["severity"] == "critical" else 1, x["stock"]))
+                low_stock.sort(
+                    key=lambda x: (0 if x["severity"] == "critical" else 1, x["stock"])
+                )
 
                 return {
                     "threshold": threshold,

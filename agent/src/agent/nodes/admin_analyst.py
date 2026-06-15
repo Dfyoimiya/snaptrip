@@ -7,7 +7,7 @@ product description generation, coupon analysis.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from agent.nodes.base import BaseSpecialist
 from agent.schemas.state import PlanState
@@ -187,4 +187,4 @@ async def admin_analyst_node(state: PlanState) -> dict:
         dict with updated messages and phase. AIMessage may contain tool_calls
         which the graph routes to tool_node.
     """
-    return await _admin_instance.execute(state)
+    return cast(dict, await _admin_instance.execute(state))

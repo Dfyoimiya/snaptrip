@@ -68,7 +68,9 @@ Reply with ONLY a JSON object:
 
 class GenerateProductDescArgs(BaseModel):
     product_name: str = Field(..., description="Product name")
-    category: str = Field("travel", description="Product category (hotel, flight, tour, etc.)")
+    category: str = Field(
+        "travel", description="Product category (hotel, flight, tour, etc.)"
+    )
     features: str = Field("", description="Key features, comma-separated")
     style: str = Field(
         "professional", description="Writing style: professional, casual, marketing"

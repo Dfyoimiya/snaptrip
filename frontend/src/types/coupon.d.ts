@@ -7,7 +7,7 @@ export interface SmsCoupon {
   count?: number
   amount?: number
   perLimit?: number
-  minPoint?: number
+  minAmount?: number
   startTime?: string
   endTime?: string
   useType?: number
@@ -28,16 +28,16 @@ export interface SmsCouponExt extends SmsCoupon {
 
 /** 优惠券与商品关联 */
 export interface CouponProductRelation {
-  couponId?: number
-  productId?: number
+  couponId?: string
+  productId?: string
   productName?: string
   productSn?: string
 }
 
 /** 优惠券与商品分类关联 */
 export interface CouponProductCategoryRelation {
-  couponId?: number
-  productCategoryId?: number
+  couponId?: string
+  categoryId?: string
   productCategoryName?: string
   parentCategoryName?: string
 }
@@ -52,14 +52,14 @@ export interface CouponQueryParam {
 
 /** 优惠券商品选择项 */
 export interface CouponSelectProductOptionVo {
-  productId?: number
+  productId?: string
   productName?: string
   productSn?: string
 }
 
 /** 优惠券领取记录查询参数 */
 export interface CouponHistoryQueryParam {
-  couponId?: number
+  couponId?: string
   useStatus?: number
   orderSn?: string
   page: number

@@ -25,15 +25,15 @@ interface OrderDetail {
   id: string
   orderSn?: string
   status?: number
-  createTime?: string
-  payTime?: string
+  createdAt?: string
+  paymentTime?: string
   deliveryTime?: string
   receiveTime?: string
   payType?: number
   receiverName?: string
   receiverPhone?: string
   receiverDetailAddress?: string
-  orderItemList?: OrderItem[]
+  items?: OrderItem[]
   totalAmount?: number
   freightAmount?: number
   discountAmount?: number
@@ -64,8 +64,8 @@ const statusLabel = computed(() => {
 const steps = computed(() => {
   if (!order.value) return []
   return [
-    { key: 'order', label: '提交订单', time: order.value.createTime || '' },
-    { key: 'pay', label: '已付款', time: order.value.payTime || '' },
+    { key: 'order', label: '提交订单', time: order.value.createdAt || '' },
+    { key: 'pay', label: '已付款', time: order.value.paymentTime || '' },
     { key: 'ship', label: '已发货', time: order.value.deliveryTime || '' },
     { key: 'complete', label: '交易完成', time: order.value.receiveTime || '' },
   ]
@@ -82,7 +82,7 @@ const progressPercent = computed(() => {
   return map[order.value.status ?? 0] || 0
 })
 
-const formatPrice = (p: number) => p.toLocaleString('zh-CN', { minimumFractionDigits: 2 })
+const formatPrice = (p: number | null | undefined) => (p ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })
 
 onMounted(async () => {
   if (!orderId) {
@@ -123,7 +123,7 @@ onMounted(async () => {
                 {{ statusLabel }}
               </span>
             </h1>
-            <p class="text-sm text-gray-400 mt-1">下单时间：{{ order.createTime }}</p>
+            <p class="text-sm text-gray-400 mt-1">下单时间：{{ order.createdAt }}</p>
           </div>
           <div class="text-right">
             <p class="text-sm text-gray-500">应付金额</p>
@@ -168,7 +168,7 @@ onMounted(async () => {
           <h3 class="text-sm font-bold text-gray-900 mb-3">支付信息</h3>
           <div class="space-y-2 text-sm">
             <p><span class="text-gray-500">支付方式：</span><span class="text-gray-900">{{ payTypeMap[order.payType ?? 0] || '未支付' }}</span></p>
-            <p><span class="text-gray-500">支付时间：</span><span class="text-gray-900">{{ order.payTime || '未支付' }}</span></p>
+            <p><span class="text-gray-500">支付时间：</span><span class="text-gray-900">{{ order.paymentTime || '未支付' }}</span></p>
           </div>
         </div>
       </div>
@@ -188,7 +188,7 @@ onMounted(async () => {
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-50">
-            <tr v-for="(item, i) in order.orderItemList || []" :key="i" class="hover:bg-gray-50/30">
+            <tr v-for="(item, i) in order.items || []" :key="i" class="hover:bg-gray-50/30">
               <td class="px-6 py-4">
                 <div class="flex items-center gap-3">
                   <img v-if="item.productPic" :src="item.productPic" :alt="item.productName" class="w-14 h-14 rounded-lg object-cover border border-gray-100" />
@@ -201,9 +201,9 @@ onMounted(async () => {
                   </div>
                 </div>
               </td>
-              <td class="text-center text-gray-600">&yen;{{ formatPrice(item.productPrice || 0) }}</td>
-              <td class="text-center text-gray-600">{{ item.productQuantity }}</td>
-              <td class="text-right pr-6 font-bold text-red-600">&yen;{{ formatPrice((item.productPrice || 0) * (item.productQuantity || 0)) }}</td>
+              <td class="text-center text-gray-600">&yen;{{ formatPrice(item.price || 0) }}</td>
+              <td class="text-center text-gray-600">{{ item.quantity }}</td>
+              <td class="text-right pr-6 font-bold text-red-600">&yen;{{ formatPrice((item.price || 0) * (item.quantity || 0)) }}</td>
             </tr>
           </tbody>
         </table>

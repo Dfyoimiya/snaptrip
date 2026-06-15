@@ -6,7 +6,7 @@ Date: 2026-05-26
 
 from __future__ import annotations
 
-from enum import IntEnum
+from enum import Enum, IntEnum
 from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field
@@ -58,7 +58,7 @@ class VerifyStatus(IntEnum):
     REJECTED = 2
 
 
-class SortDirection(str):
+class SortDirection(str, Enum):
     ASC = "asc"
     DESC = "desc"
 

@@ -66,7 +66,7 @@ def _get_agent_service(request: Request) -> AgentService:
 
             from agent.graph import build_graph as _sync_build
 
-            request.app.state._agent_service = AgentService(asyncio.get_event_loop().run_until_complete(_sync_build()))
+            request.app.state._agent_service = AgentService(asyncio.run(_sync_build()))
     return request.app.state._agent_service
 
 

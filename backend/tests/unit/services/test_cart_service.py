@@ -10,31 +10,10 @@ Date: 2026-06-08
 from __future__ import annotations
 
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-
-
-async def _refresh_fake(obj: object) -> None:
-    from uuid import uuid4
-
-    obj.id = uuid4()  # type: ignore[attr-defined]
-
-
-@pytest.fixture
-def mock_db() -> AsyncSession:
-    db = AsyncMock(spec=AsyncSession)
-    db.add = MagicMock()
-    db.flush = AsyncMock()
-    db.refresh = AsyncMock(side_effect=_refresh_fake)
-    db.commit = AsyncMock()
-    db.rollback = AsyncMock()
-    db.execute = AsyncMock()
-    db.get = AsyncMock()
-    db.delete = AsyncMock()
-    return db
 
 
 def _make_cart_item_mock() -> MagicMock:
@@ -150,6 +129,52 @@ async def test_add_product_off_shelf(mock_db):
 
 
 @pytest.mark.asyncio
+async def test_add_product_not_found_raises(mock_db):
+    """add: product not found raises ProductOffShelfError."""
+    from app.core.exceptions import ProductOffShelfError
+    from app.schemas.order import CartItemCreate
+    from app.services.cart_service import CartService
+
+    mock_db.get.return_value = None
+
+    svc = CartService(mock_db)
+    with pytest.raises(ProductOffShelfError):
+        await svc.add(uuid4(), CartItemCreate(product_id=uuid4(), sku_id=uuid4()))
+
+
+@pytest.mark.asyncio
+async def test_add_sku_not_found_raises(mock_db):
+    """add: SKU not found raises ProductNotFoundError."""
+    from app.core.exceptions import ProductNotFoundError
+    from app.schemas.order import CartItemCreate
+    from app.services.cart_service import CartService
+
+    product_mock = _make_product_mock()
+    mock_db.get.side_effect = [product_mock, None]
+
+    svc = CartService(mock_db)
+    with pytest.raises(ProductNotFoundError):
+        await svc.add(uuid4(), CartItemCreate(product_id=uuid4(), sku_id=uuid4()))
+
+
+@pytest.mark.asyncio
+async def test_add_sku_mismatch_product_id_raises(mock_db):
+    """add: SKU belongs to different product raises ProductNotFoundError."""
+    from app.core.exceptions import ProductNotFoundError
+    from app.schemas.order import CartItemCreate
+    from app.services.cart_service import CartService
+
+    sku_mock = _make_sku_mock()
+    sku_mock.product_id = uuid4()  # different from data.product_id
+    product_mock = _make_product_mock()
+    mock_db.get.side_effect = [product_mock, sku_mock]
+
+    svc = CartService(mock_db)
+    with pytest.raises(ProductNotFoundError):
+        await svc.add(uuid4(), CartItemCreate(product_id=uuid4(), sku_id=sku_mock.id))
+
+
+@pytest.mark.asyncio
 async def test_add_insufficient_stock(mock_db):
     """add: stock exhausted raises InsufficientStockError."""
     from app.core.exceptions import InsufficientStockError
@@ -219,6 +244,7 @@ async def test_update_item_success(mock_db):
     from app.services.cart_service import CartService
 
     cart_item = _make_cart_item_mock()
+    cart_item.quantity = 5  # updated value
     exec_result = MagicMock()
     exec_result.scalar_one_or_none.return_value = cart_item
     mock_db.execute.return_value = exec_result
@@ -227,8 +253,8 @@ async def test_update_item_success(mock_db):
     data = CartItemUpdate(quantity=5)
     resp = await svc.update_item(uuid4(), cart_item.id, data)
 
-    assert resp.quantity == 1  # from mock (real value depends on service internals)
     assert resp.id == cart_item.id
+    assert resp.quantity == 5
 
 
 @pytest.mark.asyncio
@@ -291,3 +317,34 @@ async def test_delete_item_not_found(mock_db):
     svc = CartService(mock_db)
     with pytest.raises(ProductNotFoundError):
         await svc.delete_item(uuid4(), uuid4())
+
+
+# ---------------------------------------------------------------------------
+#  clear_cart
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_clear_cart_success(mock_db):
+    """clear_cart: removes all cart items for user without error."""
+    from app.services.cart_service import CartService
+
+    exec_result = MagicMock()
+    mock_db.execute.return_value = exec_result
+
+    svc = CartService(mock_db)
+    await svc.clear_cart(uuid4())  # should not raise
+
+    assert mock_db.execute.called
+
+
+@pytest.mark.asyncio
+async def test_clear_cart_on_empty_cart_does_not_raise(mock_db):
+    """clear_cart: does not raise even when cart is already empty."""
+    from app.services.cart_service import CartService
+
+    exec_result = MagicMock()
+    mock_db.execute.return_value = exec_result
+
+    svc = CartService(mock_db)
+    await svc.clear_cart(uuid4())  # should not raise

@@ -18,8 +18,8 @@ const brands = ref<PmsBrand[]>([])
 async function loadBrands() {
   loading.value = true
   try {
-    const res = await getBrandRecommendListAPI({ page: 1, page_size: 100 })
-    brands.value = res || []
+    const res = await getBrandRecommendListAPI({ page: 1, page_size: 100 }) as unknown as { items: PmsBrand[] }
+    brands.value = res?.items || []
   } catch (err: any) {
     console.error('加载品牌列表失败:', err?.message || err)
   } finally {

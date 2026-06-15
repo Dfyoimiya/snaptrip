@@ -18,7 +18,7 @@ export function getOrderListAPI(params: OrderQueryParam) {
     params: {
       order_sn: params.orderSn,
       status: params.status,
-      start_time: params.createTime,
+      start_time: params.createdAt,
       page: params.page,
       page_size: params.page_size,
     },

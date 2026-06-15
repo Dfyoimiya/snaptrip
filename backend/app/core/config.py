@@ -12,6 +12,9 @@ Date: 2026-05-17
 
 from __future__ import annotations
 
+import os
+
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,8 +27,8 @@ class Settings(BaseSettings):
 
     APP_ENV: str = "development"
     APP_DEBUG: bool = True
-    APP_SECRET_KEY: str = "change-me-in-production"
-    JWT_SECRET_KEY: str = "change-me-jwt-secret-key"
+    APP_SECRET_KEY: str = ""
+    JWT_SECRET_KEY: str = ""
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     LOG_LEVEL: str = "INFO"
@@ -53,6 +56,25 @@ class Settings(BaseSettings):
         if self.APP_ENV == "test":
             return self.DATABASE_TEST_URL
         return self.DATABASE_URL
+
+    @model_validator(mode="after")
+    def _validate_secrets(self) -> "Settings":
+        """Ensure secret keys are set in production; auto-generate in dev."""
+        if self.APP_ENV != "development":
+            if not self.APP_SECRET_KEY:
+                raise ValueError(
+                    "APP_SECRET_KEY must be set via environment variable in production mode"
+                )
+            if not self.JWT_SECRET_KEY:
+                raise ValueError(
+                    "JWT_SECRET_KEY must be set via environment variable in production mode"
+                )
+        else:
+            if not self.APP_SECRET_KEY:
+                object.__setattr__(self, "APP_SECRET_KEY", os.urandom(32).hex())
+            if not self.JWT_SECRET_KEY:
+                object.__setattr__(self, "JWT_SECRET_KEY", os.urandom(32).hex())
+        return self
 
     COMPOSE_PROJECT_NAME: str = "snaptrip"
 

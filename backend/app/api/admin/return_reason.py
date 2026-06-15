@@ -16,6 +16,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.order.return_reason import OmsReturnReason
+from app.core.exceptions import CommerceException
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.order_setting import (
     ReturnReasonCreate,
@@ -68,7 +69,7 @@ async def get_reason(
 ):
     reason = await db.get(OmsReturnReason, reason_id)
     if not reason:
-        return success({})
+        raise CommerceException(code="RETURN_REASON_NOT_FOUND", message="退货原因不存在", status_code=404)
     return success(ReturnReasonResponse.model_validate(reason).model_dump())
 
 
@@ -93,7 +94,7 @@ async def update_reason(
 ):
     reason = await db.get(OmsReturnReason, reason_id)
     if not reason:
-        return success(message="退货原因不存在")
+        raise CommerceException(code="RETURN_REASON_NOT_FOUND", message="退货原因不存在", status_code=404)
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(reason, field, value)
     await db.flush()

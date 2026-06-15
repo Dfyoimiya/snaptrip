@@ -41,12 +41,4 @@ export interface MemberInfo {
   nickname: string
   /** 头像 URL */
   avatarUrl: string
-  /** 手机号 (来自 profile) */
-  phone?: string
-  /** 性别：0->未知；1->男；2->女 */
-  gender?: number
-  /** 生日 */
-  birthday?: string
-  /** 积分 */
-  integration?: number
 }

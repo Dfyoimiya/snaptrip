@@ -70,6 +70,7 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db),
 ) -> User:
     import logging
+
     _logger = logging.getLogger(__name__)
     if token is None:
         _logger.warning("[get_current_user] No token provided")
@@ -102,7 +103,12 @@ async def get_current_user(
     result = await db.execute(select(User).where(User.id == uid))
     user = result.scalar_one_or_none()
     if user is None or not user.is_active:
-        _logger.warning("[get_current_user] User not found or inactive: id=%s, exists=%s, active=%s", user_id_str, user is not None, user.is_active if user else "N/A")
+        _logger.warning(
+            "[get_current_user] User not found or inactive: id=%s, exists=%s, active=%s",
+            user_id_str,
+            user is not None,
+            user.is_active if user else "N/A",
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="用户不存在或已禁用",

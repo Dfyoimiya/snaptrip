@@ -11,11 +11,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def _make_coupon_mock(coupon_id=None) -> MagicMock:
@@ -60,20 +59,6 @@ def _make_coupon_history_mock(coupon_id=None) -> MagicMock:
     h.receive_time = datetime.now(UTC)
     h.expire_time = datetime.now(UTC) + timedelta(days=7)
     return h
-
-
-@pytest.fixture
-def mock_db() -> AsyncSession:
-    db = AsyncMock(spec=AsyncSession)
-    db.add = MagicMock()
-    db.flush = AsyncMock()
-    db.refresh = AsyncMock()
-    db.commit = AsyncMock()
-    db.rollback = AsyncMock()
-    db.execute = AsyncMock()
-    db.get = AsyncMock()
-    db.delete = AsyncMock()
-    return db
 
 
 # ---------------------------------------------------------------------------
@@ -266,6 +251,25 @@ async def test_list_admin_success(mock_db):
     assert len(items) == 1
 
 
+@pytest.mark.asyncio
+async def test_list_admin_empty(mock_db):
+    """list_admin: returns empty list with zero total."""
+    from app.services.coupon_service import CouponService
+
+    count_result = MagicMock()
+    count_result.scalar.return_value = 0
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = []
+
+    mock_db.execute.side_effect = [count_result, list_result]
+
+    svc = CouponService(mock_db)
+    items, total = await svc.list_admin(page=1, page_size=10)
+
+    assert total == 0
+    assert len(items) == 0
+
+
 # ---------------------------------------------------------------------------
 #  list_available
 # ---------------------------------------------------------------------------
@@ -322,8 +326,12 @@ async def test_claim_success(mock_db):
     upd_result.rowcount = 1  # success
 
     history_mock = _make_coupon_history_mock(coupon_id)
-    mock_db.get.return_value = coupon_mock
-    mock_db.execute.side_effect = [existing_count, upd_result]
+
+    # coupon fetch: SELECT ... FOR UPDATE → scalar_one_or_none()
+    coupon_result = MagicMock()
+    coupon_result.scalar_one_or_none.return_value = coupon_mock
+
+    mock_db.execute.side_effect = [coupon_result, existing_count, upd_result]
 
     with patch("app.services.coupon_service.CouponHistoryResponse.model_validate", return_value=history_mock):
         svc = CouponService(mock_db)
@@ -341,7 +349,10 @@ async def test_claim_coupon_disabled(mock_db):
 
     coupon_mock = _make_coupon_mock()
     coupon_mock.status = 0
-    mock_db.get.return_value = coupon_mock
+
+    coupon_result = MagicMock()
+    coupon_result.scalar_one_or_none.return_value = coupon_mock
+    mock_db.execute.return_value = coupon_result
 
     svc = CouponService(mock_db)
     with pytest.raises(CouponExpiredError):
@@ -358,7 +369,10 @@ async def test_claim_coupon_exhausted(mock_db):
     coupon_mock.status = 1
     coupon_mock.receive_count = 100
     coupon_mock.count = 100
-    mock_db.get.return_value = coupon_mock
+
+    coupon_result = MagicMock()
+    coupon_result.scalar_one_or_none.return_value = coupon_mock
+    mock_db.execute.return_value = coupon_result
 
     svc = CouponService(mock_db)
     with pytest.raises(CouponExhaustedError):
@@ -381,8 +395,9 @@ async def test_claim_already_claimed(mock_db):
     existing_count = MagicMock()
     existing_count.scalar.return_value = 1  # already claimed
 
-    mock_db.get.return_value = coupon_mock
-    mock_db.execute.return_value = existing_count
+    coupon_result = MagicMock()
+    coupon_result.scalar_one_or_none.return_value = coupon_mock
+    mock_db.execute.side_effect = [coupon_result, existing_count]
 
     svc = CouponService(mock_db)
     with pytest.raises(CouponAlreadyClaimedError):
@@ -408,3 +423,82 @@ async def test_list_my_coupons_success(mock_db):
     items = await svc.list_my_coupons(uuid4(), use_status=0)
 
     assert len(items) == 1
+    assert items[0].coupon_name == "Test Coupon"
+
+
+@pytest.mark.asyncio
+async def test_list_my_coupons_empty(mock_db):
+    """list_my_coupons: returns empty list when user has no coupons."""
+    from app.services.coupon_service import CouponService
+
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = []
+    mock_db.execute.return_value = list_result
+
+    svc = CouponService(mock_db)
+    items = await svc.list_my_coupons(uuid4(), use_status=0)
+
+    assert len(items) == 0
+
+
+@pytest.mark.asyncio
+async def test_list_available_empty(mock_db):
+    """list_available: returns empty list when no active coupons."""
+    from app.services.coupon_service import CouponService
+
+    count_result = MagicMock()
+    count_result.scalar.return_value = 0
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = []
+
+    mock_db.execute.side_effect = [count_result, list_result]
+
+    svc = CouponService(mock_db)
+    items, total = await svc.list_available(page=1, page_size=10)
+
+    assert total == 0
+    assert len(items) == 0
+
+
+# ---------------------------------------------------------------------------
+#  get_histories
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_histories_success(mock_db):
+    """get_histories: returns paginated coupon histories."""
+    from app.services.coupon_service import CouponService
+
+    history = _make_coupon_history_mock()
+    count_result = MagicMock()
+    count_result.scalar.return_value = 3
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = [history]
+
+    mock_db.execute.side_effect = [count_result, list_result]
+
+    svc = CouponService(mock_db)
+    items, total = await svc.get_histories(uuid4(), page=1, page_size=20)
+
+    assert total == 3
+    assert len(items) == 1
+
+
+@pytest.mark.asyncio
+async def test_get_histories_empty(mock_db):
+    """get_histories: returns empty list with zero total."""
+    from app.services.coupon_service import CouponService
+
+    count_result = MagicMock()
+    count_result.scalar.return_value = 0
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = []
+
+    mock_db.execute.side_effect = [count_result, list_result]
+
+    svc = CouponService(mock_db)
+    items, total = await svc.get_histories(uuid4(), page=1, page_size=20)
+
+    assert total == 0
+    assert len(items) == 0

@@ -10,7 +10,7 @@ from __future__ import annotations
 import functools
 import logging
 import time
-from typing import Any, Callable
+from typing import Callable, cast
 
 logger = logging.getLogger("agent.trace")
 
@@ -40,7 +40,7 @@ def trace_node(node_name: str) -> Callable:
                     elapsed_ms,
                     result.get("status", "?"),
                 )
-                return result
+                return cast(dict, result)
             except Exception as exc:
                 elapsed_ms = (time.monotonic() - t0) * 1000
                 logger.error(

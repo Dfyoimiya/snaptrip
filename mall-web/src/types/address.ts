@@ -9,12 +9,10 @@
 export interface MemberReceiveAddress {
   /** 地址ID */
   id?: number
-  /** 会员ID */
-  memberId?: number
   /** 收货人名称 */
   name: string
   /** 手机号码 */
-  phoneNumber: string
+  phone: string
   /** 是否为默认（0-否 1-是） */
   defaultStatus?: number
   /** 邮政编码 */
@@ -27,6 +25,4 @@ export interface MemberReceiveAddress {
   region?: string
   /** 详细地址(街道) */
   detailAddress?: string
-  /** 前端扩展字段：省市区拼接（用于表单输入） */
-  prefixAddress?: string
 }

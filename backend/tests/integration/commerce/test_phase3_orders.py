@@ -166,3 +166,44 @@ class TestPhase3OrderFlow:
 
         # 删除
         await auth_client.delete(f"/api/v1/portal/cart/{item_id}")
+
+    @pytest.mark.asyncio
+    async def test_cart_clear(self, auth_client: AsyncClient):
+        """清空购物车"""
+        # 准备商品
+        cat_resp = await auth_client.post("/api/v1/admin/categories", json={"name": "清空购物车测试"})
+        cat_id = cat_resp.json()["data"]["id"]
+        brand_resp = await auth_client.post("/api/v1/admin/brands", json={"name": "ClearCart"})
+        brand_id = brand_resp.json()["data"]["id"]
+        prod_resp = await auth_client.post(
+            "/api/v1/admin/products",
+            json={
+                "name": "清空购物车测试商品",
+                "price": "30.00",
+                "category_id": cat_id,
+                "brand_id": brand_id,
+                "publish_status": 1,
+                "skus": [{"sku_code": "CC-001", "spec": "{}", "price": "30.00", "stock": 100}],
+            },
+        )
+        await auth_client.patch(f"/api/v1/admin/products/{prod_resp.json()['data']['id']}/verify?status=1")
+        sku_id = prod_resp.json()["data"]["skus"][0]["id"]
+        product_id = prod_resp.json()["data"]["id"]
+
+        # 加购多个商品
+        await auth_client.post(
+            "/api/v1/portal/cart", json={"product_id": product_id, "sku_id": sku_id, "quantity": 1}
+        )
+
+        # 确认购物车非空
+        before = await auth_client.get("/api/v1/portal/cart")
+        assert len(before.json()["data"]) >= 1
+
+        # 清空购物车
+        clear_resp = await auth_client.delete("/api/v1/portal/cart")
+        assert clear_resp.status_code == 200, clear_resp.text
+        assert clear_resp.json()["message"] == "购物车已清空"
+
+        # 验证已清空
+        after = await auth_client.get("/api/v1/portal/cart")
+        assert len(after.json()["data"]) == 0

@@ -9,6 +9,7 @@ import {
   deleteHomeBrand,
   batchDeleteHomeBrand,
 } from '@/apis/homeBrand'
+import { getBrandAllAPI } from '@/apis/brand'
 import type { SmsHomeBrand } from '@/types/homeBrand'
 
 const loading = ref(false)
@@ -19,20 +20,11 @@ const search = reactive({
 })
 const selectedIds = ref<string[]>([])
 
-// 可选择的品牌列表（用于"选择品牌"弹窗）
-const allBrands = [
-  { id: 5, name: '三星' },
-  { id: 8, name: '阿迪达斯' },
-  { id: 9, name: '兰蔻' },
-  { id: 10, name: '雅诗兰黛' },
-  { id: 11, name: '乐高' },
-  { id: 12, name: 'Nintendo' },
-  { id: 13, name: '宜家' },
-  { id: 14, name: '无印良品' },
-]
+// 可选择的品牌列表（从 API 获取，用于"选择品牌"弹窗）
+const allBrands = ref<{ id: string; name: string }[]>([])
 
 const brandDialogVisible = ref(false)
-const selectedBrandIds = ref<number[]>([])
+const selectedBrandIds = ref<string[]>([])
 
 const filteredList = computed(() => {
   let result = list.value
@@ -123,7 +115,7 @@ async function handleConfirmSelectBrand() {
     return
   }
   for (const brandId of selectedBrandIds.value) {
-    const brand = allBrands.find(b => b.id === brandId)
+    const brand = allBrands.value.find(b => b.id === brandId)
     if (brand) {
       await addHomeBrand([{
         brandId: brand.id,
@@ -138,8 +130,21 @@ async function handleConfirmSelectBrand() {
   loadList()
 }
 
+async function loadAllBrands() {
+  try {
+    const res = await getBrandAllAPI()
+    allBrands.value = (res.data || []).map((b: { id?: string; name: string }) => ({
+      id: b.id || '',
+      name: b.name,
+    }))
+  } catch {
+    // 静默失败，allBrands 保持空数组
+  }
+}
+
 onMounted(() => {
   loadList()
+  loadAllBrands()
 })
 </script>
 
@@ -207,7 +212,7 @@ onMounted(() => {
             <el-input-number v-model="row.sort" :min="0" size="small" style="width: 90px" @change="handleSortChange(row)" />
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" prop="createTime" width="160" align="center" />
+        <el-table-column label="创建时间" prop="createdAt" width="160" align="center" />
         <el-table-column label="操作" width="150" fixed="right" align="center">
           <template #default="{ row }">
             <el-button link type="danger" size="small" @click="handleDelete(row)">

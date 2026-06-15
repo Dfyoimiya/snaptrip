@@ -18,9 +18,9 @@ Date: 2026-05-26
 
 from __future__ import annotations
 
-import contextlib
 from uuid import UUID
 
+from snaptrip_shared.core.logging import get_logger
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -32,6 +32,8 @@ from app.schemas.product import (
     ProductUpdate,
     SkuResponse,
 )
+
+logger = get_logger(__name__)
 
 
 class ProductService:
@@ -92,8 +94,19 @@ class ProductService:
         await self.db.refresh(product)
 
         # 步骤5: 触发 ES 同步 (fire-and-forget，不阻塞返回)
-        with contextlib.suppress(Exception):
+        # NOTE: ES 失败不回滚 DB 操作 —— 搜索索引允许最终一致性
+        # FUTURE: 改用 Celery 异步重试 (指数退避) 替代 fire-and-forget
+        try:
             await _sync_product_to_es(product)
+        except Exception as exc:
+            logger.warning(
+                "es_sync_create_failed",
+                product_id=str(product.id),
+                product_name=product.name,
+                error_type=type(exc).__name__,
+                error=str(exc),
+                exc_info=True,
+            )
 
         return await self.get_detail(product.id)
 
@@ -123,8 +136,18 @@ class ProductService:
             raise ProductNotFoundError(str(product_id))
         await self.db.refresh(product)
 
-        with contextlib.suppress(Exception):
+        # FUTURE: 改用 Celery 异步重试 (指数退避) 替代 fire-and-forget
+        try:
             await _sync_product_to_es(product)
+        except Exception as exc:
+            logger.warning(
+                "es_sync_update_failed",
+                product_id=str(product_id),
+                product_name=product.name,
+                error_type=type(exc).__name__,
+                error=str(exc),
+                exc_info=True,
+            )
 
         return await self.get_detail(product.id)
 
@@ -148,8 +171,18 @@ class ProductService:
         product.publish_status = 0  # 同时下架
 
         from app.search.client import get_search_client
-        with contextlib.suppress(Exception):
+        # FUTURE: 改用 Celery 异步重试 (指数退避) 替代 fire-and-forget
+        try:
             await get_search_client().delete_product(str(product_id))
+        except Exception as exc:
+            logger.warning(
+                "es_delete_failed",
+                product_id=str(product_id),
+                product_name=product.name,
+                error_type=type(exc).__name__,
+                error=str(exc),
+                exc_info=True,
+            )
 
     # =========================================================================
     #  查询: 详情
@@ -343,8 +376,19 @@ class ProductService:
             from app.core.exceptions import ProductNotFoundError
             raise ProductNotFoundError(str(product_id))
 
-        with contextlib.suppress(Exception):
+        # FUTURE: 改用 Celery 异步重试 (指数退避) 替代 fire-and-forget
+        try:
             await _sync_product_to_es(product)
+        except Exception as exc:
+            logger.warning(
+                "es_sync_toggle_status_failed",
+                product_id=str(product_id),
+                field=field,
+                new_status=status,
+                error_type=type(exc).__name__,
+                error=str(exc),
+                exc_info=True,
+            )
 
         return ProductResponse.model_validate(product)
 

@@ -17,6 +17,7 @@ from __future__ import annotations
 import random
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import delete, func, select, update
@@ -184,13 +185,15 @@ class OrderService:
         )
 
         await self.db.flush()
-        return await self.get_detail(order.id)
+        return await self.get_detail(order.id, user_id=user_id)
 
     # =========================================================================
     #  支付回调
     # =========================================================================
 
-    async def pay(self, order_id: UUID, pay_order_sn: str = "MOCK_PAY_SN") -> OrderDetailResponse:
+    async def pay(
+        self, order_id: UUID, user_id: UUID | None = None, pay_order_sn: str = "MOCK_PAY_SN"
+    ) -> OrderDetailResponse:
         """
         订单支付 —— 支付网关回调后调用。
 
@@ -198,7 +201,7 @@ class OrderService:
         """
         from app.models.order.order import OmsOrder, OmsOrderOperateLog
 
-        order = await self.db.get(OmsOrder, order_id)
+        order = await self._get_order(OmsOrder, order_id, user_id=user_id)
         if not order:
             from app.core.exceptions import OrderNotFoundError
             raise OrderNotFoundError(str(order_id))
@@ -218,13 +221,15 @@ class OrderService:
             note=f"支付成功 {pay_order_sn}",
         ))
         await self.db.flush()
-        return await self.get_detail(order.id)
+        return await self.get_detail(order.id, user_id=user_id)
 
     # =========================================================================
     #  取消订单 (用户或超时)
     # =========================================================================
 
-    async def cancel(self, order_id: UUID, operator: str = "user", note: str = "") -> OrderDetailResponse:
+    async def cancel(
+        self, order_id: UUID, operator: str = "user", note: str = "", user_id: UUID | None = None
+    ) -> OrderDetailResponse:
         """
         取消订单 —— 恢复已锁定的库存。
 
@@ -234,7 +239,7 @@ class OrderService:
         from app.models.order.order import OmsOrder, OmsOrderItem, OmsOrderOperateLog
         from app.models.product.sku import PmsSku
 
-        order = await self.db.get(OmsOrder, order_id)
+        order = await self._get_order(OmsOrder, order_id, user_id=user_id)
         if not order:
             from app.core.exceptions import OrderNotFoundError
             raise OrderNotFoundError(str(order_id))
@@ -266,7 +271,7 @@ class OrderService:
             note=note or "取消订单",
         ))
         await self.db.flush()
-        return await self.get_detail(order.id)
+        return await self.get_detail(order.id, user_id=user_id)
 
     # =========================================================================
     #  发货 (管理员)
@@ -302,10 +307,12 @@ class OrderService:
     #  确认收货 (用户)
     # =========================================================================
 
-    async def confirm_receipt(self, order_id: UUID) -> OrderDetailResponse:
+    async def confirm_receipt(
+        self, order_id: UUID, user_id: UUID | None = None
+    ) -> OrderDetailResponse:
         from app.models.order.order import OmsOrder, OmsOrderOperateLog
 
-        order = await self.db.get(OmsOrder, order_id)
+        order = await self._get_order(OmsOrder, order_id, user_id=user_id)
         if not order:
             from app.core.exceptions import OrderNotFoundError
             raise OrderNotFoundError(str(order_id))
@@ -324,7 +331,7 @@ class OrderService:
             note="用户确认收货",
         ))
         await self.db.flush()
-        return await self.get_detail(order.id)
+        return await self.get_detail(order.id, user_id=user_id)
 
     # =========================================================================
     #  管理员操作
@@ -398,11 +405,27 @@ class OrderService:
     #  查询
     # =========================================================================
 
-    async def get_detail(self, order_id: UUID) -> OrderDetailResponse:
-        """订单详情 —— 含明细"""
+    async def _get_order(
+        self, model: type, order_id: UUID, *, user_id: UUID | None = None
+    ) -> Any:
+        """加载订单，若提供 user_id 则附加归属权过滤。"""
+        if user_id is not None:
+            result: Any = await self.db.execute(
+                select(model).where(
+                    model.id == order_id,  # type: ignore[attr-defined]
+                    model.user_id == user_id,  # type: ignore[attr-defined]
+                )
+            )
+            return result.scalars().first()
+        return await self.db.get(model, order_id)
+
+    async def get_detail(
+        self, order_id: UUID, user_id: UUID | None = None
+    ) -> OrderDetailResponse:
+        """订单详情 —— 含明细。若提供 user_id 则校验归属权。"""
         from app.models.order.order import OmsOrder, OmsOrderItem
 
-        order = await self.db.get(OmsOrder, order_id)
+        order = await self._get_order(OmsOrder, order_id, user_id=user_id)
         if not order:
             from app.core.exceptions import OrderNotFoundError
             raise OrderNotFoundError(str(order_id))
@@ -609,7 +632,7 @@ class OrderService:
         return [
             {
                 "id": o.id,
-                "orderSn": o.order_sn,
+                "order_sn": o.order_sn,
                 "member": o.member_username,
                 "amount": float(o.pay_amount),
                 "status": o.status,

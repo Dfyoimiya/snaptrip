@@ -5,13 +5,13 @@ export interface PageParam {
   page_size: number
 }
 
-/** 通用分页结果（匹配后端 PaginatedResponse） */
+/** 通用分页结果（匹配后端 PaginatedResponse，经 camelCase 转换后） */
 export interface CommonPage<T> {
   items: T[]
   total: number
   page: number
-  page_size: number
-  total_pages: number
+  pageSize: number
+  totalPages: number
 }
 
 /** 通用接口响应 */
@@ -24,7 +24,7 @@ export interface CommonResult<T> {
 /** 级联选择数据 */
 export interface ElCascaderDataVo {
   label: string
-  value: number
+  value: string
   children?: ElCascaderDataVo[]
 }
 

@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.rbac import Permission, Role, RolePermission, UserRole
-from app.models.menu import Menu, Resource
+from app.models.menu import Menu, Resource, RoleMenu, RoleResource
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.rbac_admin import (
     AllocMenuRequest,
@@ -158,6 +158,14 @@ async def alloc_menu(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(get_current_user),
 ):
+    from sqlalchemy import delete as sa_delete
+
+    await db.execute(
+        sa_delete(RoleMenu).where(RoleMenu.role_id == data.role_id)
+    )
+    for menu_id in data.menu_ids:
+        db.add(RoleMenu(role_id=data.role_id, menu_id=menu_id))
+    await db.commit()
     return success(message="菜单分配成功")
 
 
@@ -167,4 +175,12 @@ async def alloc_resource(
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(get_current_user),
 ):
+    from sqlalchemy import delete as sa_delete
+
+    await db.execute(
+        sa_delete(RoleResource).where(RoleResource.role_id == data.role_id)
+    )
+    for resource_id in data.resource_ids:
+        db.add(RoleResource(role_id=data.role_id, resource_id=resource_id))
+    await db.commit()
     return success(message="资源分配成功")

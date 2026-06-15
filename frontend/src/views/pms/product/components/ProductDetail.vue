@@ -25,7 +25,7 @@ const defaultProductParam = {
   detailHtml: '',
   detailMobileHtml: '',
   detailTitle: '',
-  feightTemplateId: 0,
+  freightTemplateId: 0,
   flashPromotionCount: 0,
   flashPromotionId: 0,
   flashPromotionPrice: 0,
@@ -38,7 +38,7 @@ const defaultProductParam = {
   newStatus: 0,
   note: '',
   originalPrice: 0,
-  pic: '',
+  defaultPic: '',
   memberPriceList: [],
   productFullReductionList: [{ fullPrice: 0, reducePrice: 0 }],
   productLadderList: [{ count: 0, discount: 0, price: 0 }],
@@ -55,8 +55,8 @@ const defaultProductParam = {
   promotionStartTime: '',
   promotionType: 0,
   publishStatus: 0,
-  recommandStatus: 0,
-  sale: 0,
+  recommendStatus: 0,
+  saleCount: 0,
   serviceIds: '',
   sort: 0,
   stock: 0,
@@ -71,6 +71,7 @@ const active = ref(0)
 const showStatus = ref([true, false, false, false])
 const productParam = ref(Object.assign({}, defaultProductParam))
 const pageLoading = ref(false)
+const editingProductId = ref<string>('')
 
 // 跨层传递数据
 provide('product-key', productParam)
@@ -83,11 +84,13 @@ onMounted(() => {
     router.replace('/pms/product')
     return
   }
+  editingProductId.value = id
   loadProduct(id)
 })
 
 watch(() => route.query.id, (newId) => {
   if (!props.isEdit || !newId) return
+  editingProductId.value = newId as string
   loadProduct(newId as string)
 })
 
@@ -128,7 +131,12 @@ const finishCommit = async (isEdit: boolean) => {
   })
   try {
     if (isEdit) {
-      await updateProductAPI(route.query.id as string, productParam.value as any)
+      if (!editingProductId.value) {
+        ElMessage.error('商品ID缺失，请从商品列表重新进入')
+        router.replace('/pms/product')
+        return
+      }
+      await updateProductAPI(editingProductId.value, productParam.value as any)
     } else {
       await createProductAPI(productParam.value as any)
     }

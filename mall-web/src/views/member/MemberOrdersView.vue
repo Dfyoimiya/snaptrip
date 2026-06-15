@@ -8,7 +8,7 @@
  */
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { getOrderListAPI } from '@/apis/order'
+import { getOrderListAPI, cancelUserOrderAPI, confirmReceiveOrderAPI, payOrderAPI } from '@/apis/order'
 import type { OmsOrderDetail } from '@/types/order'
 
 const router = useRouter()
@@ -57,7 +57,7 @@ function fullAddress(o: OmsOrderDetail): string {
 }
 
 /** 规格文本 */
-function specText(item: OmsOrderDetail['orderItemList'][number]): string {
+function specText(item: OmsOrderDetail['items'][number]): string {
   if (!item.productAttr || item.productAttr === '[]') return ''
   try {
     const parsed = JSON.parse(item.productAttr)
@@ -66,7 +66,7 @@ function specText(item: OmsOrderDetail['orderItemList'][number]): string {
   } catch { return item.productAttr }
 }
 
-const formatPrice = (p: number) => p.toLocaleString('zh-CN', { minimumFractionDigits: 2 })
+const formatPrice = (p: number | null | undefined) => (p ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })
 
 /** 获取各状态订单数量 */
 const getStatusCount = (status: number) => orders.value.filter(o => o.status === status).length
@@ -83,6 +83,32 @@ const getActions = (status: number) => {
 /** 查看订单详情 */
 const viewDetail = (orderId: number) => {
   router.push(`/order/${orderId}`)
+}
+
+/** 处理订单操作按钮点击 */
+const handleAction = async (order: OmsOrderDetail, action: { label: string; type: string }) => {
+  const orderId = String(order.id)
+  try {
+    switch (action.label) {
+      case '立即付款':
+        await payOrderAPI(orderId)
+        break
+      case '取消订单':
+        if (!confirm('确定要取消该订单吗？')) return
+        await cancelUserOrderAPI(orderId)
+        break
+      case '确认收货':
+        if (!confirm('确认已收到商品吗？')) return
+        await confirmReceiveOrderAPI(orderId)
+        break
+      default:
+        // 催发货、评价、申请售后等暂时只刷新列表
+        break
+    }
+    await loadOrders()
+  } catch (err: any) {
+    alert(err?.message || '操作失败')
+  }
 }
 
 onMounted(() => {
@@ -131,7 +157,7 @@ onMounted(() => {
           <div class="flex items-center gap-3 text-sm">
             <span class="text-gray-500 font-mono">{{ order.orderSn }}</span>
             <span class="text-gray-300">|</span>
-            <span class="text-gray-400">{{ order.createTime }}</span>
+            <span class="text-gray-400">{{ order.createdAt }}</span>
           </div>
           <span :class="['text-xs px-2.5 py-1 rounded-full font-medium border', statusMap[order.status]?.bg, statusMap[order.status]?.border, statusMap[order.status]?.color]">
             {{ statusMap[order.status]?.text }}
@@ -141,7 +167,7 @@ onMounted(() => {
         <!-- 商品列表 -->
         <div class="space-y-2">
           <div
-            v-for="(item, i) in order.orderItemList"
+            v-for="(item, i) in order.items"
             :key="i"
             class="flex items-center gap-3"
           >
@@ -151,8 +177,8 @@ onMounted(() => {
               <p v-if="specText(item)" class="text-xs text-gray-400 mt-0.5">{{ specText(item) }}</p>
             </div>
             <div class="text-right flex-shrink-0">
-              <span class="text-sm font-medium text-gray-900">&yen;{{ formatPrice(item.productPrice) }}</span>
-              <span class="text-xs text-gray-400 ml-2">x{{ item.productQuantity }}</span>
+              <span class="text-sm font-medium text-gray-900">&yen;{{ formatPrice(item.price) }}</span>
+              <span class="text-xs text-gray-400 ml-2">x{{ item.quantity }}</span>
             </div>
           </div>
         </div>
@@ -160,7 +186,7 @@ onMounted(() => {
         <!-- 底部合计 + 操作 -->
         <div class="flex items-center justify-between mt-4 pt-3 border-t border-gray-50">
           <div class="text-sm text-gray-500">
-            共 {{ order.orderItemList.reduce((s, i) => s + i.productQuantity, 0) }} 件商品
+            共 {{ order.items.reduce((s, i) => s + i.quantity, 0) }} 件商品
             <span class="mx-2">|</span>
             <span>收货人：{{ order.receiverName }}</span>
           </div>
@@ -185,6 +211,7 @@ onMounted(() => {
                     ? 'border border-red-200 text-red-600 hover:bg-red-50'
                     : 'border border-gray-200 text-gray-600 hover:bg-gray-50',
               ]"
+              @click="handleAction(order, action)"
             >
               {{ action.label }}
             </button>

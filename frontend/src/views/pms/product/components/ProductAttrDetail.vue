@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { reactive, computed, inject, type Ref } from 'vue'
+import { reactive, computed, inject, onMounted, type Ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getProductAttributeListAPI } from '@/apis/productAttr'
+import { productAttributeCategoryListWithAttrAPI } from '@/apis/productAttrCate'
 
 const props = defineProps({
   isEdit: { type: Boolean, default: false }
@@ -10,12 +12,7 @@ const emit = defineEmits(['prev-step', 'next-step'])
 const compProductParam = inject('product-key') as Ref<any>
 
 const state = reactive({
-  productAttributeCategoryOptions: [
-    { label: '手机属性', value: 1 },
-    { label: '电脑属性', value: 2 },
-    { label: '服装属性', value: 3 },
-    { label: '鞋靴属性', value: 4 },
-  ],
+  productAttributeCategoryOptions: [] as { label: string; value: string }[],
   selectProductAttr: [] as any[],
   selectProductParam: [] as any[],
   selectProductAttrPics: [] as any[],
@@ -29,7 +26,7 @@ const hasAttrPic = computed(() => state.selectProductAttrPics.length >= 1)
 const selectProductPics = computed({
   get() {
     const pics: string[] = []
-    if (compProductParam.value.pic) pics.push(compProductParam.value.pic)
+    if (compProductParam.value.defaultPic) pics.push(compProductParam.value.defaultPic)
     if (compProductParam.value.albumPics) {
       pics.push(...compProductParam.value.albumPics.split(','))
     }
@@ -37,46 +34,45 @@ const selectProductPics = computed({
   },
   set(newValue: string[]) {
     if (!newValue || newValue.length === 0) {
-      compProductParam.value.pic = ''
+      compProductParam.value.defaultPic = ''
       compProductParam.value.albumPics = ''
     } else {
-      compProductParam.value.pic = newValue[0]
+      compProductParam.value.defaultPic = newValue[0]
       compProductParam.value.albumPics = newValue.slice(1).join(',')
     }
   }
 })
 
-const handleProductAttrChange = (value: number) => {
-  // 模拟根据属性分类ID获取规格和参数
-  if (value === 1) { // 手机属性
-    state.selectProductAttr = [
-      { id: 1, name: '颜色', handAddStatus: 0, inputList: '黑色,白色,蓝色,金色,原色', values: [] },
-      { id: 2, name: '容量', handAddStatus: 0, inputList: '128GB,256GB,512GB,1TB', values: [] },
-    ]
-    state.selectProductParam = [
-      { id: 3, name: '屏幕尺寸', value: '', inputType: 1, inputList: '6.1英寸,6.7英寸' },
-      { id: 4, name: '网络类型', value: '', inputType: 1, inputList: '5G,4G' },
-      { id: 5, name: '电池容量', value: '', inputType: 0, inputList: '' },
-    ]
-  } else if (value === 2) { // 电脑属性
-    state.selectProductAttr = [
-      { id: 6, name: '颜色', handAddStatus: 0, inputList: '银色,深空灰', values: [] },
-      { id: 7, name: '内存', handAddStatus: 0, inputList: '8GB,16GB,32GB', values: [] },
-    ]
-    state.selectProductParam = [
-      { id: 8, name: '处理器', value: '', inputType: 0, inputList: '' },
-      { id: 9, name: '硬盘容量', value: '', inputType: 1, inputList: '256GB,512GB,1TB' },
-    ]
-  } else {
-    state.selectProductAttr = [
-      { id: 10, name: '颜色', handAddStatus: 0, inputList: '黑色,白色,红色', values: [] },
-    ]
-    state.selectProductParam = [
-      { id: 11, name: '尺码', value: '', inputType: 1, inputList: 'S,M,L,XL' },
-    ]
-  }
+const handleProductAttrChange = async (value: number | string) => {
+  // 清空旧数据
+  state.selectProductAttr = []
+  state.selectProductParam = []
   state.selectProductAttrPics = []
   compProductParam.value.skuStockList = []
+  if (!value) return
+
+  try {
+    const [attrRes, paramRes] = await Promise.all([
+      getProductAttributeListAPI(String(value), { pageNum: 1, pageSize: 100, type: 0 }),
+      getProductAttributeListAPI(String(value), { pageNum: 1, pageSize: 100, type: 1 }),
+    ])
+    state.selectProductAttr = (attrRes.data?.items || []).map((item: any) => ({
+      id: item.id || '',
+      name: item.name || '',
+      handAddStatus: item.handAddStatus || 0,
+      inputList: item.inputList || '',
+      values: [] as string[],
+    }))
+    state.selectProductParam = (paramRes.data?.items || []).map((item: any) => ({
+      id: item.id || '',
+      name: item.name || '',
+      value: '',
+      inputType: item.inputType || 0,
+      inputList: item.inputList || '',
+    }))
+  } catch {
+    // 加载失败时保持空
+  }
 }
 
 const getInputListArr = (inputList: string) => inputList ? inputList.split(',') : []
@@ -209,7 +205,7 @@ const mergeProductAttrPics = () => {
     for (let j = 0; j < skuList.length; j++) {
       const spData = JSON.parse(skuList[j].spData)
       if (spData[0]?.value === state.selectProductAttrPics[i].name) {
-        skuList[j].pic = state.selectProductAttrPics[i].pic
+        skuList[j].defaultPic = state.selectProductAttrPics[i].pic
       }
     }
   }
@@ -217,6 +213,22 @@ const mergeProductAttrPics = () => {
 
 const handlePrev = () => { emit('prev-step') }
 const handleNext = () => { mergeProductAttrValue(); mergeProductAttrPics(); emit('next-step') }
+
+async function loadAttributeCategories() {
+  try {
+    const res = await productAttributeCategoryListWithAttrAPI()
+    state.productAttributeCategoryOptions = (res.data || []).map((c: any) => ({
+      label: c.name || '',
+      value: c.id || '',
+    }))
+  } catch {
+    // 静默失败
+  }
+}
+
+onMounted(() => {
+  loadAttributeCategories()
+})
 </script>
 
 <template>

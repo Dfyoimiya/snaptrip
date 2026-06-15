@@ -8,7 +8,7 @@
 /** 品牌信息 */
 export interface PmsBrand {
   /** 品牌ID */
-  id: number
+  id: string
   /** 品牌名称 */
   name: string
   /** 首字母 */
@@ -23,12 +23,8 @@ export interface PmsBrand {
   sort: number
   /** 是否显示：0->不显示；1->显示 */
   showStatus: number
-  /** 产品数量 */
-  productCount: number
-  /** 产品评论数量 */
-  productCommentCount: number
-  /** 品牌logo（用于前端展示） */
-  pic?: string
   /** 创建时间 */
-  createTime: string
+  createdAt: string
+  /** 商品数量（列表接口可能返回） */
+  productCount?: number
 }

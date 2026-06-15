@@ -11,8 +11,8 @@ const router = useRouter()
 const listQuery = ref({
   keyword: '',
   productSn: '',
-  productCategoryId: undefined as string | number | undefined,
-  brandId: undefined as string | number | undefined,
+  categoryId: undefined as string | undefined,
+  brandId: undefined as string | undefined,
   publishStatus: undefined as number | undefined,
   verifyStatus: undefined as number | undefined,
   page: 1,
@@ -83,7 +83,7 @@ function handleSearchList() {
 }
 function handleResetSearch() {
   listQuery.value = {
-    keyword: '', productSn: '', productCategoryId: undefined,
+    keyword: '', productSn: '', categoryId: undefined,
     brandId: undefined, publishStatus: undefined, verifyStatus: undefined,
     page: 1, page_size: 10,
   }
@@ -125,7 +125,7 @@ async function handleNewStatusChange(_index: number, row: any) {
 }
 async function handleRecommendStatusChange(_index: number, row: any) {
   try {
-    await productUpdateRecommendStatusAPI(String(row.id), row.recommandStatus)
+    await productUpdateRecommendStatusAPI(String(row.id), row.recommendStatus)
     ElMessage.success('推荐状态已更新')
   } catch {
     ElMessage.error('推荐状态更新失败')
@@ -282,12 +282,16 @@ function handleShowSkuEditDialog(_index: number, row: any) {
     { skuCode: `SKU-${String(row.id).padStart(3,'0')}-001`, spData: '[{"key":"颜色","value":"默认色"},{"key":"规格","value":"标准版"}]', price: row.price, stock: 100, lowStock: 10 },
   ]
   editSkuInfo.stockList = [...skus]
-  if (row.productAttributeCategoryId === 1) {
-    editSkuInfo.productAttr = [{ id: 1, name: '颜色' }, { id: 2, name: '容量' }]
-  } else if (row.productAttributeCategoryId === 4) {
-    editSkuInfo.productAttr = [{ id: 1, name: '颜色' }, { id: 2, name: '尺码' }]
+  // Derive attribute column headers from actual SKU spData
+  const firstSku = editSkuInfo.stockList[0]
+  let spData: { key: string }[] = []
+  if (firstSku?.spData) {
+    try { spData = JSON.parse(firstSku.spData) } catch { /* ignore */ }
+  }
+  if (spData && Array.isArray(spData) && spData.length > 0) {
+    editSkuInfo.productAttr = spData.map((item, idx) => ({ id: idx, name: item.key || '属性' }))
   } else {
-    editSkuInfo.productAttr = [{ id: 1, name: '规格' }]
+    editSkuInfo.productAttr = [{ id: 0, name: '规格' }]
   }
 }
 
@@ -326,7 +330,7 @@ function handleEditSkuConfirm() {
             <el-input style="width: 203px" v-model="listQuery.productSn" placeholder="商品货号"></el-input>
           </el-form-item>
           <el-form-item label="商品分类：">
-            <el-cascader clearable v-model="listQuery.productCategoryId" :options="cateOptions" style="width: 203px"></el-cascader>
+            <el-cascader clearable v-model="listQuery.categoryId" :options="cateOptions" style="width: 203px"></el-cascader>
           </el-form-item>
           <el-form-item label="商品品牌：">
             <el-select v-model="listQuery.brandId" placeholder="请选择品牌" clearable style="width: 203px">
@@ -362,7 +366,7 @@ function handleEditSkuConfirm() {
           <template #default="scope">{{ scope.row.id }}</template>
         </el-table-column>
         <el-table-column label="商品图片" width="120" align="center">
-          <template #default="scope"><img style="height: 80px" :src="scope.row.pic || scope.row.image_url"></template>
+          <template #default="scope"><img style="height: 80px" :src="scope.row.defaultPic"></template>
         </el-table-column>
         <el-table-column label="商品名称" align="center">
           <template #default="scope">
@@ -385,7 +389,7 @@ function handleEditSkuConfirm() {
               <el-switch @change="handleNewStatusChange(scope.$index, scope.row)" :active-value="1" :inactive-value="0" v-model="scope.row.newStatus"></el-switch>
             </p>
             <p style="margin: 6px 0px;">推荐：
-              <el-switch @change="handleRecommendStatusChange(scope.$index, scope.row)" :active-value="1" :inactive-value="0" v-model="scope.row.recommandStatus"></el-switch>
+              <el-switch @change="handleRecommendStatusChange(scope.$index, scope.row)" :active-value="1" :inactive-value="0" v-model="scope.row.recommendStatus"></el-switch>
             </p>
           </template>
         </el-table-column>
@@ -398,7 +402,7 @@ function handleEditSkuConfirm() {
           </template>
         </el-table-column>
         <el-table-column label="销量" width="100" align="center">
-          <template #default="scope">{{ scope.row.sale || scope.row.sale_count }}</template>
+          <template #default="scope">{{ scope.row.saleCount }}</template>
         </el-table-column>
         <el-table-column label="审核状态" width="100" align="center">
           <template #default="scope">

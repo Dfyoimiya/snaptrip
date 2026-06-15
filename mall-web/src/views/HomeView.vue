@@ -202,7 +202,7 @@ function getProductTag(p: PmsProduct): string | null {
   if (p.promotionType === 1) return '优惠'
   if (p.promotionType === 4) return '满减'
   if (p.newStatus === 1) return '新品'
-  if (p.recommandStatus === 1) return '推荐'
+  if ((p.recommendStatus ?? 0) === 1) return '推荐'
   return null
 }
 
@@ -211,14 +211,9 @@ async function loadHomeContent() {
   loading.value = true
   try {
     const data = await getHomeContentAPI()
-    banners.value = data.advertiseList || []
-    brands.value = data.brandList || []
-    hotProducts.value = data.hotProductList || []
-    newProducts.value = data.newProductList || []
-    if (data.homeFlashPromotion) {
-      homeFlashPromotion.value = data.homeFlashPromotion
-      seckillItems.value = data.homeFlashPromotion.productList || []
-    }
+    banners.value = data.banners || []
+    hotProducts.value = data.recommendProducts || []
+    newProducts.value = data.newProducts || []
     startBannerAutoPlay()
     startSeckillCountdown()
   } catch (err: any) {
@@ -229,7 +224,7 @@ async function loadHomeContent() {
 }
 
 // ===== 导航到商品详情 =====
-const goProductDetail = (id: number) => {
+const goProductDetail = (id: string) => {
   router.push(`/product/${id}`)
 }
 
@@ -401,11 +396,11 @@ onUnmounted(() => {
             @click="goProductDetail(item.id)"
           >
             <div class="aspect-square rounded-lg bg-gray-50 overflow-hidden mb-2">
-              <img :src="item.pic" :alt="item.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              <img :src="item.defaultPic" :alt="item.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
             </div>
             <p class="text-xs text-gray-700 line-clamp-2 mb-2 h-8 leading-4">{{ item.name }}</p>
             <div class="flex items-baseline gap-2">
-              <span class="text-red-600 font-bold text-base">&yen;{{ item.flashPromotionPrice || item.price }}</span>
+              <span class="text-red-600 font-bold text-base">&yen;{{ item.promotionPrice || item.price }}</span>
               <span class="text-gray-400 text-xs line-through">&yen;{{ item.originalPrice }}</span>
             </div>
           </button>
@@ -460,7 +455,7 @@ onUnmounted(() => {
             <!-- 商品图片 -->
             <div class="aspect-square bg-gray-50 overflow-hidden relative">
               <img
-                :src="product.pic"
+                :src="product.defaultPic"
                 :alt="product.name"
                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
@@ -483,10 +478,10 @@ onUnmounted(() => {
                 <span class="text-red-600 font-bold text-base">
                   <span class="text-xs">&yen;</span>{{ Math.floor(product.price) }}<span class="text-xs">.{{ String((product.price % 1).toFixed(2)).split('.')[1] }}</span>
                 </span>
-                <span class="text-gray-400 text-xs line-through">&yen;{{ product.originalPrice }}</span>
+                <span v-if="product.originalPrice" class="text-gray-400 text-xs line-through">&yen;{{ product.originalPrice }}</span>
               </div>
               <!-- 销量 -->
-              <p class="text-xs text-gray-400 mt-1">已售 {{ product.sale >= 10000 ? (product.sale / 10000).toFixed(1) + '万' : product.sale }}</p>
+              <p class="text-xs text-gray-400 mt-1">已售 {{ (product.saleCount ?? 0) >= 10000 ? ((product.saleCount ?? 0) / 10000).toFixed(1) + '万' : (product.saleCount ?? 0) }}</p>
             </div>
           </button>
         </div>
@@ -517,7 +512,7 @@ onUnmounted(() => {
             <!-- 商品图片 -->
             <div class="aspect-square bg-gray-50 overflow-hidden relative">
               <img
-                :src="product.pic"
+                :src="product.defaultPic"
                 :alt="product.name"
                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
@@ -537,10 +532,10 @@ onUnmounted(() => {
                 <span class="text-red-600 font-bold text-base">
                   <span class="text-xs">&yen;</span>{{ Math.floor(product.price) }}<span class="text-xs">.{{ String((product.price % 1).toFixed(2)).split('.')[1] }}</span>
                 </span>
-                <span class="text-gray-400 text-xs line-through">&yen;{{ product.originalPrice }}</span>
+                <span v-if="product.originalPrice" class="text-gray-400 text-xs line-through">&yen;{{ product.originalPrice }}</span>
               </div>
               <!-- 销量 -->
-              <p class="text-xs text-gray-400 mt-1">已售 {{ product.sale }}</p>
+              <p class="text-xs text-gray-400 mt-1">已售 {{ product.saleCount ?? 0 }}</p>
             </div>
           </button>
         </div>
@@ -573,7 +568,7 @@ onUnmounted(() => {
             <!-- 商品图片 -->
             <div class="aspect-square bg-gray-50 overflow-hidden relative">
               <img
-                :src="product.pic"
+                :src="product.defaultPic"
                 :alt="product.name"
                 class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />

@@ -28,9 +28,9 @@ const orderStatuses = [
 
 /** 功能快捷入口 */
 const quickActions = [
-  { label: '我的收藏', value: (memberStore.memberInfo as any)?.collectProductCount || 0, path: '/member/favorites', color: 'text-red-500' },
-  { label: '浏览足迹', value: (memberStore.memberInfo as any)?.readCount || 0, path: '/member/favorites', color: 'text-blue-500' },
-  { label: '我的优惠券', value: (memberStore.memberInfo as any)?.couponCount || 0, path: '/member/coupons', color: 'text-orange-500' },
+  { label: '我的收藏', value: 0, path: '/member/favorites', color: 'text-red-500' },
+  { label: '浏览足迹', value: 0, path: '/member/favorites', color: 'text-blue-500' },
+  { label: '我的优惠券', value: 0, path: '/member/coupons', color: 'text-orange-500' },
   { label: '收货地址', value: 3, path: '/member/address', color: 'text-green-500' },
 ]
 
@@ -41,7 +41,7 @@ const recentOrders = [
   { id: 'ORD20260606003', status: 3, statusText: '已完成', statusColor: 'text-gray-500 bg-gray-50', totalAmount: 749, items: [{ name: 'Nike Air Force 1 白色 42码', pic: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=80&h=80&fit=crop', qty: 1 }] },
 ]
 
-const formatPrice = (p: number) => p.toLocaleString('zh-CN', { minimumFractionDigits: 2 })
+const formatPrice = (p: number | null | undefined) => (p ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })
 </script>
 
 <template>
@@ -60,7 +60,7 @@ const formatPrice = (p: number) => p.toLocaleString('zh-CN', { minimumFractionDi
             <h2 class="text-xl font-bold text-gray-900">{{ memberStore.displayName }}</h2>
             <span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">黄金会员</span>
           </div>
-          <p class="text-sm text-gray-500 mt-1">{{ (memberStore.memberInfo as any)?.personalizedSignature || '热爱购物，品质生活' }}</p>
+          <p class="text-sm text-gray-500 mt-1">热爱购物，品质生活</p>
           <div class="flex items-center gap-4 mt-2 text-xs text-gray-400">
             <span>手机：{{ memberStore.memberInfo?.phone || '138****8888' }}</span>
             <span>等级：V3</span>
@@ -74,11 +74,11 @@ const formatPrice = (p: number) => p.toLocaleString('zh-CN', { minimumFractionDi
             <div class="text-xs text-gray-400 mt-1">积分</div>
           </div>
           <div class="text-center">
-            <div class="text-2xl font-bold text-red-600">{{ (memberStore.memberInfo as any)?.couponCount || 0 }}</div>
+            <div class="text-2xl font-bold text-red-600">0</div>
             <div class="text-xs text-gray-400 mt-1">优惠券</div>
           </div>
           <div class="text-center">
-            <div class="text-2xl font-bold text-orange-500">{{ (memberStore.memberInfo as any)?.growth || 0 }}</div>
+            <div class="text-2xl font-bold text-orange-500">0</div>
             <div class="text-xs text-gray-400 mt-1">成长值</div>
           </div>
         </div>

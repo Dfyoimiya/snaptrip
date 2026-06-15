@@ -9,6 +9,7 @@ Date: 2026-05-26
 from __future__ import annotations
 
 import asyncio
+import re
 from typing import Protocol
 
 from snaptrip_shared.core.logging import get_logger
@@ -16,6 +17,9 @@ from snaptrip_shared.core.logging import get_logger
 from app.core.config import commerce_settings
 
 logger = get_logger(__name__)
+
+# Matches path traversal sequences: "/../", "/.." at end, "../" at start, or bare ".."
+_PATH_TRAVERSAL_RE = re.compile(r"(?:^|/)\.\.(?:/|$)|^\.\.$")
 
 
 class OSSClientProtocol(Protocol):
@@ -47,6 +51,22 @@ class MinioOSSClient:
         self._region = commerce_settings.OSS_REGION
         self._presigned_expire = commerce_settings.OSS_PRESIGNED_EXPIRE
         self._initialized = False
+
+    @staticmethod
+    def _sanitize_object_name(object_name: str) -> str:
+        """Sanitize object_name to prevent path traversal attacks.
+
+        Rejects names containing ``..`` components that could escape the bucket
+        directory and strips leading slashes to prevent absolute paths.
+        """
+        if _PATH_TRAVERSAL_RE.search(object_name):
+            raise ValueError(
+                f"Invalid object_name: path traversal detected in '{object_name}'"
+            )
+        sanitized = object_name.lstrip("/")
+        if not sanitized:
+            raise ValueError("object_name must not be empty after sanitization")
+        return sanitized
 
     async def _ensure_client(self):
         """懒初始化 MinIO 客户端 —— 避免导入时因缺少依赖失败"""
@@ -81,6 +101,7 @@ class MinioOSSClient:
             logger.warning("oss_bucket_check_failed", bucket=self._bucket)
 
     async def upload(self, object_name: str, data: bytes, content_type: str = "application/octet-stream") -> str:
+        object_name = self._sanitize_object_name(object_name)
         await self._ensure_bucket()
         assert self._client is not None
         import io
@@ -97,6 +118,7 @@ class MinioOSSClient:
         return url
 
     async def get_presigned_url(self, object_name: str, expires: int | None = None) -> str | None:
+        object_name = self._sanitize_object_name(object_name)
         await self._ensure_client()
         assert self._client is not None
         try:
@@ -112,6 +134,7 @@ class MinioOSSClient:
             return None
 
     async def delete(self, object_name: str) -> bool:
+        object_name = self._sanitize_object_name(object_name)
         await self._ensure_client()
         assert self._client is not None
         try:

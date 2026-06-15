@@ -19,7 +19,7 @@ const defaultStatusOptions = [
 const listQuery = ref({
   id: undefined as string | undefined,
   status: undefined as number | undefined,
-  createTime: '',
+  createdAt: '',
   handleMan: '',
   handleTime: '',
   pageNum: 1,
@@ -47,7 +47,7 @@ const fetchData = async () => {
     const res = await getReturnApplyListAPI({
       id: listQuery.value.id,
       status: listQuery.value.status,
-      createTime: listQuery.value.createTime || undefined,
+      createdAt: listQuery.value.createdAt || undefined,
       handleMan: listQuery.value.handleMan || undefined,
       handleTime: listQuery.value.handleTime || undefined,
       page: listQuery.value.pageNum,
@@ -65,7 +65,7 @@ const fetchData = async () => {
 
 onMounted(() => { fetchData() })
 
-const handleResetSearch = () => { listQuery.value = { id: undefined, status: undefined, createTime: '', handleMan: '', handleTime: '', pageNum: 1, pageSize: 10 }; fetchData() }
+const handleResetSearch = () => { listQuery.value = { id: undefined, status: undefined, createdAt: '', handleMan: '', handleTime: '', pageNum: 1, pageSize: 10 }; fetchData() }
 const handleSearchList = () => { listQuery.value.pageNum = 1; fetchData() }
 const handleViewDetail = (_index: number, row: OmsOrderReturnApply) => {
   if (!row.id) return ElMessage.error('退货申请ID不能为空')
@@ -111,7 +111,7 @@ const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; fe
             </el-select>
           </el-form-item>
           <el-form-item label="申请时间：">
-            <el-date-picker class="input-width" v-model="listQuery.createTime" value-format="YYYY-MM-DD" type="date" placeholder="请选择时间"></el-date-picker>
+            <el-date-picker class="input-width" v-model="listQuery.createdAt" value-format="YYYY-MM-DD" type="date" placeholder="请选择时间"></el-date-picker>
           </el-form-item>
           <el-form-item label="操作人员：">
             <el-input v-model="listQuery.handleMan" class="input-width" placeholder="全部"></el-input>
@@ -133,7 +133,7 @@ const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; fe
           <template #default="scope">{{ scope.row.id }}</template>
         </el-table-column>
         <el-table-column label="申请时间" width="180" align="center">
-          <template #default="scope">{{ formatDateTime(scope.row.createTime) }}</template>
+          <template #default="scope">{{ formatDateTime(scope.row.createdAt) }}</template>
         </el-table-column>
         <el-table-column label="用户账号" align="center">
           <template #default="scope">{{ scope.row.memberUsername }}</template>

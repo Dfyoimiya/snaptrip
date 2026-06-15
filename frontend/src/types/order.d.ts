@@ -1,33 +1,18 @@
 /** 订单 */
 export interface OmsOrder {
   id?: string
-  memberId?: number
-  couponId?: number
+  userId?: string
   orderSn?: string
-  createTime?: string
+  createdAt?: string
   memberUsername?: string
   totalAmount?: number
   payAmount?: number
   freightAmount?: number
-  promotionAmount?: number
-  integrationAmount?: number
-  couponAmount?: number
   discountAmount?: number
   payType?: number
-  sourceType?: number
   status?: number
-  orderType?: number
   deliveryCompany?: string
   deliverySn?: string
-  autoConfirmDay?: number
-  integration?: number
-  growth?: number
-  promotionInfo?: string
-  billType?: number
-  billHeader?: string
-  billContent?: string
-  billReceiverPhone?: string
-  billReceiverEmail?: string
   receiverName?: string
   receiverPhone?: string
   receiverPostCode?: string
@@ -36,66 +21,60 @@ export interface OmsOrder {
   receiverRegion?: string
   receiverDetailAddress?: string
   note?: string
-  confirmStatus?: number
-  deleteStatus?: number
-  useIntegration?: number
   paymentTime?: string
   deliveryTime?: string
   receiveTime?: string
-  commentTime?: string
-  modifyTime?: string
+  updatedAt?: string
 }
 
 /** 订单详情（含商品、操作记录） */
 export interface OmsOrderDetail extends OmsOrder {
-  orderItemList?: OmsOrderItem[]
+  items?: OmsOrderItem[]
   historyList?: OmsOrderOperateHistory[]
 }
 
 /** 订单商品 */
 export interface OmsOrderItem {
   id?: string
-  orderId?: number
+  orderId?: string
   orderSn?: string
-  productId?: number
+  productId?: string
   productPic?: string
   productName?: string
   productBrand?: string
   productSn?: string
-  productPrice?: number
-  productQuantity?: number
-  productSkuId?: number
-  productSkuCode?: string
-  productCategoryId?: number
+  price?: number
+  quantity?: number
+  skuId?: string
+  skuCode?: string
+  categoryId?: string
   promotionAmount?: number
   couponAmount?: number
   integrationAmount?: number
   realAmount?: number
-  giftIntegration?: number
-  giftGrowth?: number
-  productAttr?: string[]
+  spec?: string
 }
 
 /** 订单操作记录 */
 export interface OmsOrderOperateHistory {
   id?: string
-  orderId?: number
+  orderId?: string
   operateMan?: string
-  createTime?: string
+  createdAt?: string
   orderStatus?: number
   note?: string
 }
 
 /** 订单发货参数 */
 export interface OmsOrderDeliveryParam {
-  orderId: number
+  orderId: string
   deliveryCompany: string
   deliverySn: string
 }
 
 /** 收货人信息参数 */
 export interface OmsReceiverInfoParam {
-  orderId: number
+  orderId: string
   receiverName?: string
   receiverPhone?: string
   receiverPostCode?: string
@@ -108,7 +87,7 @@ export interface OmsReceiverInfoParam {
 
 /** 订单费用参数 */
 export interface OmsMoneyInfoParam {
-  orderId: number
+  orderId: string
   freightAmount?: number
   discountAmount?: number
   status?: number
@@ -116,7 +95,7 @@ export interface OmsMoneyInfoParam {
 
 /** 订单备注参数 */
 export interface OmsOrderNoteParam {
-  id: number
+  id: string
   note: string
   status: number
 }
@@ -128,7 +107,7 @@ export interface OrderQueryParam {
   status?: number
   orderType?: number
   sourceType?: number
-  createTime?: string
+  createdAt?: string
   page: number
   page_size: number
 }

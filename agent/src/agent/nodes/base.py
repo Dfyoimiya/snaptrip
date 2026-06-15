@@ -55,7 +55,8 @@ class BaseSpecialist:
             elapsed = (time.monotonic() - t0) * 1000
             _trace_logger.error(
                 "node_trace name=%s elapsed_ms=%.1f success=false error=no_adapter",
-                self.node_name, elapsed,
+                self.node_name,
+                elapsed,
             )
             return {"phase": "error", "status": "llm_unavailable"}
 
@@ -64,7 +65,8 @@ class BaseSpecialist:
             elapsed = (time.monotonic() - t0) * 1000
             _trace_logger.info(
                 "node_trace name=%s elapsed_ms=%.1f success=true status=max_retries",
-                self.node_name, elapsed,
+                self.node_name,
+                elapsed,
             )
             return {"phase": self.phase_name, "status": "max_retries"}
 
@@ -76,14 +78,16 @@ class BaseSpecialist:
             elapsed = (time.monotonic() - t0) * 1000
             _trace_logger.error(
                 "node_trace name=%s elapsed_ms=%.1f success=false error=llm_error",
-                self.node_name, elapsed,
+                self.node_name,
+                elapsed,
             )
             return {"phase": "error", "status": "llm_error"}
 
         elapsed = (time.monotonic() - t0) * 1000
         _trace_logger.info(
             "node_trace name=%s elapsed_ms=%.1f success=true status=ok",
-            self.node_name, elapsed,
+            self.node_name,
+            elapsed,
         )
         return {
             "messages": [response],

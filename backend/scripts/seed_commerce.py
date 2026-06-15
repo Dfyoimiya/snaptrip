@@ -15,11 +15,11 @@ async def seed(session=None):
     from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
     from sqlalchemy import text
 
+    from snaptrip_shared.core.config import settings
+
     own_session = False
     if session is None:
-        engine = create_async_engine(
-            "postgresql+asyncpg://snaptrip:snaptrip123@localhost:5432/snaptrip_dev"
-        )
+        engine = create_async_engine(settings.effective_database_url)
         session = AsyncSession(engine, expire_on_commit=False)
         own_session = True
     else:

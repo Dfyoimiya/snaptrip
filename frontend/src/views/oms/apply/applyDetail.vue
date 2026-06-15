@@ -8,7 +8,7 @@ const route = useRoute()
 const router = useRouter()
 
 const defaultUpdateStatusParam = {
-  id: 0, companyAddressId: 0, handleMan: 'admin', handleNote: '',
+  id: '', companyAddressId: null as string | null, handleMan: 'admin', handleNote: '',
   receiveMan: 'admin', receiveNote: '', returnAmount: 0, status: 0
 }
 
@@ -20,10 +20,10 @@ const companyAddressList = ref<any[]>([])
 const updateStatusParam = ref(Object.assign({}, defaultUpdateStatusParam))
 
 const allMockData: Record<number, any> = {
-  1: { id: 1, orderId: 101, productId: 1, orderSn: 'ORD-20240528001', createTime: '2024-05-28T10:30:00', memberUsername: 'user_001', returnAmount: 9999, returnName: '张三', returnPhone: '13800138001', status: 0, reason: '商品质量问题', description: '收到的手机屏幕有划痕', productPic: 'https://picsum.photos/seed/iphone/200/200', productName: 'iPhone 15 Pro Max', productBrand: 'Apple', productAttr: '[{\"key\":\"颜色\",\"value\":\"黑色\"},{\"key\":\"容量\",\"value\":\"256GB\"}]', productCount: 1, productRealPrice: 9999, proofPics: 'https://picsum.photos/seed/p1/200/200,https://picsum.photos/seed/p2/200/200' },
-  2: { id: 2, orderId: 102, productId: 2, orderSn: 'ORD-20240527002', createTime: '2024-05-27T14:20:00', memberUsername: 'user_002', returnAmount: 6999, returnName: '李四', returnPhone: '13800138002', status: 1, reason: '商品与描述不符', description: '颜色与图片不符', productPic: 'https://picsum.photos/seed/huawei/200/200', productName: '华为 Mate 60 Pro', productBrand: '华为', productAttr: '[{\"key\":\"颜色\",\"value\":\"白色\"},{\"key\":\"容量\",\"value\":\"256GB\"}]', productCount: 1, productRealPrice: 6999, proofPics: 'https://picsum.photos/seed/p3/200/200' },
-  3: { id: 3, orderId: 103, productId: 3, orderSn: 'ORD-20240526003', createTime: '2024-05-26T09:10:00', memberUsername: 'user_003', returnAmount: 3798, returnName: '王五', returnPhone: '13800138003', status: 2, reason: '不想要了', description: '买多了想退', productPic: 'https://picsum.photos/seed/airpods/200/200', productName: 'AirPods Pro 2', productBrand: 'Apple', productAttr: '[{\"key\":\"颜色\",\"value\":\"白色\"}]', productCount: 2, productRealPrice: 1899, proofPics: '', handleMan: 'admin', handleTime: '2024-05-27T10:00:00', handleNote: '同意退货', receiveMan: 'admin', receiveTime: '2024-05-29T14:00:00', receiveNote: '商品已验收' },
-  4: { id: 4, orderId: 104, productId: 4, orderSn: 'ORD-20240525004', createTime: '2024-05-25T16:45:00', memberUsername: 'user_004', returnAmount: 5999, returnName: '赵六', returnPhone: '13800138004', status: 3, reason: '其他原因', description: '价格降了', productPic: 'https://picsum.photos/seed/mi14/200/200', productName: '小米14 Ultra', productBrand: '小米', productAttr: '[{\"key\":\"颜色\",\"value\":\"黑色\"},{\"key\":\"容量\",\"value\":\"512GB\"}]', productCount: 1, productRealPrice: 5999, proofPics: '' },
+  1: { id: 1, orderId: 101, productId: 1, orderSn: 'ORD-20240528001', createdAt: '2024-05-28T10:30:00', memberUsername: 'user_001', returnAmount: 9999, returnName: '张三', returnPhone: '13800138001', status: 0, reason: '商品质量问题', description: '收到的手机屏幕有划痕', productPic: 'https://picsum.photos/seed/iphone/200/200', productName: 'iPhone 15 Pro Max', productBrand: 'Apple', productAttr: '[{\"key\":\"颜色\",\"value\":\"黑色\"},{\"key\":\"容量\",\"value\":\"256GB\"}]', productCount: 1, productRealPrice: 9999, proofPics: 'https://picsum.photos/seed/p1/200/200,https://picsum.photos/seed/p2/200/200' },
+  2: { id: 2, orderId: 102, productId: 2, orderSn: 'ORD-20240527002', createdAt: '2024-05-27T14:20:00', memberUsername: 'user_002', returnAmount: 6999, returnName: '李四', returnPhone: '13800138002', status: 1, reason: '商品与描述不符', description: '颜色与图片不符', productPic: 'https://picsum.photos/seed/huawei/200/200', productName: '华为 Mate 60 Pro', productBrand: '华为', productAttr: '[{\"key\":\"颜色\",\"value\":\"白色\"},{\"key\":\"容量\",\"value\":\"256GB\"}]', productCount: 1, productRealPrice: 6999, proofPics: 'https://picsum.photos/seed/p3/200/200' },
+  3: { id: 3, orderId: 103, productId: 3, orderSn: 'ORD-20240526003', createdAt: '2024-05-26T09:10:00', memberUsername: 'user_003', returnAmount: 3798, returnName: '王五', returnPhone: '13800138003', status: 2, reason: '不想要了', description: '买多了想退', productPic: 'https://picsum.photos/seed/airpods/200/200', productName: 'AirPods Pro 2', productBrand: 'Apple', productAttr: '[{\"key\":\"颜色\",\"value\":\"白色\"}]', productCount: 2, productRealPrice: 1899, proofPics: '', handleMan: 'admin', handleTime: '2024-05-27T10:00:00', handleNote: '同意退货', receiveMan: 'admin', receiveTime: '2024-05-29T14:00:00', receiveNote: '商品已验收' },
+  4: { id: 4, orderId: 104, productId: 4, orderSn: 'ORD-20240525004', createdAt: '2024-05-25T16:45:00', memberUsername: 'user_004', returnAmount: 5999, returnName: '赵六', returnPhone: '13800138004', status: 3, reason: '其他原因', description: '价格降了', productPic: 'https://picsum.photos/seed/mi14/200/200', productName: '小米14 Ultra', productBrand: '小米', productAttr: '[{\"key\":\"颜色\",\"value\":\"黑色\"},{\"key\":\"容量\",\"value\":\"512GB\"}]', productCount: 1, productRealPrice: 5999, proofPics: '' },
 }
 
 const getDetail = () => {
@@ -141,7 +141,7 @@ const handleUpdateStatus = async (status: number) => {
         </el-row>
         <el-row>
           <el-col class="form-border form-left-bg font-small" :span="6">申请时间</el-col>
-          <el-col class="form-border font-small" :span="18">{{ formatDateTime(orderReturnApply.createTime) }}</el-col>
+          <el-col class="form-border font-small" :span="18">{{ formatDateTime(orderReturnApply.createdAt) }}</el-col>
         </el-row>
         <el-row>
           <el-col class="form-border form-left-bg font-small" :span="6">用户账号</el-col>

@@ -121,7 +121,13 @@ class TestPhase4CouponFlow:
             },
         )
         assert fp.status_code in (200, 201), fp.text
-        assert float(fp.json()["data"]["flash_price"]) == 699.0
+        flash_price_raw = fp.json()["data"]["flash_price"]
+        # Accept both numeric and string representations
+        if isinstance(flash_price_raw, (int, float)):
+            flash_price_val = float(flash_price_raw)
+        else:
+            flash_price_val = float(flash_price_raw)
+        assert flash_price_val == 699.0, f"Expected 699.0, got {flash_price_raw}"
 
         # 活动列表
         plist = await auth_client.get("/api/v1/admin/flash-promotions")

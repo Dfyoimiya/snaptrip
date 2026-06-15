@@ -3,15 +3,15 @@ export interface UmsResourceCategory {
   id?: string
   name?: string
   sort?: number
-  createTime?: string
+  createdAt?: string
 }
 
 /** 资源 */
 export interface UmsResource {
   id?: string
-  categoryId?: number
+  categoryId?: string
   name?: string
   url?: string
   description?: string
-  createTime?: string
+  createdAt?: string
 }

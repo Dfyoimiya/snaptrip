@@ -148,7 +148,7 @@ const handleAllocDialogConfirm = async () => {
         <el-table-column label="帐号" align="center"><template #default="scope">{{ scope.row.username }}</template></el-table-column>
         <el-table-column label="姓名" align="center"><template #default="scope">{{ scope.row.nickName }}</template></el-table-column>
         <el-table-column label="邮箱" align="center"><template #default="scope">{{ scope.row.email }}</template></el-table-column>
-        <el-table-column label="添加时间" width="160" align="center"><template #default="scope">{{ formatDateTime(scope.row.createTime) }}</template></el-table-column>
+        <el-table-column label="添加时间" width="160" align="center"><template #default="scope">{{ formatDateTime(scope.row.createdAt) }}</template></el-table-column>
         <el-table-column label="最后登录" width="160" align="center"><template #default="scope">{{ formatDateTime(scope.row.loginTime) }}</template></el-table-column>
         <el-table-column label="是否启用" width="140" align="center">
           <template #default="scope"><el-switch @change="handleStatusChange(scope.$index, scope.row)" :active-value="1" :inactive-value="0" v-model="scope.row.status" /></template>

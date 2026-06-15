@@ -11,9 +11,9 @@ import type { PmsProduct } from './product'
 /** 专题信息 */
 export interface CmsSubject {
   /** ID */
-  id: number
+  id: string
   /** 分类ID */
-  categoryId: number
+  categoryId: string
   /** 专题分类名称 */
   categoryName: string
   /** 专题主图 */
@@ -41,13 +41,13 @@ export interface CmsSubject {
   /** 推荐状态 */
   recommendStatus: number
   /** 创建时间 */
-  createTime: string
+  createdAt: string
 }
 
 /** 首页广告信息 */
 export interface SmsHomeAdvertise {
   /** ID */
-  id: number
+  id: string
   /** 名称 */
   name: string
   /** 广告图片 */
@@ -69,7 +69,7 @@ export interface SmsHomeAdvertise {
   /** 排序 */
   sort: number
   /** 创建时间 */
-  createTime: string
+  createdAt: string
 }
 
 /** 首页秒杀信息 */
@@ -88,16 +88,12 @@ export interface HomeFlashPromotion {
 
 /** 首页内容返回结果 */
 export interface HomeContentResult {
-  /** 轮播广告列表 */
-  advertiseList: SmsHomeAdvertise[]
-  /** 推荐品牌列表 */
-  brandList: PmsBrand[]
-  /** 当前秒杀场次 */
-  homeFlashPromotion: HomeFlashPromotion
-  /** 人气推荐商品列表 */
-  hotProductList: PmsProduct[]
-  /** 新品推荐商品列表 */
-  newProductList: PmsProduct[]
+  /** 轮播横幅列表 */
+  banners: SmsHomeAdvertise[]
+  /** 新品推荐商品 */
+  newProducts: PmsProduct[]
+  /** 人气推荐商品 */
+  recommendProducts: PmsProduct[]
   /** 推荐专题列表 */
-  subjectList: CmsSubject[]
+  subjects: CmsSubject[]
 }

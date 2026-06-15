@@ -62,6 +62,7 @@ from app.models.promotion import (  # noqa: E402, F401
     SmsFlashPromotionProduct,
     SmsFlashPromotionSession,
 )
+from app.models.menu import Menu, Resource, ResourceCategory, RoleMenu, RoleResource  # noqa: E402, F401
 from app.models.rbac import Permission, Role, RolePermission, UserRole  # noqa: E402, F401
 
 # 合并 marketplace.Base 和 app.CommerceBase 的 metadata

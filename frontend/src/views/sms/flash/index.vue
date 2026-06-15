@@ -349,7 +349,7 @@ onMounted(() => {
                 />
               </template>
             </el-table-column>
-            <el-table-column label="创建时间" prop="createTime" width="160" align="center" />
+            <el-table-column label="创建时间" prop="createdAt" width="160" align="center" />
             <el-table-column label="操作" width="200" fixed="right" align="center">
               <template #default="{ row }">
                 <el-button link type="primary" size="small" @click="handleEditActivity(row)">
@@ -391,7 +391,7 @@ onMounted(() => {
                 />
               </template>
             </el-table-column>
-            <el-table-column label="创建时间" prop="createTime" width="160" align="center" />
+            <el-table-column label="创建时间" prop="createdAt" width="160" align="center" />
             <el-table-column label="操作" width="200" fixed="right" align="center">
               <template #default="{ row }">
                 <el-button link type="primary" size="small" @click="handleEditSession(row)">

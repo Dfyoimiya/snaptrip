@@ -8,7 +8,7 @@ export interface CmsSubject {
   pic?: string
   productCount?: number
   recommendStatus?: number // 0->不推荐 1->推荐
-  createTime?: string
+  createdAt?: string
   collectCount?: number
   readCount?: number
   commentCount?: number
@@ -29,5 +29,5 @@ export interface CmsSubjectCategory {
   subjectCount?: number
   showStatus?: number
   sort?: number
-  createTime?: string
+  createdAt?: string
 }

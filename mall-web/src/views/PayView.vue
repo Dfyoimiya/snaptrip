@@ -54,7 +54,7 @@ onUnmounted(() => {
   if (timer) clearInterval(timer)
 })
 
-const formatPrice = (p: number) => p.toLocaleString('zh-CN', { minimumFractionDigits: 2 })
+const formatPrice = (p: number | null | undefined) => (p ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })
 
 const handlePay = async () => {
   if (isExpired.value || !orderId) return

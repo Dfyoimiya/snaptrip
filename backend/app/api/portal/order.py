@@ -60,7 +60,7 @@ async def get_detail(
     current_user: User = Depends(get_current_user),
 ):
     svc = OrderService(db)
-    result = await svc.get_detail(order_id)
+    result = await svc.get_detail(order_id, user_id=current_user.id)
     return success(result.model_dump())
 
 
@@ -71,7 +71,7 @@ async def cancel_order(
     current_user: User = Depends(get_current_user),
 ):
     svc = OrderService(db)
-    result = await svc.cancel(order_id, operator=current_user.email, note="用户取消")
+    result = await svc.cancel(order_id, operator=current_user.email, note="用户取消", user_id=current_user.id)
     return success(result.model_dump())
 
 
@@ -83,7 +83,7 @@ async def pay_order(
 ):
     """Mock 支付 —— 直接标记已付款。生产环境需对接支付网关"""
     svc = OrderService(db)
-    result = await svc.pay(order_id)
+    result = await svc.pay(order_id, user_id=current_user.id)
     return success(result.model_dump())
 
 
@@ -94,5 +94,5 @@ async def confirm_receipt(
     current_user: User = Depends(get_current_user),
 ):
     svc = OrderService(db)
-    result = await svc.confirm_receipt(order_id)
+    result = await svc.confirm_receipt(order_id, user_id=current_user.id)
     return success(result.model_dump())

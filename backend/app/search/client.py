@@ -28,7 +28,7 @@ class ESSearchClient:
         self._index_products = commerce_settings.ES_INDEX_PRODUCTS
         self._timeout = commerce_settings.ES_SEARCH_TIMEOUT
         self._initialized = False
-        self._available = None  # None=未检测, True=可用, False=不可用
+        self._available: bool | None = None  # None=未检测, True=可用, False=不可用
 
     async def _ensure_client(self) -> None:
         """懒初始化 ES 客户端"""
@@ -111,7 +111,7 @@ class ESSearchClient:
                 for doc in docs
             ]
             success, errors = await async_bulk(self._client, actions, raise_on_error=False)
-            logger.debug("es_bulk_indexed", success=success, errors=len(errors))
+            logger.debug("es_bulk_indexed", success=success, errors=len(errors))  # type: ignore[arg-type]
             return success  # type: ignore[no-any-return]
         except Exception as exc:
             logger.warning("es_bulk_index_failed", error=str(exc))

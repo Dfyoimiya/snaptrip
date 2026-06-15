@@ -93,7 +93,7 @@ const isDisabledDate = (time: Date) => time.getTime() < Date.now()
         <span style="margin-right: 10px">新品</span>
         <el-switch v-model="compProductParam.newStatus" :active-value="1" :inactive-value="0" />
         <span style="margin-left: 10px; margin-right: 10px">推荐</span>
-        <el-switch v-model="compProductParam.recommandStatus" :active-value="1" :inactive-value="0" />
+        <el-switch v-model="compProductParam.recommendStatus" :active-value="1" :inactive-value="0" />
       </el-form-item>
       <el-form-item label="服务保证：">
         <el-checkbox-group v-model="selectServiceList">

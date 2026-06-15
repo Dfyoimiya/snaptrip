@@ -120,7 +120,7 @@ const deleteReasonMethod = async (ids: string[]) => {
           </template>
         </el-table-column>
         <el-table-column label="添加时间" width="180" align="center">
-          <template #default="scope">{{ formatDateTime(scope.row.createTime) }}</template>
+          <template #default="scope">{{ formatDateTime(scope.row.createdAt) }}</template>
         </el-table-column>
         <el-table-column label="操作" width="160" align="center">
           <template #default="scope">

@@ -14,27 +14,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-
-
-async def _refresh_fake(obj: object) -> None:
-    from uuid import uuid4
-
-    obj.id = uuid4()  # type: ignore[attr-defined]
-
-
-@pytest.fixture
-def mock_db() -> AsyncSession:
-    db = AsyncMock(spec=AsyncSession)
-    db.add = MagicMock()
-    db.flush = AsyncMock()
-    db.refresh = AsyncMock(side_effect=_refresh_fake)
-    db.commit = AsyncMock()
-    db.rollback = AsyncMock()
-    db.execute = AsyncMock()
-    db.get = AsyncMock()
-    db.delete = AsyncMock()
-    return db
 
 
 def _make_product_mock(product_id: UUID | None = None) -> MagicMock:
@@ -68,7 +47,7 @@ def _make_product_mock(product_id: UUID | None = None) -> MagicMock:
     p.preview_status = 0
     p.verify_status = 1
     p.service_ids = None
-    p.feight_template_id = None
+    p.freight_template_id = None
     p.created_at = None
     p.updated_at = None
     p.is_deleted = False
@@ -440,3 +419,22 @@ async def test_toggle_status_not_found(mock_db):
     svc = ProductService(mock_db)
     with pytest.raises(ProductNotFoundError):
         await svc.toggle_status(uuid4(), "new_status", 1)
+
+
+@pytest.mark.asyncio
+async def test_list_portal_empty(mock_db):
+    """list_portal: returns empty list with zero total."""
+    from app.services.product_service import ProductService
+
+    count_result = MagicMock()
+    count_result.scalar.return_value = 0
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = []
+
+    mock_db.execute.side_effect = [count_result, list_result]
+
+    svc = ProductService(mock_db)
+    products, total = await svc.list_portal(page=1, page_size=20)
+
+    assert total == 0
+    assert len(products) == 0

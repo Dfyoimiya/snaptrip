@@ -328,7 +328,7 @@ class StatsService:
         )
         new_products = [
             {"id": str(p.id), "name": p.name, "price": float(p.price),
-             "pic": p.default_pic or "", "sale_count": p.sale_count or 0}
+             "default_pic": p.default_pic or "", "sale_count": p.sale_count or 0}
             for p in new_result.scalars().all()
         ]
 
@@ -344,7 +344,7 @@ class StatsService:
         )
         recommend_products = [
             {"id": str(p.id), "name": p.name, "price": float(p.price),
-             "pic": p.default_pic or "", "sale_count": p.sale_count or 0}
+             "default_pic": p.default_pic or "", "sale_count": p.sale_count or 0}
             for p in rec_result.scalars().all()
         ]
 

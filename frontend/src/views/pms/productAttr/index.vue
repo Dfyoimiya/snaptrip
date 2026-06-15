@@ -86,7 +86,7 @@ const activeTab = ref('spec') // spec | param
 const filteredAttrList = computed(() => {
   const cate = attrCateList.value.find(c => c.id === currentCateId.value)
   if (!cate || !cate.productAttributeList) return []
-  return cate.productAttributeList.filter(a => a.type === (activeTab.value === 'spec' ? 0 : 1))
+  return cate.productAttributeList.filter(a => a.attrType === (activeTab.value === 'spec' ? 0 : 1))
 })
 
 // 属性弹窗
@@ -94,13 +94,13 @@ const attrDialogVisible = ref(false)
 const attrDialogTitle = ref('')
 const attrForm = ref<PmsProductAttribute>({
   id: undefined,
-  productAttributeCategoryId: 1,
+  categoryId: '',
   name: '',
   selectType: 1,
   inputType: 0,
   inputList: '',
   sort: 0,
-  type: 0,
+  attrType: 0,
   handAddStatus: 0,
   searchType: 0,
   relatedStatus: 0,
@@ -108,7 +108,7 @@ const attrForm = ref<PmsProductAttribute>({
 
 function handleAddAttr() {
   attrDialogTitle.value = '添加' + (activeTab.value === 'spec' ? '规格' : '参数')
-  attrForm.value = { id: undefined, productAttributeCategoryId: Number(currentCateId.value) || 1, name: '', selectType: 1, inputType: 0, inputList: '', sort: 0, type: activeTab.value === 'spec' ? 0 : 1, handAddStatus: 0, searchType: 0, relatedStatus: 0 }
+  attrForm.value = { id: undefined, categoryId: String(currentCateId.value) || '', name: '', selectType: 1, inputType: 0, inputList: '', sort: 0, attrType: activeTab.value === 'spec' ? 0 : 1, handAddStatus: 0, searchType: 0, relatedStatus: 0 }
   attrDialogVisible.value = true
 }
 function handleEditAttr(row: any) {

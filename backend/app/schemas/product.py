@@ -237,7 +237,7 @@ class ProductCreate(BaseModel):
     unit: str | None = Field(None, max_length=16)
     weight: float | None = Field(None, ge=0.0)
     service_ids: str | None = Field(None, max_length=255)
-    feight_template_id: UUID | None = None
+    freight_template_id: UUID | None = None
     pics: str | None = Field(None, max_length=1000, description="逗号分隔的图片URL")
     album_pics: str | None = Field(None, max_length=1000)
     default_pic: str | None = Field(None, max_length=255)
@@ -288,7 +288,7 @@ class ProductUpdate(BaseModel):
     unit: str | None = Field(None, max_length=16)
     weight: float | None = Field(None, ge=0.0)
     service_ids: str | None = Field(None, max_length=255)
-    feight_template_id: UUID | None = None
+    freight_template_id: UUID | None = None
     pics: str | None = Field(None, max_length=1000)
     album_pics: str | None = Field(None, max_length=1000)
     default_pic: str | None = Field(None, max_length=255)
@@ -325,7 +325,7 @@ class ProductResponse(BaseModel):
     preview_status: int
     verify_status: int
     service_ids: str | None = None
-    feight_template_id: UUID | None = None
+    freight_template_id: UUID | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
@@ -334,6 +334,50 @@ class ProductResponse(BaseModel):
 
 class ProductDetailResponse(ProductResponse):
     """商品详情 —— 含 SKU 列表 + 属性值列表"""
+
+    skus: list[SkuResponse] = Field(default_factory=list)
+    attribute_values: list[dict] = Field(default_factory=list, description="属性值列表")
+
+
+# ============================================================================
+#  前台商品 Schema (不含后台管理字段)
+# ============================================================================
+
+class PortalProductResponse(BaseModel):
+    """前台商品响应 —— 排除发布/审核/新品/推荐等后台管理状态字段"""
+
+    id: UUID
+    name: str
+    sub_title: str | None = None
+    brand_id: UUID | None = None
+    category_id: UUID | None = None
+    product_sn: str | None = None
+    price: Decimal
+    original_price: Decimal | None = None
+    promotion_price: Decimal | None = None
+    promotion_start_time: datetime | None = None
+    promotion_end_time: datetime | None = None
+    promotion_per_limit: int
+    promotion_type: int
+    stock: int
+    sale_count: int
+    pics: str | None = None
+    album_pics: str | None = None
+    default_pic: str | None = None
+    description: str | None = None
+    keywords: str | None = None
+    unit: str | None = None
+    weight: float | None = None
+    service_ids: str | None = None
+    freight_template_id: UUID | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class PortalProductDetailResponse(PortalProductResponse):
+    """前台商品详情 —— 含 SKU 列表 + 属性值列表"""
 
     skus: list[SkuResponse] = Field(default_factory=list)
     attribute_values: list[dict] = Field(default_factory=list, description="属性值列表")

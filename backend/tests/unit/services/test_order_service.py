@@ -11,31 +11,10 @@ Date: 2026-06-08
 from __future__ import annotations
 
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
-
-
-async def _refresh_fake(obj: object) -> None:
-    from uuid import uuid4
-
-    obj.id = uuid4()  # type: ignore[attr-defined]
-
-
-@pytest.fixture
-def mock_db() -> AsyncSession:
-    db = AsyncMock(spec=AsyncSession)
-    db.add = MagicMock()
-    db.flush = AsyncMock()
-    db.refresh = AsyncMock(side_effect=_refresh_fake)
-    db.commit = AsyncMock()
-    db.rollback = AsyncMock()
-    db.execute = AsyncMock()
-    db.get = AsyncMock()
-    db.delete = AsyncMock()
-    return db
 
 
 def _make_order_mock(order_id=None, status=0) -> MagicMock:
@@ -134,7 +113,11 @@ async def test_create_from_cart_success(mock_db):
     items_result = MagicMock()
     items_result.scalars.return_value.all.return_value = [order_item_mock]
 
-    mock_db.execute.side_effect = [cart_result, inv_result, delete_result, items_result]
+    # get_detail's _get_order call (user_id is provided → uses execute)
+    order_for_detail = MagicMock()
+    order_for_detail.scalars.return_value.first.return_value = order_mock
+
+    mock_db.execute.side_effect = [cart_result, inv_result, delete_result, order_for_detail, items_result]
     mock_db.get.return_value = order_mock
 
     svc = OrderService(mock_db)
@@ -220,7 +203,7 @@ async def test_pay_success(mock_db):
     mock_db.execute.return_value = items_result
 
     svc = OrderService(mock_db)
-    resp = await svc.pay(order_id, "PAY_SN_001")
+    resp = await svc.pay(order_id, pay_order_sn="PAY_SN_001")
 
     assert order_mock.status == OrderStatus.PAID
     assert order_mock.pay_order_sn == "PAY_SN_001"
@@ -432,3 +415,151 @@ async def test_list_admin_success(mock_db):
 
     assert total == 5
     assert len(orders) == 1
+
+
+@pytest.mark.asyncio
+async def test_list_admin_empty(mock_db):
+    """list_admin: returns empty list with zero total."""
+    from app.schemas.order import OrderListQuery
+    from app.services.order_service import OrderService
+
+    count_result = MagicMock()
+    count_result.scalar.return_value = 0
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = []
+
+    mock_db.execute.side_effect = [count_result, list_result]
+
+    svc = OrderService(mock_db)
+    query = OrderListQuery(page=1, page_size=20)
+    orders, total = await svc.list_admin(query)
+
+    assert total == 0
+    assert len(orders) == 0
+
+
+# ---------------------------------------------------------------------------
+#  delivery: wrong status
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_delivery_wrong_status_raises(mock_db):
+    """delivery: wrong status raises OrderStatusError."""
+    from app.core.exceptions import OrderStatusError
+    from app.schemas.order import OrderDeliveryRequest, OrderStatus
+    from app.services.order_service import OrderService
+
+    order_id = uuid4()
+    # Order is still PENDING_PAYMENT — delivery not allowed
+    order_mock = _make_order_mock(order_id, status=OrderStatus.PENDING_PAYMENT)
+
+    mock_db.get.return_value = order_mock
+
+    svc = OrderService(mock_db)
+    data = OrderDeliveryRequest(delivery_company="SF", delivery_sn="SF123456")
+    with pytest.raises(OrderStatusError):
+        await svc.delivery(order_id, data, "admin")
+
+
+# ---------------------------------------------------------------------------
+#  confirm_receipt: wrong status
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_confirm_receipt_wrong_status_raises(mock_db):
+    """confirm_receipt: wrong status raises OrderStatusError."""
+    from app.core.exceptions import OrderStatusError
+    from app.schemas.order import OrderStatus
+    from app.services.order_service import OrderService
+
+    order_id = uuid4()
+    # Order is still PENDING_PAYMENT — confirm not allowed
+    order_mock = _make_order_mock(order_id, status=OrderStatus.PENDING_PAYMENT)
+
+    mock_db.get.return_value = order_mock
+
+    svc = OrderService(mock_db)
+    with pytest.raises(OrderStatusError):
+        await svc.confirm_receipt(order_id)
+
+
+# ---------------------------------------------------------------------------
+#  modify_price: discount amount
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_modify_price_with_discount_recalculates_pay_amount(mock_db):
+    """modify_price: discount_amount reduces pay_amount."""
+    from app.schemas.order import OrderPriceModifyRequest
+    from app.services.order_service import OrderService
+
+    order_id = uuid4()
+    order_mock = _make_order_mock(order_id)
+    order_mock.total_amount = Decimal("199.98")
+    order_mock.freight_amount = Decimal("0.00")
+    order_mock.discount_amount = Decimal("0.00")
+    order_item = _make_order_item_mock(order_id)
+
+    items_result = MagicMock()
+    items_result.scalars.return_value.all.return_value = [order_item]
+    mock_db.get.return_value = order_mock
+    mock_db.execute.return_value = items_result
+
+    svc = OrderService(mock_db)
+    data = OrderPriceModifyRequest(discount_amount=Decimal("20.00"))
+    resp = await svc.modify_price(order_id, data)
+
+    assert order_mock.discount_amount == Decimal("20.00")
+    assert order_mock.pay_amount == Decimal("179.98")  # 199.98 + 0 - 20.00
+    assert resp.id == order_id
+
+
+# ---------------------------------------------------------------------------
+#  list_user
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_list_user_success(mock_db):
+    """list_user: returns user's orders with pagination."""
+    from app.services.order_service import OrderService
+
+    order_id = uuid4()
+    order_mock = _make_order_mock(order_id)
+
+    count_result = MagicMock()
+    count_result.scalar.return_value = 2
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = [order_mock]
+
+    mock_db.execute.side_effect = [count_result, list_result]
+
+    svc = OrderService(mock_db)
+    user_id = uuid4()
+    orders, total = await svc.list_user(user_id, page=1, page_size=10)
+
+    assert total == 2
+    assert len(orders) == 1
+    assert orders[0].id == order_id
+
+
+@pytest.mark.asyncio
+async def test_list_user_empty(mock_db):
+    """list_user: returns empty list when user has no orders."""
+    from app.services.order_service import OrderService
+
+    count_result = MagicMock()
+    count_result.scalar.return_value = 0
+    list_result = MagicMock()
+    list_result.scalars.return_value.all.return_value = []
+
+    mock_db.execute.side_effect = [count_result, list_result]
+
+    svc = OrderService(mock_db)
+    orders, total = await svc.list_user(uuid4(), page=1, page_size=10)
+
+    assert total == 0
+    assert len(orders) == 0

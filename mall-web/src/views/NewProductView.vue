@@ -31,7 +31,7 @@ async function loadProducts() {
   }
 }
 
-const formatPrice = (p: number) => p.toLocaleString('zh-CN')
+const formatPrice = (p: number | null | undefined) => (p ?? 0).toLocaleString('zh-CN')
 
 onMounted(() => {
   loadProducts()
@@ -68,7 +68,7 @@ onMounted(() => {
         @click="router.push(`/product/${product.id}`)"
       >
         <div class="aspect-square bg-gray-50 overflow-hidden relative">
-          <img :src="product.pic" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+          <img :src="product.defaultPic" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
           <span class="absolute top-2 left-2 bg-green-500 text-white text-[10px] px-2 py-0.5 rounded-full font-medium">NEW</span>
           <span v-if="product.originalPrice > product.price" class="absolute top-2 right-2 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded font-medium">
             省{{ Math.round((1 - product.price / product.originalPrice) * 100) }}%
@@ -81,8 +81,7 @@ onMounted(() => {
             <span class="text-xs text-gray-400 line-through">&yen;{{ formatPrice(product.originalPrice) }}</span>
           </div>
           <div class="flex items-center justify-between mt-2">
-            <span class="text-xs text-gray-400">已售 {{ product.sale }}</span>
-            <span class="text-xs text-gray-400">{{ product.brandName }}</span>
+            <span class="text-xs text-gray-400">已售 {{ (product.saleCount ?? 0) >= 10000 ? ((product.saleCount ?? 0) / 10000).toFixed(1) + '万' : (product.saleCount ?? 0) }}</span>
           </div>
         </div>
       </button>

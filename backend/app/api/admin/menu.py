@@ -11,6 +11,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from snaptrip_shared.core.response import success
 from snaptrip_shared.db.session import get_db
+from collections.abc import Sequence
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,7 +24,7 @@ from marketplace.app.core.security import get_current_user
 router = APIRouter(prefix="/menu", tags=["System - 菜单"])
 
 
-def _build_tree(menus: list[Menu], parent_id: UUID | None = None) -> list[MenuNode]:
+def _build_tree(menus: Sequence[Menu], parent_id: UUID | None = None) -> list[MenuNode]:
     children = [m for m in menus if m.parent_id == parent_id]
     result: list[MenuNode] = []
     for m in sorted(children, key=lambda x: x.sort):
