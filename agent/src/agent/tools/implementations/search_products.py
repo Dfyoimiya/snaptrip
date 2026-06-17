@@ -19,7 +19,7 @@ class SearchProductsArgs(BaseModel):
         ..., description="Natural language search query describing what the user wants"
     )
     category: str | None = Field(
-        None, description="Product category: hotel, flight, tour, package, all"
+        None, description="Product category filter (e.g., electronics, clothing, home). Use 'all' for no filter."
     )
     max_results: int = Field(
         5, description="Maximum results to return (default 5, max 20)"
@@ -36,8 +36,8 @@ class SearchProductsArgs(BaseModel):
 class SearchProductsTool(SmartDayBaseTool):
     name: str = "search_products"
     description: str = (
-        "Search the product catalog for travel products matching user criteria. "
-        "Uses keyword search across hotels, flights, tours, and packages. "
+        "Search the product catalog for products matching user criteria. "
+        "Supports keyword search across all product categories. "
         "Returns ranked list of matching products with prices and descriptions."
     )
     is_read_only: bool = True

@@ -22,3 +22,5 @@ export * from './brand'
 export * from './coupon'
 // 会员商品收藏 API
 export * from './memberProductCollection'
+// 客服 Chat API
+export * from './cs'

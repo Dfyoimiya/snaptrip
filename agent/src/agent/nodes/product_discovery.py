@@ -21,8 +21,8 @@ PRODUCT_TOOLS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "search_products",
-            "description": "Search the product catalog for travel products matching user criteria. "
-            "Uses semantic search across hotels, flights, tours, and packages. "
+            "description": "Search the product catalog for products matching user criteria. "
+            "Supports keyword search across all product categories. "
             "Returns ranked list of matching products with prices and descriptions.",
             "parameters": {
                 "type": "object",
@@ -33,7 +33,7 @@ PRODUCT_TOOLS: list[dict[str, Any]] = [
                     },
                     "category": {
                         "type": "string",
-                        "enum": ["hotel", "flight", "tour", "package", "all"],
+                        "enum": ["electronics", "clothing", "home", "sports", "beauty", "food", "all"],
                         "description": "Product category filter. Default is 'all'.",
                     },
                     "max_results": {
@@ -72,16 +72,16 @@ PRODUCT_TOOLS: list[dict[str, Any]] = [
 
 # ── System prompt ────────────────────────────────────────────────────────────
 
-PRODUCT_SYSTEM_PROMPT = """You are a travel product specialist for SnapTrip, a travel e-commerce platform.
+PRODUCT_SYSTEM_PROMPT = """You are a product specialist for SnapTrip, an e-commerce platform.
 
-Your job is to help users find the best travel products (hotels, flights, tours, packages).
+Your job is to help users find products across all categories.
 
 Guidelines:
 1. Use 'search_products' to find products matching the user's search criteria.
 2. Use 'get_product_detail' to get full details on specific products the user is interested in.
 3. Be conversational and helpful. Summarize results clearly with key details like
    name, price, rating, and highlights.
-4. If the user provides specific filters (budget, dates, destination), pass them
+4. If the user provides specific filters (budget, price range, brand), pass them
    in the search query.
 5. If no results are found, suggest broadening the search criteria.
 6. Present up to 3-5 best matches, not an exhaustive list.

@@ -13,11 +13,13 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useMemberStore } from '@/stores/member'
 import { useCartStore } from '@/stores/cart'
+import { useChatStore } from '@/stores/chat'
 import TopBar from './TopBar.vue'
 import HeaderSearch from './HeaderSearch.vue'
 
 const router = useRouter()
 const memberStore = useMemberStore()
+const chatStore = useChatStore()
 const cartStore = useCartStore()
 
 /** 是否已登录 */
@@ -126,7 +128,7 @@ const navMenus = [
             <h3 class="text-sm font-semibold text-gray-900 tracking-wider uppercase mb-4">客户服务</h3>
             <ul class="space-y-2">
               <li><button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="navigateTo('/help')">常见问题</button></li>
-              <li><button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="navigateTo('/help')">在线客服</button></li>
+              <li><button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="chatStore.openChat()">在线客服</button></li>
               <li><button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="navigateTo('/help')">投诉建议</button></li>
             </ul>
           </div>

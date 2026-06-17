@@ -6,12 +6,14 @@
  * ============================================
  */
 import AppLayout from '@/components/layout/AppLayout.vue'
+import ChatWidget from '@/components/chat/ChatWidget.vue'
 </script>
 
 <template>
   <AppLayout>
     <RouterView />
   </AppLayout>
+  <ChatWidget />
 </template>
 
 <style>
