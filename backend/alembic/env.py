@@ -38,7 +38,11 @@ from marketplace.app.models.users import User  # noqa: E402, F401
 from app.models.base import CommerceBase  # noqa: E402
 from app.models.cms import CmsBanner, CmsHelp, CmsSubject  # noqa: E402, F401
 from app.models.member import UmsMemberAddress, UmsMemberFavorite  # noqa: E402, F401
+from app.models.member.behavior import UmsMemberBehavior, UmsMemberSearchLog  # noqa: E402, F401
+from app.models.member.cs_agent import CsAgentStatus  # noqa: E402, F401
+from app.models.member.cs_session import CsSessionSummary  # noqa: E402, F401
 from app.models.order import (  # noqa: E402, F401
+    CsConversationMessage,
     OmsCartItem,
     OmsOrder,
     OmsOrderItem,
@@ -46,13 +50,17 @@ from app.models.order import (  # noqa: E402, F401
     OmsOrderSetting,
     OmsReturnApply,
     OmsReturnReason,
+    OmsSupportTicket,
 )
+from app.models.infra.notification import CsNotification  # noqa: E402, F401
 from app.models.product import (  # noqa: E402, F401
     PmsBrand,
     PmsCategory,
     PmsProduct,
     PmsProductAttribute,
     PmsProductAttributeValue,
+    PmsProductCFVector,
+    PmsProductEmbedding,
     PmsSku,
 )
 from app.models.promotion import (  # noqa: E402, F401

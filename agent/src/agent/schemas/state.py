@@ -3,9 +3,8 @@
 # ────────────────────────────────────────────────────────────────────────────
 # Unified TypedDict for LangGraph StateGraph.
 #
-# Trip-specific fields (extract_result, candidates, pareto_solutions, solvers,
-# itinerary, bookings) have been removed.
-# Add your domain-specific fields below.
+# Fields cover all specialist domains: product discovery, order assistant,
+# customer service, marketing, knowledge QA, and admin analytics.
 #
 # Archived: 2026-06-07 — repurposed from trip planning agent
 # ────────────────────────────────────────────────────────────────────────────
@@ -37,6 +36,12 @@ class PlanState(TypedDict, total=False):
     sub_results: dict[str, Any]  # keyed by agent name
     product_results: list[dict[str, Any]]
     order_detail: dict[str, Any] | None
+
+    # ── Customer Service domain ──
+    ticket_id: str | None  # support ticket ID when escalated to human
+    escalation_level: str | None  # "normal" | "urgent" | "critical"
+    cs_intent: str | None  # customer service sub-intent: refund/complaint/inquiry
+    satisfaction_score: int | None  # CSAT score after resolution (1-5)
 
     # ── Memory ──
     working_memory: dict[str, Any]  # scratchpad for multi-step reasoning

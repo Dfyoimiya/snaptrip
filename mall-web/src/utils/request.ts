@@ -82,7 +82,7 @@ async function refreshAndRetry(): Promise<string> {
 // 创建 Axios 实例
 const request: AxiosInstance = axios.create({
   baseURL,
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
     'source-client': 'pc',
@@ -241,7 +241,7 @@ export function get<T>(url: string, params?: Record<string, unknown>, config?: A
  */
 export function post<T>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T> {
   return request
-    .post<CommonResult<T>>(url, data, config)
+    .post<CommonResult<T>>(url, data, { ...config })
     .then((res) => res.data.data)
 }
 

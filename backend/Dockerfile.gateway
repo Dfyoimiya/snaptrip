@@ -20,6 +20,7 @@ ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -39,6 +40,7 @@ COPY pyproject.toml uv.lock ./
 # 复制各 workspace member 的 pyproject.toml + 源码（setuptools 构建需要完整源码）
 COPY backend/pyproject.toml backend/
 COPY backend/marketplace/ backend/marketplace/
+COPY backend/app/ backend/app/
 COPY shared/pyproject.toml shared/
 COPY shared/snaptrip_shared/ shared/snaptrip_shared/
 COPY agent/pyproject.toml agent/
@@ -77,4 +79,4 @@ HEALTHCHECK --interval=10s --timeout=5s --retries=3 --start-period=15s \
     CMD curl -f http://localhost:8000/health || exit 1
 
 WORKDIR /app/backend
-CMD ["uvicorn", "marketplace.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "marketplace.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

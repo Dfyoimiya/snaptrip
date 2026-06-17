@@ -7,7 +7,7 @@
  */
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { getHomeContentAPI } from '@/apis/home'
+import { getHomeContentAPI, getHomeFeedAPI, getPersonalizedRecommendationsAPI, type FeedSection } from '@/apis/home'
 import type { PmsProduct } from '@/types/product'
 import type { PmsBrand } from '@/types/brand'
 import type { SmsHomeAdvertise, HomeFlashPromotion, CmsSubject } from '@/types/home'
@@ -194,7 +194,10 @@ const startSeckillCountdown = () => {
 // ===== 热门推荐 & 新品 & 品牌（从 API）=====
 const hotProducts = ref<PmsProduct[]>([])
 const newProducts = ref<PmsProduct[]>([])
+const personalizedProducts = ref<PmsProduct[]>([])
+const personalized = ref(false)  // 是否成功获取个性化推荐
 const brands = ref<PmsBrand[]>([])
+const feedSections = ref<FeedSection[]>([])  // 多维度推荐 feed
 
 /** 根据商品属性派生标签 */
 function getProductTag(p: PmsProduct): string | null {
@@ -216,6 +219,10 @@ async function loadHomeContent() {
     newProducts.value = data.newProducts || []
     startBannerAutoPlay()
     startSeckillCountdown()
+
+    // 异步加载个性化推荐 & 多维度 feed (不阻塞首页渲染)
+    loadPersonalizedRecommendations()
+    loadHomeFeed()
   } catch (err: any) {
     console.error('加载首页失败:', err?.message || err)
   } finally {
@@ -223,8 +230,77 @@ async function loadHomeContent() {
   }
 }
 
+/** 加载多维度推荐 Feed (5-row) */
+async function loadHomeFeed() {
+  try {
+    const res = await getHomeFeedAPI(10)
+    if (res.sections && res.sections.length > 0) {
+      feedSections.value = res.sections
+      // 从 feed 中提取猜你喜欢 section 用于兼容旧逻辑
+      const gyl = res.sections.find(s => s.section_type === 'guess_you_like')
+      if (gyl && gyl.products.length > 0) {
+        personalized.value = true
+      }
+    }
+  } catch (err: any) {
+    console.log('多维度推荐暂不可用:', err?.message || err)
+  }
+}
+
+/** 加载个性化推荐 (由 AI Agent 流水线生成) — 保留兼容 */
+async function loadPersonalizedRecommendations() {
+  try {
+    const res = await getPersonalizedRecommendationsAPI({ scene: 'homepage', numItems: 10 })
+    const products = res.products || []
+    if (products.length > 0) {
+      personalizedProducts.value = products.map((p: any) => ({
+        id: p.productId,
+        name: p.name,
+        price: p.price,
+        defaultPic: p.imageUrl,
+        brandName: p.brandName,
+        sale: p.saleCount,
+        subTitle: p.marketingCopy || '',
+      })) as unknown as PmsProduct[]
+      personalized.value = true
+    }
+  } catch (err: any) {
+    console.log('个性化推荐暂不可用, 使用默认推荐:', err?.message || err)
+    personalized.value = false
+  }
+}
+
+/** 将 FeedProduct 转为 PmsProduct 兼容格式 */
+function feedToProduct(fp: any): PmsProduct {
+  return {
+    id: fp.product_id,
+    name: fp.name,
+    price: fp.price,
+    defaultPic: fp.image_url,
+    brandName: fp.brand_name,
+    saleCount: fp.sale_count,
+    subTitle: fp.marketing_copy || '',
+    promotionType: fp.promotion_type || 0,
+    newStatus: fp.new_status || 0,
+    recommendStatus: fp.recommend_status || 0,
+  } as unknown as PmsProduct
+}
+
+/** section 类型 → 主题色 class 映射 */
+function sectionAccentClass(type: string, kind: 'bar' | 'border' | 'hover' = 'bar'): string {
+  const map: Record<string, { bar: string; border: string; hover: string }> = {
+    guess_you_like:     { bar: 'bg-purple-600', border: 'border-purple-100', hover: 'hover:border-purple-200' },
+    trending_now:       { bar: 'bg-red-600',     border: 'border-red-100',     hover: 'hover:border-red-200' },
+    new_arrivals:       { bar: 'bg-green-500',   border: 'border-green-100',   hover: 'hover:border-green-200' },
+    recently_viewed:    { bar: 'bg-blue-500',    border: 'border-blue-100',    hover: 'hover:border-blue-200' },
+    search_discovery:   { bar: 'bg-orange-500',  border: 'border-orange-100',  hover: 'hover:border-orange-200' },
+  }
+  return map[type]?.[kind] || map.trending_now[kind]
+}
+
 // ===== 导航到商品详情 =====
 const goProductDetail = (id: string) => {
+  if (!id || id === 'undefined') return
   router.push(`/product/${id}`)
 }
 
@@ -431,163 +507,216 @@ onUnmounted(() => {
       </div>
     </section>
 
-    <!-- ======================== 热门推荐 ======================== -->
-    <section v-if="hotProducts.length" class="hot-section mb-6">
-      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <!-- 区块头部 -->
-        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <div class="flex items-center gap-3">
-            <div class="w-1 h-5 bg-red-600 rounded-full" />
-            <h2 class="text-lg font-bold text-gray-900">热门推荐</h2>
-            <span class="text-xs text-gray-400">精选好物，品质保障</span>
+    <!-- ======================== 多维度推荐板块 (Feed) ======================== -->
+    <template v-if="feedSections.length">
+      <section
+        v-for="section in feedSections"
+        :key="section.section_type"
+        v-show="section.section_type !== 'search_discovery' ? section.products.length > 0 : section.suggestions.length > 0"
+        class="feed-section mb-6"
+      >
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <!-- 区块头部 -->
+          <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <div class="flex items-center gap-3">
+              <div :class="['w-1 h-5 rounded-full', sectionAccentClass(section.section_type, 'bar')]" />
+              <h2 class="text-lg font-bold text-gray-900">{{ section.title }}</h2>
+              <span class="text-xs text-gray-400">{{ section.sub_title }}</span>
+            </div>
+            <button
+              v-if="section.section_type !== 'search_discovery'"
+              class="text-sm text-gray-500 hover:text-red-600 transition-colors"
+              @click="router.push(section.section_type === 'new_arrivals' ? '/new' : '/hot')"
+            >查看更多 &rarr;</button>
           </div>
-          <button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="router.push('/hot')">查看更多 &rarr;</button>
-        </div>
 
-        <!-- 商品网格 5列 -->
-        <div class="p-5 grid grid-cols-5 gap-4">
-          <button
-            v-for="product in hotProducts"
-            :key="product.id"
-            class="group text-left bg-white rounded-lg border border-gray-100 hover:border-red-100 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 overflow-hidden"
-            @click="goProductDetail(product.id)"
+          <!-- 搜索发现：标签云布局 -->
+          <div
+            v-if="section.section_type === 'search_discovery' && section.suggestions.length"
+            class="px-6 py-4"
           >
-            <!-- 商品图片 -->
-            <div class="aspect-square bg-gray-50 overflow-hidden relative">
-              <img
-                :src="product.defaultPic"
-                :alt="product.name"
-                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-              <!-- 标签 -->
-              <span
-                v-if="getProductTag(product)"
-                class="absolute top-2 left-2 bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-medium"
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="item in section.suggestions"
+                :key="item.query"
+                class="px-4 py-2 bg-orange-50 hover:bg-orange-100 text-orange-700 rounded-full text-sm transition-colors hover:shadow-sm"
+                @click="router.push(`/search?q=${encodeURIComponent(item.query)}`)"
               >
-                {{ getProductTag(product) }}
-              </span>
+                {{ item.query }}
+                <span class="text-xs text-orange-400 ml-1">({{ item.count }})</span>
+              </button>
             </div>
-            <!-- 商品信息 -->
-            <div class="p-3">
-              <!-- 名称：两行，超出省略 -->
-              <p class="text-sm text-gray-800 line-clamp-2 leading-5 min-h-[40px] mb-2 group-hover:text-red-600 transition-colors">
-                {{ product.name }}
-              </p>
-              <!-- 价格 -->
-              <div class="flex items-baseline gap-2">
-                <span class="text-red-600 font-bold text-base">
-                  <span class="text-xs">&yen;</span>{{ Math.floor(product.price) }}<span class="text-xs">.{{ String((product.price % 1).toFixed(2)).split('.')[1] }}</span>
-                </span>
-                <span v-if="product.originalPrice" class="text-gray-400 text-xs line-through">&yen;{{ product.originalPrice }}</span>
-              </div>
-              <!-- 销量 -->
-              <p class="text-xs text-gray-400 mt-1">已售 {{ (product.saleCount ?? 0) >= 10000 ? ((product.saleCount ?? 0) / 10000).toFixed(1) + '万' : (product.saleCount ?? 0) }}</p>
-            </div>
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- ======================== 新品上架 ======================== -->
-    <section v-if="newProducts.length" class="new-section mb-6">
-      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <!-- 区块头部 -->
-        <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <div class="flex items-center gap-3">
-            <div class="w-1 h-5 bg-green-500 rounded-full" />
-            <h2 class="text-lg font-bold text-gray-900">新品上架</h2>
-            <span class="text-xs text-gray-400">新鲜好物，抢先体验</span>
           </div>
-          <button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="router.push('/new')">查看更多 &rarr;</button>
-        </div>
 
-        <!-- 商品网格 5列 -->
-        <div class="p-5 grid grid-cols-5 gap-4">
-          <button
-            v-for="product in newProducts"
-            :key="product.id"
-            class="group text-left bg-white rounded-lg border border-gray-100 hover:border-green-200 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 overflow-hidden"
-            @click="goProductDetail(product.id)"
+          <!-- 商品板块：5列网格布局 -->
+          <div
+            v-if="section.section_type !== 'search_discovery' && section.products.length"
+            class="p-5 grid grid-cols-5 gap-4"
           >
-            <!-- 商品图片 -->
-            <div class="aspect-square bg-gray-50 overflow-hidden relative">
-              <img
-                :src="product.defaultPic"
-                :alt="product.name"
-                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
-              <!-- NEW 标签 -->
-              <span class="absolute top-2 left-2 bg-green-500 text-white text-[10px] px-2 py-0.5 rounded font-medium">
-                NEW
-              </span>
-            </div>
-            <!-- 商品信息 -->
-            <div class="p-3">
-              <!-- 名称：两行，超出省略 -->
-              <p class="text-sm text-gray-800 line-clamp-2 leading-5 min-h-[40px] mb-2 group-hover:text-green-600 transition-colors">
-                {{ product.name }}
-              </p>
-              <!-- 价格 -->
-              <div class="flex items-baseline gap-2">
-                <span class="text-red-600 font-bold text-base">
-                  <span class="text-xs">&yen;</span>{{ Math.floor(product.price) }}<span class="text-xs">.{{ String((product.price % 1).toFixed(2)).split('.')[1] }}</span>
+            <button
+              v-for="product in section.products"
+              :key="product.product_id"
+              :class="[
+                'group text-left bg-white rounded-lg border border-gray-100 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 overflow-hidden',
+                sectionAccentClass(section.section_type, 'border'),
+                sectionAccentClass(section.section_type, 'hover'),
+              ]"
+              @click="goProductDetail(product.product_id)"
+            >
+              <!-- 商品图片 -->
+              <div class="aspect-square bg-gray-50 overflow-hidden relative">
+                <img
+                  :src="product.image_url"
+                  :alt="product.name"
+                  class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                />
+                <!-- 标签 -->
+                <span
+                  v-if="product.promotion_type"
+                  class="absolute top-2 left-2 bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-medium"
+                >
+                  {{ product.promotion_type === 5 ? '限时' : product.promotion_type === 1 ? '优惠' : product.promotion_type === 4 ? '满减' : '特惠' }}
                 </span>
-                <span v-if="product.originalPrice" class="text-gray-400 text-xs line-through">&yen;{{ product.originalPrice }}</span>
+                <span
+                  v-else-if="product.new_status"
+                  class="absolute top-2 left-2 bg-green-500 text-white text-[10px] px-2 py-0.5 rounded font-medium"
+                >NEW</span>
+                <span
+                  v-else-if="section.section_type === 'guess_you_like' && product.score > 0.8"
+                  class="absolute top-2 left-2 bg-purple-600 text-white text-[10px] px-2 py-0.5 rounded font-medium"
+                >AI推荐</span>
               </div>
-              <!-- 销量 -->
-              <p class="text-xs text-gray-400 mt-1">已售 {{ product.saleCount ?? 0 }}</p>
-            </div>
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <!-- ======================== 为你推荐 ======================== -->
-    <section v-if="hotProducts.length || newProducts.length" class="recommend-section">
-      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <!-- 区块头部 -->
-        <div class="flex items-center justify-center px-6 py-4 border-b border-gray-100">
-          <div class="flex items-center gap-3">
-            <div class="w-8 h-px bg-gray-200" />
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-            </svg>
-            <h2 class="text-lg font-bold text-gray-900">为你推荐</h2>
-            <div class="w-8 h-px bg-gray-200" />
+              <!-- 商品信息 -->
+              <div class="p-3">
+                <p class="text-sm text-gray-800 line-clamp-2 leading-5 min-h-[40px] mb-2 group-hover:text-red-600 transition-colors">
+                  {{ product.name }}
+                </p>
+                <!-- AI 文案 -->
+                <p v-if="product.marketing_copy" class="text-xs text-purple-500 mb-1 line-clamp-1 italic">{{ product.marketing_copy }}</p>
+                <div class="flex items-baseline gap-2">
+                  <span class="text-red-600 font-bold text-base">
+                    <span class="text-xs">&yen;</span>{{ Math.floor(product.price) }}<span class="text-xs">.{{ String((product.price % 1).toFixed(2)).split('.')[1] }}</span>
+                  </span>
+                </div>
+                <!-- 销量或评分 -->
+                <p class="text-xs text-gray-400 mt-1">
+                  已售 {{ (product.sale_count ?? 0) >= 10000 ? ((product.sale_count ?? 0) / 10000).toFixed(1) + '万' : (product.sale_count ?? 0) }}
+                  <span v-if="section.section_type === 'guess_you_like' && product.score" class="ml-2 text-purple-400">匹配 {{ (product.score * 100).toFixed(0) }}%</span>
+                </p>
+              </div>
+            </button>
           </div>
         </div>
+      </section>
+    </template>
 
-        <!-- 商品网格 5列 -->
-        <div class="p-5 grid grid-cols-5 gap-4">
-          <button
-            v-for="product in [...hotProducts, ...newProducts].slice(0, 10)"
-            :key="`rec-${product.id}`"
-            class="group text-left bg-white rounded-lg border border-gray-100 hover:border-red-100 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 overflow-hidden"
-            @click="goProductDetail(product.id)"
-          >
-            <!-- 商品图片 -->
-            <div class="aspect-square bg-gray-50 overflow-hidden relative">
-              <img
-                :src="product.defaultPic"
-                :alt="product.name"
-                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              />
+    <!-- ======================== 降级：默认推荐 (无 Feed 时) ======================== -->
+    <template v-else>
+      <!-- 热门推荐 -->
+      <section v-if="hotProducts.length" class="hot-section mb-6">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <div class="flex items-center gap-3">
+              <div class="w-1 h-5 bg-red-600 rounded-full" />
+              <h2 class="text-lg font-bold text-gray-900">热门推荐</h2>
+              <span class="text-xs text-gray-400">精选好物，品质保障</span>
             </div>
-            <!-- 商品信息 -->
-            <div class="p-3">
-              <p class="text-sm text-gray-800 line-clamp-2 leading-5 min-h-[40px] mb-2 group-hover:text-red-600 transition-colors">
-                {{ product.name }}
-              </p>
-              <div class="flex items-baseline gap-2">
-                <span class="text-red-600 font-bold text-base">
-                  <span class="text-xs">&yen;</span>{{ Math.floor(product.price) }}<span class="text-xs">.00</span>
-                </span>
+            <button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="router.push('/hot')">查看更多 &rarr;</button>
+          </div>
+          <div class="p-5 grid grid-cols-5 gap-4">
+            <button
+              v-for="product in hotProducts"
+              :key="product.id"
+              class="group text-left bg-white rounded-lg border border-gray-100 hover:border-red-100 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 overflow-hidden"
+              @click="goProductDetail(product.id)"
+            >
+              <div class="aspect-square bg-gray-50 overflow-hidden relative">
+                <img :src="product.defaultPic" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                <span v-if="getProductTag(product)" class="absolute top-2 left-2 bg-red-600 text-white text-[10px] px-2 py-0.5 rounded font-medium">{{ getProductTag(product) }}</span>
               </div>
-            </div>
-          </button>
+              <div class="p-3">
+                <p class="text-sm text-gray-800 line-clamp-2 leading-5 min-h-[40px] mb-2 group-hover:text-red-600 transition-colors">{{ product.name }}</p>
+                <div class="flex items-baseline gap-2">
+                  <span class="text-red-600 font-bold text-base"><span class="text-xs">&yen;</span>{{ Math.floor(product.price) }}<span class="text-xs">.{{ String((product.price % 1).toFixed(2)).split('.')[1] }}</span></span>
+                  <span v-if="product.originalPrice" class="text-gray-400 text-xs line-through">&yen;{{ product.originalPrice }}</span>
+                </div>
+                <p class="text-xs text-gray-400 mt-1">已售 {{ (product.saleCount ?? 0) >= 10000 ? ((product.saleCount ?? 0) / 10000).toFixed(1) + '万' : (product.saleCount ?? 0) }}</p>
+              </div>
+            </button>
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      <!-- 新品上架 -->
+      <section v-if="newProducts.length" class="new-section mb-6">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+            <div class="flex items-center gap-3">
+              <div class="w-1 h-5 bg-green-500 rounded-full" />
+              <h2 class="text-lg font-bold text-gray-900">新品上架</h2>
+              <span class="text-xs text-gray-400">新鲜好物，抢先体验</span>
+            </div>
+            <button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="router.push('/new')">查看更多 &rarr;</button>
+          </div>
+          <div class="p-5 grid grid-cols-5 gap-4">
+            <button
+              v-for="product in newProducts"
+              :key="product.id"
+              class="group text-left bg-white rounded-lg border border-gray-100 hover:border-green-200 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 overflow-hidden"
+              @click="goProductDetail(product.id)"
+            >
+              <div class="aspect-square bg-gray-50 overflow-hidden relative">
+                <img :src="product.defaultPic" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                <span class="absolute top-2 left-2 bg-green-500 text-white text-[10px] px-2 py-0.5 rounded font-medium">NEW</span>
+              </div>
+              <div class="p-3">
+                <p class="text-sm text-gray-800 line-clamp-2 leading-5 min-h-[40px] mb-2 group-hover:text-green-600 transition-colors">{{ product.name }}</p>
+                <div class="flex items-baseline gap-2">
+                  <span class="text-red-600 font-bold text-base"><span class="text-xs">&yen;</span>{{ Math.floor(product.price) }}<span class="text-xs">.{{ String((product.price % 1).toFixed(2)).split('.')[1] }}</span></span>
+                  <span v-if="product.originalPrice" class="text-gray-400 text-xs line-through">&yen;{{ product.originalPrice }}</span>
+                </div>
+                <p class="text-xs text-gray-400 mt-1">已售 {{ product.saleCount ?? 0 }}</p>
+              </div>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 为你推荐 -->
+      <section v-if="hotProducts.length || newProducts.length || personalized" class="recommend-section">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div class="flex items-center justify-center px-6 py-4 border-b border-gray-100">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-px bg-gray-200" />
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+              <h2 class="text-lg font-bold text-gray-900">{{ personalized ? 'AI 为你推荐' : '为你推荐' }}</h2>
+              <div class="w-8 h-px bg-gray-200" />
+            </div>
+          </div>
+          <div class="p-5 grid grid-cols-5 gap-4">
+            <button
+              v-for="product in (personalized ? personalizedProducts : [...hotProducts, ...newProducts].slice(0, 10))"
+              :key="`rec-${product.id}`"
+              class="group text-left bg-white rounded-lg border border-gray-100 hover:border-red-100 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 overflow-hidden"
+              @click="goProductDetail(product.id)"
+            >
+              <div class="aspect-square bg-gray-50 overflow-hidden relative">
+                <img :src="product.defaultPic" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+              </div>
+              <div class="p-3">
+                <p class="text-sm text-gray-800 line-clamp-2 leading-5 min-h-[40px] mb-2 group-hover:text-red-600 transition-colors">{{ product.name }}</p>
+                <p v-if="product.subTitle" class="text-xs text-gray-400 mb-1 line-clamp-1">{{ product.subTitle }}</p>
+                <div class="flex items-baseline gap-2">
+                  <span class="text-red-600 font-bold text-base"><span class="text-xs">&yen;</span>{{ Math.floor(product.price) }}<span class="text-xs">.00</span></span>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
+      </section>
+    </template>
     </template>
   </div>
 </template>

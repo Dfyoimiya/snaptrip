@@ -15,9 +15,18 @@ Import order ensures Alembic discovers all tables.
 from app.models.base import AuditMixin, CommerceBase, SoftDeleteMixin  # noqa: I001
 from app.models.checkpoint import Checkpoint  # noqa: F401
 from app.models.cms import CmsBanner, CmsHelp, CmsSubject  # noqa: F401
+from app.models.infra import CsNotification  # noqa: F401
 from app.models.llm_usage_log import LLMUsageLog  # noqa: F401
-from app.models.member import UmsMemberAddress, UmsMemberFavorite  # noqa: F401
+from app.models.member import (  # noqa: F401
+    CsAgentStatus,
+    CsSessionSummary,
+    UmsMemberAddress,
+    UmsMemberBehavior,
+    UmsMemberFavorite,
+    UmsMemberSearchLog,
+)
 from app.models.order import (  # noqa: F401
+    CsConversationMessage,
     OmsCartItem,
     OmsOrder,
     OmsOrderItem,
@@ -25,6 +34,7 @@ from app.models.order import (  # noqa: F401
     OmsOrderSetting,
     OmsReturnApply,
     OmsReturnReason,
+    OmsSupportTicket,
 )
 from app.models.product import (  # noqa: F401
     PmsBrand,
@@ -32,6 +42,8 @@ from app.models.product import (  # noqa: F401
     PmsProduct,
     PmsProductAttribute,
     PmsProductAttributeValue,
+    PmsProductCFVector,
+    PmsProductEmbedding,
     PmsSku,
 )
 from app.models.promotion import (  # noqa: F401
@@ -59,11 +71,19 @@ __all__ = [
     "PmsSku",
     "PmsProductAttribute",
     "PmsProductAttributeValue",
+    "PmsProductCFVector",
+    "PmsProductEmbedding",
     "CmsBanner",
     "CmsHelp",
     "CmsSubject",
     "UmsMemberAddress",
+    "UmsMemberBehavior",
     "UmsMemberFavorite",
+    "UmsMemberSearchLog",
+    "CsAgentStatus",
+    "CsConversationMessage",
+    "CsNotification",
+    "CsSessionSummary",
     "OmsCartItem",
     "OmsOrder",
     "OmsOrderItem",
@@ -71,6 +91,7 @@ __all__ = [
     "OmsOrderSetting",
     "OmsReturnApply",
     "OmsReturnReason",
+    "OmsSupportTicket",
     "SmsCoupon",
     "SmsCouponHistory",
     "SmsFlashPromotion",

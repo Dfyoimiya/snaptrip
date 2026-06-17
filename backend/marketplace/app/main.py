@@ -21,6 +21,7 @@ from contextlib import asynccontextmanager
 from agent.adapters.persistence.runtime_event import SQLRuntimeEventRepository
 from agent.events.redis_bus import RedisEventBus
 from agent.graph import build_graph
+from agent.nodes.recommendation.supervisor import RecommendationSupervisor
 from agent.runtime import AgentRuntime
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
@@ -54,12 +55,19 @@ from snaptrip_shared.core.response import (
     validation_exception_handler,
 )
 from snaptrip_shared.db.redis import close_redis_pool, get_redis_pool
+from snaptrip_shared.db.session import AsyncSessionLocal
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # ── 电商路由 (Commerce) ──
 from app.api.admin import admin_router
 from app.api.portal import portal_router
+from app.services.ab_test import ABTestEngine
+from app.services.autocomplete_service import AutocompleteService
+from app.services.collaborative_filtering_service import CollaborativeFilteringService
+from app.services.feature_service import FeatureService
 from app.services.memory_service import MemoryService
+from app.services.trending_service import TrendingService
+from app.services.vector_search_service import VectorSearchService
 from marketplace.app.api.v1.admin_agent import router as admin_agent_router
 from marketplace.app.api.v1.auth import router as auth_router
 from marketplace.app.api.v1.plan import router as plan_router
@@ -68,7 +76,10 @@ from marketplace.app.api.v1.user import router as user_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.memory = MemoryService()
+    # ── Memory + Redis ──
+    memory = MemoryService()
+    await memory.start()
+    app.state.memory = memory
     app.state.redis_pool = get_redis_pool()
     event_bus = RedisEventBus(
         pool=app.state.redis_pool,
@@ -76,6 +87,28 @@ async def lifespan(app: FastAPI):
     )
     runtime = AgentRuntime(event_bus=event_bus)
     app.state.plan_graph = await build_graph(runtime=runtime)
+
+    # ── 推荐系统 ──
+    ab_engine = ABTestEngine()
+    feature_svc = FeatureService(db_factory=AsyncSessionLocal, memory=memory)
+    trending_svc = TrendingService(memory)
+    vector_svc = VectorSearchService(db_factory=AsyncSessionLocal, memory=memory)
+    autocomplete_svc = AutocompleteService(memory)
+    app.state.recommendation_supervisor = RecommendationSupervisor(
+        llm_adapter=runtime.llm_adapter,
+        db_factory=AsyncSessionLocal,
+        feature_service=feature_svc,
+        es_client=None,
+        ab_engine=ab_engine,
+    )
+    app.state.ab_engine = ab_engine
+    app.state.feature_service = feature_svc
+    app.state.trending_service = trending_svc
+    app.state.vector_search_service = vector_svc
+    app.state.autocomplete_service = autocomplete_svc
+    app.state.cf_service = CollaborativeFilteringService(
+        db_factory=AsyncSessionLocal, memory=memory,
+    )
 
     yield
     await app.state.memory.stop()

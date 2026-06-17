@@ -6,7 +6,9 @@
 #   START → supervisor → route_by_intent:
 #     ├─ product_discovery → tool_node ⇄ product_discovery → synthesize → END
 #     ├─ order_assistant   → tool_node ⇄ order_assistant   → synthesize → END
+#     ├─ customer_service  → tool_node ⇄ customer_service  → synthesize → END
 #     ├─ marketing_engine  → tool_node ⇄ marketing_engine  → synthesize → END
+#     ├─ admin_analyst     → tool_node ⇄ admin_analyst     → synthesize → END
 #     └─ knowledge_qa     → tool_node ⇄ knowledge_qa     → synthesize → END
 #
 # Archived: 2026-06-07 — repurposed from trip planning agent
@@ -24,6 +26,7 @@ from langgraph.graph.state import CompiledStateGraph
 from agent.nodes.supervisor import route_by_intent, supervisor_node
 from agent.nodes.product_discovery import product_discovery_node
 from agent.nodes.order_assistant import order_assistant_node
+from agent.nodes.customer_service import customer_service_node
 from agent.nodes.marketing_engine import marketing_engine_node
 from agent.nodes.knowledge_qa import knowledge_qa_node
 from agent.nodes.admin_analyst import admin_analyst_node
@@ -45,6 +48,7 @@ _runtime: AgentRuntime | None = None
 _SPECIALISTS = [
     "product_discovery",
     "order_assistant",
+    "customer_service",
     "marketing_engine",
     "knowledge_qa",
     "admin_analyst",
@@ -81,11 +85,12 @@ def route_after_tools(state: PlanState) -> str:
 
 
 async def build_graph(runtime: AgentRuntime | None = None) -> CompiledStateGraph:
-    """Build the agent DAG with Supervisor + 4 specialist agents.
+    """Build the agent DAG with Supervisor + 6 specialist agents.
 
     Topology:
       START -> supervisor -> route_by_intent ->
-        product_discovery | order_assistant | marketing_engine | knowledge_qa
+        product_discovery | order_assistant | customer_service |
+        marketing_engine | knowledge_qa | admin_analyst
       -> route_after_specialist -> tools | synthesize
       tools -> route_after_tools -> back to specialist
       synthesize -> END
@@ -124,6 +129,7 @@ async def build_graph(runtime: AgentRuntime | None = None) -> CompiledStateGraph
     graph.add_node("supervisor", supervisor_node)
     graph.add_node("product_discovery", product_discovery_node)
     graph.add_node("order_assistant", order_assistant_node)
+    graph.add_node("customer_service", customer_service_node)
     graph.add_node("marketing_engine", marketing_engine_node)
     graph.add_node("knowledge_qa", knowledge_qa_node)
     graph.add_node("admin_analyst", admin_analyst_node)
@@ -141,6 +147,7 @@ async def build_graph(runtime: AgentRuntime | None = None) -> CompiledStateGraph
         {
             "product_discovery": "product_discovery",
             "order_assistant": "order_assistant",
+            "customer_service": "customer_service",
             "marketing_engine": "marketing_engine",
             "knowledge_qa": "knowledge_qa",
             "admin_analyst": "admin_analyst",
@@ -165,6 +172,7 @@ async def build_graph(runtime: AgentRuntime | None = None) -> CompiledStateGraph
         {
             "product_discovery": "product_discovery",
             "order_assistant": "order_assistant",
+            "customer_service": "customer_service",
             "marketing_engine": "marketing_engine",
             "knowledge_qa": "knowledge_qa",
             "admin_analyst": "admin_analyst",
@@ -176,19 +184,9 @@ async def build_graph(runtime: AgentRuntime | None = None) -> CompiledStateGraph
     graph.add_edge("compliance_check", END)
 
     # ── Checkpointer ──
-    db_url = settings.DATABASE_URL
-    checkpointer: Any
-    try:
-        from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-
-        checkpointer = AsyncPostgresSaver.from_conn_string(db_url)
-        await checkpointer.setup()
-        logger.info("PostgresSaver initialized for graph checkpointing")
-    except Exception:
-        logger.warning(
-            "PostgresSaver setup failed, falling back to MemorySaver. "
-            "Checkpoint state will be lost on restart."
-        )
-        checkpointer = MemorySaver()
+    # 注意: SnapTrip 规划系统已占用 checkpoints 表名, 与 langgraph PostgresSaver 冲突。
+    # 同时 langgraph-checkpoint-postgres 3.x API 使用 context manager 模式，
+    # 无法在 build_graph 外部保持连接。当前使用 MemorySaver。
+    checkpointer: Any = MemorySaver()
 
     return graph.compile(checkpointer=checkpointer)

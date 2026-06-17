@@ -20,7 +20,7 @@ celery_app = Celery(
     "snaptrip",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["agent.tasks.plan_tasks"],
+    include=["agent.tasks.plan_tasks", "app.tasks.cf_tasks", "app.tasks.sla_tasks"],
 )
 
 celery_app.conf.update(
@@ -37,4 +37,25 @@ celery_app.conf.update(
     task_acks_late=True,
     task_reject_on_worker_lost=True,
     broker_connection_retry_on_startup=True,
+    # 定时任务
+    beat_schedule={
+        # 协同过滤模型训练: 每 6 小时
+        "train_cf_model": {
+            "task": "train_cf_model",
+            "schedule": 6 * 60 * 60,  # 6 hours
+            "options": {"queue": "agent"},
+        },
+        # SLA 监控: 每 60 秒检查超时工单
+        "cs_sla_monitor": {
+            "task": "check_sla_deadlines",
+            "schedule": 60.0,
+            "options": {"queue": "agent"},
+        },
+        # 坐席心跳清理: 每 120 秒
+        "cs_agent_cleanup": {
+            "task": "cleanup_stale_agents",
+            "schedule": 120.0,
+            "options": {"queue": "agent"},
+        },
+    },
 )

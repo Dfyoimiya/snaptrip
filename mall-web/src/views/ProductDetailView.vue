@@ -100,7 +100,8 @@ function mapSkuStockList(skus: Record<string, unknown>[]): PmsSkuStock[] {
 /** 从 API 响应加载商品数据 */
 async function loadProduct() {
   const productId = route.params.id as string
-  if (!productId) return
+  // 校验 UUID 格式, 过滤无效值 (包括字符串 "undefined")
+  if (!productId || productId === 'undefined' || !/^[0-9a-f]{8}-[0-9a-f]{4}-/.test(productId)) return
 
   loading.value = true
   try {

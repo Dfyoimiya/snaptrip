@@ -193,6 +193,7 @@ const goPage = (page: number) => {
 }
 
 const goProductDetail = (id: string) => {
+  if (!id || id === 'undefined') return
   router.push(`/product/${id}`)
 }
 

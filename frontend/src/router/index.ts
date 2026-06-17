@@ -256,6 +256,29 @@ export const asyncRouterMap: RouteRecordExt[] = [
       },
     ],
   },
+  // 客服管理 (cs)
+  {
+    path: '/cs',
+    component: Layout,
+    redirect: '/cs/tickets',
+    name: 'cs',
+    meta: { title: '客服管理', icon: 'Headset' },
+    children: [
+      {
+        path: 'tickets',
+        name: 'csTickets',
+        component: () => import('@/views/cs/ticket/index.vue'),
+        meta: { title: '工单列表', icon: 'List', keepAlive: true },
+      },
+      {
+        path: 'ticket/:id',
+        name: 'csTicketDetail',
+        component: () => import('@/views/cs/ticket/detail.vue'),
+        meta: { title: '工单详情', icon: 'Document' },
+        hidden: true,
+      },
+    ],
+  },
   // 系统设置
   {
     path: '/setting',

@@ -41,6 +41,8 @@ class ESSearchClient:
             kwargs: dict[str, Any] = {
                 "hosts": self._hosts,
                 "request_timeout": self._timeout,
+                # elasticsearch-py 9.x → ES 8.x server 兼容
+                "headers": {"accept": "application/vnd.elasticsearch+json; compatible-with=8"},
             }
             if self._username and self._password:
                 kwargs["basic_auth"] = (self._username, self._password)

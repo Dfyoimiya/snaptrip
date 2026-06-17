@@ -30,6 +30,8 @@ export const searchProductListAPI = (params: ProductListParam) => {
     keyword: params.keyword,
     category_id: params.productCategoryId,
     brand_id: params.brandId,
+    min_price: params.minPrice,
+    max_price: params.maxPrice,
     sort_by: _mapSort(params.sort),
     page: (params as unknown as Record<string, unknown>).pageNum || 1,
     page_size: (params as unknown as Record<string, unknown>).pageSize || 20,

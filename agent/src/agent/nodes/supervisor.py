@@ -1,10 +1,14 @@
 """Supervisor — intent classification and conditional routing.
 
 Classifies user input into intents:
-  - product_search  -> product_discovery
-  - order_status    -> order_assistant
-  - coupon_inquiry  -> marketing_engine
-  - general         -> knowledge_qa
+  - product_search    -> product_discovery
+  - order_status      -> order_assistant
+  - cs_after_sales    -> customer_service   (return/refund/exchange)
+  - cs_complaint      -> customer_service   (complaints, disputes)
+  - cs_inquiry        -> customer_service   (shipping, account, policy)
+  - coupon_inquiry    -> marketing_engine
+  - admin_analytics   -> admin_analyst
+  - general           -> knowledge_qa
 
 Uses keyword-based fallback when LLM is unavailable.
 """
@@ -49,24 +53,97 @@ INTENT_KEYWORDS: dict[str, list[str]] = {
         "tour",
         "package",
     ],
+    "cs_after_sales": [
+        "refund",
+        "return",
+        "exchange",
+        "退货",
+        "退款",
+        "换货",
+        "退换",
+        "money back",
+        "get my money",
+        "send back",
+        "return policy",
+        "refund policy",
+        "refund status",
+        "refund progress",
+        "退钱",
+        "退单",
+        "退换货",
+        "退货流程",
+        "退款进度",
+    ],
+    "cs_complaint": [
+        "complaint",
+        "complain",
+        "投诉",
+        "damaged",
+        "broken",
+        "defective",
+        "not working",
+        "wrong item",
+        "不满意",
+        "差评",
+        "质量",
+        "有问题",
+        "坏的",
+        "破损",
+        "损坏",
+        "fake",
+        "假货",
+        "过期",
+        "expired",
+        "missing",
+        "缺少",
+        "漏发",
+        "never arrived",
+        "没收到",
+    ],
+    "cs_inquiry": [
+        "shipping",
+        "delivery",
+        "物流",
+        "快递",
+        "发货",
+        "delivered",
+        "shipment",
+        "tracking",
+        "where is my",
+        "when will",
+        "多久到",
+        "什么时候到",
+        "还没到",
+        "modify address",
+        "change address",
+        "修改地址",
+        "修改订单",
+        "payment method",
+        "付款方式",
+        "支付方式",
+        "how to pay",
+        "account",
+        "register",
+        "sign up",
+        "login",
+        "password",
+        "重置密码",
+        "forgot password",
+        "忘记密码",
+    ],
     "order_status": [
         "order",
         "status",
-        "tracking",
-        "where is my",
-        "delivery",
-        "shipping",
         "cancel",
-        "refund",
-        "return",
         "my order",
         "order number",
-        "when will",
-        "delivered",
-        "shipment",
         "modify order",
         "change order",
         "update order",
+        "取消订单",
+        "订单状态",
+        "订单号",
+        "我的订单",
     ],
     "coupon_inquiry": [
         "coupon",
@@ -98,12 +175,6 @@ INTENT_KEYWORDS: dict[str, list[str]] = {
         "hours",
         "location",
         "store",
-        "payment method",
-        "account",
-        "register",
-        "sign up",
-        "login",
-        "password",
         "gift card",
     ],
     "admin_analytics": [
@@ -158,27 +229,39 @@ def _classify_intent_keywords(text: str) -> tuple[str, float]:
 
 # ── LLM-based classification prompt ──────────────────────────────────────────
 
-SUPERVISOR_SYSTEM_PROMPT = """You are an intent classifier for SnapTrip, a travel e-commerce platform.
+SUPERVISOR_SYSTEM_PROMPT = """You are an intent classifier for SnapTrip, an e-commerce platform.
 
 Classify the user's message into exactly ONE of these intents:
 
-1. product_search   — User wants to search, browse, or discover travel products
-                       (hotels, flights, packages, tours, tickets, etc.)
-                       Also: "what products do I have", "show me products", "in-stock items"
-2. order_status     — User wants to check order status, tracking, cancel,
-                       refund, or return an order
-3. coupon_inquiry   — User wants coupons, discounts, promo codes, flash deals,
-                       or special offers
-4. admin_analytics  — User wants DATA or ANALYTICS: sales reports, inventory alerts,
+1. product_search   — User wants to search, browse, or discover products
+2. order_status     — User wants to check order status or cancel an order.
+                       Simple order lookups and cancellations only.
+3. cs_after_sales   — User wants to RETURN, REFUND, or EXCHANGE a product.
+                       KEY SIGNALS: refund request, return process, money back,
+                       exchange for different size/color, return eligibility.
+                       This is DIFFERENT from order_status — it's about AFTER-SALES
+                       service, not just checking what happened to an order.
+4. cs_complaint     — User is COMPLAINING or expressing dissatisfaction.
+                       KEY SIGNALS: damaged item, broken product, wrong item received,
+                       quality issues, expired goods, missing items, never arrived,
+                       angry or frustrated tone about a purchase.
+5. cs_inquiry       — User has a general customer service question:
+                       shipping/delivery timelines, payment methods, account issues
+                       (login, password reset, registration), how to order,
+                       address changes, store locations.
+6. coupon_inquiry   — User wants coupons, discounts, promo codes, flash deals,
+                       or special offers.
+7. admin_analytics  — User wants DATA or ANALYTICS: sales reports, inventory alerts,
                        order trends, member growth/statistics/insights, product
                        description generation, or coupon effect analysis.
-                       KEY SIGNAL: questions asking about numbers, growth, trends,
-                       statistics, reports, or "how many" type analysis queries.
-                       Also: requests to generate or improve product descriptions.
-5. general          — User has a general question about policies, account,
-                       payment methods, store info, or other FAQ topics.
-                       NOTE: "member growth" is NOT general — it's admin_analytics.
-                       NOTE: "what products are on sale" is product_search, NOT general.
+8. general          — User has a general question that doesn't fit the above:
+                       FAQ about the platform, company info, gift cards, etc.
+
+CRITICAL DISTINCTIONS:
+- "I want a refund" → cs_after_sales (NOT order_status)
+- "My product is broken" → cs_complaint (NOT general)
+- "When will my order arrive" → cs_inquiry (NOT order_status)
+- "Where is my order" → order_status (simple tracking)
 
 Reply with ONLY a JSON object: {"intent": "<intent_name>", "confidence": <0.0-1.0>}
 """
@@ -212,6 +295,9 @@ async def _classify_intent_llm(text: str) -> tuple[str, float]:
         valid_intents = {
             "product_search",
             "order_status",
+            "cs_after_sales",
+            "cs_complaint",
+            "cs_inquiry",
             "coupon_inquiry",
             "admin_analytics",
             "general",
@@ -281,11 +367,15 @@ def route_by_intent(state: PlanState) -> str:
     """Conditional routing function for graph edges.
 
     Maps the classified intent to the corresponding specialist node name.
+    CS intents (cs_after_sales, cs_complaint, cs_inquiry) all route to customer_service.
     """
     intent = state.get("intent", "general")
     routes: dict[str, str] = {
         "product_search": "product_discovery",
         "order_status": "order_assistant",
+        "cs_after_sales": "customer_service",
+        "cs_complaint": "customer_service",
+        "cs_inquiry": "customer_service",
         "coupon_inquiry": "marketing_engine",
         "admin_analytics": "admin_analyst",
         "general": "knowledge_qa",

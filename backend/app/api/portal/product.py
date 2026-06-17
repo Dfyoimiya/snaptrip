@@ -1,12 +1,7 @@
 """
 【前台商城 - 商品浏览 API】— /api/v1/portal/products
 
-不需要 JWT 认证 (游客也能浏览商品), 只返回上架+审核通过的商品。
-
-知识点速查：
-  - 为什么门户接口不需要 get_current_user？
-    电商前台允许未登录浏览，认证是可选的 (optional auth)
-    如果需要"猜你喜欢"等个性化推荐，可以用 Depends(get_current_user_or_none)
+混合搜索: ES BM25 + pgvector 融合, 支持价格区间过滤 + 个性化 boost。
 
 Author: SnapTrip Team
 Date: 2026-05-26
@@ -16,7 +11,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from snaptrip_shared.core.response import success
 from snaptrip_shared.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,38 +23,109 @@ from app.services.product_service import ProductService
 router = APIRouter(prefix="/portal/products", tags=["Portal - 商品浏览"])
 
 
-@router.get("", summary="商品搜索/分类浏览")
+def _resolve_user_id(request: Request) -> UUID | None:
+    """从 Authorization header 解析 user_id (可选认证)。"""
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Bearer "):
+        return None
+    try:
+        from marketplace.app.core.security import decode_access_token
+        token = auth.removeprefix("Bearer ").strip()
+        payload = decode_access_token(token)
+        sub = payload.get("sub", "")
+        return UUID(sub) if sub else None
+    except Exception:
+        return None
+
+
+def _get_hybrid_search(request: Request):
+    """懒初始化 HybridSearchService。"""
+    from app.search.client import get_search_client
+    from app.services.hybrid_search_service import HybridSearchService
+    from app.services.search_personalization_service import SearchPersonalizationService
+    from agent.nodes.recommendation.search_intent import SearchIntentAgent
+    from snaptrip_shared.db.session import AsyncSessionLocal
+
+    es = get_search_client()
+    vector = request.app.state.vector_search_service
+    memory = request.app.state.memory
+    # LLM adapter 从 recommendation_supervisor 获取 (可能为 None)
+    supervisor = getattr(request.app.state, 'recommendation_supervisor', None)
+    llm = getattr(supervisor, '_llm', None) if supervisor else None
+
+    personalization = SearchPersonalizationService(
+        db_factory=AsyncSessionLocal,
+        memory=memory,
+    )
+    intent_agent = SearchIntentAgent(llm_adapter=llm)
+    cf = request.app.state.cf_service if hasattr(request.app.state, "cf_service") else None
+    return HybridSearchService(
+        es_client=es,
+        vector_service=vector,
+        cf_service=cf,
+        intent_agent=intent_agent,
+        personalization_service=personalization,
+    )
+
+
+@router.get("", summary="商品搜索/分类浏览（混合搜索）")
 async def search(
+    request: Request,
     keyword: str | None = Query(None, description="搜索关键词"),
     category_id: UUID | None = Query(None, description="分类筛选"),
     brand_id: UUID | None = Query(None, description="品牌筛选"),
+    min_price: float | None = Query(None, ge=0, description="最低价格"),
+    max_price: float | None = Query(None, ge=0, description="最高价格"),
     sort_by: str = Query("default", description="排序: default/sales/new/price_asc/price_desc"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    # 注意: 游客可访问, 不加 _current_user=Depends(get_current_user)
+    user_id: UUID | None = Depends(_resolve_user_id),
 ):
-    """
-    前台商品搜索 —— 组合关键词+分类+品牌+价格区间+排序。
+    """前台商品搜索 —— ES BM25 + pgvector 融合 + 个性化。
 
     过滤策略:
       1. publish_status=1 (已上架)
       2. verify_status=1 (审核通过)
       3. is_deleted=False (未软删除)
-    这三个过滤条件在 Service 层硬编码，路由不需要传参，保证安全。
     """
-    svc = ProductService(db)
-    items, total = await svc.list_portal(
+    hybrid = _get_hybrid_search(request)
+    hybrid._db = db
+
+    result = await hybrid.search(
         keyword=keyword,
-        category_id=category_id,
-        brand_id=brand_id,
+        category_id=str(category_id) if category_id else None,
+        brand_id=str(brand_id) if brand_id else None,
+        min_price=min_price,
+        max_price=max_price,
         sort_by=sort_by,
         page=page,
         page_size=page_size,
+        user_id=user_id,
     )
+
+    items = result["items"]
+
+    # 转为前端兼容格式
+    product_items = [
+        {
+            "id": item.get("id", item.get("product_id", "")),
+            "name": item.get("name", ""),
+            "price": item.get("price", 0),
+            "saleCount": item.get("sale_count", 0),
+            "defaultPic": item.get("image_url", item.get("default_pic", "")),
+            "brandName": item.get("brand_name", ""),
+            "categoryId": item.get("category_id", ""),
+            "stock": item.get("stock", 0),
+            "score": item.get("score", 0),
+            "_searchMethod": result.get("method", ""),
+        }
+        for item in items
+    ]
+
     resp = PaginatedResponse.of(
-        items=[PortalProductResponse(**item.model_dump()).model_dump() for item in items],
-        total=total,
+        items=product_items,
+        total=result["total"],
         params=PaginationParams(page=page, page_size=page_size),
     )
     return success(resp.model_dump())
@@ -79,23 +145,49 @@ async def get_detail(
 
 @router.get("/category/{category_id}", summary="按分类浏览")
 async def by_category(
+    request: Request,
     category_id: UUID,
+    min_price: float | None = Query(None, ge=0, description="最低价格"),
+    max_price: float | None = Query(None, ge=0, description="最高价格"),
     sort_by: str = Query("default", description="排序: default/sales/new/price_asc/price_desc"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
+    user_id: UUID | None = Depends(_resolve_user_id),
 ):
-    """按分类浏览商品 —— /category/{id} 的组合，方便前端路由"""
-    svc = ProductService(db)
-    items, total = await svc.list_portal(
-        category_id=category_id,
+    """按分类浏览商品 —— 支持价格区间过滤。"""
+    hybrid = _get_hybrid_search(request)
+    hybrid._db = db
+
+    result = await hybrid.search(
+        keyword=None,
+        category_id=str(category_id),
+        min_price=min_price,
+        max_price=max_price,
         sort_by=sort_by,
         page=page,
         page_size=page_size,
+        user_id=user_id,
     )
+
+    items = result["items"]
+    product_items = [
+        {
+            "id": item.get("id", item.get("product_id", "")),
+            "name": item.get("name", ""),
+            "price": item.get("price", 0),
+            "saleCount": item.get("sale_count", 0),
+            "defaultPic": item.get("image_url", item.get("default_pic", "")),
+            "brandName": item.get("brand_name", ""),
+            "categoryId": item.get("category_id", ""),
+            "stock": item.get("stock", 0),
+        }
+        for item in items
+    ]
+
     resp = PaginatedResponse.of(
-        items=[PortalProductResponse(**item.model_dump()).model_dump() for item in items],
-        total=total,
+        items=product_items,
+        total=result["total"],
         params=PaginationParams(page=page, page_size=page_size),
     )
     return success(resp.model_dump())

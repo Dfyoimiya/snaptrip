@@ -104,15 +104,22 @@ services:
       # ── LLM (LiteLLM Gateway) ──
       LITELLM_BASE_URL: http://litellm-proxy:4000/v1
       LITELLM_API_KEY: ${LITELLM_MASTER_KEY:-}
+      COMMERCE_LITELLM_BASE_URL: http://litellm-proxy:4000
+      COMMERCE_LITELLM_API_KEY: ${LITELLM_MASTER_KEY:-}
       LLM_DEFAULT_MODEL: ${LLM_DEFAULT_MODEL:-deepseek-v4-pro}
       # ── 通用 ──
       APP_ENV: ${APP_ENV:-production}
       APP_SECRET_KEY: ${APP_SECRET_KEY:?APP_SECRET_KEY is required}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      ES_HOSTS: http://elasticsearch:9200
+      COMMERCE_ES_HOSTS: http://elasticsearch:9200
+      HF_HOME: /root/.cache/huggingface
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
     ports:
       - "127.0.0.1:8080:8000"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -153,6 +160,8 @@ services:
       # ── LLM (LiteLLM Gateway) ──
       LITELLM_BASE_URL: http://litellm-proxy:4000/v1
       LITELLM_API_KEY: ${LITELLM_MASTER_KEY:-}
+      COMMERCE_LITELLM_BASE_URL: http://litellm-proxy:4000
+      COMMERCE_LITELLM_API_KEY: ${LITELLM_MASTER_KEY:-}
       LLM_DEFAULT_MODEL: ${LLM_DEFAULT_MODEL:-deepseek-v4-pro}
       # ── 通用 ──
       APP_ENV: ${APP_ENV:-production}
@@ -160,7 +169,12 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       AGENT_TIMEOUT: ${AGENT_TIMEOUT:-300}
-      ES_HOSTS: http://elasticsearch:9200
+      COMMERCE_ES_HOSTS: http://elasticsearch:9200
+      HF_HOME: /root/.cache/huggingface
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    volumes:
+      - ~/.cache/huggingface:/root/.cache/huggingface:ro
     depends_on:
       postgres:
         condition: service_healthy

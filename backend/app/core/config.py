@@ -101,6 +101,10 @@ class CommerceSettings(BaseSettings):
     OSS_REGION: str = "us-east-1"
     OSS_PRESIGNED_EXPIRE: int = 3600
 
+    # ── LLM / Embedding (LiteLLM Gateway) ──
+    LITELLM_BASE_URL: str = "http://litellm-proxy:4000"
+    LITELLM_API_KEY: str = ""
+
     # ── Elasticsearch ──
     ES_HOSTS: str = "http://localhost:9200"
     ES_USERNAME: str = ""

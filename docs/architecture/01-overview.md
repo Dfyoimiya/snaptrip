@@ -1,275 +1,329 @@
-# 01 —— 系统架构总览
+# 01 -- System Architecture Overview
 
-> **文档状态**: 概念架构概览。当前实际实现细节见 [`00-architecture-reference.md`](./00-architecture-reference.md)。
-> 本文档描述系统设计目标与架构理念，部分细节（如模块路径、部署进程数）已随 monorepo 重构变更。
+> **Updated**: 2026-06-17 | **Project**: SnapTrip E-Commerce Marketplace
+>
+> SnapTrip is a full-stack e-commerce marketplace platform with AI-powered features including
+> semantic product search, personalized recommendations, and an LLM agent assistant.
 
-## 架构目标
+## System Overview
 
-构建一个**端到端的本地生活智能规划系统**，实现从自然语言输入到可执行时间轴方案的完整闭环。
+SnapTrip is a complete online shopping platform consisting of:
 
-**双域定位**：
-- **竞赛核心**：Hackathon 命题 1.6 — 本地短时活动规划与执行 Agent（规划→预订→自愈→分享）
-- **课设扩展**：传统本地生活服务 Agent 化（智能推荐、评价分析、配送调度、动态定价、质量监控）
+- **Customer Mall (C-end)**: Product browsing, search, cart, checkout, member center
+- **Admin Panel (B-end)**: Product management, order management, member management, promotions, CMS, RBAC
+- **AI Agent System**: Multi-agent LangGraph architecture for product discovery, order assistance, recommendations, marketing, and admin analytics
+- **Recommendation Engine**: Vector-embedding semantic search, collaborative filtering, hybrid search, trending detection, AB testing
 
-**部署模式**：**Monorepo (uv workspace) + 6 进程部署**（marketplace :8000 / agent-worker / agent-beat / mock-server :8001 / frontend :5173 / postgres :5432 / redis :6379），
-agent 与 marketplace 通过 Celery 异步解耦，shared 库跨包共享。
-
-**核心设计原则**：
-- **Agent 自治**：每个 Agent 独立决策，LangGraph 图引擎负责调度
-- **可观测性**：全链路 SSE 推送 + structlog JSON 结构化日志 + LangSmith 追踪
-- **异常自愈**：局部失败不影响整体流程，Shadow Candidate + Ripple Reschedule 自动降级和补偿
-- **Mock 解耦**：通过独立 Mock 服务模拟真实 API，开发阶段无需外部依赖
-- **LLM 克制**：仅在意图解析（1 次）和规划排序（1 次）调用 LLM，其余全部纯代码
+The system is built as a monorepo (uv workspace) with Docker Compose orchestration.
 
 ---
 
-## 系统分层（6 层架构）
+## Architecture Layers
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                    前端层 (React 18 + Vite + Tailwind)             │
-│  ┌──────────┐  ┌──────────┐  ┌───────────┐  ┌──────────┐        │
-│  │ 计划面板  │  │ 地图视图  │  │ Agent大脑  │  │ 订单管理  │  ...   │
-│  │(竞赛核心) │  │(Amap JS) │  │(思考过程)  │  │(课设扩展) │        │
-│  └──────────┘  └──────────┘  └───────────┘  └──────────┘        │
-└───────────────────────────┬──────────────────────────────────────┘
-                            │ REST / SSE
-                            ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                  API 网关层 (FastAPI :8080)                        │
-│  Auth 中间件(JWT) | Rate Limiter(Redis) | 统一响应{code,msg,data} │
-│  /api/v1/plan/* (竞赛)  |  /api/v1/order/* | /api/v1/poi/* (课设) │
-└───────────────────────────┬──────────────────────────────────────┘
-                            │
-                            ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                    编排层 (LangGraph StateGraph)                   │
-│                                                                   │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │                    Agent Hub (langgraph)                     │ │
-│  │  PostgresSaver(持久化) │ AgentRegistry(注册发现) │ PolicyEngine │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-│                                                                   │
-│  ┌─── 竞赛核心 Agent 链 ───────────────────────────────────────┐ │
-│  │ Intent → Context → Memory → Retrieval → Planning             │ │
-│  │   → Consensus → Execution → [Fallback] → Notify              │ │
-│  └──────────────────────────────────────────────────────────────┘ │
-│                                                                   │
-│  ┌─── 课设扩展 Agent ──────────────────────────────────────────┐ │
-│  │ RecommendAgent │ ReviewAgent │ DispatchAgent                  │ │
-│  │ PricingAgent   │ QualityAgent                                │ │
-│  └──────────────────────────────────────────────────────────────┘ │
-└───────────────────────────┬──────────────────────────────────────┘
-                            │ Tool Call
-                            ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                    执行层 (Tool DAG)                               │
-│  L0: search_poi | get_user_profile                               │
-│  L1: check_queue | check_availability | check_child_facility     │
-│       calculate_route                                            │
-│  L2: book_table | book_ticket | order | deliver | ride_hail      │
-│  L3: notify                                                      │
-│  CircuitBreaker | RetryPolicy | Saga Compensate                  │
-└───────────────────────────┬──────────────────────────────────────┘
-                            │ HTTP
-                            ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                Mock API 层 (FastAPI :8001 / 真实API)              │
-│  poi | queue | booking | order | delivery | payment              │
-└──────────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                    数据层                                         │
-│  PostgreSQL 16 + pgvector(向量) | Redis 7(缓存/PubSub/限流)       │
-│  MinIO(对象存储) | Celery(异步任务队列)                            │
-└──────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 部署架构（Monorepo 6 进程）
-
-```
-                     docker compose up
-
-┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-│ marketplace :8000│  │ agent-worker     │  │ agent-beat       │
-│                  │  │ (Celery Worker)  │  │ (Celery Beat)    │
-│ FastAPI 网关      │  │ LangGraph 图引擎  │  │ 定时清理孤儿资源  │
-│ JWT + Rate Limit │  │ 9-Node Graph     │  │                  │
-│ Plan/Auth/User   │  │ PostgresSaver    │  │                  │
-│ API 路由          │  │                  │  │                  │
-└──────────────────┘  └──────────────────┘  └──────────────────┘
-         │                      │
-         ▼                      ▼
-┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-│  mock-server:8001│  │  frontend :5173  │  │                  │
-│                  │  │                  │  │                  │
-│ 模拟美团本地生活API │  │ React 19 SPA     │  │                  │
-│ poi/queue/booking│  │ Amap 地图集成     │  │                  │
-│ /order/delivery  │  │ SSE 流式渲染      │  │                  │
-└──────────────────┘  └──────────────────┘  └──────────────────┘
-         │                      │
-         ▼                      ▼
-┌──────────────┐       ┌──────────────┐
-│ PostgreSQL 16│       │   Redis 7    │
-│  :5432       │       │   :6379      │
-│ pgvector     │       │ PubSub/缓存   │
-└──────────────┘       └──────────────┘
-```
-
-**Monorepo 包边界**（uv workspace）：
-- `shared/snaptrip_shared/` —— 共享库（config, db, schemas, exceptions, security）
-- `agent/src/agent/` —— Agent 编排引擎（LangGraph + 9 engines + ports/adapters）
-- `backend/marketplace/app/` —— API 网关（FastAPI routes + ORM models + Amap adapters）
-- `mock-services/mock-meituan/` —— Mock 美团服务
-
-Agent 与 Marketplace 通过 Celery 任务队列解耦，shared 库跨包 import。
-
----
-
-## 竞赛核心 vs 课设扩展对照表
-
-| 模块 | 竞赛核心 | 课设扩展 |
-|------|:---:|:---:|
-| **Agent 数量** | 9 个（规划执行全链路）✅ | +5 个（规划中） |
-| **API 路由** | plan + session + auth + user ✅ | +poi/order/delivery/merchant（规划中） |
-| **业务服务** | agent_service + mock_gateway + memory ✅ | +user/poi/order/delivery/payment（规划中） |
-| **ORM 模型** | 9 表 ✅ (users, plans, plan_slots, pois, etc.) | +order/delivery/review（规划中） |
-| **前端页面** | PlanPage（三栏布局）✅ | +OrdersPage/MerchantPage/LoginPage（规划中） |
-| **Mock Server** | 6 Router + 50 POI ✅ | 可复用 |
-| **LangGraph Node** | 9 个竞赛 Agent Node ✅ | 5 个课设 Agent 作为独立子图（规划中） |
-| **LLM 调用** | 2 次/请求（intent + planning）✅ | 3-5 次/请求（recommend/review/pricing） |
-
----
-
-## Agent 协作图（LangGraph StateGraph）
-
-```
-用户 ──"下午想带朋友出去玩"──► API Gateway
-                                  │
-                                  ▼
-                          ┌───────────────┐
-                          │  Agent Hub    │
-                          │  (LangGraph)  │
-                          │  PostgresSaver│
-                          └───────┬───────┘
-                                  │
-                    ┌─────────────┼─────────────┐
-                    ▼             ▼             ▼
-            ┌──────────────┐ ┌──────────┐ ┌──────────────┐
-            │ 竞赛核心链路   │ │课设Agent │ │ 传统服务接口   │
-            │ (StateGraph) │ │(独立调用) │ │ (REST API)   │
-            └──────┬───────┘ └──────┬───┘ └──────┬───────┘
-                   │               │             │
-                   ▼               ▼             ▼
-            ┌──────────────────────────────────────────┐
-            │          Tool 注册表 (10+ Tools)          │
-            │  search_poi | check_queue | book_table   │
-            │  book_ticket | order | deliver | pay     │
-            │  check_weather | get_review | calc_route │
-            └────────────────────┬─────────────────────┘
-                                 │
-                      ┌──────────┼──────────┐
-                      ▼          ▼          ▼
-                 Mock API    真实API    本地计算
-                 (竞赛用)    (课设)     (Haversine等)
++---------------------------------------------------------------------------+
+|                        PRESENTATION LAYER                                  |
+|                                                                           |
+|  +---------------------------+  +---------------------------------------+  |
+|  | Admin Frontend (Vue 3)    |  | Customer Mall (Vue 3)                 |  |
+|  | - Product Management (PMS)|  | - Home Page / Search / Product Detail|  |
+|  | - Order Management (OMS)  |  | - Shopping Cart / Checkout           |  |
+|  | - Promotion (SMS)         |  | - Member Center (orders/favorites)   |  |
+|  | - Content (CMS)           |  | - Coupons / Brands / Categories      |  |
+|  | - User/RBAC (UMS)         |  | - AI Chat Assistant                  |  |
+|  +---------------------------+  +---------------------------------------+  |
++----------------------------------+----------------------------------------+
+                                   | REST / SSE
+                                   v
++---------------------------------------------------------------------------+
+|                         API GATEWAY LAYER                                  |
+|                         FastAPI (port 8000)                                 |
+|                                                                           |
+|  +---------------------------+  +---------------------------------------+  |
+|  | Admin API (/admin/*)      |  | Portal API (/portal/*)               |  |
+|  | - Product CRUD            |  | - Home feed / Recommendations        |  |
+|  | - Order management        |  | - Product browsing / search          |  |
+|  | - Member management       |  | - Cart / Checkout / Orders           |  |
+|  | - Brand / Category        |  | - Member profile / favorites         |  |
+|  | - Coupon / Flash sale     |  | - Coupons / Brands / Categories      |  |
+|  | - CMS content             |  | - Search suggestions / autocomplete  |  |
+|  | - RBAC (roles/menus/res)  |  | - Behavior tracking                  |  |
+|  +---------------------------+  +---------------------------------------+  |
+|                                                                           |
+|  Middleware: JWT Auth | Rate Limiter | Unified {code,msg,data} response   |
++----------------------------------+----------------------------------------+
+                                   |
+                                   v
++---------------------------------------------------------------------------+
+|                          SERVICE LAYER                                     |
+|                                                                           |
+|  +---------------------+  +---------------------+  +--------------------+ |
+|  | Commerce Services    |  | Search Services      |  | AI Services        | |
+|  | - product_service    |  | - vector_search      |  | - llm_gateway      | |
+|  | - order_service      |  | - hybrid_search      |  | - agent graph      | |
+|  | - cart_service       |  | - autocomplete       |  |                    | |
+|  | - member_service     |  | - suggestion         |  |                    | |
+|  | - coupon_service     |  | - query_expansion    |  |                    | |
+|  | - flash_service      |  | - trending           |  |                    | |
+|  | - cms_service        |  | - personalization    |  |                    | |
+|  | - category_service   |  | - collaborative_     |  |                    | |
+|  | - brand_service      |  |   filtering          |  |                    | |
+|  |                      |  | - feature_service    |  |                    | |
+|  |                      |  | - ab_test            |  |                    | |
+|  |                      |  | - metrics            |  |                    | |
+|  +---------------------+  +---------------------+  +--------------------+ |
++----------------------------------+----------------------------------------+
+                                   |
+                                   v
++---------------------------------------------------------------------------+
+|                          AI AGENT LAYER (LangGraph)                        |
+|                                                                           |
+|  Supervisor-Specialist Multi-Agent Architecture                           |
+|                                                                           |
+|  +----------+ +----------+ +----------+ +----------+ +----------+         |
+|  | Product  | | Order    | | Marketing| | Knowledge| | Admin    |         |
+|  | Discovery| | Assistant| | Engine   | | QA       | | Analyst  |         |
+|  +----------+ +----------+ +----------+ +----------+ +----------+         |
+|  |                            |                                           |
+|  +----------+                 v                                           |
+|  |Compliance|     Recommendation Subgraph                                 |
+|  +----------+     +--------+ +--------+ +--------+ +--------+ +---------+ |
+|                   |User    | |Search  | |Product | |Inventory| |Marketing| |
+|                   |Profile | |Intent  | |Rec     | |Check    | |Copy     | |
+|                   +--------+ +--------+ +--------+ +--------+ +---------+ |
+|                                                                           |
+|  Tool System: Registry | Saga Transactions | Audit Tracing               |
++---------------------------------------------------------------------------+
+                                   |
+                                   v
++---------------------------------------------------------------------------+
+|                          DATA LAYER                                        |
+|                                                                           |
+|  +---------------------+  +---------------------+  +--------------------+ |
+|  | PostgreSQL 16       |  | Redis 7             |  | Elasticsearch 8    | |
+|  | + pgvector (384d)   |  | - Celery broker     |  | - Full-text search | |
+|  |                     |  | - Session cache     |  | - Product index    | |
+|  | Tables:             |  | - Rate limit       |  |                    | |
+|  | - Member (member,   |  | - SSE Pub/Sub      |  |                    | |
+|  |   behavior)         |  |                     |  |                    | |
+|  | - Product (product, |  +---------------------+  +--------------------+ |
+|  |   sku, brand, cat,  |                                                   |
+|  |   attribute)        |  +--------------------+  +--------------------+ |
+|  | - Order (order,     |  | Celery Workers     |  | LiteLLM Proxy      | |
+|  |   cart, return)     |  | - CF computation   |  | - LLM API gateway  | |
+|  | - Promotion (coupon,|  | - Search indexing  |  | - Multi-model      | |
+|  |   flash)            |  | - Order processing |  |   routing          | |
+|  | - CMS (content)     |  | - Agent tasks      |  +--------------------+ |
+|  | - RBAC (menu, role, |  +--------------------+                          |
+|  |   resource, admin)  |                                                   |
+|  | - Product Embedding |                                                   |
+|  | - CF Vector         |                                                   |
+|  +---------------------+                                                   |
++---------------------------------------------------------------------------+
 ```
 
 ---
 
-## 组件交互时序（LangGraph 驱动）
+## Deployment Architecture (Docker Compose)
 
 ```
-用户 ──"下午想出去"──► Frontend
-                          │
-                    POST /api/v1/plan/create
-                          │
-                          ▼
-                      FastAPI Gateway
-                          │
-                          ▼
-                    AgentHub.submit(context)
-                          │
-                    LangGraph.astream_events()
-                          │
-    ┌─────────────────────┼─────────────────────────┐
-    ▼                     ▼                         ▼
-┌───────────┐     ┌──────────────┐         ┌──────────────┐
-│intent_    │     │retrieval_    │         │planning_     │
-│parser     │     │engine        │         │engine        │
-│(LLM 调用) │     │(3路并行检索)  │         │(Phase1+Phase2)│
-└─────┬─────┘     └──────┬───────┘         └──────┬───────┘
-      │                  │                        │
-      ▼                  ▼                        ▼
-  AgentResult        CandidatePool            PlanDraft
-  (SSE: intent)      (SSE: retrieval)         (SSE: planning_done)
-                                                        │
-                                          ┌─────────────▼─────────────┐
-                                          │     CONFIRM 节点           │
-                                          │  interrupt() 挂起等待用户   │
-                                          └─────────────┬─────────────┘
-                                              object│    │confirm
-                                          ┌─────────▼┐   ▼
-                                          │ REPLAN   │  EXECUTE
-                                          │ 增量重规划 │  Tool DAG
-                                          └─────┬────┘   │
-                                                │   ┌────▼────┐
-                                                └──►│ FALLBACK │
-                                                    │ 备选重排  │
-                                                    └────┬─────┘
-                                                         ▼
-                                                    NOTIFY → DONE
-                                                         │
-    Frontend ◀── SSE Stream (10 events) ◀───────────────┘
+                          docker compose up
+
++-------------------+  +-------------------+  +-------------------+
+| marketplace :8000 |  | agent-worker      |  | agent-beat        |
+|                   |  | (Celery Worker)   |  | (Celery Beat)     |
+| FastAPI gateway   |  | LangGraph async   |  | Scheduled tasks   |
+| + Celery Beat     |  | agent execution   |  | CF compute,       |
+| Alembic migrations|  |                   |  | search indexing   |
++--------+----------+  +--------+----------+  +-------------------+
+         |                      |
+         v                      v
++--------+----------+  +--------+----------+  +-------------------+
+| PostgreSQL 16     |  | Redis 7           |  | Elasticsearch 8   |
+| pgvector          |  | broker/cache/     |  | product search    |
+| :5432             |  | pubsub :6379      |  | :9200             |
++-------------------+  +-------------------+  +-------------------+
+         |
+         v
++--------+----------+  +-------------------+
+| LiteLLM Proxy     |  | mall-web :5175    |
+| LLM API gateway   |  | Customer SPA      |
+| :4000             |  | (profile: full)   |
++-------------------+  +-------------------+
+```
+
+**Service Descriptions**:
+
+| Service | Image | Port | Role |
+|---------|-------|------|------|
+| `postgres` | `pgvector/pgvector:pg16` | 5432 | Primary database with vector search extension |
+| `redis` | `redis:7-alpine` | 6379 | Cache, Celery broker, SSE pub/sub |
+| `elasticsearch` | `elasticsearch:8.15.3` | 9200 | Full-text product search engine |
+| `litellm-proxy` | `ghcr.io/berriai/litellm` | 4000 | LLM API gateway (DeepSeek, Kimi routing) |
+| `marketplace` | Backend Dockerfile.gateway | 8000 | FastAPI app + Celery Beat (auto-migrate on startup) |
+| `agent-worker` | Backend Dockerfile.worker | -- | Celery worker for LangGraph agent execution |
+| `agent-beat` | Backend Dockerfile.worker | -- | Celery Beat for scheduled tasks |
+| `mall-web` | mall-web/Dockerfile | 80/5175 | Customer-facing Vue 3 SPA (profile: full) |
+
+---
+
+## Technology Stack
+
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **Backend Framework** | Python 3.13 + FastAPI | REST API gateway for admin and portal |
+| **Async Tasks** | Celery + Redis | Background jobs (CF, indexing, agents) |
+| **Database** | PostgreSQL 16 + pgvector | Relational data + vector embeddings (384d) |
+| **Search** | Elasticsearch 8 | Full-text product search |
+| **Cache / PubSub** | Redis 7 | Session cache, rate limiting, SSE events |
+| **AI Agent** | LangGraph | Multi-agent orchestration with supervisor routing |
+| **LLM Gateway** | LiteLLM Proxy | Unified LLM API with model routing |
+| **Embedding** | HuggingFace (384d) | Product semantic embeddings via local model |
+| **Admin Frontend** | Vue 3 + Vite + TypeScript + Element Plus | Admin dashboard SPA |
+| **Customer Mall** | Vue 3 + Vite + TypeScript + Tailwind CSS | Customer shopping SPA |
+| **Monorepo** | uv workspace | Python package management |
+| **Migrations** | Alembic | Database schema versioning |
+| **CI/CD** | GitHub Actions | Lint, test, Docker build |
+| **Containerization** | Docker Compose | Multi-service deployment |
+
+---
+
+## Key Data Flows
+
+### 1. Product Search Flow
+
+```
+User types query --> mall-web SearchView
+  --> GET /portal/product?keyword=...&page=1&sort=...
+  --> HybridSearchService
+    --> Elasticsearch full-text query (product name, description, brand)
+    --> pgvector semantic search (cosine similarity on product_embedding)
+    --> Merge & rerank results
+    --> Return paginated product list
+  <-- Frontend renders product cards
+```
+
+### 2. Order Placement Flow
+
+```
+User adds items --> Cart (Redis / PostgreSQL)
+  --> CartView --> OrderConfirmView
+  --> POST /portal/order/generateConfirmOrder
+    --> Validate stock (SKU inventory)
+    --> Apply coupons (if any)
+    --> Calculate total (product price - discount + shipping)
+  --> POST /portal/order/generateOrder
+    --> Deduct inventory (atomic)
+    --> Create order record
+    --> Create order items
+    --> Clear cart items
+  --> PayView
+    --> POST /portal/order/paySuccess
+    --> Order status: unpaid --> paid
+```
+
+### 3. AI Recommendation Flow
+
+```
+User on ProductDetailView / HomeView
+  --> POST /portal/recommendation/*
+  --> Agent Worker (Celery)
+    --> Recommendation Subgraph (LangGraph)
+      1. UserProfile node: Load member behavior history, preferences
+      2. SearchIntent node: Parse user context into structured intent
+      3. ProductRec node: Query collaborative filtering vectors + embeddings
+      4. Inventory node: Filter by stock availability
+      5. MarketingCopy node: Generate personalized product descriptions (LLM)
+    --> Return ranked product list with AI-generated copy
+  <-- Frontend renders AI recommendation section
+```
+
+### 4. Admin Product Management Flow
+
+```
+Admin logs in --> JWT auth
+  --> Admin Dashboard
+  --> PMS (Product Management System)
+    --> CRUD operations on products, SKUs, brands, categories, attributes
+    --> Product creation triggers:
+      - Embedding generation (Celery task)
+      - Elasticsearch indexing (Celery task)
+      - CF vector update
 ```
 
 ---
 
-## 关键技术决策
+## Monorepo Package Structure
 
-| 决策 | 选型 | 理由 |
-|------|------|------|
-| Agent 框架 | **LangGraph** (替代 Hermes) | 原生 StateGraph + PostgresSaver + interrupt 人机协同 + astream_events 流式输出 |
-| 地图服务 | 高德 JS API 2.0 | 国内 POI 数据丰富，支持路径动画 |
-| 语音输入 | Web Speech API → 预留第三方 | 浏览器原生，零依赖；预留讯飞/百度扩展 |
-| POI 城市 | 重庆 / 上海 / 北京 | 三城风格差异大，验证跨区域能力 |
-| 用户认证 | JWT + OAuth (Google/微信) | 无状态 JWT 适合容器部署 |
-| LLM 网关 | OpenRouter | 统一接入 DeepSeek-V3 / Claude-3.5-Sonnet |
-| Embedding | OpenAI text-embedding-3-small (1536d) | 与 pgvector vector(1536) 匹配 |
-| 异步任务 | Celery + Redis | 异步任务重试/持久化/监控 |
-| 路线动画 | 高德 JS API 路线规划 | SSE 事件驱动地图更新 |
-| 分享卡片 | Playwright HTML→截图 PNG | 复杂布局 + 微信分享兼容 |
-| 数据库设计 | plans 1:N plan_slots | 分离聚合信息和单步细节 |
-| 两阶段规划 | 硬约束(非LLM) + 软约束(LLM) | 可预测 + 低成本 |
-| Tool 编排 | DAG + Saga | 并行执行 + 补偿事务 |
-| pgvector | 统一存储向量+结构 | 同一事务，避免不一致 |
-| 架构模式 | **模块化单体 + 3 进程** | 避免分布式复杂度，目录分层清晰，将来可拆微服务 |
-| 可观测性 | structlog + LangSmith | JSON 结构化日志 + Agent 全链路自动追踪 |
-| 安全 | JWT + Prompt 注入防御 + Rate Limit | 认证/防注入/限流三件套 |
+```
+snaptrip/
+├── pyproject.toml              # uv workspace root
+├── docker-compose.yml           # 8-service orchestration
+├── Makefile / Taskfile.yml      # Build & run commands
+│
+├── backend/                     # Python backend monolith
+│   ├── marketplace/app/
+│   │   ├── api/admin/          # Admin panel routes (19 files)
+│   │   ├── api/portal/         # Customer portal routes (14 files)
+│   │   ├── models/             # ORM models (member, product, order, promotion, cms, rbac)
+│   │   ├── schemas/            # Pydantic request/response schemas
+│   │   ├── services/           # Business logic (20+ services)
+│   │   ├── search/             # Elasticsearch client
+│   │   ├── tasks/              # Celery task definitions
+│   │   └── core/               # Config, security, exceptions
+│   ├── alembic/                # Database migrations
+│   └── tests/                  # Unit + integration tests
+│
+├── agent/                       # AI Agent system
+│   └── src/agent/
+│       ├── graph.py            # LangGraph main graph definition
+│       ├── nodes/              # Supervisor + specialist nodes
+│       │   └── recommendation/ # Recommendation subgraph
+│       ├── schemas/            # Agent state/event schemas
+│       ├── tools/              # Tool registry + implementations
+│       ├── ports/              # Abstract interfaces (LLM, tools, events)
+│       ├── adapters/           # Adapter implementations
+│       └── services/           # Agent services + LLM gateway
+│
+├── frontend/                    # Admin panel (Vue 3 + Element Plus)
+│   └── src/
+│       ├── views/              # PMS, OMS, SMS, CMS, UMS, settings
+│       ├── apis/               # API client modules
+│       └── stores/             # Pinia state management
+│
+├── mall-web/                    # Customer mall (Vue 3 + Tailwind)
+│   └── src/
+│       ├── views/              # Home, Search, Product, Cart, Member
+│       ├── apis/               # API client modules
+│       └── stores/             # Pinia state management
+│
+├── shared/                      # Cross-package shared library
+│   └── snaptrip_shared/
+│       ├── core/               # Config, logging, exceptions, security
+│       ├── db/                  # Session, Redis
+│       └── schemas/            # Shared Pydantic models
+│
+├── litellm/                     # LiteLLM proxy config
+│   └── config.yaml
+│
+└── docs/                        # Project documentation
+```
 
 ---
 
-## 数据流（端到端）
+## Key Architecture Decisions
 
-1. **用户请求** → Plan API 接收原始文本
-2. **意图解析** → Intent Parser (LLM) 输出结构化意图（人数、时间、预算、偏好）
-3. **上下文加载** → Context Loader 加载用户画像 (pgvector) + Memory Manager 增强记忆向量
-4. **POI 检索** → Retrieval Engine 并行 3 路检索获取候选池（≤50）
-   - 3 路并行：活动 / 餐饮 / 额外
-   - 超时 1s，降级为 Redis 缓存（TTL 1h）
-5. **硬约束过滤** → Planning Phase 1（纯代码 CSP）+ 同步预计算 Shadow Candidates
-   - Haversine 距离过滤 ≤15km | 营业时间校验 | 预算约束 | 类型匹配
-   - Shadow 预查可用性存入 Checkpoint
-6. **软约束排序** → Planning Phase 2（LLM）排序并分配时隙
-   - 超时 3s，降级为 Phase 1 评分排序
-7. **共识确认** → Consensus Resolver（纯代码）等待用户确认
-   - `interrupt()` 挂起，SSE 推送前端，用户 confirm/object 后 `resume`
-8. **预订执行** → Execution Engine Tool DAG 4 层分层并行执行
-   - 层内 `asyncio.gather` 并行，层间顺序
-   - 单 Tool 3s / 总 DAG 10s 超时
-9. **异常容错** → Fallback Engine 激活 Shadow Candidate + 涟漪重排
-   - 优先 Shadow 缓存 → 局部重检索 → Saga 补偿
-   - 最多 2 次 Fallback，超限 → FAILED
-10. **结果输出** → Notify Engine 生成分享卡片，Playwright 渲染 PNG
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Backend pattern | Modular monolith (marketplace app) | Avoids distributed complexity; clear directory separation supports future microservice extraction |
+| Agent framework | LangGraph StateGraph | Native state persistence, interrupt/resume for human-in-loop, conditional routing |
+| Agent architecture | Supervisor-Specialist | Single supervisor routes to domain specialists; each specialist is independently testable |
+| LLM gateway | LiteLLM Proxy | Unified API for multiple providers (DeepSeek, Kimi); cost tracking; model fallback |
+| Product search | Elasticsearch + pgvector Hybrid | ES for keyword/text matching, pgvector for semantic similarity; hybrid ranking |
+| Product embedding | HuggingFace local model (384d) | Offline inference, no API cost, consistent dimensions |
+| Vector dimension | 384 (not 1536) | Migrated from OpenAI text-embedding-3-small (1536d) to local HuggingFace model (384d) |
+| Collaborative filtering | Custom CF vectors + pgvector | User-item interaction matrix stored as vectors for similarity-based recommendation |
+| Frontend framework | Vue 3 + Vite + TypeScript | Two separate SPAs: admin (Element Plus) and mall (Tailwind CSS) |
+| Monorepo tool | uv workspace | Fast dependency resolution, unified lock file, shared library |
+| Deployment | Docker Compose (8 services) | Single-machine production; scales horizontally by adding worker replicas |
+| Auth | JWT with refresh token rotation | Stateless access tokens (15min) + SHA256-hashed refresh tokens (7d) with rotation |

@@ -12,10 +12,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
+import { useMemberStore } from '@/stores/member'
 import type { CartItem } from '@/types/cart'
 
 const router = useRouter()
 const cartStore = useCartStore()
+const memberStore = useMemberStore()
 
 /** 加载状态 */
 const loading = ref(false)
@@ -46,9 +48,12 @@ const formatPrice = (price: number): string => {
  * 初始化购物车数据
  */
 const initCart = async () => {
+  if (!memberStore.isLoggedIn) return
   loading.value = true
   try {
     await cartStore.fetchCartList()
+  } catch {
+    // 静默失败 — 未登录用户无服务端购物车
   } finally {
     loading.value = false
   }

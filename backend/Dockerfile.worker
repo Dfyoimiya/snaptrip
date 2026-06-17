@@ -23,6 +23,7 @@ ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
@@ -42,6 +43,7 @@ COPY pyproject.toml uv.lock ./
 # 复制各 workspace member 的 pyproject.toml + 源码（setuptools 构建需要完整源码）
 COPY backend/pyproject.toml backend/
 COPY backend/marketplace/ backend/marketplace/
+COPY backend/app/ backend/app/
 COPY shared/pyproject.toml shared/
 COPY shared/snaptrip_shared/ shared/snaptrip_shared/
 COPY agent/pyproject.toml agent/
@@ -71,4 +73,5 @@ COPY agent/ agent/
 RUN useradd --create-home appuser && chown -R appuser:appuser /app
 USER appuser
 
+WORKDIR /app/backend
 CMD ["celery", "-A", "marketplace.app.celery_app", "worker", "--pool=gevent", "--concurrency=100", "-Q", "agent", "-l", "info"]
