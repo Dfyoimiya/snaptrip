@@ -23,16 +23,16 @@ _FALLBACK_TEMPLATES: dict[str, list[str]] = {
         "this product delivers exceptional quality and reliability.",
         "The {name} redefines {category} excellence. With {features}, it stands out "
         "as a top-tier choice for discerning customers.",
-        "Discover the {name}, the ultimate {category} for your next journey. "
+        "Discover the {name}, the ultimate {category} for your needs. "
         "Key highlights: {features}.",
     ],
     "casual": [
         "Meet the {name} — your new favorite {category}! Packed with {features}, "
-        "it's the perfect sidekick for your travels.",
+        "it's the perfect addition to your daily life.",
         "Looking for an awesome {category}? The {name} is exactly what you need. "
         "Features include {features}.",
         "Say hello to the {name}! This {category} is loaded with {features} and "
-        "ready for any adventure.",
+        "ready for any occasion.",
     ],
     "marketing": [
         "BEST DEAL: {name} – Exclusive Offer! This premium {category} comes with "
@@ -44,7 +44,7 @@ _FALLBACK_TEMPLATES: dict[str, list[str]] = {
     ],
 }
 
-_GENERATION_PROMPT = """You are an SEO copywriter for SnapTrip, a travel e-commerce platform.
+_GENERATION_PROMPT = """You are an SEO copywriter for SnapTrip, an e-commerce platform.
 
 Generate 3 product descriptions for the following product. Each description should:
 - Be 2-4 sentences
@@ -69,7 +69,7 @@ Reply with ONLY a JSON object:
 class GenerateProductDescArgs(BaseModel):
     product_name: str = Field(..., description="Product name")
     category: str = Field(
-        "travel", description="Product category (hotel, flight, tour, etc.)"
+        "general", description="Product category (electronics, clothing, food, etc.)"
     )
     features: str = Field("", description="Key features, comma-separated")
     style: str = Field(
@@ -91,7 +91,7 @@ class GenerateProductDescTool(SmartDayBaseTool):
 
     async def _arun(self, **kwargs: Any) -> dict:
         product_name = kwargs.get("product_name", "")
-        category = kwargs.get("category", "") or "travel product"
+        category = kwargs.get("category", "") or "general"
         features = kwargs.get("features", "") or "premium quality, reliable performance"
         style = kwargs.get("style", "professional")
 
@@ -146,7 +146,7 @@ class GenerateProductDescTool(SmartDayBaseTool):
         keywords = name_parts + [
             f"{category} deal",
             f"best {category}",
-            "travel product",
+            "premium product",
             "online shop",
             "fast delivery",
         ]

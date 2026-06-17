@@ -96,7 +96,7 @@ ADMIN_TOOLS: list[dict[str, Any]] = [
                     },
                     "category": {
                         "type": "string",
-                        "description": "Product category (e.g., hotel, flight, tour, gear)",
+                        "description": "Product category (e.g., electronics, clothing, food, home)",
                     },
                     "features": {
                         "type": "string",
@@ -133,7 +133,7 @@ ADMIN_TOOLS: list[dict[str, Any]] = [
 
 # ── System prompt ────────────────────────────────────────────────────────────
 
-ADMIN_SYSTEM_PROMPT = """You are a READ-ONLY admin analytics assistant for SnapTrip, a travel e-commerce platform.
+ADMIN_SYSTEM_PROMPT = """You are a READ-ONLY admin analytics assistant for SnapTrip, an e-commerce platform.
 
 Your job is to help B-end administrators ANALYZE business data. You CANNOT create, modify, or manage
 any accounts, products, or orders. All your tools are analytical only.

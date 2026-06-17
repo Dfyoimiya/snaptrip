@@ -251,6 +251,42 @@ Admin logs in --> JWT auth
       - CF vector update
 ```
 
+### 5. AI Customer Service Flow
+
+```
+User initiates CS chat
+  --> POST /portal/cs/chat { message, session_id }
+  --> Agent Worker (Celery)
+    --> LangGraph Main Graph
+      1. Supervisor: Classify intent (cs_after_sales/complaint/inquiry)
+      2. CustomerService node:
+         - Emotion detection (angry/frustrated/anxious/satisfied/neutral)
+         - Emotion trajectory analysis (multi-turn)
+         - Inject tone hints into system prompt
+         - LLM reasoning + tool selection (14 tools available)
+      3. Tool execution via ToolHarness (auth → rate limit → trace → audit)
+      4. Tool results back to CustomerService for next reasoning step
+      5. Loop until LLM produces final answer
+      6. Synthesize → Compliance check → Response
+    --> SSE stream: node_started → tool_called → tool_finished → message
+  <-- Frontend renders AI response + action cards
+```
+
+### 6. Search Discovery (Home Feed) Flow
+
+```
+User opens homepage
+  --> GET /portal/home/feed
+  --> 5 data sources concurrent fetch:
+      1. AI Recommendations (LangGraph 4-Agent pipeline)
+      2. Trending Products (Redis time-bucket ZSET, Reddit Hot algorithm)
+      3. New Products (DB query, published in last 7 days)
+      4. Viewed History (Redis sliding window, last 50 products)
+      5. Search Discovery (AI-generated suggestions + popular queries)
+  --> Merge & deduplicate across sources
+  <-- Frontend renders personalized home feed sections
+```
+
 ---
 
 ## Monorepo Package Structure
@@ -263,11 +299,11 @@ snaptrip/
 │
 ├── backend/                     # Python backend monolith
 │   ├── marketplace/app/
-│   │   ├── api/admin/          # Admin panel routes (19 files)
-│   │   ├── api/portal/         # Customer portal routes (14 files)
+│   │   ├── api/admin/          # Admin panel routes (18 files)
+│   │   ├── api/portal/         # Customer portal routes (15 files)
 │   │   ├── models/             # ORM models (member, product, order, promotion, cms, rbac)
 │   │   ├── schemas/            # Pydantic request/response schemas
-│   │   ├── services/           # Business logic (20+ services)
+│   │   ├── services/           # Business logic (25+ services)
 │   │   ├── search/             # Elasticsearch client
 │   │   ├── tasks/              # Celery task definitions
 │   │   └── core/               # Config, security, exceptions
@@ -327,3 +363,12 @@ snaptrip/
 | Monorepo tool | uv workspace | Fast dependency resolution, unified lock file, shared library |
 | Deployment | Docker Compose (8 services) | Single-machine production; scales horizontally by adding worker replicas |
 | Auth | JWT with refresh token rotation | Stateless access tokens (15min) + SHA256-hashed refresh tokens (7d) with rotation |
+| Agent specialist design | Single-inheritance BaseSpecialist | Template method pattern eliminates ~45 lines of boilerplate per specialist; each independently testable |
+| Agent tool system | ToolHarness singleton + Hook chain | Single entry point for all tool calls; Auth/RateLimit/Trace/Audit/Alert as composable hooks |
+| Transaction safety | Saga (Reserve→Confirm→Rollback) + Compensation LIFO | Multi-tool operations maintain consistency; compensation registry enables partial failure recovery |
+| Audit integrity | SHA-256 hash chain (AuditStore) | Each entry links to previous via cryptographic hash; verify_chain() detects tampering |
+| Content safety | Regex compliance check (non-blocking) | PII + advertising law keyword scanning <2ms; violations logged but response not blocked |
+| Emotion awareness | Keyword-based emotion detection | 5-class detection + multi-turn trajectory, injected into CustomerService system prompt for tone adjustment |
+| Model resilience | 4-level fallback chain + tenacity retry | DeepSeek V4 Pro → Flash → Kimi K2.6 → K2.5; 3 retries per level with exponential backoff |
+| Customer service | AI-first with human escalation path | AI handles common issues via 14 tools; SLA breach triggers agent notification; ticket-based handoff |
+| Search discovery | 5-source concurrent homefeed aggregation | AI recs + trending + new + history + discovery merged at API layer; graceful degradation per source |

@@ -19,8 +19,8 @@ KNOWLEDGE_TOOLS: list[dict[str, Any]] = [
             "name": "search_knowledge",
             "description": "Search the SnapTrip knowledge base for FAQs, policies, "
             "and general information. Covers payment methods, account management, "
-            "store locations, cancellation policies, insurance, visa requirements, "
-            "and general travel tips.",
+            "store locations, cancellation policies, order tracking, shipping, "
+            "and shopping guides.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -34,8 +34,8 @@ KNOWLEDGE_TOOLS: list[dict[str, Any]] = [
                             "payment",
                             "account",
                             "cancellation",
-                            "insurance",
-                            "visa",
+                            "shipping",
+                            "order",
                             "store",
                             "general",
                             "all",
@@ -55,9 +55,9 @@ KNOWLEDGE_TOOLS: list[dict[str, Any]] = [
 
 # ── System prompt ────────────────────────────────────────────────────────────
 
-KNOWLEDGE_SYSTEM_PROMPT = """You are a knowledgeable customer service agent for SnapTrip, a travel e-commerce platform.
+KNOWLEDGE_SYSTEM_PROMPT = """You are a knowledgeable customer service agent for SnapTrip, an e-commerce platform.
 
-Your job is to answer general questions about SnapTrip's services, policies, and travel-related topics.
+Your job is to answer general questions about SnapTrip's services, policies, and shopping-related topics.
 
 Guidelines:
 1. Use 'search_knowledge' to look up answers in the knowledge base. Always search
@@ -66,7 +66,7 @@ Guidelines:
 3. If the question is beyond what the knowledge base covers, be honest and suggest
    contacting human support or visiting the website for more details.
 4. Common topics include: payment methods, account registration, cancellation policies,
-   insurance options, visa requirements, store locations, and general travel tips.
+   order tracking, shipping information, store locations, and shopping guides.
 5. Be polite, concise, and helpful.
 6. NEVER call a tool that you don't have defined.
 

@@ -18,7 +18,7 @@ MARKETPLACE_URL = os.getenv("SNAPTRIP_MARKETPLACE_URL", "http://localhost:8000")
 class GetCouponsArgs(BaseModel):
     category: str = Field(
         "all",
-        description="Filter by product category: hotel, flight, tour, package, all",
+        description="Filter by product category: electronics, clothing, food, home, all",
     )
     min_discount: float | None = Field(
         None, description="Minimum discount percentage filter (e.g., 10 for 10% off)"

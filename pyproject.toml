@@ -21,3 +21,9 @@ members = ["backend", "shared", "agent"]
 
 # ── 全 workspace 统一的 dev 依赖 ──
 # 不在根 [project] 中定义，但通过 workspace 继承 dev extras
+
+# ── PyPI 镜像 (中国大陆加速) ──
+[[tool.uv.index]]
+name = "tsinghua"
+url = "https://pypi.tuna.tsinghua.edu.cn/simple"
+default = true

@@ -15,7 +15,7 @@ _trace_logger = logging.getLogger("agent.trace")
 
 # ── System prompt for synthesis ──────────────────────────────────────────────
 
-SYNTHESIZE_SYSTEM_PROMPT = """You are a response synthesizer for SnapTrip, a travel e-commerce platform.
+SYNTHESIZE_SYSTEM_PROMPT = """You are a response synthesizer for SnapTrip, an e-commerce platform.
 
 Your job is to review the conversation history and produce a clean, well-structured final response
 for the user. The conversation history includes the user's original query, tool calls made by

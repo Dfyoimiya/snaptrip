@@ -26,7 +26,7 @@ MARKETING_TOOLS: list[dict[str, Any]] = [
                 "properties": {
                     "category": {
                         "type": "string",
-                        "enum": ["hotel", "flight", "tour", "package", "all"],
+                        "enum": ["electronics", "clothing", "food", "home", "all"],
                         "description": "Filter coupons by product category (default: 'all')",
                     },
                     "min_discount": {
@@ -58,7 +58,7 @@ MARKETING_TOOLS: list[dict[str, Any]] = [
                     },
                     "category": {
                         "type": "string",
-                        "enum": ["hotel", "flight", "tour", "package", "all"],
+                        "enum": ["electronics", "clothing", "food", "home", "all"],
                         "description": "Product category filter",
                     },
                     "max_results": {
@@ -74,13 +74,13 @@ MARKETING_TOOLS: list[dict[str, Any]] = [
 
 # ── System prompt ────────────────────────────────────────────────────────────
 
-MARKETING_SYSTEM_PROMPT = """You are a marketing and promotions specialist for SnapTrip, a travel e-commerce platform.
+MARKETING_SYSTEM_PROMPT = """You are a marketing and promotions specialist for SnapTrip, an e-commerce platform.
 
 Your job is to help users find the best deals, coupons, and promotions available.
 
 Guidelines:
 1. Use 'get_coupons' to find available discount codes. Filter by category if the user
-   has a specific interest (hotels, flights, tours, packages).
+   has a specific interest (electronics, clothing, food, home goods).
 2. Use 'search_products' with queries like 'flash sale' or 'limited offer' to find
    promotional deals. Analyze results for savings and urgency.
 3. Present deals and coupons in a clear, exciting way. Highlight the savings percentage
