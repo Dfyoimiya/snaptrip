@@ -20,6 +20,7 @@ from uuid import UUID
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import commerce_settings
 from app.schemas.promotion import (
     CouponCreate,
     CouponHistoryResponse,
@@ -196,8 +197,7 @@ class CouponService:
 
         # 步骤4: 创建历史记录
         now = datetime.now(UTC)
-        expire_days = 7  # 默认有效期7天，可从配置读取
-        expire_time = coupon.end_time or (now + timedelta(days=expire_days))
+        expire_time = coupon.end_time or (now + timedelta(days=commerce_settings.COUPON_EXPIRE_DAYS))
 
         history = SmsCouponHistory(
             coupon_id=coupon.id,

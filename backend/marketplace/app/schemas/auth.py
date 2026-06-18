@@ -20,6 +20,11 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class PhoneLoginRequest(BaseModel):
+    phone_number: str = Field(..., min_length=6, max_length=20)
+    password: str
+
+
 class RefreshRequest(BaseModel):
     refresh_token: str
 
@@ -53,3 +58,4 @@ class UserMeResponse(BaseModel):
     email: str
     nickname: str | None = None
     avatar_url: str | None = None
+    gender: int | None = None

@@ -74,6 +74,12 @@ class PmsCategory(CommerceBase, AuditMixin):
         comment="排序值，越小越靠前",
     )
     # nav_status: 是否在导航栏显示，icon 用于前端导航图标
+    type: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+        default=None,
+        comment="分类类型: PRODUCT/COMBO",
+    )
     nav_status: Mapped[int] = mapped_column(
         Integer,
         default=1,

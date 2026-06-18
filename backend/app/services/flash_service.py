@@ -205,36 +205,75 @@ class FlashService:
         self.db.add(p)
         await self.db.flush()
         await self.db.refresh(p)
+
+        # ── 同步促销信息到 PmsProduct ──
+        from app.models.product.product import PmsProduct
+        from app.models.promotion.flash import SmsFlashPromotionSession as FlashSession
+
+        session = await self.db.get(FlashSession, data.session_id)
+        await self.db.execute(
+            update(PmsProduct)
+            .where(PmsProduct.id == data.product_id)
+            .values(
+                promotion_price=data.flash_price,
+                promotion_type=1,  # 1=限时特惠（秒杀）
+                promotion_start_time=session.start_time if session else None,
+                promotion_end_time=session.end_time if session else None,
+                promotion_per_limit=data.flash_limit,
+            )
+        )
+
         return FlashProductResponse.model_validate(p)
 
     async def release_flash_stock(self, session_id: UUID) -> None:
-        """场次结束时释放未售出的秒杀库存回 PmsSku。
+        """场次结束时释放未售出的秒杀库存回 PmsSku，并清空商品的促销标记。
 
         将每个秒杀商品的 flash_stock（剩余库存）归还给对应的 PmsSku：
          - PmsSku.stock += flash_stock
          - PmsSku.lock_stock -= flash_stock
 
-        注意：这里只归还"剩余"库存（flash_stock 字段），已卖出的部分不再归还。
+        同时将关联的 PmsProduct 促销字段清空：
+         - promotion_price -> NULL
+         - promotion_type -> 0
+         - promotion_start_time / promotion_end_time -> NULL
+         - promotion_per_limit -> 0
         """
+        from app.models.product.product import PmsProduct
         from app.models.product.sku import PmsSku
         from app.models.promotion.flash import SmsFlashPromotionProduct
 
-        # 查询该场次所有秒杀商品（仅取还有剩余库存的）
+        # 查询该场次所有秒杀商品（包含已售罄的，用于清空促销标记）
         products_result = await self.db.execute(
             select(SmsFlashPromotionProduct).where(
                 SmsFlashPromotionProduct.session_id == session_id,
-                SmsFlashPromotionProduct.flash_stock > 0,
             )
         )
-        flash_products = products_result.scalars().all()
+        all_flash_products = products_result.scalars().all()
 
-        for fp in flash_products:
+        # 归还剩余库存给 PmsSku
+        for fp in all_flash_products:
+            if fp.flash_stock > 0:
+                await self.db.execute(
+                    update(PmsSku)
+                    .where(PmsSku.id == fp.sku_id)
+                    .values(
+                        stock=PmsSku.stock + fp.flash_stock,
+                        lock_stock=PmsSku.lock_stock - fp.flash_stock,
+                    )
+                )
+
+        # 清空关联商品上的促销标记
+        unique_product_ids = {fp.product_id for fp in all_flash_products}
+        for product_id in unique_product_ids:
             await self.db.execute(
-                update(PmsSku)
-                .where(PmsSku.id == fp.sku_id)
+                update(PmsProduct)
+                .where(PmsProduct.id == product_id)
                 .values(
-                    stock=PmsSku.stock + fp.flash_stock,
-                    lock_stock=PmsSku.lock_stock - fp.flash_stock,
+                    promotion_price=None,
+                    promotion_type=0,
+                    promotion_start_time=None,
+                    promotion_end_time=None,
+                    promotion_per_limit=0,
                 )
             )
 

@@ -225,6 +225,7 @@ class CategoryService:
                 id=cat.id,
                 name=cat.name,
                 parent_id=cat.parent_id,
+                type=cat.type,
                 level=cat.level,
                 sort=cat.sort,
                 nav_status=cat.nav_status,

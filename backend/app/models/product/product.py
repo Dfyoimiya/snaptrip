@@ -28,6 +28,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import AuditMixin, CommerceBase, SoftDeleteMixin
 
 if TYPE_CHECKING:
+    from app.models.product.brand import PmsBrand
+    from app.models.product.category import PmsCategory
     from app.models.product.sku import PmsSku
 
 
@@ -219,6 +221,11 @@ class PmsProduct(CommerceBase, AuditMixin, SoftDeleteMixin):
         nullable=False,
         comment="审核状态: 0=待审核 1=通过 2=驳回",
     )
+    reject_reason: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment="审核拒绝原因",
+    )
 
     # ===========================================================================
     #  服务保证 (逗号分隔，如 "七天退换,正品保证")
@@ -250,6 +257,16 @@ class PmsProduct(CommerceBase, AuditMixin, SoftDeleteMixin):
         back_populates=None,  # SKU 方不需要回引 Product，减少循环引用风险
         lazy="selectin",  # 一次 JOIN 加载所有 SKU，避免 N+1
         order_by="PmsSku.sale_count.desc()",  # 按销量降序，热销规格优先展示
+    )
+    brand: Mapped[PmsBrand | None] = relationship(
+        "PmsBrand",
+        back_populates=None,
+        lazy="selectin",
+    )
+    category: Mapped[PmsCategory | None] = relationship(
+        "PmsCategory",
+        back_populates=None,
+        lazy="selectin",
     )
 
     def __repr__(self) -> str:

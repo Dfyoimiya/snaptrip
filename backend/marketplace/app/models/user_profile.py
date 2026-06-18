@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import JSON, DateTime, ForeignKey, String, func
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -33,6 +33,7 @@ class UserProfile(Base):
     nickname: Mapped[str] = mapped_column(String(64), nullable=False)
     avatar_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     preferences: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    gender: Mapped[int | None] = mapped_column(Integer, nullable=True, comment="0=未知 1=男 2=女")
     travel_style: Mapped[str | None] = mapped_column(String(32), nullable=True)
     preference_embedding: Mapped[list[float] | None] = mapped_column(Vector(1536), nullable=True)
     home_address: Mapped[dict | None] = mapped_column(JSON, nullable=True)

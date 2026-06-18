@@ -21,6 +21,7 @@ Date: 2026-05-26
 
 from __future__ import annotations
 
+from contextlib import suppress
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -152,12 +153,22 @@ async def batch_status(
     _current_user=Depends(require_admin_user),
 ):
     """批量操作 —— 一次修改多个商品状态。参数用 Query list 而非 Body，简化前台调用"""
+    from sqlalchemy import select as sql_select
     from sqlalchemy import update as sql_update
 
     from app.models.product.product import PmsProduct
 
     stmt = sql_update(PmsProduct).where(PmsProduct.id.in_(ids)).values(publish_status=status)
     await db.execute(stmt)
+
+    # ES 同步 —— 逐个商品推送到搜索索引
+    from app.services.product_service import sync_product_to_es
+
+    products_result = await db.execute(sql_select(PmsProduct).where(PmsProduct.id.in_(ids)))
+    for product in products_result.scalars().all():
+        with suppress(Exception):
+            await sync_product_to_es(db, product)
+
     return success(message=f"已{'上架' if status else '下架'} {len(ids)} 个商品")
 
 
@@ -189,11 +200,19 @@ async def toggle_recommend(
 async def verify(
     product_id: UUID,
     status: int = Query(..., ge=0, le=2, description="0=待审核 1=通过 2=驳回"),
+    reason: str | None = Query(None, description="审核拒绝原因（status=2时填写）"),
     db: AsyncSession = Depends(get_db),
     _current_user=Depends(require_admin_user),
 ):
     svc = ProductService(db)
     result = await svc.toggle_status(product_id, "verify_status", status)
+    if status == 2 and reason:
+        from app.models.product.product import PmsProduct
+
+        product = await db.get(PmsProduct, product_id)
+        if product:
+            product.reject_reason = reason
+            result.reject_reason = reason
     return success(result.model_dump())
 
 

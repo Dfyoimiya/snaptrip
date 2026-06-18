@@ -81,6 +81,7 @@ class MemberProfileResponse(BaseModel):
     is_active: bool
     nickname: str | None = None
     avatar_url: str | None = None
+    gender: int | None = None
     created_at: str | None = None
     model_config = {"from_attributes": True}
 
@@ -90,6 +91,7 @@ class MemberProfileUpdate(BaseModel):
 
     nickname: str | None = Field(None, min_length=1, max_length=64)
     avatar_url: str | None = Field(None, max_length=512)
+    gender: int | None = Field(None, ge=0, le=2, description="0=未知 1=男 2=女")
 
 
 class MemberAdminResponse(BaseModel):

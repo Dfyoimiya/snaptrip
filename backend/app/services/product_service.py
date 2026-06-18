@@ -23,6 +23,7 @@ from uuid import UUID
 from snaptrip_shared.core.logging import get_logger
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.schemas.product import (
     ProductCreate,
@@ -242,7 +243,10 @@ class ProductService:
         """
         from app.models.product.product import PmsProduct
 
-        base = select(PmsProduct)
+        base = select(PmsProduct).options(
+            selectinload(PmsProduct.brand),
+            selectinload(PmsProduct.category),
+        )
         count_q = select(func.count(PmsProduct.id))
 
         if query.keyword:
@@ -286,7 +290,13 @@ class ProductService:
         )
         products = result.scalars().all()
 
-        return [ProductResponse.model_validate(p) for p in products], total
+        items: list[ProductResponse] = []
+        for p in products:
+            item = ProductResponse.model_validate(p)
+            item.brand_name = p.brand.name if p.brand else None  # type: ignore[attr-defined]
+            item.category_name = p.category.name if p.category else None  # type: ignore[attr-defined]
+            items.append(item)
+        return items, total
 
     # =========================================================================
     #  查询: 前台浏览 (仅上架+已审核)

@@ -48,6 +48,7 @@ from marketplace.app.schemas.auth import (
     ForgotPasswordRequest,
     LoginRequest,
     LogoutRequest,
+    PhoneLoginRequest,
     RefreshRequest,
     RegisterRequest,
     ResetPasswordRequest,
@@ -138,6 +139,40 @@ async def login(
     return data
 
 
+@router.post("/login/phone", response_model=dict)
+async def login_phone(
+    body: PhoneLoginRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    _rate_limit=Depends(login_limiter),
+) -> dict:
+    result = await db.execute(select(User).where(User.phone_number == body.phone_number))
+    user = result.scalar_one_or_none()
+    if user is None or not verify_password(body.password, user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="手机号或密码错误",
+        )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="账户已被禁用",
+        )
+
+    access_token = create_access_token(data={"sub": str(user.id)})
+    refresh_token = await create_refresh_token(user.id, db)
+    await db.commit()
+
+    data: dict[str, Any] = success(
+        data=TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+        ).model_dump(),
+        message="登录成功",
+    )
+    return data
+
+
 @router.post("/refresh", response_model=dict)
 async def refresh(
     body: RefreshRequest,
@@ -193,6 +228,7 @@ async def me(
             email=current_user.email,
             nickname=profile.nickname if profile else None,
             avatar_url=profile.avatar_url if profile else None,
+            gender=profile.gender if profile else None,
         ).model_dump(),
     )
     return data

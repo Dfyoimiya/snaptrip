@@ -418,6 +418,10 @@ class OrderService:
 
             raise OrderNotFoundError(str(order_id))
 
+        # Idempotency guard: if already confirmed, return immediately
+        if order.confirm_status == 1:
+            return await self.get_detail(order.id, user_id=user_id)
+
         _validate_transition(order.status, OrderStatus.RECEIVED)
 
         old_status = order.status

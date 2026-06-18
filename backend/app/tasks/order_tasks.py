@@ -39,6 +39,7 @@ def auto_cancel_expired_orders() -> dict:
         from app.core.config import commerce_settings
         from app.models.order.order import OmsOrder, OmsOrderItem, OmsOrderOperateLog
         from app.models.product.sku import PmsSku
+        from app.schemas.order import OrderStatus
 
         timeout_minutes = commerce_settings.ORDER_AUTO_CANCEL_MINUTES
         deadline = datetime.now(UTC) - timedelta(minutes=timeout_minutes)
@@ -48,7 +49,7 @@ def auto_cancel_expired_orders() -> dict:
             result = await session.execute(
                 select(OmsOrder)
                 .where(
-                    OmsOrder.status == 0,  # 待付款
+                    OmsOrder.status == OrderStatus.PENDING_PAYMENT,
                     OmsOrder.created_at < deadline,
                 )
                 .limit(100)
@@ -57,7 +58,7 @@ def auto_cancel_expired_orders() -> dict:
 
             cancelled = 0
             for order in orders:
-                order.status = 5  # 已关闭
+                order.status = OrderStatus.CLOSED
 
                 # 释放锁定库存
                 items_result = await session.execute(select(OmsOrderItem).where(OmsOrderItem.order_id == order.id))
@@ -72,8 +73,8 @@ def auto_cancel_expired_orders() -> dict:
                     OmsOrderOperateLog(
                         order_id=order.id,
                         operate_man="system",
-                        order_status_before=0,
-                        order_status_after=5,
+                        order_status_before=OrderStatus.PENDING_PAYMENT,
+                        order_status_after=OrderStatus.CLOSED,
                         note=f"超时未支付自动取消 (>{timeout_minutes}分钟)",
                     )
                 )
@@ -92,8 +93,10 @@ def auto_confirm_receipt_orders() -> dict:
     """
     自动确认收货 + 自动完成订单。
 
-    - 发货超过 ORDER_AUTO_CONFIRM_DAYS 天的订单 → 自动确认收货 (DELIVERED → RECEIVED)
-    - 收货超过 ORDER_AUTO_COMPLETE_DAYS 天的订单 → 自动完成 (RECEIVED → COMPLETED)
+    - 发货超过 auto_confirm_day 天的订单 → 自动确认收货 (DELIVERED → RECEIVED)
+    - 收货超过 auto_confirm_day 天的订单 → 自动完成 (RECEIVED → COMPLETED)
+
+    时效优先级: order.auto_confirm_day (per-order) > ORDER_AUTO_CONFIRM_DAYS / ORDER_AUTO_COMPLETE_DAYS (global).
 
     Celery Beat 配置 (每天凌晨2点执行):
       CELERY_BEAT_SCHEDULE = {
@@ -111,19 +114,21 @@ def auto_confirm_receipt_orders() -> dict:
 
         from app.core.config import commerce_settings
         from app.models.order.order import OmsOrder, OmsOrderOperateLog
+        from app.schemas.order import OrderStatus
 
-        auto_confirm_days = commerce_settings.ORDER_AUTO_CONFIRM_DAYS
-        auto_complete_days = commerce_settings.ORDER_AUTO_COMPLETE_DAYS
+        default_confirm_days = commerce_settings.ORDER_AUTO_CONFIRM_DAYS
+        default_complete_days = commerce_settings.ORDER_AUTO_COMPLETE_DAYS
         now = datetime.now(UTC)
 
         async with _get_session() as session:
             # ── 第一遍: 自动确认收货 (DELIVERED → RECEIVED) ──
-            confirm_deadline = now - timedelta(days=auto_confirm_days)
+            # Use a wide deadline (default) for the query, then filter per-order
+            confirm_cutoff = now - timedelta(days=default_confirm_days)
             result = await session.execute(
                 select(OmsOrder)
                 .where(
-                    OmsOrder.status == 2,  # 已发货 (DELIVERED)
-                    OmsOrder.delivery_time < confirm_deadline,
+                    OmsOrder.status == OrderStatus.DELIVERED,
+                    OmsOrder.delivery_time < confirm_cutoff,
                     OmsOrder.confirm_status == 0,
                 )
                 .limit(500)
@@ -132,27 +137,32 @@ def auto_confirm_receipt_orders() -> dict:
 
             confirmed = 0
             for order in orders:
-                order.status = 3  # 已收货 (RECEIVED)
+                # Per-order auto_confirm_day takes precedence over global default
+                per_order_days = order.auto_confirm_day if order.auto_confirm_day else default_confirm_days
+                if order.delivery_time and order.delivery_time + timedelta(days=per_order_days) > now:
+                    continue  # Not yet due for this specific order
+
+                order.status = OrderStatus.RECEIVED
                 order.confirm_status = 1
                 session.add(
                     OmsOrderOperateLog(
                         order_id=order.id,
                         operate_man="system",
-                        order_status_before=2,
-                        order_status_after=3,
-                        note=f"超{auto_confirm_days}天自动确认收货",
+                        order_status_before=OrderStatus.DELIVERED,
+                        order_status_after=OrderStatus.RECEIVED,
+                        note=f"超{per_order_days}天自动确认收货",
                     )
                 )
                 confirmed += 1
 
             # ── 第二遍: 自动完成订单 (RECEIVED → COMPLETED) ──
-            complete_deadline = now - timedelta(days=auto_complete_days)
+            complete_cutoff = now - timedelta(days=default_complete_days)
             result = await session.execute(
                 select(OmsOrder)
                 .where(
-                    OmsOrder.status == 3,  # 已收货 (RECEIVED)
+                    OmsOrder.status == OrderStatus.RECEIVED,
                     OmsOrder.confirm_status == 1,
-                    OmsOrder.updated_at < complete_deadline,
+                    OmsOrder.updated_at < complete_cutoff,
                 )
                 .limit(500)
             )
@@ -160,14 +170,19 @@ def auto_confirm_receipt_orders() -> dict:
 
             completed = 0
             for order in completed_orders:
-                order.status = 4  # 已完成 (COMPLETED)
+                # Per-order auto_confirm_day also governs the auto-complete window
+                per_order_days = order.auto_confirm_day if order.auto_confirm_day else default_complete_days
+                if order.updated_at and order.updated_at + timedelta(days=per_order_days) > now:
+                    continue
+
+                order.status = OrderStatus.COMPLETED
                 session.add(
                     OmsOrderOperateLog(
                         order_id=order.id,
                         operate_man="system",
-                        order_status_before=3,
-                        order_status_after=4,
-                        note=f"超{auto_complete_days}天自动完成",
+                        order_status_before=OrderStatus.RECEIVED,
+                        order_status_after=OrderStatus.COMPLETED,
+                        note=f"超{per_order_days}天自动完成",
                     )
                 )
                 completed += 1

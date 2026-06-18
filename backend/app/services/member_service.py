@@ -214,6 +214,7 @@ class MemberService:
             "created_at": str(user.created_at) if user.created_at else None,
             "nickname": profile.nickname if profile else None,
             "avatar_url": profile.avatar_url if profile else None,
+            "gender": profile.gender if profile else None,
         }
 
     async def toggle_member_status(self, user_id: UUID, is_active: bool) -> dict:
@@ -251,6 +252,8 @@ class MemberService:
             profile.nickname = data.nickname
         if data.avatar_url is not None:
             profile.avatar_url = data.avatar_url
+        if data.gender is not None:
+            profile.gender = data.gender
 
         await self.db.flush()
         await self.db.refresh(profile)
@@ -261,6 +264,7 @@ class MemberService:
             is_active=True,
             nickname=profile.nickname,
             avatar_url=profile.avatar_url,
+            gender=profile.gender,
             created_at=None,
         )
 
@@ -283,6 +287,7 @@ class MemberService:
             is_active=user.is_active,
             nickname=profile.nickname if profile else None,
             avatar_url=profile.avatar_url if profile else None,
+            gender=profile.gender if profile else None,
             created_at=str(user.created_at) if user.created_at else None,
         )
 

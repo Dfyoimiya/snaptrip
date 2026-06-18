@@ -26,12 +26,16 @@ from pydantic import BaseModel, Field, model_validator
 # ============================================================================
 
 
+_CATEGORY_TYPE_PATTERN = r"^(PRODUCT|COMBO)$"
+
+
 class CategoryCreate(BaseModel):
     """创建分类 —— 提供 name 必填，其余有默认值"""
 
     # Field(max_length=64): Pydantic 级别限制，会比 SQLAlchemy String(64) 更早报错
     # 好处: 请求刚进来就拦截，不用等到 DB 层才报唯一约束/长度错误
     name: str = Field(..., min_length=1, max_length=64, description="分类名称")
+    type: str | None = Field(None, pattern=_CATEGORY_TYPE_PATTERN, description="分类类型: PRODUCT/COMBO")
     parent_id: UUID | None = Field(None, description="父分类ID，NULL=顶级分类")
     level: int = Field(default=0, ge=0, le=3, description="层级")
     sort: int = Field(default=0, ge=0, description="排序值")
@@ -46,6 +50,7 @@ class CategoryUpdate(BaseModel):
     """编辑分类 —— 所有字段可选，只更新传入的字段"""
 
     name: str | None = Field(None, min_length=1, max_length=64)
+    type: str | None = Field(None, pattern=_CATEGORY_TYPE_PATTERN)
     parent_id: UUID | None = None
     level: int | None = Field(None, ge=0, le=3)
     sort: int | None = Field(None, ge=0)
@@ -62,6 +67,7 @@ class CategoryResponse(BaseModel):
     id: UUID
     name: str
     parent_id: UUID | None = None
+    type: str | None = None
     level: int
     sort: int
     nav_status: int
@@ -82,6 +88,7 @@ class CategoryTreeResponse(BaseModel):
     id: UUID
     name: str
     parent_id: UUID | None = None
+    type: str | None = None
     level: int
     sort: int
     nav_status: int
@@ -354,6 +361,8 @@ class ProductResponse(BaseModel):
     sub_title: str | None = None
     brand_id: UUID | None = None
     category_id: UUID | None = None
+    brand_name: str | None = Field(None, serialization_alias="brandName")
+    category_name: str | None = Field(None, serialization_alias="categoryName")
     product_sn: str | None = None
     price: Decimal
     original_price: Decimal | None = None
@@ -376,12 +385,13 @@ class ProductResponse(BaseModel):
     recommend_status: int
     preview_status: int
     verify_status: int
+    reject_reason: str | None = None
     service_ids: str | None = None
     freight_template_id: UUID | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
-    model_config = {"from_attributes": True}
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 class ProductDetailResponse(ProductResponse):

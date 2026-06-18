@@ -23,6 +23,7 @@ def _make_category_mock(cat_id: UUID | None = None, parent_id: UUID | None = Non
     c.parent_id = parent_id
     c.level = 0
     c.sort = 0
+    c.type = None
     c.nav_status = 1
     c.show_status = 1
     c.icon = None
