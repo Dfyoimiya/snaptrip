@@ -15,7 +15,7 @@ from snaptrip_shared.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.common import PaginatedResponse, PaginationParams
-from app.schemas.order import OrderCreateFromCart
+from app.schemas.order import OrderCreateDirect, OrderCreateFromCart
 from app.services.order_service import OrderService
 from marketplace.app.core.security import get_current_user
 from marketplace.app.models.users import User
@@ -25,13 +25,16 @@ router = APIRouter(prefix="/portal/orders", tags=["Portal - 订单"])
 
 @router.post("", summary="提交订单", status_code=201)
 async def create_order(
-    data: OrderCreateFromCart,
+    data: OrderCreateFromCart | OrderCreateDirect,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """从购物车勾选项创建订单 —— 库存扣减 + 购物车清理均在同一事务中"""
+    """提交订单 —— 支持从购物车结算或直接购买（跳过购物车）。库存扣减均在同一事务中"""
     svc = OrderService(db)
-    result = await svc.create_from_cart(current_user.id, current_user.email, data)
+    if isinstance(data, OrderCreateDirect):
+        result = await svc.create_direct(current_user.id, current_user.email, data)
+    else:
+        result = await svc.create_from_cart(current_user.id, current_user.email, data)
     return success(result.model_dump())
 
 

@@ -106,9 +106,26 @@ export interface ConfirmOrderResult {
   memberIntegration: number
 }
 
-/** 创建订单请求参数（对应API文档 OrderParam） */
+/** 创建订单请求参数（从购物车结算） */
 export interface OrderParam {
   cart_item_ids: string[]
+  receiver_name: string
+  receiver_phone: string
+  receiver_province?: string
+  receiver_city?: string
+  receiver_region?: string
+  receiver_detail_address: string
+  receiver_post_code?: string
+  note?: string
+  pay_type: number
+  coupon_id?: string | null
+}
+
+/** 直接购买请求参数（跳过购物车） */
+export interface OrderDirectParam {
+  product_id: string
+  sku_id: string
+  quantity: number
   receiver_name: string
   receiver_phone: string
   receiver_province?: string

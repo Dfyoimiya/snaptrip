@@ -6,14 +6,14 @@
  */
 
 import { get, post } from '@/utils/request'
-import type { OmsOrderDetail, OrderParam, GenerateOrderResult } from '@/types/order'
+import type { OmsOrderDetail, OrderParam, OrderDirectParam, GenerateOrderResult } from '@/types/order'
 import type { CommonPage } from '@/types/common'
 
 /**
- * 创建订单（从购物车结算）
- * @param data 订单参数
+ * 创建订单（支持购物车结算 / 直接购买两种模式）
+ * @param data 订单参数 (OrderParam | OrderDirectParam)
  */
-export const generateOrderAPI = (data: OrderParam) => {
+export const generateOrderAPI = (data: OrderParam | OrderDirectParam) => {
   return post<GenerateOrderResult>('/api/v1/portal/orders', data)
 }
 

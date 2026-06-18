@@ -2,18 +2,28 @@
 /**
  * ============================================
  * 确认订单页 (OrderConfirmView)
+ * — 支持两种模式:
+ *   1. 购物车结算: 从 cartStore 加载已勾选项
+ *   2. 直接购买: 通过 URL query (?productId=...&skuId=...&quantity=...)
  * — 淘宝式收货地址管理：选择/新增/编辑/删除
  * ============================================
  */
 import { ref, computed, onMounted, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useCartStore } from '@/stores/cart'
 import { getAddressListAPI, addAddressAPI, updateAddressAPI, deleteAddressAPI } from '@/apis/address'
 import { generateOrderAPI } from '@/apis/order'
+import { getProductDetailAPI } from '@/apis/product'
 import type { MemberReceiveAddress } from '@/types/address'
+import type { OrderParam, OrderDirectParam } from '@/types/order'
 
+const route = useRoute()
 const router = useRouter()
 const cartStore = useCartStore()
+
+// ── 购买模式 ──
+type BuyMode = 'cart' | 'direct'
+const buyMode = ref<BuyMode>('cart')
 
 // ── 地址 ──
 const addresses = ref<MemberReceiveAddress[]>([])
@@ -46,9 +56,13 @@ interface CartItemView {
   price: number
   quantity: number
   productId?: string
+  skuId?: string
 }
 
 const orderItems = ref<CartItemView[]>([])
+// 直接购买模式下的商品信息缓存
+const directBuyProduct = ref<{ productId: string; skuId: string } | null>(null)
+const directBuyLoading = ref(false)
 
 const selectedAddress = computed(() => addresses.value.find(a => String(a.id) === selectedAddressId.value))
 
@@ -65,18 +79,68 @@ const formatPrice = (p: number | null | undefined) => (p ?? 0).toLocaleString('z
 
 // ── 加载数据 ──
 onMounted(async () => {
-  try {
-    const [addrList] = await Promise.all([
-      getAddressListAPI(),
-      cartStore.fetchCartList?.(),
-    ])
-    addresses.value = addrList || []
-    if (addresses.value.length) {
-      const defaultAddr = addresses.value.find(a => a.defaultStatus === 1)
-      selectedAddressId.value = defaultAddr
-        ? String(defaultAddr.id)
-        : String(addresses.value[0].id)
+  // 检测直接购买模式: URL 带 skuId 参数
+  const skuId = route.query.skuId as string | undefined
+  const productId = route.query.productId as string | undefined
+  const qty = Number(route.query.quantity) || 1
+
+  // 地址 & 商品并行加载，互不阻塞
+  const loadAddresses = (async () => {
+    try {
+      const addrList = await getAddressListAPI()
+      addresses.value = addrList || []
+      if (addresses.value.length) {
+        const defaultAddr = addresses.value.find(a => a.defaultStatus === 1)
+        selectedAddressId.value = defaultAddr
+          ? String(defaultAddr.id)
+          : String(addresses.value[0].id)
+      }
+    } catch { /* addresses fetch may fail */ }
+  })()
+
+  if (skuId && productId) {
+    // ── 直接购买模式 ──
+    buyMode.value = 'direct'
+    directBuyLoading.value = true
+    try {
+      const detail = await getProductDetailAPI(productId) as Record<string, unknown>
+      const skus = (detail.skus || []) as Record<string, unknown>[]
+      const matchedSku = skus.find(s => String(s.id) === skuId)
+      const unitPrice = (matchedSku?.promotionPrice as number) || (matchedSku?.price as number) || 0
+
+      // 解析 SKU 规格为可读文本
+      let specText = ''
+      if (matchedSku?.spec) {
+        try {
+          const specDict = JSON.parse(matchedSku.spec as string)
+          specText = Object.values(specDict).join(' ')
+        } catch { /* ignore */ }
+      }
+
+      directBuyProduct.value = { productId, skuId }
+      orderItems.value = [{
+        id: skuId,
+        productName: (detail.name as string) || '',
+        productPic: (detail.defaultPic as string) || '',
+        productAttr: specText,
+        price: unitPrice,
+        quantity: qty,
+        productId,
+        skuId,
+      }]
+    } catch (err: any) {
+      console.error('[OrderConfirm] 直接购买 — 加载商品失败:', err?.message || err)
+    } finally {
+      directBuyLoading.value = false
     }
+    await loadAddresses
+  } else {
+    // ── 购物车结算模式 ──
+    buyMode.value = 'cart'
+    await loadAddresses
+    try {
+      await cartStore.fetchCartList?.()
+    } catch { /* cart fetch may fail */ }
 
     const cartItems = cartStore.cartList.filter(item => item.checked)
     orderItems.value = cartItems.map((item: any) => ({
@@ -88,8 +152,6 @@ onMounted(async () => {
       quantity: item.quantity || 1,
       productId: item.productId,
     }))
-  } catch {
-    // addresses or cart might fail
   }
 })
 
@@ -188,15 +250,13 @@ const handleSubmitOrder = async () => {
     return
   }
   if (orderItems.value.length === 0) {
-    alert('购物车为空，请先添加商品')
+    alert('没有可下单的商品')
     return
   }
   submitting.value = true
   try {
     const addr = selectedAddress.value
-    const cartItemIds = cartStore.cartList.filter(item => item.checked).map(item => item.id)
-    const result = await generateOrderAPI({
-      cart_item_ids: cartItemIds,
+    const commonFields = {
       receiver_name: addr.name,
       receiver_phone: addr.phone,
       receiver_province: addr.province || '',
@@ -207,7 +267,25 @@ const handleSubmitOrder = async () => {
       note: orderNote.value,
       pay_type: payType.value,
       coupon_id: null,
-    })
+    }
+
+    let result: { id: string }
+    if (buyMode.value === 'direct' && directBuyProduct.value) {
+      const directPayload: OrderDirectParam = {
+        ...commonFields,
+        product_id: directBuyProduct.value.productId,
+        sku_id: directBuyProduct.value.skuId,
+        quantity: orderItems.value[0].quantity,
+      }
+      result = await generateOrderAPI(directPayload)
+    } else {
+      const cartItemIds = cartStore.cartList.filter(item => item.checked).map(item => item.id)
+      const cartPayload: OrderParam = {
+        ...commonFields,
+        cart_item_ids: cartItemIds,
+      }
+      result = await generateOrderAPI(cartPayload)
+    }
     const orderId = result.id
     router.push({
       path: '/pay',
@@ -226,12 +304,50 @@ const handleSubmitOrder = async () => {
     <!-- 顶部导航 -->
     <div class="flex items-center justify-between">
       <h1 class="text-xl font-bold text-gray-900">确认订单</h1>
-      <button class="text-sm text-gray-500 hover:text-brand-600 transition-colors flex items-center gap-1" @click="router.push('/cart')">
+      <button
+        v-if="buyMode === 'cart'"
+        class="text-sm text-gray-500 hover:text-brand-600 transition-colors flex items-center gap-1"
+        @click="router.push('/cart')"
+      >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
         返回购物车
       </button>
+      <button
+        v-else-if="buyMode === 'direct' && directBuyProduct"
+        class="text-sm text-gray-500 hover:text-brand-600 transition-colors flex items-center gap-1"
+        @click="router.push(`/product/${directBuyProduct.productId}`)"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        返回商品
+      </button>
+    </div>
+
+    <!-- 直接购买 — 商品加载中 -->
+    <div v-if="directBuyLoading" class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 flex items-center justify-center">
+      <div class="flex items-center gap-3 text-gray-400">
+        <svg class="animate-spin h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+        <span>商品加载中...</span>
+      </div>
+    </div>
+
+    <!-- 直接购买 — 商品加载失败 -->
+    <div v-if="buyMode === 'direct' && !directBuyLoading && orderItems.length === 0" class="bg-white rounded-xl shadow-sm border border-gray-100 p-12">
+      <div class="text-center">
+        <svg class="mx-auto h-12 w-12 text-gray-300 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+        </svg>
+        <p class="text-gray-500 mb-4">商品信息加载失败，请重试</p>
+        <button class="px-6 py-2 bg-brand-600 text-white text-sm rounded-lg hover:bg-brand-700 transition-colors" @click="router.go(0)">
+          刷新页面
+        </button>
+      </div>
     </div>
 
     <!-- 收货地址 — 淘宝式卡片选择 -->

@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.order import (
     STATUS_TRANSITIONS,
+    OrderCreateDirect,
     OrderCreateFromCart,
     OrderDeliveryRequest,
     OrderDetailResponse,
@@ -283,6 +284,151 @@ class OrderService:
             discount = min(history.coupon_amount, total_amount)
 
         return discount, history
+
+    # =========================================================================
+    #  创建订单 (直接购买 —— 跳过购物车)
+    # =========================================================================
+
+    async def create_direct(self, user_id: UUID, username: str, data: OrderCreateDirect) -> OrderDetailResponse:
+        """
+        直接购买 (跳过购物车)。
+
+        步骤:
+          1. 加载 SKU + Product
+          2. 校验库存 → 锁定库存 (乐观锁扣减)
+          3. 计算金额 (单价 × 数量)
+          4. 创建订单 + 订单明细
+          5. 记录操作日志
+          6. 返回订单详情
+        """
+        from app.models.order.order import OmsOrder, OmsOrderItem, OmsOrderOperateLog
+        from app.models.product.product import PmsProduct
+        from app.models.product.sku import PmsSku
+
+        # 步骤1: 加载 SKU
+        sku_result = await self.db.execute(select(PmsSku).where(PmsSku.id == data.sku_id))
+        sku = sku_result.scalar_one_or_none()
+        if not sku:
+            from app.core.exceptions import CommerceException
+
+            raise CommerceException(code="SKU_NOT_FOUND", message="商品SKU不存在", status_code=404)
+
+        # 加载 Product (获取名称、图片、品牌等)
+        product_result = await self.db.execute(select(PmsProduct).where(PmsProduct.id == data.product_id))
+        product = product_result.scalar_one_or_none()
+        if not product:
+            from app.core.exceptions import CommerceException
+
+            raise CommerceException(code="PRODUCT_NOT_FOUND", message="商品不存在", status_code=404)
+
+        # 步骤2: 校验库存 + 锁定库存 (乐观锁)
+        stmt = (
+            update(PmsSku)
+            .where(
+                PmsSku.id == data.sku_id,
+                PmsSku.stock - PmsSku.lock_stock >= data.quantity,
+            )
+            .values(lock_stock=PmsSku.lock_stock + data.quantity)
+        )
+        upd_result = await self.db.execute(stmt)
+        if upd_result.rowcount == 0:  # type: ignore[attr-defined]
+            from app.core.exceptions import InsufficientStockError
+
+            raise InsufficientStockError(
+                str(data.sku_id),
+                requested=data.quantity,
+            )
+
+        # 步骤3: 计算金额 (使用 SKU 促销价优先)
+        unit_price = sku.promotion_price if sku.promotion_price is not None else sku.price
+        total_amount = unit_price * data.quantity
+        freight_amount = Decimal("0.00")
+        discount_amount = Decimal("0.00")
+
+        # 优惠券
+        _coupon_history = None
+        if data.coupon_id is not None:
+            discount_amount, _coupon_history = await self._apply_coupon(
+                user_id=user_id,
+                coupon_id=data.coupon_id,
+                total_amount=total_amount,
+            )
+
+        pay_amount = total_amount + freight_amount - discount_amount
+
+        # 步骤4: 创建订单
+        order = OmsOrder(
+            order_sn=_generate_order_sn(),
+            user_id=user_id,
+            member_username=username,
+            total_amount=total_amount,
+            pay_amount=pay_amount,
+            freight_amount=freight_amount,
+            discount_amount=discount_amount,
+            coupon_id=data.coupon_id,
+            pay_type=data.pay_type,
+            receiver_name=data.receiver_name,
+            receiver_phone=data.receiver_phone,
+            receiver_province=data.receiver_province,
+            receiver_city=data.receiver_city,
+            receiver_region=data.receiver_region,
+            receiver_detail_address=data.receiver_detail_address,
+            receiver_post_code=data.receiver_post_code,
+            note=data.note,
+            status=OrderStatus.PENDING_PAYMENT,
+        )
+        self.db.add(order)
+        await self.db.flush()
+
+        # 创建订单明细 (单品)
+        spec = ""
+        try:
+            import json
+
+            spec_dict = json.loads(sku.spec)
+            spec = " ".join(spec_dict.values())
+        except (json.JSONDecodeError, AttributeError):
+            spec = sku.spec or ""
+
+        order_item = OmsOrderItem(
+            order_id=order.id,
+            order_sn=order.order_sn,
+            product_id=product.id,
+            product_name=product.name,
+            product_pic=product.default_pic,
+            sku_id=sku.id,
+            sku_code=sku.sku_code,
+            spec=spec,
+            price=unit_price,
+            quantity=data.quantity,
+        )
+        self.db.add(order_item)
+
+        # 步骤5: 记录操作日志
+        self.db.add(
+            OmsOrderOperateLog(
+                order_id=order.id,
+                operate_man=username,
+                order_status_before=None,
+                order_status_after=OrderStatus.PENDING_PAYMENT,
+                note="用户直接购买",
+            )
+        )
+
+        # 核销优惠券
+        if _coupon_history is not None:
+            from app.models.promotion.coupon import SmsCoupon
+
+            _coupon_history.use_status = 1
+            _coupon_history.use_time = datetime.now(UTC)
+            _coupon_history.order_id = order.id
+            _coupon_history.order_sn = order.order_sn
+            await self.db.execute(
+                update(SmsCoupon).where(SmsCoupon.id == data.coupon_id).values(use_count=SmsCoupon.use_count + 1)
+            )
+
+        await self.db.flush()
+        return await self.get_detail(order.id, user_id=user_id)
 
     # =========================================================================
     #  支付回调

@@ -370,10 +370,12 @@ const handleBuyNow = () => {
     router.push(`/login?redirect=/product/${productId.value}`)
     return
   }
+  if (!selectedSku.value) return
   router.push({
     path: '/order-confirm',
     query: {
-      skuId: selectedSku.value?.id,
+      productId: productId.value,
+      skuId: String(selectedSku.value.id),
       quantity: quantity.value,
     },
   })

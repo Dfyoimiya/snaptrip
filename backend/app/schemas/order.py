@@ -100,17 +100,15 @@ class OrderItemResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class OrderCreateFromCart(BaseModel):
-    """从购物车提交订单 —— 需要收货地址 + 勾选的购物车项ID列表"""
+class _OrderAddressMixin(BaseModel):
+    """订单收货地址 + 支付公用字段 (OrderCreateFromCart / OrderCreateDirect 共用)"""
 
-    cart_item_ids: list[UUID] = Field(..., min_length=1, max_length=50, description="勾选的购物车项ID")
     receiver_name: str = Field(..., min_length=1, max_length=100)
     receiver_phone: str = Field(
         ...,
         min_length=1,
         max_length=32,
-        pattern=r"^1[3-9]\d{9}$",
-        description="收货人手机号 (中国大陆 11 位)",
+        description="收货人手机号",
     )
     receiver_province: str | None = Field(None, max_length=32)
     receiver_city: str | None = Field(None, max_length=32)
@@ -120,6 +118,20 @@ class OrderCreateFromCart(BaseModel):
     note: str | None = Field(None, max_length=500)
     pay_type: int = Field(default=1, ge=0, le=2, description="支付方式: 0=未选 1=微信 2=支付宝")
     coupon_id: UUID | None = None
+
+
+class OrderCreateFromCart(_OrderAddressMixin):
+    """从购物车提交订单 —— 需要收货地址 + 勾选的购物车项ID列表"""
+
+    cart_item_ids: list[UUID] = Field(..., min_length=1, max_length=50, description="勾选的购物车项ID")
+
+
+class OrderCreateDirect(_OrderAddressMixin):
+    """直接购买 (跳过购物车) —— 需要 product_id + sku_id + quantity"""
+
+    product_id: UUID = Field(..., description="商品SPU ID")
+    sku_id: UUID = Field(..., description="SKU ID")
+    quantity: int = Field(default=1, ge=1, le=999, description="购买数量")
 
 
 class OrderResponse(BaseModel):
