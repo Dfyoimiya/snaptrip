@@ -1,4 +1,3 @@
-import type { RuntimeConfig } from '@umijs/max';
 import { getToken } from './utils/auth';
 import { getAdminInfoAPI } from './services/auth';
 
@@ -19,12 +18,3 @@ export async function getInitialState(): Promise<{
     return { collapsed: false };
   }
 }
-
-export const layout: RuntimeConfig['layout'] = () => {
-  return {
-    logout: () => {
-      localStorage.clear();
-      window.location.href = '#/login';
-    },
-  };
-};
