@@ -144,6 +144,7 @@ class OrderResponse(BaseModel):
     receiver_city: str | None = None
     receiver_region: str | None = None
     receiver_detail_address: str
+    receiver_post_code: str | None = None
     status: int
     note: str | None = None
     created_at: datetime | None = None

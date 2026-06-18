@@ -51,14 +51,14 @@ async def update_profile(
 async def list_addresses(db: AsyncSession = Depends(get_db), u: User = Depends(get_current_user)):
     svc = MemberService(db)
     items = await svc.list_addresses(u.id)
-    return success([i.model_dump() for i in items])
+    return success([i.model_dump(mode="json", by_alias=True) for i in items])
 
 
 @router.post("/addresses", summary="新增地址", status_code=201)
 async def create_address(data: AddressCreate, db: AsyncSession = Depends(get_db), u: User = Depends(get_current_user)):
     svc = MemberService(db)
     result = await svc.create_address(u.id, data)
-    return success(result.model_dump())
+    return success(result.model_dump(mode="json", by_alias=True))
 
 
 @router.put("/addresses/{addr_id}", summary="编辑地址")
@@ -67,7 +67,7 @@ async def update_address(
 ):
     svc = MemberService(db)
     result = await svc.update_address(u.id, addr_id, data)
-    return success(result.model_dump())
+    return success(result.model_dump(mode="json", by_alias=True))
 
 
 @router.delete("/addresses/{addr_id}", summary="删除地址")

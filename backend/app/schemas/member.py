@@ -46,11 +46,11 @@ class AddressResponse(BaseModel):
     province: str | None = None
     city: str | None = None
     region: str | None = None
-    detail_address: str
-    post_code: str | None = None
-    default_status: int
-    created_at: datetime | None = None
-    model_config = {"from_attributes": True}
+    detail_address: str = Field(..., serialization_alias="detailAddress")
+    post_code: str | None = Field(None, serialization_alias="postCode")
+    default_status: int = Field(..., serialization_alias="defaultStatus")
+    created_at: datetime | None = Field(None, serialization_alias="createdAt")
+    model_config = {"from_attributes": True, "populate_by_name": True}
 
 
 # ============================================================================
