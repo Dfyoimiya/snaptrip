@@ -14,27 +14,17 @@ from pydantic import BaseModel, Field
 class ShoppingContext(BaseModel):
     """Context from the frontend about what the user is currently viewing."""
 
-    current_product_id: str | None = Field(
-        None, description="Product the user is currently browsing"
-    )
-    current_category: str | None = Field(
-        None, description="Category the user is currently browsing"
-    )
-    search_query: str | None = Field(
-        None, description="Current search query in the search bar"
-    )
+    current_product_id: str | None = Field(None, description="Product the user is currently browsing")
+    current_category: str | None = Field(None, description="Category the user is currently browsing")
+    search_query: str | None = Field(None, description="Current search query in the search bar")
 
 
 class ShoppingGuideRequest(BaseModel):
     """Request body for shopping guide chat."""
 
     message: str = Field(..., description="User's message to the shopping guide")
-    session_id: str | None = Field(
-        None, description="Session ID for conversation continuity. None = new session"
-    )
-    context: ShoppingContext | None = Field(
-        None, description="Frontend context about what the user is viewing"
-    )
+    session_id: str | None = Field(None, description="Session ID for conversation continuity. None = new session")
+    context: ShoppingContext | None = Field(None, description="Frontend context about what the user is viewing")
 
 
 class ShoppingGuideSession(BaseModel):

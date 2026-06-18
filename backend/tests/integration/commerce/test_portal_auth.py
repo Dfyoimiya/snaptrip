@@ -42,18 +42,25 @@ PROTECTED_ENDPOINTS = [
 SPECIAL_BODY: dict[str, dict] = {
     "POST /api/v1/portal/cart": {
         "product_id": "00000000-0000-0000-0000-000000000000",
-        "sku_id": "00000000-0000-0000-0000-000000000000", "quantity": 1,
+        "sku_id": "00000000-0000-0000-0000-000000000000",
+        "quantity": 1,
     },
     "POST /api/v1/portal/orders": {
         "cart_item_ids": [],
-        "receiver_name": "t", "receiver_phone": "13800000000",
-        "receiver_province": "x", "receiver_city": "x",
-        "receiver_region": "x", "receiver_detail_address": "x",
+        "receiver_name": "t",
+        "receiver_phone": "13800000000",
+        "receiver_province": "x",
+        "receiver_city": "x",
+        "receiver_region": "x",
+        "receiver_detail_address": "x",
         "pay_type": 1,
     },
     "POST /api/v1/portal/member/addresses": {
-        "name": "t", "phone": "13800000000",
-        "province": "x", "city": "x", "region": "x",
+        "name": "t",
+        "phone": "13800000000",
+        "province": "x",
+        "city": "x",
+        "region": "x",
         "detail_address": "x",
     },
     "POST /api/v1/portal/member/favorites": None,  # uses query param
@@ -112,6 +119,4 @@ class TestPortalAuthRequired:
         else:
             pytest.fail(f"Unsupported method: {method}")
 
-        assert resp.status_code == 401, (
-            f"Expected 401 for {method} {path}, got {resp.status_code}: {resp.text[:200]}"
-        )
+        assert resp.status_code == 401, f"Expected 401 for {method} {path}, got {resp.status_code}: {resp.text[:200]}"

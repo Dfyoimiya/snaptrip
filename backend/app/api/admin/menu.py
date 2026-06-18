@@ -6,20 +6,18 @@ Date: 2026-06-09
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from snaptrip_shared.core.response import success
 from snaptrip_shared.db.session import get_db
-from collections.abc import Sequence
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.rbac import require_admin_user
 from app.models.menu import Menu
-from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.rbac_admin import MenuCreate, MenuNode, MenuUpdate
-from marketplace.app.core.security import get_current_user
 
 router = APIRouter(prefix="/menu", tags=["System - 菜单"])
 
@@ -46,7 +44,7 @@ def _build_tree(menus: Sequence[Menu], parent_id: UUID | None = None) -> list[Me
 @router.get("/treeList", summary="菜单树")
 async def tree_list(
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     result = await db.execute(select(Menu).order_by(Menu.sort.asc()))
     menus = result.scalars().all()
@@ -58,11 +56,9 @@ async def tree_list(
 async def list_by_parent(
     parent_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
-    result = await db.execute(
-        select(Menu).where(Menu.parent_id == parent_id).order_by(Menu.sort.asc())
-    )
+    result = await db.execute(select(Menu).where(Menu.parent_id == parent_id).order_by(Menu.sort.asc()))
     menus = result.scalars().all()
     return success([MenuNode.model_validate(m).model_dump() for m in menus])
 
@@ -71,7 +67,7 @@ async def list_by_parent(
 async def create(
     data: MenuCreate,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     menu = Menu(**data.model_dump())
     db.add(menu)
@@ -85,11 +81,12 @@ async def update_menu(
     menu_id: UUID,
     data: MenuUpdate,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     menu = await db.get(Menu, menu_id)
     if not menu:
         from app.core.exceptions import CommerceException
+
         raise CommerceException(code="MENU_NOT_FOUND", message="菜单不存在", status_code=404)
     for k, v in data.model_dump(exclude_unset=True).items():
         setattr(menu, k, v)
@@ -102,11 +99,12 @@ async def update_menu(
 async def delete_menu(
     menu_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     menu = await db.get(Menu, menu_id)
     if not menu:
         from app.core.exceptions import CommerceException
+
         raise CommerceException(code="MENU_NOT_FOUND", message="菜单不存在", status_code=404)
     await db.delete(menu)
     return success(message="删除成功")
@@ -116,11 +114,12 @@ async def delete_menu(
 async def get_menu(
     menu_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     menu = await db.get(Menu, menu_id)
     if not menu:
         from app.core.exceptions import CommerceException
+
         raise CommerceException(code="MENU_NOT_FOUND", message="菜单不存在", status_code=404)
     return success(MenuNode.model_validate(menu).model_dump())
 
@@ -130,11 +129,12 @@ async def toggle_hidden(
     menu_id: UUID,
     hidden: int = Query(..., ge=0, le=1),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     menu = await db.get(Menu, menu_id)
     if not menu:
         from app.core.exceptions import CommerceException
+
         raise CommerceException(code="MENU_NOT_FOUND", message="菜单不存在", status_code=404)
     menu.hidden = hidden
     await db.flush()

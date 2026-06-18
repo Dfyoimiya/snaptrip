@@ -49,6 +49,7 @@ def _validate_transition(current_status: int, new_status: int) -> None:
     allowed = STATUS_TRANSITIONS.get(current_status, [])
     if new_status not in allowed:
         from app.core.exceptions import OrderStatusError
+
         raise OrderStatusError(
             order_id="",
             current_status=str(current_status),
@@ -66,9 +67,7 @@ class OrderService:
     #  创建订单 (从购物车) —— 最核心的流程
     # =========================================================================
 
-    async def create_from_cart(
-        self, user_id: UUID, username: str, data: OrderCreateFromCart
-    ) -> OrderDetailResponse:
+    async def create_from_cart(self, user_id: UUID, username: str, data: OrderCreateFromCart) -> OrderDetailResponse:
         """
         从购物车创建订单。
 
@@ -96,6 +95,7 @@ class OrderService:
         cart_items = result.scalars().all()
         if not cart_items:
             from app.core.exceptions import CommerceException
+
             raise CommerceException(code="CART_EMPTY", message="没有可下单的商品", status_code=400)
 
         # 步骤2: 校验库存 + 锁定库存 (乐观锁)
@@ -117,15 +117,26 @@ class OrderService:
                 # rowcount == 0 → 库存不足 (WHERE 条件不满足)
                 # 这里需要回滚已锁定的库存——但由于事务未提交，回滚就是 rollback
                 from app.core.exceptions import InsufficientStockError
+
                 raise InsufficientStockError(
                     str(item.sku_id),
                     requested=item.quantity,
                 )
 
         # 步骤3: 计算金额
-        total_amount = sum(item.price * item.quantity for item in cart_items)
+        total_amount = sum((item.price * item.quantity for item in cart_items), Decimal("0.00"))
         freight_amount = Decimal("0.00")  # 简化: 后续可查询运费模板
-        discount_amount = Decimal("0.00")  # 简化: 后续 Phase 4 优惠券计算
+        discount_amount = Decimal("0.00")
+
+        # 步骤3b: 优惠券校验与折扣计算
+        _coupon_history = None
+        if data.coupon_id is not None:
+            discount_amount, _coupon_history = await self._apply_coupon(
+                user_id=user_id,
+                coupon_id=data.coupon_id,
+                total_amount=total_amount,
+            )
+
         pay_amount = total_amount + freight_amount - discount_amount
 
         # 步骤4: 创建订单
@@ -169,13 +180,15 @@ class OrderService:
             self.db.add(order_item)
 
         # 步骤5: 记录操作日志
-        self.db.add(OmsOrderOperateLog(
-            order_id=order.id,
-            operate_man=username,
-            order_status_before=None,
-            order_status_after=OrderStatus.PENDING_PAYMENT,
-            note="用户提交订单",
-        ))
+        self.db.add(
+            OmsOrderOperateLog(
+                order_id=order.id,
+                operate_man=username,
+                order_status_before=None,
+                order_status_after=OrderStatus.PENDING_PAYMENT,
+                note="用户提交订单",
+            )
+        )
 
         # 步骤6: 清除已购购物车条目
         await self.db.execute(
@@ -184,8 +197,92 @@ class OrderService:
             )
         )
 
+        # 步骤6b: 核销优惠券使用记录
+        if _coupon_history is not None:
+            from app.models.promotion.coupon import SmsCoupon
+
+            _coupon_history.use_status = 1
+            _coupon_history.use_time = datetime.now(UTC)
+            _coupon_history.order_id = order.id
+            _coupon_history.order_sn = order.order_sn
+            await self.db.execute(
+                update(SmsCoupon).where(SmsCoupon.id == data.coupon_id).values(use_count=SmsCoupon.use_count + 1)
+            )
+
         await self.db.flush()
         return await self.get_detail(order.id, user_id=user_id)
+
+    async def _apply_coupon(self, user_id: UUID, coupon_id: UUID, total_amount: Decimal):
+        """
+        优惠券校验与折扣计算。
+
+        校验链:
+          1. 优惠券模板存在且启用 (status=1)
+          2. 用户已领取且未使用 (use_status=0)
+          3. 未过期 (expire_time > now)
+          4. 满足使用门槛 (total_amount >= min_amount)
+
+        Returns:
+            (discount_amount, SmsCouponHistory) — history 对象供调用方后续更新 use_status。
+            调用方必须在订单创建后设置 use_status=1, use_time, order_id, order_sn，
+            并更新 SmsCoupon.use_count。
+        """
+        from datetime import UTC
+
+        from app.core.exceptions import CouponError
+        from app.models.promotion.coupon import SmsCoupon, SmsCouponHistory
+
+        # 1. 优惠券模板存在且启用
+        coupon_result = await self.db.execute(
+            select(SmsCoupon).where(
+                SmsCoupon.id == coupon_id,
+                SmsCoupon.status == 1,
+            )
+        )
+        coupon = coupon_result.scalar_one_or_none()
+        if not coupon:
+            raise CouponError(
+                code="COUPON_INVALID",
+                message="优惠券不存在或已禁用",
+                status_code=400,
+            )
+
+        # 2. 用户已领取且未使用、未过期
+        now = datetime.now(UTC)
+        history_result = await self.db.execute(
+            select(SmsCouponHistory).where(
+                SmsCouponHistory.coupon_id == coupon_id,
+                SmsCouponHistory.user_id == user_id,
+                SmsCouponHistory.use_status == 0,
+                SmsCouponHistory.expire_time > now,
+            )
+        )
+        history = history_result.scalars().first()
+        if not history:
+            raise CouponError(
+                code="COUPON_NOT_AVAILABLE",
+                message="优惠券未领取、已使用或已过期",
+                status_code=400,
+            )
+
+        # 3. 使用门槛 (使用领取时的快照阈值)
+        if total_amount < history.coupon_min_amount:
+            raise CouponError(
+                code="COUPON_THRESHOLD_NOT_MET",
+                message=f"未满足优惠券使用门槛 (需满 {history.coupon_min_amount}，当前 {total_amount})",
+                status_code=400,
+            )
+
+        # 4. 计算折扣 (使用领取时的快照金额和类型)
+        if history.coupon_use_type == 1:
+            # 折扣券: amount 存储折扣率 (如 80 = 打8折 = 优惠20%)
+            rate = (Decimal("100") - history.coupon_amount) / Decimal("100")
+            discount = (total_amount * rate).quantize(Decimal("0.01"))
+        else:
+            # 满减券 (use_type=0) / 立减券 (use_type=2): amount 为直接抵扣金额
+            discount = min(history.coupon_amount, total_amount)
+
+        return discount, history
 
     # =========================================================================
     #  支付回调
@@ -204,6 +301,7 @@ class OrderService:
         order = await self._get_order(OmsOrder, order_id, user_id=user_id)
         if not order:
             from app.core.exceptions import OrderNotFoundError
+
             raise OrderNotFoundError(str(order_id))
 
         _validate_transition(order.status, OrderStatus.PAID)
@@ -213,13 +311,15 @@ class OrderService:
         order.payment_time = datetime.now(UTC)
         order.pay_type = order.pay_type or 1
 
-        self.db.add(OmsOrderOperateLog(
-            order_id=order.id,
-            operate_man="system",
-            order_status_before=OrderStatus.PENDING_PAYMENT,
-            order_status_after=OrderStatus.PAID,
-            note=f"支付成功 {pay_order_sn}",
-        ))
+        self.db.add(
+            OmsOrderOperateLog(
+                order_id=order.id,
+                operate_man="system",
+                order_status_before=OrderStatus.PENDING_PAYMENT,
+                order_status_after=OrderStatus.PAID,
+                note=f"支付成功 {pay_order_sn}",
+            )
+        )
         await self.db.flush()
         return await self.get_detail(order.id, user_id=user_id)
 
@@ -242,6 +342,7 @@ class OrderService:
         order = await self._get_order(OmsOrder, order_id, user_id=user_id)
         if not order:
             from app.core.exceptions import OrderNotFoundError
+
             raise OrderNotFoundError(str(order_id))
 
         # 待付款 → 关闭；已付款 → 退款中
@@ -253,23 +354,21 @@ class OrderService:
 
         # 恢复库存: 释放锁定的库存
         if old_status in (OrderStatus.PENDING_PAYMENT, OrderStatus.PAID):
-            items_result = await self.db.execute(
-                select(OmsOrderItem).where(OmsOrderItem.order_id == order_id)
-            )
+            items_result = await self.db.execute(select(OmsOrderItem).where(OmsOrderItem.order_id == order_id))
             for item in items_result.scalars().all():
                 await self.db.execute(
-                    update(PmsSku)
-                    .where(PmsSku.id == item.sku_id)
-                    .values(lock_stock=PmsSku.lock_stock - item.quantity)
+                    update(PmsSku).where(PmsSku.id == item.sku_id).values(lock_stock=PmsSku.lock_stock - item.quantity)
                 )
 
-        self.db.add(OmsOrderOperateLog(
-            order_id=order.id,
-            operate_man=operator,
-            order_status_before=old_status,
-            order_status_after=target_status,
-            note=note or "取消订单",
-        ))
+        self.db.add(
+            OmsOrderOperateLog(
+                order_id=order.id,
+                operate_man=operator,
+                order_status_before=old_status,
+                order_status_after=target_status,
+                note=note or "取消订单",
+            )
+        )
         await self.db.flush()
         return await self.get_detail(order.id, user_id=user_id)
 
@@ -283,6 +382,7 @@ class OrderService:
         order = await self.db.get(OmsOrder, order_id)
         if not order:
             from app.core.exceptions import OrderNotFoundError
+
             raise OrderNotFoundError(str(order_id))
 
         _validate_transition(order.status, OrderStatus.DELIVERED)
@@ -293,13 +393,15 @@ class OrderService:
         order.delivery_sn = data.delivery_sn
         order.delivery_time = datetime.now(UTC)
 
-        self.db.add(OmsOrderOperateLog(
-            order_id=order.id,
-            operate_man=operator,
-            order_status_before=old_status,
-            order_status_after=OrderStatus.DELIVERED,
-            note=f"物流: {data.delivery_company} {data.delivery_sn}",
-        ))
+        self.db.add(
+            OmsOrderOperateLog(
+                order_id=order.id,
+                operate_man=operator,
+                order_status_before=old_status,
+                order_status_after=OrderStatus.DELIVERED,
+                note=f"物流: {data.delivery_company} {data.delivery_sn}",
+            )
+        )
         await self.db.flush()
         return await self.get_detail(order.id)
 
@@ -307,14 +409,13 @@ class OrderService:
     #  确认收货 (用户)
     # =========================================================================
 
-    async def confirm_receipt(
-        self, order_id: UUID, user_id: UUID | None = None
-    ) -> OrderDetailResponse:
+    async def confirm_receipt(self, order_id: UUID, user_id: UUID | None = None) -> OrderDetailResponse:
         from app.models.order.order import OmsOrder, OmsOrderOperateLog
 
         order = await self._get_order(OmsOrder, order_id, user_id=user_id)
         if not order:
             from app.core.exceptions import OrderNotFoundError
+
             raise OrderNotFoundError(str(order_id))
 
         _validate_transition(order.status, OrderStatus.RECEIVED)
@@ -323,15 +424,87 @@ class OrderService:
         order.status = OrderStatus.RECEIVED
         order.confirm_status = 1
 
-        self.db.add(OmsOrderOperateLog(
-            order_id=order.id,
-            operate_man="user",
-            order_status_before=old_status,
-            order_status_after=OrderStatus.RECEIVED,
-            note="用户确认收货",
-        ))
+        self.db.add(
+            OmsOrderOperateLog(
+                order_id=order.id,
+                operate_man="user",
+                order_status_before=old_status,
+                order_status_after=OrderStatus.RECEIVED,
+                note="用户确认收货",
+            )
+        )
         await self.db.flush()
         return await self.get_detail(order.id, user_id=user_id)
+
+    # =========================================================================
+    #  完成订单 (已收货 → 已完成)
+    # =========================================================================
+
+    async def complete(self, order_id: UUID, user_id: UUID | None = None) -> OrderDetailResponse:
+        """
+        完成订单 —— 从已收货过渡到已完成。
+
+        状态变更: RECEIVED(3) → COMPLETED(4)
+        """
+        from app.models.order.order import OmsOrder, OmsOrderOperateLog
+
+        order = await self._get_order(OmsOrder, order_id, user_id=user_id)
+        if not order:
+            from app.core.exceptions import OrderNotFoundError
+
+            raise OrderNotFoundError(str(order_id))
+
+        _validate_transition(order.status, OrderStatus.COMPLETED)
+
+        old_status = order.status
+        order.status = OrderStatus.COMPLETED
+
+        self.db.add(
+            OmsOrderOperateLog(
+                order_id=order.id,
+                operate_man="user" if user_id else "system",
+                order_status_before=old_status,
+                order_status_after=OrderStatus.COMPLETED,
+                note="订单已完成",
+            )
+        )
+        await self.db.flush()
+        return await self.get_detail(order.id, user_id=user_id)
+
+    # =========================================================================
+    #  退款完成 (管理员)
+    # =========================================================================
+
+    async def refund(self, order_id: UUID, operator: str, note: str = "") -> OrderDetailResponse:
+        """
+        退款完成 —— 管理员确认退款。
+
+        状态变更: REFUNDING(6) → REFUNDED(7)
+        """
+        from app.models.order.order import OmsOrder, OmsOrderOperateLog
+
+        order = await self.db.get(OmsOrder, order_id)
+        if not order:
+            from app.core.exceptions import OrderNotFoundError
+
+            raise OrderNotFoundError(str(order_id))
+
+        _validate_transition(order.status, OrderStatus.REFUNDED)
+
+        old_status = order.status
+        order.status = OrderStatus.REFUNDED
+
+        self.db.add(
+            OmsOrderOperateLog(
+                order_id=order.id,
+                operate_man=operator,
+                order_status_before=old_status,
+                order_status_after=OrderStatus.REFUNDED,
+                note=note or "退款完成",
+            )
+        )
+        await self.db.flush()
+        return await self.get_detail(order.id)
 
     # =========================================================================
     #  管理员操作
@@ -348,6 +521,7 @@ class OrderService:
         order = await self.db.get(OmsOrder, order_id)
         if not order:
             from app.core.exceptions import OrderNotFoundError
+
             raise OrderNotFoundError(str(order_id))
 
         for field, value in kwargs.items():
@@ -363,6 +537,7 @@ class OrderService:
         order = await self.db.get(OmsOrder, order_id)
         if not order:
             from app.core.exceptions import OrderNotFoundError
+
             raise OrderNotFoundError(str(order_id))
 
         if data.freight_amount is not None:
@@ -381,6 +556,7 @@ class OrderService:
         order = await self.db.get(OmsOrder, order_id)
         if not order:
             from app.core.exceptions import OrderNotFoundError
+
             raise OrderNotFoundError(str(order_id))
 
         order.admin_note = note
@@ -391,23 +567,18 @@ class OrderService:
         """软删除订单（设置 delete_status=1）"""
         from app.models.order.order import OmsOrder
 
-        stmt = (
-            update(OmsOrder)
-            .where(OmsOrder.id == order_id, OmsOrder.delete_status == 0)
-            .values(delete_status=1)
-        )
+        stmt = update(OmsOrder).where(OmsOrder.id == order_id, OmsOrder.delete_status == 0).values(delete_status=1)
         result = await self.db.execute(stmt)
         if result.rowcount == 0:  # type: ignore[attr-defined]
             from app.core.exceptions import OrderNotFoundError
+
             raise OrderNotFoundError(str(order_id))
 
     # =========================================================================
     #  查询
     # =========================================================================
 
-    async def _get_order(
-        self, model: type, order_id: UUID, *, user_id: UUID | None = None
-    ) -> Any:
+    async def _get_order(self, model: type, order_id: UUID, *, user_id: UUID | None = None) -> Any:
         """加载订单，若提供 user_id 则附加归属权过滤。"""
         if user_id is not None:
             result: Any = await self.db.execute(
@@ -419,25 +590,33 @@ class OrderService:
             return result.scalars().first()
         return await self.db.get(model, order_id)
 
-    async def get_detail(
-        self, order_id: UUID, user_id: UUID | None = None
-    ) -> OrderDetailResponse:
-        """订单详情 —— 含明细。若提供 user_id 则校验归属权。"""
-        from app.models.order.order import OmsOrder, OmsOrderItem
+    async def get_detail(self, order_id: UUID, user_id: UUID | None = None) -> OrderDetailResponse:
+        """订单详情 —— 含明细 + 操作日志。若提供 user_id 则校验归属权。"""
+        from app.models.order.order import OmsOrder, OmsOrderItem, OmsOrderOperateLog
 
         order = await self._get_order(OmsOrder, order_id, user_id=user_id)
         if not order:
             from app.core.exceptions import OrderNotFoundError
+
             raise OrderNotFoundError(str(order_id))
 
-        items_result = await self.db.execute(
-            select(OmsOrderItem).where(OmsOrderItem.order_id == order_id)
-        )
+        items_result = await self.db.execute(select(OmsOrderItem).where(OmsOrderItem.order_id == order_id))
         items = items_result.scalars().all()
+
+        # 查询操作日志（按 ID 升序 = 按创建时间升序，用于时间线展示）
+        logs_result = await self.db.execute(
+            select(OmsOrderOperateLog)
+            .where(OmsOrderOperateLog.order_id == order_id)
+            .order_by(OmsOrderOperateLog.id.asc())
+        )
+        logs = logs_result.scalars().all()
+
+        from app.schemas.order import OrderOperateLogResponse
 
         return OrderDetailResponse(
             **OrderResponse.model_validate(order).model_dump(),
             items=[OrderItemResponse.model_validate(i) for i in items],
+            logs=[OrderOperateLogResponse.model_validate(log) for log in logs],
         )
 
     async def list_admin(self, query: OrderListQuery) -> tuple[list[OrderResponse], int]:
@@ -468,9 +647,7 @@ class OrderService:
         total = result.scalar() or 0
 
         result = await self.db.execute(
-            base.order_by(OmsOrder.created_at.desc())
-            .offset((query.page - 1) * query.page_size)
-            .limit(query.page_size)
+            base.order_by(OmsOrder.created_at.desc()).offset((query.page - 1) * query.page_size).limit(query.page_size)
         )
         orders = result.scalars().all()
         return [OrderResponse.model_validate(o) for o in orders], total
@@ -498,9 +675,7 @@ class OrderService:
         total = result.scalar() or 0
 
         result = await self.db.execute(
-            base.order_by(OmsOrder.created_at.desc())
-            .offset((page - 1) * page_size)
-            .limit(page_size)
+            base.order_by(OmsOrder.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
         )
         orders = result.scalars().all()
         return [OrderResponse.model_validate(o) for o in orders], total
@@ -581,9 +756,7 @@ class OrderService:
             if counts.get(status, 0) > 0
         ]
 
-    async def revenue_daily_range(
-        self, start_date: date, end_date: date
-    ) -> list[int]:
+    async def revenue_daily_range(self, start_date: date, end_date: date) -> list[int]:
         """近N天每日销售额 (分)，按日期升序"""
         from app.models.order.order import OmsOrder
 
@@ -617,16 +790,18 @@ class OrderService:
         from app.models.order.order import OmsOrder
 
         _status_map = {
-            0: "待付款", 1: "待发货", 2: "已发货",
-            3: "已收货", 4: "已完成", 5: "已关闭",
-            6: "退款中", 7: "已退款",
+            0: "待付款",
+            1: "待发货",
+            2: "已发货",
+            3: "已收货",
+            4: "已完成",
+            5: "已关闭",
+            6: "退款中",
+            7: "已退款",
         }
 
         result = await self.db.execute(
-            select(OmsOrder)
-            .where(OmsOrder.delete_status == 0)
-            .order_by(OmsOrder.created_at.desc())
-            .limit(limit)
+            select(OmsOrder).where(OmsOrder.delete_status == 0).order_by(OmsOrder.created_at.desc()).limit(limit)
         )
         orders = result.scalars().all()
         return [

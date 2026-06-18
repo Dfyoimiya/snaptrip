@@ -17,15 +17,9 @@ class OmsReturnReason(CommerceBase, AuditMixin):
 
     __tablename__ = "oms_return_reasons"
 
-    name: Mapped[str] = mapped_column(
-        String(100), nullable=False, comment="原因名称"
-    )
-    sort: Mapped[int] = mapped_column(
-        Integer, default=0, nullable=False, comment="排序"
-    )
-    status: Mapped[int] = mapped_column(
-        Integer, default=1, nullable=False, comment="状态: 0=禁用 1=启用"
-    )
+    name: Mapped[str] = mapped_column(String(100), nullable=False, comment="原因名称")
+    sort: Mapped[int] = mapped_column(Integer, default=0, nullable=False, comment="排序")
+    status: Mapped[int] = mapped_column(Integer, default=1, nullable=False, comment="状态: 0=禁用 1=启用")
 
     def __repr__(self) -> str:
         return f"<OmsReturnReason name={self.name!r}>"

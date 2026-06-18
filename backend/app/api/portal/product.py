@@ -17,7 +17,7 @@ from snaptrip_shared.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.common import PaginatedResponse, PaginationParams
-from app.schemas.product import PortalProductDetailResponse, PortalProductResponse
+from app.schemas.product import PortalProductDetailResponse
 from app.services.product_service import ProductService
 
 router = APIRouter(prefix="/portal/products", tags=["Portal - 商品浏览"])
@@ -30,6 +30,7 @@ def _resolve_user_id(request: Request) -> UUID | None:
         return None
     try:
         from marketplace.app.core.security import decode_access_token
+
         token = auth.removeprefix("Bearer ").strip()
         payload = decode_access_token(token)
         sub = payload.get("sub", "")
@@ -40,18 +41,19 @@ def _resolve_user_id(request: Request) -> UUID | None:
 
 def _get_hybrid_search(request: Request):
     """懒初始化 HybridSearchService。"""
+    from agent.nodes.recommendation.search_intent import SearchIntentAgent
+    from snaptrip_shared.db.session import AsyncSessionLocal
+
     from app.search.client import get_search_client
     from app.services.hybrid_search_service import HybridSearchService
     from app.services.search_personalization_service import SearchPersonalizationService
-    from agent.nodes.recommendation.search_intent import SearchIntentAgent
-    from snaptrip_shared.db.session import AsyncSessionLocal
 
     es = get_search_client()
     vector = request.app.state.vector_search_service
     memory = request.app.state.memory
     # LLM adapter 从 recommendation_supervisor 获取 (可能为 None)
-    supervisor = getattr(request.app.state, 'recommendation_supervisor', None)
-    llm = getattr(supervisor, '_llm', None) if supervisor else None
+    supervisor = getattr(request.app.state, "recommendation_supervisor", None)
+    llm = getattr(supervisor, "_llm", None) if supervisor else None
 
     personalization = SearchPersonalizationService(
         db_factory=AsyncSessionLocal,

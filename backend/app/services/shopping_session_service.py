@@ -20,14 +20,14 @@ logger = logging.getLogger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-SESSION_TTL = 1800           # 30 min active session
-SUMMARY_TTL = 86400 * 30     # 30 day summary retention
+SESSION_TTL = 1800  # 30 min active session
+SUMMARY_TTL = 86400 * 30  # 30 day summary retention
 PREFERENCES_TTL = 86400 * 60  # 60 day preference retention
-MAX_HISTORY_SESSIONS = 50    # per user
+MAX_HISTORY_SESSIONS = 50  # per user
 MAX_MESSAGES_PER_SESSION = 100
-MAX_PREF_TAGS = 20           # max accumulated style_tags per user
-MAX_PREF_CATEGORIES = 10     # max accumulated categories per user
-MAX_PREF_BRANDS = 10         # max accumulated brands per user
+MAX_PREF_TAGS = 20  # max accumulated style_tags per user
+MAX_PREF_CATEGORIES = 10  # max accumulated categories per user
+MAX_PREF_BRANDS = 10  # max accumulated brands per user
 KEY_PREFIX = "shopping_session"
 
 # ── Summary prompt (lightweight — called after each chat turn) ────────────────
@@ -103,9 +103,7 @@ class ShoppingSessionService:
         if raw:
             meta = json.loads(raw)
             meta["updated_at"] = time.time()
-            await self._memory.client.set(
-                key, json.dumps(meta, ensure_ascii=False), ex=SESSION_TTL
-            )
+            await self._memory.client.set(key, json.dumps(meta, ensure_ascii=False), ex=SESSION_TTL)
 
     async def get_session(self, session_id: str) -> dict | None:
         """Get session metadata."""
@@ -140,11 +138,14 @@ class ShoppingSessionService:
     async def append_message(self, session_id: str, role: str, content: str) -> None:
         """Append a message to the session's conversation history."""
         key = f"{KEY_PREFIX}:{session_id}:msgs"
-        entry = json.dumps({
-            "role": role,
-            "content": content,
-            "ts": time.time(),
-        }, ensure_ascii=False)
+        entry = json.dumps(
+            {
+                "role": role,
+                "content": content,
+                "ts": time.time(),
+            },
+            ensure_ascii=False,
+        )
         async with self._memory.client.pipeline() as pipe:
             pipe.rpush(key, entry)
             pipe.ltrim(key, -MAX_MESSAGES_PER_SESSION, -1)
@@ -158,9 +159,7 @@ class ShoppingSessionService:
             meta = json.loads(raw)
             meta["message_count"] = meta.get("message_count", 0) + 1
             meta["updated_at"] = time.time()
-            await self._memory.client.set(
-                meta_key, json.dumps(meta, ensure_ascii=False), ex=SESSION_TTL
-            )
+            await self._memory.client.set(meta_key, json.dumps(meta, ensure_ascii=False), ex=SESSION_TTL)
 
     async def get_messages(self, session_id: str) -> list[dict]:
         """Get all messages for a session."""
@@ -178,9 +177,7 @@ class ShoppingSessionService:
         key = f"{KEY_PREFIX}:{session_id}:summary"
         summary["saved_at"] = time.time()
         summary["session_id"] = session_id
-        await self._memory.client.set(
-            key, json.dumps(summary, ensure_ascii=False), ex=SUMMARY_TTL
-        )
+        await self._memory.client.set(key, json.dumps(summary, ensure_ascii=False), ex=SUMMARY_TTL)
         logger.debug("Saved summary for session %s", session_id)
 
     async def get_summary(self, session_id: str) -> dict | None:
@@ -209,13 +206,14 @@ class ShoppingSessionService:
         """Build a compact prompt for LLM summary generation."""
         # Keep last 6 messages (3 turns) for summary context
         recent = messages[-6:]
-        conversation = "\n".join(
-            f"{m['role']}: {str(m['content'])[:300]}" for m in recent
-        )
+        conversation = "\n".join(f"{m['role']}: {str(m['content'])[:300]}" for m in recent)
         return _SUMMARY_PROMPT.format(conversation=conversation)
 
     async def generate_and_save_summary(
-        self, session_id: str, user_id: str, messages: list[dict],
+        self,
+        session_id: str,
+        user_id: str,
+        messages: list[dict],
     ) -> dict | None:
         """Generate an LLM summary and save it. Returns the summary or None on failure."""
         if len(messages) < 2:
@@ -230,6 +228,7 @@ class ShoppingSessionService:
                 from agent.graphs.shopping_guide import (
                     _shopping_runtime as _sr,
                 )
+
                 adapter = _sr.llm_adapter if _sr else None
 
             if not adapter:
@@ -261,9 +260,7 @@ class ShoppingSessionService:
 
                 return summary
         except Exception:
-            logger.warning(
-                "Failed to generate summary for session %s", session_id, exc_info=True
-            )
+            logger.warning("Failed to generate summary for session %s", session_id, exc_info=True)
         return None
 
     # ── User preference profile ────────────────────────────────────────────────
@@ -284,9 +281,7 @@ class ShoppingSessionService:
             "updated_at": 0,
         }
 
-    async def merge_and_save_preferences(
-        self, user_id: str, session_summary: dict
-    ) -> None:
+    async def merge_and_save_preferences(self, user_id: str, session_summary: dict) -> None:
         """Merge per-session preferences into the user-level profile.
 
         New preferences are prepended (most recent first) with dedup.
@@ -334,9 +329,7 @@ class ShoppingSessionService:
         }
 
         key = f"shopping_preferences:{user_id}"
-        await self._memory.client.set(
-            key, json.dumps(updated, ensure_ascii=False), ex=PREFERENCES_TTL
-        )
+        await self._memory.client.set(key, json.dumps(updated, ensure_ascii=False), ex=PREFERENCES_TTL)
         logger.debug("Merged shopping preferences for user %s", user_id)
 
     async def build_preference_context(self, user_id: str) -> str:
@@ -377,9 +370,7 @@ class ShoppingSessionService:
         if not parts:
             return ""
 
-        lines = [
-            f"[User shopping profile (accumulated from {prefs.get('total_sessions', 0)} sessions):]"
-        ]
+        lines = [f"[User shopping profile (accumulated from {prefs.get('total_sessions', 0)} sessions):]"]
         lines.extend(f"  {p}" for p in parts)
         return "\n".join(lines)
 

@@ -12,10 +12,9 @@ from snaptrip_shared.core.security import hash_password
 from snaptrip_shared.db.session import AsyncSessionLocal
 from sqlalchemy import select
 
-from marketplace.app.models.users import User
-from marketplace.app.models.user_profile import UserProfile
 from app.models.rbac import Role, UserRole
-
+from marketplace.app.models.user_profile import UserProfile
+from marketplace.app.models.users import User
 
 ROLES = [
     ("super_admin", "super123"),

@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field, model_validator
 #  分类 Schema
 # ============================================================================
 
+
 class CategoryCreate(BaseModel):
     """创建分类 —— 提供 name 必填，其余有默认值"""
 
@@ -95,6 +96,7 @@ class CategoryTreeResponse(BaseModel):
 #  品牌 Schema
 # ============================================================================
 
+
 class BrandCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=64, description="品牌名称")
     first_letter: str | None = Field(None, min_length=1, max_length=8, description="首字母")
@@ -104,6 +106,10 @@ class BrandCreate(BaseModel):
     logo: str | None = Field(None, max_length=255, description="Logo URL")
     big_pic: str | None = Field(None, max_length=255, description="专区大图")
     brand_story: str | None = Field(None, max_length=2000, description="品牌故事")
+    latitude: float | None = Field(None, ge=-90, le=90, description="门店纬度")
+    longitude: float | None = Field(None, ge=-180, le=180, description="门店经度")
+    address: str | None = Field(None, max_length=255, description="门店地址")
+    phone: str | None = Field(None, max_length=32, description="联系电话")
 
 
 class BrandUpdate(BaseModel):
@@ -115,6 +121,10 @@ class BrandUpdate(BaseModel):
     logo: str | None = Field(None, max_length=255)
     big_pic: str | None = Field(None, max_length=255)
     brand_story: str | None = Field(None, max_length=2000)
+    latitude: float | None = Field(None, ge=-90, le=90)
+    longitude: float | None = Field(None, ge=-180, le=180)
+    address: str | None = Field(None, max_length=255)
+    phone: str | None = Field(None, max_length=32)
 
 
 class BrandResponse(BaseModel):
@@ -127,15 +137,45 @@ class BrandResponse(BaseModel):
     logo: str | None = None
     big_pic: str | None = None
     brand_story: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    address: str | None = None
+    phone: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
     model_config = {"from_attributes": True}
 
 
+class BrandListResponse(BrandResponse):
+    """品牌列表项 —— 含距离信息 (仅当请求提供 lat/lng 时计算)"""
+
+    distance_km: float | None = None
+
+
+class ProductBriefResponse(BaseModel):
+    """商品简要信息 —— 品牌详情页内的商品列表"""
+
+    id: UUID
+    name: str
+    default_pic: str | None = None
+    price: Decimal
+    sale_count: int
+
+    model_config = {"from_attributes": True}
+
+
+class BrandDetailResponse(BrandResponse):
+    """品牌详情 —— 含商品数量与商品列表"""
+
+    product_count: int = 0
+    products: list[ProductBriefResponse] = Field(default_factory=list)
+
+
 # ============================================================================
 #  商品属性 Schema
 # ============================================================================
+
 
 class ProductAttributeCreate(BaseModel):
     category_id: UUID = Field(..., description="商品分类ID")
@@ -182,6 +222,7 @@ class ProductAttributeResponse(BaseModel):
 #  商品 SKU Schema
 # ============================================================================
 
+
 class SkuCreate(BaseModel):
     """创建 SKU —— 与商品一起创建"""
 
@@ -192,6 +233,16 @@ class SkuCreate(BaseModel):
     stock: int = Field(default=0, ge=0, description="库存")
     low_stock: int = Field(default=0, ge=0, description="预警库存")
     pic: str | None = Field(None, max_length=255, description="SKU图片")
+
+
+class SkuUpdate(BaseModel):
+    """更新 SKU —— 所有字段可选，只更新传入的字段"""
+
+    price: Decimal | None = Field(None, ge=0, max_digits=10, decimal_places=2, description="售价")
+    promotion_price: Decimal | None = Field(None, ge=0, max_digits=10, decimal_places=2, description="促销价")
+    stock: int | None = Field(None, ge=0, description="库存")
+    pic: str | None = Field(None, max_length=255, description="SKU图片")
+    spec: str | None = Field(None, min_length=1, max_length=255, description="规格JSON")
 
 
 class SkuResponse(BaseModel):
@@ -213,6 +264,7 @@ class SkuResponse(BaseModel):
 # ============================================================================
 #  商品 Schema
 # ============================================================================
+
 
 class ProductCreate(BaseModel):
     """创建商品 —— 含基础信息 + SKU列表 + 属性值列表"""
@@ -342,6 +394,7 @@ class ProductDetailResponse(ProductResponse):
 # ============================================================================
 #  前台商品 Schema (不含后台管理字段)
 # ============================================================================
+
 
 class PortalProductResponse(BaseModel):
     """前台商品响应 —— 排除发布/审核/新品/推荐等后台管理状态字段"""

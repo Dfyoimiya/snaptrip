@@ -9,7 +9,7 @@ Date: 2026-06-16
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -61,4 +61,4 @@ class RecommendationResponse(BaseModel):
     experiment_group: str = "control"
     agent_results: dict[str, AgentResultItem] = Field(default_factory=dict)
     total_latency_ms: float = 0.0
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))

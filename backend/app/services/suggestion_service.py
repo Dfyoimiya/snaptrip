@@ -116,8 +116,7 @@ class SuggestionService:
                     "section_type": "trending",
                     "title": "热门搜索",
                     "queries": [
-                        {"query": q["query"], "type": "trending", "frequency": q.get("count", 0)}
-                        for q in queries
+                        {"query": q["query"], "type": "trending", "frequency": q.get("count", 0)} for q in queries
                     ],
                 }
             # Redis 无数据, 使用静态兜底
@@ -150,8 +149,7 @@ class SuggestionService:
                         "section_type": "ai_suggestions",
                         "title": "AI 推荐",
                         "queries": [
-                            {"query": q["query"], "type": "ai", "detail": q.get("detail", "")}
-                            for q in cached[:limit]
+                            {"query": q["query"], "type": "ai", "detail": q.get("detail", "")} for q in cached[:limit]
                         ],
                     }
             return {"section_type": "ai_suggestions", "title": "AI 推荐", "queries": []}
@@ -170,10 +168,7 @@ class SuggestionService:
             return {
                 "section_type": "history",
                 "title": "搜索历史",
-                "queries": [
-                    {"query": q, "type": "history", "frequency": 0}
-                    for q in history
-                ],
+                "queries": [{"query": q, "type": "history", "frequency": 0} for q in history],
             }
         except Exception as exc:
             logger.debug("suggestion: history failed: %s", exc)

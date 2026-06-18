@@ -17,13 +17,13 @@ Date: 2026-05-26
 
 from __future__ import annotations
 
-from sqlalchemy import Integer, String, Text
+from sqlalchemy import Float, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.models.base import AuditMixin, CommerceBase
+from app.models.base import AuditMixin, CommerceBase, SoftDeleteMixin
 
 
-class PmsBrand(CommerceBase, AuditMixin):
+class PmsBrand(CommerceBase, AuditMixin, SoftDeleteMixin):
     """
     商品品牌表。
     品牌独立于分类存在，通过商品的 brand_id 字段与商品关联。
@@ -78,6 +78,28 @@ class PmsBrand(CommerceBase, AuditMixin):
         Text,
         nullable=True,
         comment="品牌故事",
+    )
+
+    # ── 门店信息 ──
+    latitude: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        comment="门店纬度",
+    )
+    longitude: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+        comment="门店经度",
+    )
+    address: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+        comment="门店地址",
+    )
+    phone: Mapped[str | None] = mapped_column(
+        String(32),
+        nullable=True,
+        comment="联系电话",
     )
 
     def __repr__(self) -> str:

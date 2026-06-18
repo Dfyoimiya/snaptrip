@@ -42,32 +42,55 @@ def sync_all_products_to_es() -> dict:
         # 先创建索引 (如果不存在)
         await get_search_client().create_product_index()
 
-        # 全量查询
+        # 全量查询 — 预加载品牌和分类名称用于 ES 文档
         from snaptrip_shared.db.session import AsyncSessionLocal
+
+        from app.models.product.brand import PmsBrand
+        from app.models.product.category import PmsCategory
+
         async with AsyncSessionLocal() as session:
-            result = await session.execute(
-                select(PmsProduct).where(PmsProduct.is_deleted.is_(False))
-            )
+            result = await session.execute(select(PmsProduct).where(PmsProduct.is_deleted.is_(False)))
             products = result.scalars().all()
+
+            # 预加载品牌名称映射
+            brand_ids = {p.brand_id for p in products if p.brand_id}
+            brand_map: dict = {}
+            if brand_ids:
+                brand_result = await session.execute(select(PmsBrand).where(PmsBrand.id.in_(brand_ids)))
+                for b in brand_result.scalars().all():
+                    brand_map[b.id] = b.name
+
+            # 预加载分类名称映射
+            category_ids = {p.category_id for p in products if p.category_id}
+            category_map: dict = {}
+            if category_ids:
+                cat_result = await session.execute(select(PmsCategory).where(PmsCategory.id.in_(category_ids)))
+                for c in cat_result.scalars().all():
+                    category_map[c.id] = c.name
 
         # 批量索引
         docs = []
         for p in products:
-            docs.append({
-                "id": str(p.id),
-                "name": p.name,
-                "sub_title": p.sub_title or "",
-                "keywords": p.keywords or "",
-                "category_id": str(p.category_id) if p.category_id else "",
-                "brand_id": str(p.brand_id) if p.brand_id else "",
-                "price": float(p.price) if p.price else 0,
-                "promotion_price": float(p.promotion_price) if p.promotion_price else None,
-                "sale_count": p.sale_count or 0,
-                "stock": p.stock or 0,
-                "pics": p.pics or "",
-                "publish_status": p.publish_status,
-                "verify_status": p.verify_status,
-            })
+            docs.append(
+                {
+                    "id": str(p.id),
+                    "name": p.name,
+                    "sub_title": p.sub_title or "",
+                    "keywords": p.keywords or "",
+                    "category_id": str(p.category_id) if p.category_id else "",
+                    "category_name": category_map.get(p.category_id, ""),
+                    "brand_id": str(p.brand_id) if p.brand_id else "",
+                    "brand_name": brand_map.get(p.brand_id, ""),
+                    "price": float(p.price) if p.price else 0,
+                    "promotion_price": float(p.promotion_price) if p.promotion_price else None,
+                    "sale_count": p.sale_count or 0,
+                    "stock": p.stock or 0,
+                    "pics": p.pics or "",
+                    "publish_status": p.publish_status,
+                    "verify_status": p.verify_status,
+                    "publish_time": p.created_at.isoformat() if p.created_at else None,
+                }
+            )
 
         success = await get_search_client().bulk_index_products(docs)
         logger.info("es_full_sync_done", total=len(products), success=success)
@@ -87,14 +110,14 @@ def sync_product_to_es_by_id(product_id: str) -> bool:
         from snaptrip_shared.db.session import AsyncSessionLocal
 
         from app.models.product.product import PmsProduct
-        from app.services.product_service import _sync_product_to_es
+        from app.services.product_service import sync_product_to_es
 
         async with AsyncSessionLocal() as session:
             product = await session.get(PmsProduct, UUID(product_id))
             if not product:
                 logger.warning("es_sync_product_not_found", product_id=product_id)
                 return False
-            await _sync_product_to_es(product)
+            await sync_product_to_es(session, product)
             return True
 
     return asyncio.run(_run())

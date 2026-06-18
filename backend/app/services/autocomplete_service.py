@@ -69,7 +69,10 @@ class AutocompleteService:
             if len(suggestions) < limit:
                 char_key = f"autocomplete:{prefix[0]}"
                 raw2 = await self._memory.zset_zrevrange(
-                    char_key, 0, limit * 2 - 1, withscores=True,
+                    char_key,
+                    0,
+                    limit * 2 - 1,
+                    withscores=True,
                 )
                 for query, score in raw2:
                     if query not in seen and query.startswith(prefix):
@@ -85,10 +88,7 @@ class AutocompleteService:
                     suggestions.append((query, score))
                     seen.add(query)
 
-        return [
-            {"query": q, "frequency": int(s), "type": "autocomplete"}
-            for q, s in suggestions[:limit]
-        ]
+        return [{"query": q, "frequency": int(s), "type": "autocomplete"} for q, s in suggestions[:limit]]
 
     async def increment(self, query: str) -> None:
         """每次搜索时增量更新自动补全索引。
@@ -145,7 +145,9 @@ class AutocompleteService:
         return key_count
 
     async def build_from_search_logs(
-        self, db_factory, top_n: int = 500,
+        self,
+        db_factory,
+        top_n: int = 500,
     ) -> int:
         """从数据库 search_logs 构建自动补全索引。
 

@@ -15,7 +15,6 @@ Date: 2026-06-16
 from __future__ import annotations
 
 import logging
-from typing import Any
 from uuid import UUID
 
 from sqlalchemy import text

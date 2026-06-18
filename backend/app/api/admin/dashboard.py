@@ -14,10 +14,10 @@ from snaptrip_shared.core.response import success
 from snaptrip_shared.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.rbac import require_admin_user
 from app.services.member_service import MemberService
 from app.services.order_service import OrderService
 from app.services.product_service import ProductService
-from marketplace.app.core.security import get_current_user
 
 router = APIRouter(prefix="/admin/dashboard", tags=["Admin - 仪表盘"])
 
@@ -28,7 +28,7 @@ _WEEKDAY_NAMES = ["周一", "周二", "周三", "周四", "周五", "周六", "�
 @router.get("", summary="仪表盘聚合数据")
 async def get_dashboard(
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     """
     返回管理后台首页所需的所有聚合数据。
@@ -56,15 +56,17 @@ async def get_dashboard(
         week_days.append(_WEEKDAY_NAMES[d.weekday()])
         d += timedelta(days=1)
 
-    return success({
-        "today_orders": today_orders,
-        "today_revenue": today_revenue,
-        "today_revenue_display": f"¥{today_revenue:,}",
-        "pending_returns": pending_returns,
-        "new_members": new_members,
-        "order_status_counts": order_status_counts,
-        "top_products": top_products,
-        "week_days": week_days,
-        "week_sales": week_sales,
-        "latest_orders": latest_orders,
-    })
+    return success(
+        {
+            "today_orders": today_orders,
+            "today_revenue": today_revenue,
+            "today_revenue_display": f"¥{today_revenue:,}",
+            "pending_returns": pending_returns,
+            "new_members": new_members,
+            "order_status_counts": order_status_counts,
+            "top_products": top_products,
+            "week_days": week_days,
+            "week_sales": week_sales,
+            "latest_orders": latest_orders,
+        }
+    )

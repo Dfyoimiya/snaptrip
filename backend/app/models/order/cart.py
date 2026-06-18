@@ -106,7 +106,9 @@ class OmsCartItem(CommerceBase):
         comment="是否选中: 1=是 0=否",
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now(),
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        server_default=func.now(),
     )
 
     def __repr__(self) -> str:

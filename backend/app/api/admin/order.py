@@ -14,6 +14,7 @@ from snaptrip_shared.core.response import success
 from snaptrip_shared.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.rbac import require_admin_user
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.order import (
     OrderDeliveryRequest,
@@ -21,7 +22,6 @@ from app.schemas.order import (
     OrderPriceModifyRequest,
 )
 from app.services.order_service import OrderService
-from marketplace.app.core.security import get_current_user
 
 router = APIRouter(prefix="/admin/orders", tags=["Admin - 订单管理"])
 
@@ -35,9 +35,10 @@ async def list_orders(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     from datetime import datetime as dt
+
     query = OrderListQuery(
         order_sn=order_sn,
         status=status,
@@ -57,7 +58,7 @@ async def list_orders(
 
 
 @router.get("/{order_id}", summary="订单详情")
-async def get_detail(order_id: UUID, db: AsyncSession = Depends(get_db), _current_user=Depends(get_current_user)):
+async def get_detail(order_id: UUID, db: AsyncSession = Depends(get_db), _current_user=Depends(require_admin_user)):
     svc = OrderService(db)
     result = await svc.get_detail(order_id)
     return success(result.model_dump())
@@ -68,7 +69,7 @@ async def close_order(
     order_id: UUID,
     note: str = Query("", description="关闭原因"),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     svc = OrderService(db)
     result = await svc.admin_close(order_id, note=note, operator=_current_user.email)
@@ -80,7 +81,7 @@ async def delivery(
     order_id: UUID,
     data: OrderDeliveryRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     svc = OrderService(db)
     result = await svc.delivery(order_id, data, operator=_current_user.email)
@@ -94,7 +95,7 @@ async def modify_address(
     receiver_phone: str | None = Query(None),
     receiver_detail_address: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     svc = OrderService(db)
     result = await svc.modify_address(
@@ -111,7 +112,7 @@ async def modify_price(
     order_id: UUID,
     data: OrderPriceModifyRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     svc = OrderService(db)
     result = await svc.modify_price(order_id, data)
@@ -123,10 +124,23 @@ async def remark(
     order_id: UUID,
     note: str = Query(..., min_length=1, description="备注内容"),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     svc = OrderService(db)
     result = await svc.remark(order_id, note)
+    return success(result.model_dump())
+
+
+@router.post("/{order_id}/refund", summary="退款完成")
+async def refund_order(
+    order_id: UUID,
+    note: str = Query("", description="退款备注"),
+    db: AsyncSession = Depends(get_db),
+    _current_user=Depends(require_admin_user),
+):
+    """管理员确认退款 —— 从退款中过渡到已退款"""
+    svc = OrderService(db)
+    result = await svc.refund(order_id, operator=_current_user.email, note=note)
     return success(result.model_dump())
 
 
@@ -134,7 +148,7 @@ async def remark(
 async def delete_order(
     order_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     svc = OrderService(db)
     await svc.admin_delete(order_id)

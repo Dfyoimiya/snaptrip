@@ -46,17 +46,14 @@ def _get_session_service(request: Request):
 
 async def _get_agent_service(request: Request) -> AgentService:
     """Resolve the shopping guide AgentService from app state or build lazily."""
-    if (
-        hasattr(request.app.state, "_shopping_agent_service")
-        and request.app.state._shopping_agent_service is not None
-    ):
+    if hasattr(request.app.state, "_shopping_agent_service") and request.app.state._shopping_agent_service is not None:
         return request.app.state._shopping_agent_service
 
     from agent.graphs.shopping_guide import build_shopping_guide_graph
     from agent.runtime import AgentRuntime
-    from agent.tools.harness.harness import ToolHarness
-    from agent.tools.harness.context import SessionContext
     from agent.tools.bootstrap_shopping import build_shopping_guide_registry
+    from agent.tools.harness.context import SessionContext
+    from agent.tools.harness.harness import ToolHarness
     from agent.utils import get_llm_adapter
 
     runtime = AgentRuntime()
@@ -64,9 +61,7 @@ async def _get_agent_service(request: Request) -> AgentService:
     runtime.session_ctx = SessionContext()
     runtime.llm_adapter = get_llm_adapter()
 
-    request.app.state._shopping_agent_service = AgentService(
-        await build_shopping_guide_graph(runtime=runtime)
-    )
+    request.app.state._shopping_agent_service = AgentService(await build_shopping_guide_graph(runtime=runtime))
     return request.app.state._shopping_agent_service
 
 
@@ -197,7 +192,9 @@ async def shopping_guide_chat(
 
         # ── Build state & invoke agent ──
         initial_state = await _build_shopping_state(
-            req, user_id=user_id, auth_token=auth_token,
+            req,
+            user_id=user_id,
+            auth_token=auth_token,
             cross_session_context=cross_context,
         )
         plan_id = initial_state["plan_id"]
@@ -220,10 +217,7 @@ async def shopping_guide_chat(
                     break
 
         if not reply:
-            reply = (
-                "我找到了相关商品信息。您可以点击商品链接查看详情。"
-                "如需进一步帮助，请随时告诉我您的需求。"
-            )
+            reply = "我找到了相关商品信息。您可以点击商品链接查看详情。如需进一步帮助，请随时告诉我您的需求。"
 
         # ── Persist assistant reply ──
         await session_svc.append_message(session_id, "assistant", reply)
@@ -276,9 +270,7 @@ async def list_sessions(
         )
         for s in sessions
     ]
-    return success(
-        ShoppingGuideSessionList(sessions=result, total=len(result)).model_dump()
-    )
+    return success(ShoppingGuideSessionList(sessions=result, total=len(result)).model_dump())
 
 
 @router.get("/sessions/{session_id}", summary="获取导购会话详情")
@@ -297,13 +289,15 @@ async def get_session(
 
     msgs = await session_svc.get_messages(session_id)
 
-    return success({
-        "id": session_id,
-        "user_id": s["user_id"],
-        "message_count": s.get("message_count", 0),
-        "messages": msgs,
-        "summary": await session_svc.get_summary(session_id),
-    })
+    return success(
+        {
+            "id": session_id,
+            "user_id": s["user_id"],
+            "message_count": s.get("message_count", 0),
+            "messages": msgs,
+            "summary": await session_svc.get_summary(session_id),
+        }
+    )
 
 
 @router.delete("/sessions/{session_id}", summary="清除导购会话")

@@ -56,7 +56,7 @@ class PmsSku(CommerceBase):
     spec: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
-        comment="规格 JSON 字符串, 如 {\"color\":\"黑色\",\"storage\":\"128GB\"}",
+        comment='规格 JSON 字符串, 如 {"color":"黑色","storage":"128GB"}',
     )
 
     # ── 价格与库存 (金额类字段必须用 Numeric 而非 Float) ──

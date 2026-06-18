@@ -60,9 +60,7 @@ class MemoryService:
 
     # ===== 对话历史 =====
 
-    async def push_dialogue(
-        self, session_id: str, role: str, content: str, max_keep: int = 10
-    ) -> None:
+    async def push_dialogue(self, session_id: str, role: str, content: str, max_keep: int = 10) -> None:
         key = f"session:{session_id}:dialogue"
         entry = json.dumps({"role": role, "content": content, "ts": time.time()})
         async with self.client.pipeline() as pipe:
@@ -77,9 +75,7 @@ class MemoryService:
 
     # ===== 热门 POI 缓存 =====
 
-    async def set_hot_pois(
-        self, city: str, category: str, data: list[dict], ttl: int = 3600
-    ) -> None:
+    async def set_hot_pois(self, city: str, category: str, data: list[dict], ttl: int = 3600) -> None:
         key = f"hot_pois:{city}:{category}"
         await self.client.set(key, json.dumps(data, ensure_ascii=False), ex=ttl)
 
@@ -105,9 +101,7 @@ class MemoryService:
 
     # ===== 事务状态 =====
 
-    async def set_transaction_status(
-        self, txn_id: str, status: str, ttl: int = 3600
-    ) -> None:
+    async def set_transaction_status(self, txn_id: str, status: str, ttl: int = 3600) -> None:
         key = f"txn:{txn_id}:status"
         await self.client.set(key, status, ex=ttl)
 
@@ -118,8 +112,12 @@ class MemoryService:
     # ===== 行为追踪 (推荐系统特征存储) =====
 
     async def record_behavior(
-        self, user_id: str, behavior_type: str, item_id: str,
-        metadata: dict | None = None, ttl: int = 86400 * 7,
+        self,
+        user_id: str,
+        behavior_type: str,
+        item_id: str,
+        metadata: dict | None = None,
+        ttl: int = 86400 * 7,
     ) -> None:
         """记录用户行为到 Redis Sorted Set (滑动窗口)。
 
@@ -128,18 +126,24 @@ class MemoryService:
         Member: JSON {item_id, ts, ...metadata}
         """
         key = f"behavior:{user_id}:{behavior_type}"
-        entry = json.dumps({
-            "item_id": item_id,
-            "ts": time.time(),
-            **(metadata or {}),
-        }, ensure_ascii=False)
+        entry = json.dumps(
+            {
+                "item_id": item_id,
+                "ts": time.time(),
+                **(metadata or {}),
+            },
+            ensure_ascii=False,
+        )
         async with self.client.pipeline() as pipe:
             pipe.zadd(key, {entry: time.time()})
             pipe.expire(key, ttl)
             await pipe.execute()
 
     async def get_recent_behaviors(
-        self, user_id: str, behavior_type: str, window_seconds: int = 3600,
+        self,
+        user_id: str,
+        behavior_type: str,
+        window_seconds: int = 3600,
     ) -> list[dict]:
         """获取用户最近的行为 (滑动窗口)。
 
@@ -151,7 +155,10 @@ class MemoryService:
         return [json.loads(item) for item in raw]
 
     async def cache_user_profile(
-        self, user_id: str, profile: dict, ttl: int = 3600,
+        self,
+        user_id: str,
+        profile: dict,
+        ttl: int = 3600,
     ) -> None:
         """缓存用户画像到 Redis (供快速读取)。"""
         key = f"profile:{user_id}"
@@ -182,8 +189,11 @@ class MemoryService:
     # ===== 实时 Trending / Autocomplete / HyperLogLog (Phase 1 推荐升级) =====
 
     async def zset_union_store(
-        self, dest_key: str, source_keys: list[str],
-        weights: list[float] | None = None, ttl: int = 3600,
+        self,
+        dest_key: str,
+        source_keys: list[str],
+        weights: list[float] | None = None,
+        ttl: int = 3600,
     ) -> int:
         """ZUNIONSTORE: 合并多个 ZSET 到目标 key。
 
@@ -199,7 +209,11 @@ class MemoryService:
         return result
 
     async def zset_zrevrange(
-        self, key: str, start: int, stop: int, withscores: bool = False,
+        self,
+        key: str,
+        start: int,
+        stop: int,
+        withscores: bool = False,
     ) -> list:
         """ZREVRANGE: 按 score 倒序获取成员。"""
         return await self.client.zrevrange(key, start, stop, withscores=withscores)  # type: ignore[no-any-return]
@@ -221,7 +235,9 @@ class MemoryService:
         return await self.client.pfcount(key)  # type: ignore[no-any-return]
 
     async def get_recent_viewed_products(
-        self, user_id: str, limit: int = 10,
+        self,
+        user_id: str,
+        limit: int = 10,
     ) -> list[str]:
         """获取用户最近浏览的商品 ID 列表（去重，倒序）。"""
         key = f"behavior:{user_id}:view"
@@ -259,7 +275,10 @@ class MemoryService:
     # ===== 客服会话记忆 (Phase 3) =====
 
     async def save_cs_session_summary(
-        self, session_id: str, summary: dict, ttl: int = 86400 * 30,
+        self,
+        session_id: str,
+        summary: dict,
+        ttl: int = 86400 * 30,
     ) -> None:
         """缓存客服会话摘要到 Redis + 追加到用户历史列表。
 
@@ -286,7 +305,9 @@ class MemoryService:
         return json.loads(raw) if raw else None
 
     async def get_user_cs_history(
-        self, user_id: str, limit: int = 5,
+        self,
+        user_id: str,
+        limit: int = 5,
     ) -> list[dict]:
         """获取用户最近的客服会话摘要列表（倒序）。"""
         history_key = f"cs_history:{user_id}"
@@ -299,7 +320,10 @@ class MemoryService:
         return summaries
 
     async def set_cs_session_emotion(
-        self, session_id: str, emotion: str, ttl: int = 3600,
+        self,
+        session_id: str,
+        emotion: str,
+        ttl: int = 3600,
     ) -> None:
         """记录当前会话的用户情绪状态。"""
         key = f"cs_session:{session_id}:emotion"

@@ -36,44 +36,30 @@ class TripHistory(Base):
         nullable=False,
         index=True,
     )
-    plan_id: Mapped[str] = mapped_column(
-        String(64), nullable=False, index=True
-    )
-    city: Mapped[str] = mapped_column(
-        String(64), nullable=False, index=True
-    )
+    plan_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    city: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     scene_type: Mapped[str] = mapped_column(
-        String(32), nullable=False, default="solo",
+        String(32),
+        nullable=False,
+        default="solo",
         comment="family/couple/solo/friends/business",
     )
     guest_count: Mapped[int] = mapped_column(Integer, default=1)
     slots_json: Mapped[dict] = mapped_column(
-        JSON, nullable=False, default=dict,
-        comment="Snapshot of PlanSlot list as JSON"
+        JSON, nullable=False, default=dict, comment="Snapshot of PlanSlot list as JSON"
     )
-    total_cost: Mapped[float] = mapped_column(
-        Float, nullable=False, default=0.0
-    )
+    total_cost: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     # Overall satisfaction 1-5
-    satisfaction_rating: Mapped[int | None] = mapped_column(
-        Integer, nullable=True
-    )
+    satisfaction_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Per-slot feedback: [{"slot_index": 0, "rating": 4, "comment": "..."}, ...]
-    slot_feedback: Mapped[list[dict] | None] = mapped_column(
-        JSON, nullable=True
-    )
+    slot_feedback: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
     # Embedding for semantic retrieval (derived from city + scene_type + keywords)
     embedding: Mapped[list[float] | None] = mapped_column(
-        Vector(1536), nullable=True,
-        comment="Semantic embedding of trip characteristics for similarity search"
+        Vector(1536), nullable=True, comment="Semantic embedding of trip characteristics for similarity search"
     )
     # Rejection log: POI types or specific POIs user disliked
-    rejected_poi_ids: Mapped[list[str] | None] = mapped_column(
-        JSON, nullable=True
-    )
-    rejected_types: Mapped[list[str] | None] = mapped_column(
-        JSON, nullable=True
-    )
+    rejected_poi_ids: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    rejected_types: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     completed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

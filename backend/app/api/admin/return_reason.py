@@ -9,21 +9,21 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, Query
+from fastapi import APIRouter, Depends, Query
 from snaptrip_shared.core.response import success
 from snaptrip_shared.db.session import get_db
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.order.return_reason import OmsReturnReason
 from app.core.exceptions import CommerceException
+from app.core.rbac import require_admin_user
+from app.models.order.return_reason import OmsReturnReason
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.order_setting import (
     ReturnReasonCreate,
     ReturnReasonResponse,
     ReturnReasonUpdate,
 )
-from marketplace.app.core.security import get_current_user
 
 router = APIRouter(prefix="/admin/return-reasons", tags=["Admin - 退货原因"])
 
@@ -34,7 +34,7 @@ async def list_reasons(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _u=Depends(get_current_user),
+    _u=Depends(require_admin_user),
 ):
     base = select(OmsReturnReason)
     count_q = select(func.count(OmsReturnReason.id))
@@ -65,7 +65,7 @@ async def list_reasons(
 async def get_reason(
     reason_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _u=Depends(get_current_user),
+    _u=Depends(require_admin_user),
 ):
     reason = await db.get(OmsReturnReason, reason_id)
     if not reason:
@@ -77,7 +77,7 @@ async def get_reason(
 async def create_reason(
     data: ReturnReasonCreate,
     db: AsyncSession = Depends(get_db),
-    _u=Depends(get_current_user),
+    _u=Depends(require_admin_user),
 ):
     reason = OmsReturnReason(**data.model_dump())
     db.add(reason)
@@ -90,7 +90,7 @@ async def update_reason(
     reason_id: UUID,
     data: ReturnReasonUpdate,
     db: AsyncSession = Depends(get_db),
-    _u=Depends(get_current_user),
+    _u=Depends(require_admin_user),
 ):
     reason = await db.get(OmsReturnReason, reason_id)
     if not reason:
@@ -105,13 +105,11 @@ async def update_reason(
 async def delete_reasons(
     ids: list[UUID] = Query(..., alias="ids"),
     db: AsyncSession = Depends(get_db),
-    _u=Depends(get_current_user),
+    _u=Depends(require_admin_user),
 ):
     from sqlalchemy import delete
 
-    await db.execute(
-        delete(OmsReturnReason).where(OmsReturnReason.id.in_(ids))
-    )
+    await db.execute(delete(OmsReturnReason).where(OmsReturnReason.id.in_(ids)))
     await db.flush()
     return success(message="删除成功")
 
@@ -121,12 +119,8 @@ async def update_status(
     ids: list[UUID] = Query(..., alias="ids"),
     status: int = Query(..., ge=0, le=1),
     db: AsyncSession = Depends(get_db),
-    _u=Depends(get_current_user),
+    _u=Depends(require_admin_user),
 ):
-    await db.execute(
-        update(OmsReturnReason)
-        .where(OmsReturnReason.id.in_(ids))
-        .values(status=status)
-    )
+    await db.execute(update(OmsReturnReason).where(OmsReturnReason.id.in_(ids)).values(status=status))
     await db.flush()
     return success(message="更新成功")

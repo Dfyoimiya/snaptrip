@@ -17,8 +17,10 @@ from pydantic import BaseModel, Field, model_validator
 #  优惠券 Schema
 # ============================================================================
 
+
 class CouponCreate(BaseModel):
     """创建优惠券模板"""
+
     name: str = Field(..., min_length=1, max_length=100)
     type: int = Field(default=0, ge=0, le=2, description="0=全场 1=品类 2=品牌")
     use_type: int = Field(default=0, ge=0, le=2, description="0=满减 1=折扣 2=立减")
@@ -43,6 +45,7 @@ class CouponCreate(BaseModel):
 
 class CouponUpdate(BaseModel):
     """编辑优惠券 —— 全字段可选"""
+
     name: str | None = Field(None, min_length=1, max_length=100)
     type: int | None = Field(None, ge=0, le=2)
     use_type: int | None = Field(None, ge=0, le=2)
@@ -58,6 +61,7 @@ class CouponUpdate(BaseModel):
 
 class CouponResponse(BaseModel):
     """优惠券模板详情"""
+
     id: UUID
     name: str
     type: int
@@ -81,6 +85,7 @@ class CouponResponse(BaseModel):
 
 class CouponHistoryResponse(BaseModel):
     """领券/使用记录"""
+
     id: UUID
     coupon_id: UUID
     user_id: UUID
@@ -99,6 +104,7 @@ class CouponHistoryResponse(BaseModel):
 # ============================================================================
 #  秒杀 Schema
 # ============================================================================
+
 
 class FlashPromotionCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
@@ -185,6 +191,7 @@ class FlashProductResponse(BaseModel):
 
 class FlashProductUpdate(BaseModel):
     """编辑秒杀商品 —— 全字段可选"""
+
     flash_price: Decimal | None = Field(None, ge=0, max_digits=10, decimal_places=2)
     flash_stock: int | None = Field(None, ge=1)
     flash_limit: int | None = Field(None, ge=1)

@@ -17,8 +17,9 @@ import asyncio
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from snaptrip_shared.core.response import success
+from snaptrip_shared.db.session import AsyncSessionLocal
 from sqlalchemy import select
 
 from app.models.product.product import PmsProduct
@@ -33,7 +34,6 @@ from app.services.autocomplete_service import AutocompleteService
 from app.services.memory_service import MemoryService
 from app.services.trending_service import TrendingService
 from app.services.vector_search_service import VectorSearchService
-from snaptrip_shared.db.session import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +72,7 @@ def _resolve_user_id(request: Request) -> UUID | None:
         return None
     try:
         from marketplace.app.core.security import decode_access_token
+
         token = auth.removeprefix("Bearer ").strip()
         payload = decode_access_token(token)
         sub = payload.get("sub", "")
@@ -161,12 +162,17 @@ async def _build_guess_you_like(
                 if viewed_ids:
                     async with AsyncSessionLocal() as session:
                         from sqlalchemy import select as sa_select
-                        stmt = sa_select(PmsProduct).where(
-                            PmsProduct.id.in_([UUID(pid) for pid in viewed_ids if _is_valid_uuid(pid)]),
-                            PmsProduct.publish_status == 1,
-                            PmsProduct.verify_status == 1,
-                            PmsProduct.is_deleted.is_(False),
-                        ).limit(int(total_budget * 0.3))
+
+                        stmt = (
+                            sa_select(PmsProduct)
+                            .where(
+                                PmsProduct.id.in_([UUID(pid) for pid in viewed_ids if _is_valid_uuid(pid)]),
+                                PmsProduct.publish_status == 1,
+                                PmsProduct.verify_status == 1,
+                                PmsProduct.is_deleted.is_(False),
+                            )
+                            .limit(int(total_budget * 0.3))
+                        )
                         result = await session.execute(stmt)
                         for p in result.scalars().all():
                             candidates.append(_product_to_dict(p, source="recent_view"))
@@ -209,6 +215,7 @@ async def _build_guess_you_like(
         try:
             supervisor = request.app.state.recommendation_supervisor
             from agent.schemas.recommendation import RecommendationRequest, RecommendationScene
+
             req = RecommendationRequest(
                 user_id=str(user_id) if user_id else None,
                 session_id=session_id or None,
@@ -289,17 +296,19 @@ async def _build_trending_now(
             pid = tp["product_id"]
             if pid in id_map:
                 p = id_map[pid]
-                feed_products.append(FeedProduct(
-                    product_id=pid,
-                    name=p.get("name", ""),
-                    price=p.get("price", 0),
-                    image_url=p.get("image_url", ""),
-                    brand_name=p.get("brand_name", ""),
-                    category_id=p.get("category_id", ""),
-                    sale_count=p.get("sale_count", 0),
-                    stock=p.get("stock", 0),
-                    score=tp.get("trending_score", 0),
-                ))
+                feed_products.append(
+                    FeedProduct(
+                        product_id=pid,
+                        name=p.get("name", ""),
+                        price=p.get("price", 0),
+                        image_url=p.get("image_url", ""),
+                        brand_name=p.get("brand_name", ""),
+                        category_id=p.get("category_id", ""),
+                        sale_count=p.get("sale_count", 0),
+                        stock=p.get("stock", 0),
+                        score=tp.get("trending_score", 0),
+                    )
+                )
 
         return FeedSection(
             section_type=FeedSectionType.TRENDING_NOW,
@@ -386,16 +395,18 @@ async def _build_recently_viewed(
         for pid in product_ids:
             if pid in id_map:
                 p = id_map[pid]
-                feed_products.append(FeedProduct(
-                    product_id=pid,
-                    name=p.get("name", ""),
-                    price=p.get("price", 0),
-                    image_url=p.get("image_url", ""),
-                    brand_name=p.get("brand_name", ""),
-                    category_id=p.get("category_id", ""),
-                    sale_count=p.get("sale_count", 0),
-                    stock=p.get("stock", 0),
-                ))
+                feed_products.append(
+                    FeedProduct(
+                        product_id=pid,
+                        name=p.get("name", ""),
+                        price=p.get("price", 0),
+                        image_url=p.get("image_url", ""),
+                        brand_name=p.get("brand_name", ""),
+                        category_id=p.get("category_id", ""),
+                        sale_count=p.get("sale_count", 0),
+                        stock=p.get("stock", 0),
+                    )
+                )
 
         if not feed_products:
             return None
@@ -433,13 +444,8 @@ async def _build_search_discovery(
         hot_queries = await trending.get_hot_queries_simple(window_minutes=30, limit=limit)
         if not hot_queries:
             # 兜底: 使用预设热词
-            hot_queries = [
-                {"query": q, "count": c} for q, c in _SEARCH_DISCOVERY_FALLBACK[:limit]
-            ]
-        suggestions = [
-            SearchDiscoveryItem(query=q["query"], count=q["count"])
-            for q in hot_queries
-        ]
+            hot_queries = [{"query": q, "count": c} for q, c in _SEARCH_DISCOVERY_FALLBACK[:limit]]
+        suggestions = [SearchDiscoveryItem(query=q["query"], count=q["count"]) for q in hot_queries]
         return FeedSection(
             section_type=FeedSectionType.SEARCH_DISCOVERY,
             title="搜索发现",
@@ -448,10 +454,7 @@ async def _build_search_discovery(
         )
     except Exception as exc:
         logger.warning("search_discovery section failed: %s", exc)
-        suggestions = [
-            SearchDiscoveryItem(query=q, count=c)
-            for q, c in _SEARCH_DISCOVERY_FALLBACK[:limit]
-        ]
+        suggestions = [SearchDiscoveryItem(query=q, count=c) for q, c in _SEARCH_DISCOVERY_FALLBACK[:limit]]
         return FeedSection(
             section_type=FeedSectionType.SEARCH_DISCOVERY,
             title="搜索发现",
@@ -461,6 +464,7 @@ async def _build_search_discovery(
 
 
 # ─── Helpers ───
+
 
 async def _build_trending_fallback(limit: int) -> FeedSection:
     """热门推荐降级: 直接查 DB sale_count DESC。"""
@@ -486,7 +490,8 @@ async def _build_trending_fallback(limit: int) -> FeedSection:
 
 
 async def _resolve_products_by_ids(
-    db: AsyncSession, product_ids: list[str],
+    db: AsyncSession,
+    product_ids: list[str],
 ) -> dict[str, dict]:
     """批量解析商品 ID 到完整数据。"""
     if not product_ids:
@@ -543,5 +548,3 @@ def _is_valid_uuid(s: str) -> bool:
         return True
     except (ValueError, AttributeError):
         return False
-
-

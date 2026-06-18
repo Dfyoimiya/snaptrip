@@ -21,6 +21,7 @@ from app.schemas.common import PaginationParams
 
 class TicketListQuery(PaginationParams):
     """工单列表查询参数"""
+
     status: str | None = Field(None, description="工单状态: open/in_progress/resolved/closed")
     priority: str | None = Field(None, description="优先级: normal/urgent/critical")
     type: str | None = Field(None, description="工单类型: complaint/refund/inquiry/other")
@@ -30,6 +31,7 @@ class TicketListQuery(PaginationParams):
 
 class TicketUpdateRequest(BaseModel):
     """更新工单"""
+
     status: str | None = Field(None, description="更新状态")
     priority: str | None = Field(None, description="更新优先级")
     tags: list[str] | None = Field(None, description="更新标签")
@@ -39,18 +41,21 @@ class TicketUpdateRequest(BaseModel):
 
 class TicketAssignRequest(BaseModel):
     """指派/认领工单"""
+
     agent_id: UUID | None = Field(None, description="坐席 ID，为 None 表示取消指派")
     action: str = Field(default="assign", description="assign/claim/unassign")
 
 
 class TicketResolveRequest(BaseModel):
     """解决/关闭工单"""
+
     resolution: str = Field(..., min_length=1, description="处理结果")
     satisfaction_score: int | None = Field(None, ge=1, le=5)
 
 
 class TicketResponse(BaseModel):
     """工单响应"""
+
     id: UUID
     order_id: UUID | None = None
     member_id: UUID
@@ -80,12 +85,14 @@ class TicketResponse(BaseModel):
 
 class CsMessageRequest(BaseModel):
     """发送聊天消息"""
+
     content: str = Field(..., min_length=1, description="消息正文")
     content_type: str = Field(default="text", description="内容类型: text/markdown")
 
 
 class CsMessageResponse(BaseModel):
     """聊天消息响应"""
+
     id: UUID
     ticket_id: UUID
     sender_type: str
@@ -100,6 +107,7 @@ class CsMessageResponse(BaseModel):
 
 class CsMessageListResponse(BaseModel):
     """消息列表"""
+
     ticket_id: UUID
     messages: list[CsMessageResponse]
 
@@ -111,12 +119,14 @@ class CsMessageListResponse(BaseModel):
 
 class AgentStatusUpdate(BaseModel):
     """更新坐席状态"""
+
     status: str = Field(..., description="online/offline/busy")
     current_ticket_id: UUID | None = Field(None, description="当前工单ID")
 
 
 class AgentStatusResponse(BaseModel):
     """坐席状态响应"""
+
     admin_id: UUID
     status: str
     current_ticket_id: UUID | None = None
@@ -135,6 +145,7 @@ class AgentStatusResponse(BaseModel):
 
 class NotificationResponse(BaseModel):
     """通知响应"""
+
     id: UUID
     type: str
     ticket_id: UUID | None = None
@@ -149,6 +160,7 @@ class NotificationResponse(BaseModel):
 
 class NotificationListResponse(BaseModel):
     """通知列表"""
+
     items: list[NotificationResponse]
     unread_count: int
     total: int
@@ -161,6 +173,7 @@ class NotificationListResponse(BaseModel):
 
 class CsStatsResponse(BaseModel):
     """客服统计数据"""
+
     total_tickets: int = Field(default=0, description="总工单数")
     open_count: int = Field(default=0, description="待处理")
     in_progress_count: int = Field(default=0, description="处理中")

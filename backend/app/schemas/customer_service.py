@@ -20,11 +20,13 @@ from pydantic import BaseModel, Field
 
 class ReturnEligibilityRequest(BaseModel):
     """退货资格校验请求"""
+
     order_id: UUID = Field(..., description="订单ID")
 
 
 class ReturnEligibilityResponse(BaseModel):
     """退货资格校验响应"""
+
     eligible: bool = Field(..., description="是否可退货")
     reason: str | None = Field(None, description="不可退货原因")
     order_status: int = Field(..., description="当前订单状态码")
@@ -40,6 +42,7 @@ class ReturnEligibilityResponse(BaseModel):
 
 class ReturnSubmitRequest(BaseModel):
     """提交退货申请"""
+
     order_id: UUID = Field(..., description="订单ID")
     reason: str = Field(..., min_length=1, max_length=500, description="退货原因")
     description: str | None = Field(None, max_length=2000, description="问题描述")
@@ -48,6 +51,7 @@ class ReturnSubmitRequest(BaseModel):
 
 class ReturnSubmitResponse(BaseModel):
     """退货申请提交结果"""
+
     return_id: UUID = Field(..., description="退货申请ID")
     order_id: UUID
     status: int = Field(default=0, description="状态: 0=待处理")
@@ -62,6 +66,7 @@ class ReturnSubmitResponse(BaseModel):
 
 class RefundStatusResponse(BaseModel):
     """退款进度响应"""
+
     return_id: UUID | None = Field(None, description="退货申请ID")
     order_id: UUID
     has_return_request: bool = Field(..., description="是否有退货申请")
@@ -80,6 +85,7 @@ class RefundStatusResponse(BaseModel):
 
 class CreateTicketRequest(BaseModel):
     """创建客服工单"""
+
     title: str = Field(..., min_length=1, max_length=255, description="工单标题")
     description: str = Field(..., min_length=1, max_length=2000, description="问题描述")
     order_id: UUID | None = Field(None, description="关联订单ID")
@@ -89,6 +95,7 @@ class CreateTicketRequest(BaseModel):
 
 class TicketResponse(BaseModel):
     """工单响应"""
+
     id: UUID
     order_id: UUID | None = None
     type: str
@@ -112,6 +119,7 @@ class TicketResponse(BaseModel):
 
 class CompensationRequest(BaseModel):
     """发放补偿优惠券请求"""
+
     order_id: UUID = Field(..., description="关联订单ID")
     amount: Decimal = Field(..., ge=0, le=99999.99, description="优惠券面额")
     reason: str = Field(..., max_length=500, description="补偿原因")
@@ -120,6 +128,7 @@ class CompensationRequest(BaseModel):
 
 class CompensationResponse(BaseModel):
     """补偿优惠券结果"""
+
     coupon_id: UUID
     amount: Decimal
     reason: str
@@ -133,6 +142,7 @@ class CompensationResponse(BaseModel):
 
 class LogisticsResponse(BaseModel):
     """物流信息响应 —— 当前为 stub，接入真实物流API后扩展"""
+
     order_id: UUID
     order_status: int
     order_status_text: str
@@ -150,6 +160,7 @@ class LogisticsResponse(BaseModel):
 
 class ComplaintValidationResponse(BaseModel):
     """投诉合理性校验结果"""
+
     valid: bool = Field(..., description="投诉是否合理")
     order_exists: bool = Field(..., description="订单是否存在")
     order_belongs_to_user: bool = Field(..., description="订单是否属于该用户")
@@ -165,6 +176,7 @@ class ComplaintValidationResponse(BaseModel):
 
 class SessionSummaryRequest(BaseModel):
     """保存客服会话摘要请求"""
+
     session_id: str = Field(..., description="会话ID")
     intent: str | None = Field(None, description="客服意图")
     summary_text: str = Field(..., min_length=1, description="LLM 生成的会话摘要")
@@ -180,6 +192,7 @@ class SessionSummaryRequest(BaseModel):
 
 class SessionSummaryResponse(BaseModel):
     """会话摘要响应"""
+
     id: str
     session_id: str
     intent: str | None = None
@@ -198,5 +211,6 @@ class SessionSummaryResponse(BaseModel):
 
 class CsHistoryResponse(BaseModel):
     """用户 CS 历史响应"""
+
     user_id: str
     sessions: list[SessionSummaryResponse]

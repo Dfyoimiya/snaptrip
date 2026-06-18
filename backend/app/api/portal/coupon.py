@@ -24,7 +24,8 @@ router = APIRouter(prefix="/portal/coupons", tags=["Portal - 优惠券"])
 
 @router.get("/available", summary="可领取优惠券列表")
 async def list_available(
-    page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
     _u: User = Depends(get_current_user),
 ):

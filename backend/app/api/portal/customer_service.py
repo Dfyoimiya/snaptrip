@@ -21,7 +21,9 @@ from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
+from agent.services.agent import AgentService
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
 from snaptrip_shared.core.response import APIServiceError, success
 from snaptrip_shared.db.session import get_db
@@ -51,8 +53,6 @@ from app.schemas.customer_service import (
     SessionSummaryResponse,
     TicketResponse,
 )
-from agent.services.agent import AgentService
-from langchain_core.messages import HumanMessage
 from marketplace.app.core.security import get_current_user
 from marketplace.app.models.users import User
 
@@ -95,36 +95,42 @@ async def check_return_eligibility(
     order = result.scalar_one_or_none()
 
     if not order:
-        return success(ReturnEligibilityResponse(
-            eligible=False,
-            reason="订单不存在",
-            order_status=-1,
-            order_status_text="不存在",
-            days_since_delivery=None,
-            policy_max_days=RETURN_POLICY_MAX_DAYS,
-        ).model_dump())
+        return success(
+            ReturnEligibilityResponse(
+                eligible=False,
+                reason="订单不存在",
+                order_status=-1,
+                order_status_text="不存在",
+                days_since_delivery=None,
+                policy_max_days=RETURN_POLICY_MAX_DAYS,
+            ).model_dump()
+        )
 
     if hasattr(order, "member_id") and str(order.member_id) != str(current_user.id):
-        return success(ReturnEligibilityResponse(
-            eligible=False,
-            reason="订单不属于当前用户",
-            order_status=order.status if hasattr(order, "status") else -1,
-            order_status_text=_order_status_text(order.status if hasattr(order, "status") else -1),
-            days_since_delivery=None,
-            policy_max_days=RETURN_POLICY_MAX_DAYS,
-        ).model_dump())
+        return success(
+            ReturnEligibilityResponse(
+                eligible=False,
+                reason="订单不属于当前用户",
+                order_status=order.status if hasattr(order, "status") else -1,
+                order_status_text=_order_status_text(order.status if hasattr(order, "status") else -1),
+                days_since_delivery=None,
+                policy_max_days=RETURN_POLICY_MAX_DAYS,
+            ).model_dump()
+        )
 
     order_status = order.status if hasattr(order, "status") else -1
 
     if order_status not in RETURNABLE_STATUSES:
-        return success(ReturnEligibilityResponse(
-            eligible=False,
-            reason=f"订单状态为'{_order_status_text(order_status)}'，不支持退货",
-            order_status=order_status,
-            order_status_text=_order_status_text(order_status),
-            days_since_delivery=None,
-            policy_max_days=RETURN_POLICY_MAX_DAYS,
-        ).model_dump())
+        return success(
+            ReturnEligibilityResponse(
+                eligible=False,
+                reason=f"订单状态为'{_order_status_text(order_status)}'，不支持退货",
+                order_status=order_status,
+                order_status_text=_order_status_text(order_status),
+                days_since_delivery=None,
+                policy_max_days=RETURN_POLICY_MAX_DAYS,
+            ).model_dump()
+        )
 
     # Check time window: delivered_at + RETURN_POLICY_MAX_DAYS
     days_since = None
@@ -136,23 +142,27 @@ async def check_return_eligibility(
         days_since = (datetime.now(UTC) - order.updated_at).days
 
     if days_since is not None and days_since > RETURN_POLICY_MAX_DAYS:
-        return success(ReturnEligibilityResponse(
-            eligible=False,
-            reason=f"已超过{RETURN_POLICY_MAX_DAYS}天退货期限（当前{days_since}天）",
+        return success(
+            ReturnEligibilityResponse(
+                eligible=False,
+                reason=f"已超过{RETURN_POLICY_MAX_DAYS}天退货期限（当前{days_since}天）",
+                order_status=order_status,
+                order_status_text=_order_status_text(order_status),
+                days_since_delivery=days_since,
+                policy_max_days=RETURN_POLICY_MAX_DAYS,
+            ).model_dump()
+        )
+
+    return success(
+        ReturnEligibilityResponse(
+            eligible=True,
+            reason=None,
             order_status=order_status,
             order_status_text=_order_status_text(order_status),
             days_since_delivery=days_since,
             policy_max_days=RETURN_POLICY_MAX_DAYS,
-        ).model_dump())
-
-    return success(ReturnEligibilityResponse(
-        eligible=True,
-        reason=None,
-        order_status=order_status,
-        order_status_text=_order_status_text(order_status),
-        days_since_delivery=days_since,
-        policy_max_days=RETURN_POLICY_MAX_DAYS,
-    ).model_dump())
+        ).model_dump()
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -175,9 +185,7 @@ async def submit_return_request(
         raise HTTPException(status_code=404, detail="订单不存在")
 
     # Check for existing return
-    existing = await db.execute(
-        select(OmsReturnApply).where(OmsReturnApply.order_id == order_id)
-    )
+    existing = await db.execute(select(OmsReturnApply).where(OmsReturnApply.order_id == order_id))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="该订单已有退货申请")
 
@@ -197,12 +205,14 @@ async def submit_return_request(
     await db.commit()
     await db.refresh(return_apply)
 
-    return success(ReturnSubmitResponse(
-        return_id=return_apply.id,
-        order_id=order_id,
-        status=0,
-        return_amount=return_apply.return_amount,
-    ).model_dump())
+    return success(
+        ReturnSubmitResponse(
+            return_id=return_apply.id,
+            order_id=order_id,
+            status=0,
+            return_amount=return_apply.return_amount,
+        ).model_dump()
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -217,30 +227,32 @@ async def query_refund_status(
     current_user: User = Depends(get_current_user),
 ):
     """查询订单的退货/退款进度"""
-    result = await db.execute(
-        select(OmsReturnApply).where(OmsReturnApply.order_id == order_id)
-    )
+    result = await db.execute(select(OmsReturnApply).where(OmsReturnApply.order_id == order_id))
     return_apply = result.scalar_one_or_none()
 
     if not return_apply:
-        return success(RefundStatusResponse(
-            order_id=order_id,
-            has_return_request=False,
-            return_status_text="未提交退货申请",
-        ).model_dump())
+        return success(
+            RefundStatusResponse(
+                order_id=order_id,
+                has_return_request=False,
+                return_status_text="未提交退货申请",
+            ).model_dump()
+        )
 
     status_map = {0: "待处理", 1: "已退货", 2: "已拒绝", 3: "已退款"}
-    return success(RefundStatusResponse(
-        return_id=return_apply.id,
-        order_id=order_id,
-        has_return_request=True,
-        return_status=return_apply.status,
-        return_status_text=status_map.get(return_apply.status, "未知"),
-        refund_amount=return_apply.return_amount,
-        applied_at=return_apply.created_at,
-        handled_at=return_apply.handle_time,
-        handle_note=return_apply.handle_note,
-    ).model_dump())
+    return success(
+        RefundStatusResponse(
+            return_id=return_apply.id,
+            order_id=order_id,
+            has_return_request=True,
+            return_status=return_apply.status,
+            return_status_text=status_map.get(return_apply.status, "未知"),
+            refund_amount=return_apply.return_amount,
+            applied_at=return_apply.created_at,
+            handled_at=return_apply.handle_time,
+            handle_note=return_apply.handle_note,
+        ).model_dump()
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -319,12 +331,14 @@ async def issue_compensation_coupon(
     await db.commit()
     await db.refresh(coupon)
 
-    return success(CompensationResponse(
-        coupon_id=coupon.id,
-        amount=data.amount,
-        reason=data.reason,
-        message=f"已发放 ¥{data.amount} 补偿优惠券，30天内有效",
-    ).model_dump())
+    return success(
+        CompensationResponse(
+            coupon_id=coupon.id,
+            amount=data.amount,
+            reason=data.reason,
+            message=f"已发放 ¥{data.amount} 补偿优惠券，30天内有效",
+        ).model_dump()
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -346,15 +360,17 @@ async def check_logistics(
         raise HTTPException(status_code=404, detail="订单不存在")
 
     order_status = order.status if hasattr(order, "status") else -1
-    return success(LogisticsResponse(
-        order_id=order_id,
-        order_status=order_status,
-        order_status_text=_order_status_text(order_status),
-        tracking_number=getattr(order, "delivery_sn", None) or None,
-        carrier=None,
-        estimated_delivery=None,
-        delivered_at=getattr(order, "receive_time", None) or None,
-    ).model_dump())
+    return success(
+        LogisticsResponse(
+            order_id=order_id,
+            order_status=order_status,
+            order_status_text=_order_status_text(order_status),
+            tracking_number=getattr(order, "delivery_sn", None) or None,
+            carrier=None,
+            estimated_delivery=None,
+            delivered_at=getattr(order, "receive_time", None) or None,
+        ).model_dump()
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -374,9 +390,7 @@ async def validate_order_complaint(
 
     order_exists = order is not None
     order_belongs_to_user = (
-        order_exists
-        and hasattr(order, "member_id")
-        and str(order.member_id) == str(current_user.id)
+        order_exists and hasattr(order, "member_id") and str(order.member_id) == str(current_user.id)
     )
     order_status_ok = (
         order_belongs_to_user
@@ -406,14 +420,16 @@ async def validate_order_complaint(
     else:
         suggested = "投诉合理，建议引导用户提交退货申请或创建工单"
 
-    return success(ComplaintValidationResponse(
-        valid=valid,
-        order_exists=order_exists,
-        order_belongs_to_user=order_belongs_to_user,
-        order_status_ok=order_status_ok,
-        previous_complaints=prev_count,
-        suggested_action=suggested,
-    ).model_dump())
+    return success(
+        ComplaintValidationResponse(
+            valid=valid,
+            order_exists=order_exists,
+            order_belongs_to_user=order_belongs_to_user,
+            order_status_ok=order_status_ok,
+            previous_complaints=prev_count,
+            suggested_action=suggested,
+        ).model_dump()
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -451,20 +467,22 @@ async def save_session_summary(
     await db.commit()
     await db.refresh(summary)
 
-    return success(SessionSummaryResponse(
-        id=str(summary.id),
-        session_id=summary.session_id,
-        intent=summary.intent,
-        summary_text=summary.summary_text,
-        resolution_status=summary.resolution_status,
-        satisfaction_score=summary.satisfaction_score,
-        ticket_id=str(summary.ticket_id) if summary.ticket_id else None,
-        order_id=str(summary.order_id) if summary.order_id else None,
-        conversation_turns=summary.conversation_turns,
-        tools_called=summary.tools_called,
-        emotion_trajectory=summary.emotion_trajectory,
-        created_at=summary.created_at.isoformat() if summary.created_at else "",
-    ).model_dump())
+    return success(
+        SessionSummaryResponse(
+            id=str(summary.id),
+            session_id=summary.session_id,
+            intent=summary.intent,
+            summary_text=summary.summary_text,
+            resolution_status=summary.resolution_status,
+            satisfaction_score=summary.satisfaction_score,
+            ticket_id=str(summary.ticket_id) if summary.ticket_id else None,
+            order_id=str(summary.order_id) if summary.order_id else None,
+            conversation_turns=summary.conversation_turns,
+            tools_called=summary.tools_called,
+            emotion_trajectory=summary.emotion_trajectory,
+            created_at=summary.created_at.isoformat() if summary.created_at else "",
+        ).model_dump()
+    )
 
 
 @router.get("/sessions/history", summary="查询用户客服历史")
@@ -502,10 +520,12 @@ async def get_cs_history(
         for s in summaries
     ]
 
-    return success(CsHistoryResponse(
-        user_id=str(current_user.id),
-        sessions=sessions,
-    ).model_dump())
+    return success(
+        CsHistoryResponse(
+            user_id=str(current_user.id),
+            sessions=sessions,
+        ).model_dump()
+    )
 
 
 @router.get("/sessions/{session_id}", summary="查询指定会话摘要")
@@ -515,27 +535,27 @@ async def get_session_summary(
     current_user: User = Depends(get_current_user),
 ):
     """获取指定会话的摘要（用于恢复上下文）。"""
-    result = await db.execute(
-        select(CsSessionSummary).where(CsSessionSummary.session_id == session_id)
-    )
+    result = await db.execute(select(CsSessionSummary).where(CsSessionSummary.session_id == session_id))
     s = result.scalar_one_or_none()
     if not s:
         raise HTTPException(status_code=404, detail="会话摘要不存在")
 
-    return success(SessionSummaryResponse(
-        id=str(s.id),
-        session_id=s.session_id,
-        intent=s.intent,
-        summary_text=s.summary_text,
-        resolution_status=s.resolution_status,
-        satisfaction_score=s.satisfaction_score,
-        ticket_id=str(s.ticket_id) if s.ticket_id else None,
-        order_id=str(s.order_id) if s.order_id else None,
-        conversation_turns=s.conversation_turns,
-        tools_called=s.tools_called,
-        emotion_trajectory=s.emotion_trajectory,
-        created_at=s.created_at.isoformat() if s.created_at else "",
-    ).model_dump())
+    return success(
+        SessionSummaryResponse(
+            id=str(s.id),
+            session_id=s.session_id,
+            intent=s.intent,
+            summary_text=s.summary_text,
+            resolution_status=s.resolution_status,
+            satisfaction_score=s.satisfaction_score,
+            ticket_id=str(s.ticket_id) if s.ticket_id else None,
+            order_id=str(s.order_id) if s.order_id else None,
+            conversation_turns=s.conversation_turns,
+            tools_called=s.tools_called,
+            emotion_trajectory=s.emotion_trajectory,
+            created_at=s.created_at.isoformat() if s.created_at else "",
+        ).model_dump()
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -559,16 +579,21 @@ async def get_ticket_messages_portal(
     if ticket.member_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权查看该工单")
 
-    q = select(CsConversationMessage).where(
-        CsConversationMessage.ticket_id == ticket_id
-    ).order_by(CsConversationMessage.created_at.asc()).limit(limit)
+    q = (
+        select(CsConversationMessage)
+        .where(CsConversationMessage.ticket_id == ticket_id)
+        .order_by(CsConversationMessage.created_at.asc())
+        .limit(limit)
+    )
     result = await db.execute(q)
     messages = result.scalars().all()
 
-    return success(CsMessageListResponse(
-        ticket_id=ticket_id,
-        messages=[CsMessageResponse.model_validate(m).model_dump() for m in messages],
-    ).model_dump())
+    return success(
+        CsMessageListResponse(
+            ticket_id=ticket_id,
+            messages=[CsMessageResponse.model_validate(m).model_dump() for m in messages],
+        ).model_dump()
+    )
 
 
 @router.post("/tickets/{ticket_id}/messages", summary="用户发送聊天消息")
@@ -651,8 +676,8 @@ def _build_cs_state(req: CsChatRequest, user_id: str, auth_token: str = "") -> d
         "session_id": req.session_id or "default",
         "status": "running",
         "messages": [HumanMessage(content=req.message)],
-        "intent": "",              # supervisor will classify
-        "current_agent": "",       # supervisor will set
+        "intent": "",  # supervisor will classify
+        "current_agent": "",  # supervisor will set
         "working_memory": {"auth_token": auth_token},
     }
 
@@ -743,6 +768,7 @@ def _get_redis():
     try:
         import redis.asyncio as aioredis
         from snaptrip_shared.core.config import settings
+
         return aioredis.from_url(settings.REDIS_URL)
     except Exception:
         return None
@@ -752,20 +778,24 @@ def _portal_publish_message(ticket_id: str, msg: CsConversationMessage) -> None:
     """Publish chat message to Redis (best-effort)."""
     try:
         import asyncio
+
         async def _pub():
             redis = _get_redis()
             if redis:
-                payload = json.dumps({
-                    "id": str(msg.id),
-                    "ticket_id": ticket_id,
-                    "sender_type": msg.sender_type,
-                    "sender_id": str(msg.sender_id) if msg.sender_id else None,
-                    "content": msg.content,
-                    "content_type": msg.content_type,
-                    "created_at": msg.created_at.isoformat() if msg.created_at else "",
-                })
+                payload = json.dumps(
+                    {
+                        "id": str(msg.id),
+                        "ticket_id": ticket_id,
+                        "sender_type": msg.sender_type,
+                        "sender_id": str(msg.sender_id) if msg.sender_id else None,
+                        "content": msg.content,
+                        "content_type": msg.content_type,
+                        "created_at": msg.created_at.isoformat() if msg.created_at else "",
+                    }
+                )
                 await redis.publish(f"ticket:{ticket_id}:messages", payload)
                 await redis.close()
+
         asyncio.create_task(_pub())
     except Exception:
         pass

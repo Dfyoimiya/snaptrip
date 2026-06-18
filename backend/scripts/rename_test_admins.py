@@ -9,6 +9,7 @@ import asyncio
 
 from snaptrip_shared.db.session import AsyncSessionLocal
 from sqlalchemy import select
+
 from marketplace.app.models.users import User
 
 # 旧邮箱模式 → 新邮箱模式

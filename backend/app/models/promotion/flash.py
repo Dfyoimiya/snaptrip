@@ -53,8 +53,11 @@ class SmsFlashPromotionSession(CommerceBase, AuditMixin):
     __tablename__ = "sms_flash_sessions"
 
     promotion_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("sms_flash_promotions.id", ondelete="CASCADE"),
-        nullable=False, index=True, comment="所属活动ID",
+        UUID(as_uuid=True),
+        ForeignKey("sms_flash_promotions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="所属活动ID",
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False, comment="场次名称,如 10点场")
     start_time: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, comment="场次开始时间")
@@ -70,14 +73,23 @@ class SmsFlashPromotionProduct(CommerceBase):
     __tablename__ = "sms_flash_promotion_products"
 
     session_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("sms_flash_sessions.id", ondelete="CASCADE"),
-        nullable=False, index=True, comment="场次ID",
+        UUID(as_uuid=True),
+        ForeignKey("sms_flash_sessions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+        comment="场次ID",
     )
     product_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), nullable=False, index=True, comment="商品ID",
+        UUID(as_uuid=True),
+        nullable=False,
+        index=True,
+        comment="商品ID",
     )
     sku_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), nullable=False, index=True, comment="SKU ID",
+        UUID(as_uuid=True),
+        nullable=False,
+        index=True,
+        comment="SKU ID",
     )
     flash_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False, comment="秒杀价格")
     flash_stock: Mapped[int] = mapped_column(Integer, nullable=False, comment="秒杀库存")

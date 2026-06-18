@@ -64,6 +64,7 @@ async def _check_sla() -> dict:
 
     try:
         import redis.asyncio as aioredis
+
         redis = aioredis.from_url(settings.REDIS_URL)
     except Exception:
         redis = None
@@ -86,13 +87,14 @@ async def _check_sla() -> dict:
                 # SLA breached
                 breached += 1
                 notif = CsNotification(
-                    recipient_id=ticket.assigned_agent_id if ticket.assigned_agent_id
+                    recipient_id=ticket.assigned_agent_id
+                    if ticket.assigned_agent_id
                     else ticket.created_by or ticket.id,  # fallback
                     type="sla_breach",
                     ticket_id=ticket.id,
                     title=f"SLA 超时: {ticket.title}",
                     body=f"工单 {ticket.id} 已超过 {ticket.priority} 级 SLA ({_format_td(deadline)})，"
-                         f"当前耗时 {_format_td(elapsed)}",
+                    f"当前耗时 {_format_td(elapsed)}",
                 )
                 db.add(notif)
 
@@ -100,12 +102,14 @@ async def _check_sla() -> dict:
                 if redis:
                     await redis.publish(
                         "cs:sla:warning",
-                        json.dumps({
-                            "type": "sla_breach",
-                            "ticket_id": str(ticket.id),
-                            "priority": ticket.priority,
-                            "elapsed_minutes": int(elapsed.total_seconds() / 60),
-                        }),
+                        json.dumps(
+                            {
+                                "type": "sla_breach",
+                                "ticket_id": str(ticket.id),
+                                "priority": ticket.priority,
+                                "elapsed_minutes": int(elapsed.total_seconds() / 60),
+                            }
+                        ),
                     )
 
             elif elapsed > warning_threshold:
@@ -114,13 +118,15 @@ async def _check_sla() -> dict:
                 if redis:
                     await redis.publish(
                         "cs:sla:warning",
-                        json.dumps({
-                            "type": "sla_warning",
-                            "ticket_id": str(ticket.id),
-                            "priority": ticket.priority,
-                            "elapsed_minutes": int(elapsed.total_seconds() / 60),
-                            "remaining_minutes": int((deadline - elapsed).total_seconds() / 60),
-                        }),
+                        json.dumps(
+                            {
+                                "type": "sla_warning",
+                                "ticket_id": str(ticket.id),
+                                "priority": ticket.priority,
+                                "elapsed_minutes": int(elapsed.total_seconds() / 60),
+                                "remaining_minutes": int((deadline - elapsed).total_seconds() / 60),
+                            }
+                        ),
                     )
 
         await db.commit()

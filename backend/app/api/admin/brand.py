@@ -14,10 +14,10 @@ from snaptrip_shared.core.response import success
 from snaptrip_shared.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.rbac import require_admin_user
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.product import BrandCreate, BrandUpdate
 from app.services.brand_service import BrandService
-from marketplace.app.core.security import get_current_user
 
 router = APIRouter(prefix="/admin/brands", tags=["Admin - 商品品牌"])
 
@@ -26,7 +26,7 @@ router = APIRouter(prefix="/admin/brands", tags=["Admin - 商品品牌"])
 async def create(
     data: BrandCreate,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     svc = BrandService(db)
     result = await svc.create(data)
@@ -38,7 +38,7 @@ async def update(
     brand_id: UUID,
     data: BrandUpdate,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     svc = BrandService(db)
     result = await svc.update(brand_id, data)
@@ -49,7 +49,7 @@ async def update(
 async def delete(
     brand_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     svc = BrandService(db)
     await svc.delete(brand_id)
@@ -59,7 +59,7 @@ async def delete(
 @router.get("/all", summary="全部启用品牌")
 async def list_all(
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     """无分页全返回 —— 用于商品编辑页下拉选择品牌"""
     svc = BrandService(db)
@@ -71,7 +71,7 @@ async def list_all(
 async def get_detail(
     brand_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     svc = BrandService(db)
     result = await svc.get_by_id(brand_id)
@@ -87,7 +87,7 @@ async def list_paginated(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     svc = BrandService(db)
     items, total = await svc.list_paginated(
@@ -112,7 +112,7 @@ async def toggle_status(
     field: str = Query(..., description="状态字段: show_status 或 factory_status"),
     status: int = Query(..., ge=0, le=1),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     svc = BrandService(db)
     result = await svc.toggle_status(brand_id, field, status)

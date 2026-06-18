@@ -13,13 +13,14 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-
 # ============================================================================
 #  订单设置 Schema
 # ============================================================================
 
+
 class OrderSettingResponse(BaseModel):
     """订单设置响应"""
+
     id: UUID | str
     flash_order_overtime: int
     normal_order_overtime: int
@@ -32,6 +33,7 @@ class OrderSettingResponse(BaseModel):
 
 class OrderSettingUpdate(BaseModel):
     """更新订单设置 —— 所有字段可选"""
+
     flash_order_overtime: int | None = Field(None, ge=1)
     normal_order_overtime: int | None = Field(None, ge=1)
     confirm_overtime: int | None = Field(None, ge=1)
@@ -43,8 +45,10 @@ class OrderSettingUpdate(BaseModel):
 #  退货原因 Schema
 # ============================================================================
 
+
 class ReturnReasonCreate(BaseModel):
     """创建退货原因"""
+
     name: str = Field(..., min_length=1, max_length=100, description="原因名称")
     sort: int = Field(default=0, ge=0, description="排序")
     status: int = Field(default=1, ge=0, le=1, description="状态: 0=禁用 1=启用")
@@ -52,6 +56,7 @@ class ReturnReasonCreate(BaseModel):
 
 class ReturnReasonUpdate(BaseModel):
     """更新退货原因 —— 所有字段可选"""
+
     name: str | None = Field(None, min_length=1, max_length=100)
     sort: int | None = Field(None, ge=0)
     status: int | None = Field(None, ge=0, le=1)
@@ -59,6 +64,7 @@ class ReturnReasonUpdate(BaseModel):
 
 class ReturnReasonResponse(BaseModel):
     """退货原因响应"""
+
     id: UUID | str
     name: str
     sort: int
@@ -73,8 +79,10 @@ class ReturnReasonResponse(BaseModel):
 #  退货申请 Schema
 # ============================================================================
 
+
 class ReturnApplyResponse(BaseModel):
     """退货申请响应"""
+
     id: UUID | str
     order_id: UUID | None = None
     product_id: UUID | str | None = None
@@ -108,6 +116,7 @@ class ReturnApplyResponse(BaseModel):
 
 class ReturnApplyUpdateStatus(BaseModel):
     """更新退货申请状态"""
+
     status: int = Field(..., ge=0, le=3, description="处理状态: 0=待处理 1=已退货 2=已拒绝 3=已退款")
     handle_note: str | None = Field(None, max_length=1000, description="处理备注")
     handle_man: str | None = Field(None, max_length=100, description="处理人")

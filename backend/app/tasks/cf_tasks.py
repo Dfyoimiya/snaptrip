@@ -27,8 +27,8 @@ logger = get_logger(__name__)
     name="train_cf_model",
     max_retries=2,
     default_retry_delay=300,  # 5 分钟后重试
-    soft_time_limit=600,       # 10 分钟软超时 (防止训练阻塞)
-    time_limit=900,            # 15 分钟硬超时
+    soft_time_limit=600,  # 10 分钟软超时 (防止训练阻塞)
+    time_limit=900,  # 15 分钟硬超时
 )
 def train_cf_model() -> dict:
     """训练 ALS 协同过滤模型。
@@ -42,11 +42,12 @@ def train_cf_model() -> dict:
     Returns:
         {"model_version": str, "n_users": int, "n_items": int, ...}
     """
+
     async def _run():
         from snaptrip_shared.db.session import AsyncSessionLocal
 
-        from app.services.memory_service import MemoryService
         from app.services.collaborative_filtering_service import CollaborativeFilteringService
+        from app.services.memory_service import MemoryService
 
         memory = MemoryService()
         await memory.start()

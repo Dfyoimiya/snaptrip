@@ -50,6 +50,7 @@ def _resolve_user_id(request: Request) -> UUID | None:
         return None
     try:
         from marketplace.app.core.security import decode_access_token
+
         token = auth.removeprefix("Bearer ").strip()
         payload = decode_access_token(token)
         sub = payload.get("sub", "")
@@ -120,8 +121,8 @@ async def generate_ai_suggestions(
     """
     from app.services.suggestion_service import SuggestionService
 
-    supervisor = getattr(request.app.state, 'recommendation_supervisor', None)
-    llm = getattr(supervisor, '_llm', None) if supervisor else None
+    supervisor = getattr(request.app.state, "recommendation_supervisor", None)
+    llm = getattr(supervisor, "_llm", None) if supervisor else None
 
     svc = SuggestionService(
         memory=memory,

@@ -21,7 +21,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -93,7 +92,9 @@ class QueryExpansionService:
         return []
 
     async def build_index_batch(
-        self, queries: list[str], top_n: int = 200,
+        self,
+        queries: list[str],
+        top_n: int = 200,
     ) -> int:
         """批量构建查询扩展索引 (离线任务)。
 

@@ -25,44 +25,34 @@ class CsSessionSummary(CommerceBase, AuditMixin):
 
     __tablename__ = "cs_session_summaries"
 
-    session_id: Mapped[str] = mapped_column(
-        String(64), nullable=False, index=True, comment="会话ID"
-    )
+    session_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True, comment="会话ID")
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True, index=True, comment="用户ID (匿名为空)"
     )
     intent: Mapped[str | None] = mapped_column(
-        String(32), nullable=True, index=True,
+        String(32),
+        nullable=True,
+        index=True,
         comment="客服意图: cs_after_sales/cs_complaint/cs_inquiry",
     )
-    summary_text: Mapped[str] = mapped_column(
-        Text, nullable=False, comment="LLM 生成的会话摘要"
-    )
+    summary_text: Mapped[str] = mapped_column(Text, nullable=False, comment="LLM 生成的会话摘要")
     resolution_status: Mapped[str] = mapped_column(
-        String(32), default="unknown", nullable=False,
+        String(32),
+        default="unknown",
+        nullable=False,
         comment="解决状态: resolved/escalated/abandoned/unknown",
     )
-    satisfaction_score: Mapped[int | None] = mapped_column(
-        Integer, nullable=True, comment="满意度 1-5"
-    )
-    ticket_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), nullable=True, comment="关联工单ID"
-    )
-    order_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), nullable=True, comment="关联订单ID"
-    )
-    conversation_turns: Mapped[int] = mapped_column(
-        Integer, default=0, comment="对话轮数"
-    )
-    tools_called: Mapped[list | None] = mapped_column(
-        JSON, nullable=True, comment="调用的工具列表"
-    )
+    satisfaction_score: Mapped[int | None] = mapped_column(Integer, nullable=True, comment="满意度 1-5")
+    ticket_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, comment="关联工单ID")
+    order_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, comment="关联订单ID")
+    conversation_turns: Mapped[int] = mapped_column(Integer, default=0, comment="对话轮数")
+    tools_called: Mapped[list | None] = mapped_column(JSON, nullable=True, comment="调用的工具列表")
     key_entities: Mapped[dict | None] = mapped_column(
-        JSON, nullable=True,
-        comment="关键实体: {order_ids, product_ids, amounts, ...}"
+        JSON, nullable=True, comment="关键实体: {order_ids, product_ids, amounts, ...}"
     )
     emotion_trajectory: Mapped[str | None] = mapped_column(
-        String(32), nullable=True,
+        String(32),
+        nullable=True,
         comment="情绪轨迹: angry→calm, neutral→satisfied, ...",
     )
 

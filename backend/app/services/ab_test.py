@@ -29,16 +29,18 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ExperimentGroup:
     """实验组定义。"""
+
     name: str
     weight: int = 50
     config: dict[str, Any] = field(default_factory=dict)
-    successes: int = 1   # Beta prior α (成功次数)
-    failures: int = 1    # Beta prior β (失败次数)
+    successes: int = 1  # Beta prior α (成功次数)
+    failures: int = 1  # Beta prior β (失败次数)
 
 
 @dataclass
 class Experiment:
     """实验定义。"""
+
     id: str
     name: str
     groups: list[ExperimentGroup]
@@ -67,32 +69,36 @@ class ABTestEngine:
     def _register_default_experiments(self) -> None:
         """注册默认实验。"""
         # 实验1: 推荐策略
-        self.register_experiment(Experiment(
-            id="rec_strategy",
-            name="推荐策略对比",
-            groups=[
-                ExperimentGroup(
-                    name="control",
-                    weight=50,
-                    config={"rerank": "rule_based"},
-                ),
-                ExperimentGroup(
-                    name="treatment_llm",
-                    weight=50,
-                    config={"rerank": "llm"},
-                ),
-            ],
-        ))
+        self.register_experiment(
+            Experiment(
+                id="rec_strategy",
+                name="推荐策略对比",
+                groups=[
+                    ExperimentGroup(
+                        name="control",
+                        weight=50,
+                        config={"rerank": "rule_based"},
+                    ),
+                    ExperimentGroup(
+                        name="treatment_llm",
+                        weight=50,
+                        config={"rerank": "llm"},
+                    ),
+                ],
+            )
+        )
 
         # 实验2: 文案风格
-        self.register_experiment(Experiment(
-            id="copy_style",
-            name="文案风格对比",
-            groups=[
-                ExperimentGroup(name="formal", weight=50),
-                ExperimentGroup(name="casual", weight=50),
-            ],
-        ))
+        self.register_experiment(
+            Experiment(
+                id="copy_style",
+                name="文案风格对比",
+                groups=[
+                    ExperimentGroup(name="formal", weight=50),
+                    ExperimentGroup(name="casual", weight=50),
+                ],
+            )
+        )
 
     # ── 实验管理 ──
 
@@ -122,17 +128,17 @@ class ABTestEngine:
         if not exp or not exp.enabled:
             return "control"
 
-        samples = [
-            np.random.beta(g.successes, g.failures)
-            for g in exp.groups
-        ]
+        samples = [np.random.beta(g.successes, g.failures) for g in exp.groups]
         best_idx = int(np.argmax(samples))
         return exp.groups[best_idx].name
 
     # ── 结果记录 ──
 
     def record_outcome(
-        self, experiment_id: str, group_name: str, success: bool,
+        self,
+        experiment_id: str,
+        group_name: str,
+        success: bool,
     ) -> None:
         """记录实验结果 (更新 Thompson 后验分布)。"""
         exp = self._experiments.get(experiment_id)
@@ -147,8 +153,12 @@ class ABTestEngine:
                 return
 
     def record_metric(
-        self, experiment_id: str, group_name: str, metric_name: str,
-        value: float, user_id: str = "",
+        self,
+        experiment_id: str,
+        group_name: str,
+        metric_name: str,
+        value: float,
+        user_id: str = "",
     ) -> None:
         """记录业务指标。"""
         store = self._metric_store.get(experiment_id)
@@ -156,11 +166,13 @@ class ABTestEngine:
             return
         if group_name not in store:
             store[group_name] = []
-        store[group_name].append({
-            "metric": metric_name,
-            "value": value,
-            "user_id": user_id,
-        })
+        store[group_name].append(
+            {
+                "metric": metric_name,
+                "value": value,
+                "user_id": user_id,
+            }
+        )
 
     # ── 统计 ──
 

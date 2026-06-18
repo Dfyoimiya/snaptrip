@@ -113,7 +113,7 @@ async def test_create_success(mock_db):
 
     with (
         patch.object(ProductCreate, "model_dump", _patched_dump),
-        patch("app.services.product_service._sync_product_to_es", new_callable=AsyncMock),
+        patch("app.services.product_service.sync_product_to_es", new_callable=AsyncMock),
     ):
         resp = await svc.create(data)
 
@@ -148,7 +148,7 @@ async def test_create_passes_product_data_to_model(mock_db):
 
     with (
         patch.object(ProductCreate, "model_dump", _patched_dump),
-        patch("app.services.product_service._sync_product_to_es", new_callable=AsyncMock),
+        patch("app.services.product_service.sync_product_to_es", new_callable=AsyncMock),
     ):
         svc = ProductService(mock_db)
         resp = await svc.create(data)
@@ -188,7 +188,7 @@ async def test_update_success(mock_db):
     mock_db.execute.side_effect = [exec_result, sku_exec, attr_exec]
 
     with (
-        patch("app.services.product_service._sync_product_to_es", new_callable=AsyncMock),
+        patch("app.services.product_service.sync_product_to_es", new_callable=AsyncMock),
     ):
         svc = ProductService(mock_db)
         data = ProductUpdate(name="Updated Name")
@@ -398,7 +398,7 @@ async def test_toggle_status_success(mock_db):
     mock_db.execute.return_value = exec_result
 
     with (
-        patch("app.services.product_service._sync_product_to_es", new_callable=AsyncMock),
+        patch("app.services.product_service.sync_product_to_es", new_callable=AsyncMock),
     ):
         svc = ProductService(mock_db)
         resp = await svc.toggle_status(product_id, "publish_status", 1)

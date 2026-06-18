@@ -45,16 +45,19 @@ class CartService:
         product = await self.db.get(PmsProduct, data.product_id)
         if not product or product.is_deleted or product.publish_status != 1:
             from app.core.exceptions import ProductOffShelfError
+
             raise ProductOffShelfError(str(data.product_id))
 
         sku = await self.db.get(PmsSku, data.sku_id)
         if not sku or sku.product_id != data.product_id:
             from app.core.exceptions import ProductNotFoundError
+
             raise ProductNotFoundError(str(data.sku_id))
 
         # 检查库存
         if sku.stock - sku.lock_stock < data.quantity:
             from app.core.exceptions import InsufficientStockError
+
             raise InsufficientStockError(str(data.sku_id), sku.stock - sku.lock_stock, data.quantity)
 
         # 幂等: 查是否已有该 SKU
@@ -99,9 +102,7 @@ class CartService:
         from app.models.order.cart import OmsCartItem
 
         result = await self.db.execute(
-            select(OmsCartItem)
-            .where(OmsCartItem.user_id == user_id)
-            .order_by(OmsCartItem.created_at.desc())
+            select(OmsCartItem).where(OmsCartItem.user_id == user_id).order_by(OmsCartItem.created_at.desc())
         )
         items = result.scalars().all()
         return [CartItemResponse.model_validate(item) for item in items]
@@ -120,6 +121,7 @@ class CartService:
         values = data.model_dump(exclude_unset=True)
         if not values:
             from app.core.exceptions import CommerceException
+
             raise CommerceException(code="NO_FIELDS", message="没有提供需要更新的字段", status_code=400)
 
         stmt = (
@@ -132,6 +134,7 @@ class CartService:
         item = result.scalar_one_or_none()
         if not item:
             from app.core.exceptions import ProductNotFoundError
+
             raise ProductNotFoundError(f"购物车条目 {item_id}")
         return CartItemResponse.model_validate(item)
 
@@ -149,12 +152,11 @@ class CartService:
         # 如果 rowcount == 0 说明条目不存在或不属于该用户
         if result.rowcount == 0:  # type: ignore[attr-defined]
             from app.core.exceptions import ProductNotFoundError
+
             raise ProductNotFoundError(f"购物车条目 {item_id}")
 
     async def clear_cart(self, user_id: UUID) -> None:
         """清空购物车 —— 下单成功后调用"""
         from app.models.order.cart import OmsCartItem
 
-        await self.db.execute(
-            delete(OmsCartItem).where(OmsCartItem.user_id == user_id)
-        )
+        await self.db.execute(delete(OmsCartItem).where(OmsCartItem.user_id == user_id))

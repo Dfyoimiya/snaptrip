@@ -11,10 +11,10 @@ from __future__ import annotations
 
 from logging.config import fileConfig
 
+from snaptrip_shared.core.config import settings
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-from snaptrip_shared.core.config import settings
 
 # ── Alembic Config ──
 config = context.config
@@ -24,23 +24,16 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # ── 导入所有模型以支持 autogenerate ──
-from marketplace.app.models.base import Base  # noqa: E402
-from app.models.checkpoint import Checkpoint  # noqa: E402, F401
-from marketplace.app.models.plan import Plan  # noqa: E402, F401
-from marketplace.app.models.plan_adjustment import PlanAdjustment  # noqa: E402, F401
-from marketplace.app.models.plan_slot import PlanSlot  # noqa: E402, F401
-from marketplace.app.models.poi import POI  # noqa: E402, F401
-from marketplace.app.models.refresh_token import RefreshToken  # noqa: E402, F401
-from marketplace.app.models.user_profile import UserProfile  # noqa: E402, F401
-from marketplace.app.models.users import User  # noqa: E402, F401
-
 # ── 电商模型 (Commerce) ──
 from app.models.base import CommerceBase  # noqa: E402
+from app.models.checkpoint import Checkpoint  # noqa: E402, F401
 from app.models.cms import CmsBanner, CmsHelp, CmsSubject  # noqa: E402, F401
+from app.models.infra.notification import CsNotification  # noqa: E402, F401
 from app.models.member import UmsMemberAddress, UmsMemberFavorite  # noqa: E402, F401
 from app.models.member.behavior import UmsMemberBehavior, UmsMemberSearchLog  # noqa: E402, F401
 from app.models.member.cs_agent import CsAgentStatus  # noqa: E402, F401
 from app.models.member.cs_session import CsSessionSummary  # noqa: E402, F401
+from app.models.menu import Menu, Resource, ResourceCategory, RoleMenu, RoleResource  # noqa: E402, F401
 from app.models.order import (  # noqa: E402, F401
     CsConversationMessage,
     OmsCartItem,
@@ -52,7 +45,6 @@ from app.models.order import (  # noqa: E402, F401
     OmsReturnReason,
     OmsSupportTicket,
 )
-from app.models.infra.notification import CsNotification  # noqa: E402, F401
 from app.models.product import (  # noqa: E402, F401
     PmsBrand,
     PmsCategory,
@@ -70,8 +62,15 @@ from app.models.promotion import (  # noqa: E402, F401
     SmsFlashPromotionProduct,
     SmsFlashPromotionSession,
 )
-from app.models.menu import Menu, Resource, ResourceCategory, RoleMenu, RoleResource  # noqa: E402, F401
 from app.models.rbac import Permission, Role, RolePermission, UserRole  # noqa: E402, F401
+from marketplace.app.models.base import Base  # noqa: E402
+from marketplace.app.models.plan import Plan  # noqa: E402, F401
+from marketplace.app.models.plan_adjustment import PlanAdjustment  # noqa: E402, F401
+from marketplace.app.models.plan_slot import PlanSlot  # noqa: E402, F401
+from marketplace.app.models.poi import POI  # noqa: E402, F401
+from marketplace.app.models.refresh_token import RefreshToken  # noqa: E402, F401
+from marketplace.app.models.user_profile import UserProfile  # noqa: E402, F401
+from marketplace.app.models.users import User  # noqa: E402, F401
 
 # 合并 marketplace.Base 和 app.CommerceBase 的 metadata
 # 参见: https://alembic.sqlalchemy.org/en/latest/autogenerate.html#multiple-metadata-collections

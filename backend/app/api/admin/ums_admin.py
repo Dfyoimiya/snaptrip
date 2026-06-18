@@ -12,19 +12,18 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from snaptrip_shared.core.response import success
 from snaptrip_shared.db.session import get_db
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.rbac import require_admin_user, require_permissions
 from app.models.rbac import Role, UserRole
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.rbac_admin import (
     AdminRegisterRequest,
     AdminRoleUpdateRequest,
     AdminUpdateRequest,
-    AdminUserResponse,
     RoleResponse,
 )
-from marketplace.app.core.security import get_current_user
 
 router = APIRouter(prefix="/admin", tags=["System - 用户管理"])
 
@@ -32,24 +31,21 @@ router = APIRouter(prefix="/admin", tags=["System - 用户管理"])
 async def _get_user_roles(db: AsyncSession, user_id: UUID) -> list[RoleResponse]:
     """Load roles for a single user (used by single-admin endpoints)."""
     result = await db.execute(
-        select(Role)
-        .join(UserRole, UserRole.role_id == Role.id)
-        .where(UserRole.user_id == user_id)
+        select(Role).join(UserRole, UserRole.role_id == Role.id).where(UserRole.user_id == user_id)
     )
     roles = result.scalars().all()
     return [RoleResponse.model_validate(r) for r in roles]
 
 
 async def _get_user_roles_batch(
-    db: AsyncSession, user_ids: list[UUID],
+    db: AsyncSession,
+    user_ids: list[UUID],
 ) -> dict[UUID, list[RoleResponse]]:
     """Batch load roles for multiple users in a single query (avoids N+1)."""
     if not user_ids:
         return {}
     result = await db.execute(
-        select(UserRole.user_id, Role)
-        .join(Role, UserRole.role_id == Role.id)
-        .where(UserRole.user_id.in_(user_ids))
+        select(UserRole.user_id, Role).join(Role, UserRole.role_id == Role.id).where(UserRole.user_id.in_(user_ids))
     )
     role_map: dict[UUID, list[RoleResponse]] = {uid: [] for uid in user_ids}
     for user_id, role in result:
@@ -73,7 +69,7 @@ async def list_admins(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     from sqlalchemy import text
 
@@ -106,10 +102,12 @@ async def list_admins(
 async def register_admin(
     data: AdminRegisterRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
+    _perm=Depends(require_permissions("system:user")),
 ):
     from snaptrip_shared.core.security import hash_password
     from sqlalchemy import text
+
     user_id = _uuid.uuid4()
     hashed = hash_password(data.password)
 
@@ -130,7 +128,7 @@ async def update_admin(
     user_id: UUID,
     data: AdminUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     from sqlalchemy import text
 
@@ -145,6 +143,7 @@ async def update_admin(
             params["is_active"] = data.is_active
         if data.password is not None:
             from snaptrip_shared.core.security import hash_password
+
             set_clauses.append("hashed_password = :hashed")
             params["hashed"] = hash_password(data.password)
         if set_clauses:
@@ -155,6 +154,7 @@ async def update_admin(
 
     if data.role_ids is not None:
         from sqlalchemy import delete
+
         await db.execute(delete(UserRole).where(UserRole.user_id == user_id))
         for role_id in data.role_ids:
             db.add(UserRole(id=_uuid.uuid4(), user_id=user_id, role_id=role_id))
@@ -168,9 +168,10 @@ async def update_status(
     user_id: UUID,
     status: int = Query(..., ge=0, le=1),
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     from sqlalchemy import text
+
     await db.execute(
         text("UPDATE users SET is_active = :status WHERE id = :id"),
         {"status": bool(status), "id": user_id},
@@ -183,9 +184,10 @@ async def update_status(
 async def delete_admin(
     user_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
-    from sqlalchemy import text, delete
+    from sqlalchemy import delete, text
+
     await db.execute(delete(UserRole).where(UserRole.user_id == user_id))
     await db.execute(text("DELETE FROM users WHERE id = :id"), {"id": user_id})
     await db.flush()
@@ -196,7 +198,7 @@ async def delete_admin(
 async def get_admin_roles(
     admin_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     roles = await _get_user_roles(db, admin_id)
     return success([r.model_dump() for r in roles])
@@ -206,9 +208,10 @@ async def get_admin_roles(
 async def update_admin_roles(
     data: AdminRoleUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    _current_user=Depends(get_current_user),
+    _current_user=Depends(require_admin_user),
 ):
     from sqlalchemy import delete
+
     await db.execute(delete(UserRole).where(UserRole.user_id == data.admin_id))
     for role_id in data.role_ids:
         db.add(UserRole(id=_uuid.uuid4(), user_id=data.admin_id, role_id=role_id))

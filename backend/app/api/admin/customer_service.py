@@ -27,6 +27,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sse_starlette.sse import EventSourceResponse
 
+from app.core.rbac import require_admin_user
 from app.models.infra.notification import CsNotification
 from app.models.member.cs_agent import CsAgentStatus
 from app.models.order.cs_message import CsConversationMessage
@@ -46,7 +47,6 @@ from app.schemas.cs_admin import (
     TicketResponse,
     TicketUpdateRequest,
 )
-from marketplace.app.core.security import get_current_user
 
 router = APIRouter(prefix="/admin/cs", tags=["Admin - 客服管理"])
 
@@ -79,7 +79,7 @@ async def list_tickets(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
-    _u=Depends(get_current_user),
+    _u=Depends(require_admin_user),
 ):
     """工单列表，支持按状态/优先级/类型/坐席/关键词筛选"""
     base = select(OmsSupportTicket)
@@ -99,35 +99,31 @@ async def list_tickets(
         count_q = count_q.where(OmsSupportTicket.assigned_agent_id == assigned_agent_id)
     if keyword:
         like = f"%{keyword}%"
-        base = base.where(
-            OmsSupportTicket.title.ilike(like) | OmsSupportTicket.description.ilike(like)
-        )
-        count_q = count_q.where(
-            OmsSupportTicket.title.ilike(like) | OmsSupportTicket.description.ilike(like)
-        )
+        base = base.where(OmsSupportTicket.title.ilike(like) | OmsSupportTicket.description.ilike(like))
+        count_q = count_q.where(OmsSupportTicket.title.ilike(like) | OmsSupportTicket.description.ilike(like))
 
     total_result = await db.execute(count_q)
     total = total_result.scalar() or 0
 
     items_result = await db.execute(
-        base.order_by(OmsSupportTicket.created_at.desc())
-        .offset((page - 1) * page_size)
-        .limit(page_size)
+        base.order_by(OmsSupportTicket.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
     )
     tickets = items_result.scalars().all()
 
-    return success(PaginatedResponse.of(
-        items=[TicketResponse.model_validate(t).model_dump() for t in tickets],
-        total=total,
-        params=PaginationParams(page=page, page_size=page_size),
-    ).model_dump())
+    return success(
+        PaginatedResponse.of(
+            items=[TicketResponse.model_validate(t).model_dump() for t in tickets],
+            total=total,
+            params=PaginationParams(page=page, page_size=page_size),
+        ).model_dump()
+    )
 
 
 @router.get("/tickets/{ticket_id}", summary="工单详情")
 async def get_ticket(
     ticket_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _u=Depends(get_current_user),
+    _u=Depends(require_admin_user),
 ):
     """获取工单详情"""
     result = await db.execute(select(OmsSupportTicket).where(OmsSupportTicket.id == ticket_id))
@@ -142,7 +138,7 @@ async def update_ticket(
     ticket_id: UUID,
     data: TicketUpdateRequest,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin_user),
 ):
     """更新工单状态/优先级/标签/处理结果"""
     result = await db.execute(select(OmsSupportTicket).where(OmsSupportTicket.id == ticket_id))
@@ -179,7 +175,7 @@ async def assign_ticket(
     ticket_id: UUID,
     data: TicketAssignRequest,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin_user),
 ):
     """指派坐席或认领工单"""
     result = await db.execute(select(OmsSupportTicket).where(OmsSupportTicket.id == ticket_id))
@@ -226,7 +222,7 @@ async def resolve_ticket(
     ticket_id: UUID,
     data: TicketResolveRequest,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin_user),
 ):
     """解决工单，填写处理结果"""
     result = await db.execute(select(OmsSupportTicket).where(OmsSupportTicket.id == ticket_id))
@@ -268,17 +264,13 @@ async def list_messages(
     limit: int = Query(50, le=200),
     before: UUID | None = Query(None, description="游标：获取此消息之前的历史"),
     db: AsyncSession = Depends(get_db),
-    _u=Depends(get_current_user),
+    _u=Depends(require_admin_user),
 ):
     """获取工单聊天消息，支持游标分页"""
-    q = select(CsConversationMessage).where(
-        CsConversationMessage.ticket_id == ticket_id
-    )
+    q = select(CsConversationMessage).where(CsConversationMessage.ticket_id == ticket_id)
     if before:
         # Get messages created before this message
-        ref = await db.execute(
-            select(CsConversationMessage).where(CsConversationMessage.id == before)
-        )
+        ref = await db.execute(select(CsConversationMessage).where(CsConversationMessage.id == before))
         ref_msg = ref.scalar_one_or_none()
         if ref_msg:
             q = q.where(CsConversationMessage.created_at < ref_msg.created_at)
@@ -287,10 +279,12 @@ async def list_messages(
     result = await db.execute(q)
     messages = result.scalars().all()
 
-    return success(CsMessageListResponse(
-        ticket_id=ticket_id,
-        messages=[CsMessageResponse.model_validate(m).model_dump() for m in messages],
-    ).model_dump())
+    return success(
+        CsMessageListResponse(
+            ticket_id=ticket_id,
+            messages=[CsMessageResponse.model_validate(m).model_dump() for m in messages],
+        ).model_dump()
+    )
 
 
 @router.post("/tickets/{ticket_id}/messages", summary="坐席发送消息")
@@ -299,7 +293,7 @@ async def send_message(
     data: CsMessageRequest,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin_user),
 ):
     """坐席向工单发送聊天消息，通过 Redis Pub/Sub 推送给用户"""
     # Verify ticket exists
@@ -334,7 +328,7 @@ async def stream_ticket_messages(
     ticket_id: UUID,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    _u=Depends(get_current_user),
+    _u=Depends(require_admin_user),
 ):
     """SSE 端点 — 坐席端订阅工单实时消息"""
     return EventSourceResponse(_message_stream(ticket_id, request, db))
@@ -348,7 +342,7 @@ async def stream_ticket_messages(
 @router.get("/agents", summary="在线坐席列表")
 async def list_agents(
     db: AsyncSession = Depends(get_db),
-    _u=Depends(get_current_user),
+    _u=Depends(require_admin_user),
 ):
     """获取所有坐席状态"""
     from marketplace.app.models.users import User
@@ -361,15 +355,17 @@ async def list_agents(
     for s in statuses:
         user_result = await db.execute(select(User).where(User.id == s.admin_id))
         user = user_result.scalar_one_or_none()
-        agents.append(AgentStatusResponse(
-            admin_id=s.admin_id,
-            status=s.status,
-            current_ticket_id=s.current_ticket_id,
-            max_concurrent=s.max_concurrent,
-            last_heartbeat=s.last_heartbeat,
-            skills=s.skills,
-            admin_name=user.email if user else None,
-        ).model_dump())
+        agents.append(
+            AgentStatusResponse(
+                admin_id=s.admin_id,
+                status=s.status,
+                current_ticket_id=s.current_ticket_id,
+                max_concurrent=s.max_concurrent,
+                last_heartbeat=s.last_heartbeat,
+                skills=s.skills,
+                admin_name=user.email if user else None,
+            ).model_dump()
+        )
 
     return success(agents)
 
@@ -378,12 +374,10 @@ async def list_agents(
 async def update_agent_status(
     data: AgentStatusUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin_user),
 ):
     """坐席更新自己的在线状态"""
-    result = await db.execute(
-        select(CsAgentStatus).where(CsAgentStatus.admin_id == current_user.id)
-    )
+    result = await db.execute(select(CsAgentStatus).where(CsAgentStatus.admin_id == current_user.id))
     agent_status = result.scalar_one_or_none()
 
     if agent_status:
@@ -403,14 +397,16 @@ async def update_agent_status(
     await db.commit()
     await db.refresh(agent_status)
 
-    return success(AgentStatusResponse(
-        admin_id=agent_status.admin_id,
-        status=agent_status.status,
-        current_ticket_id=agent_status.current_ticket_id,
-        max_concurrent=agent_status.max_concurrent,
-        last_heartbeat=agent_status.last_heartbeat,
-        skills=agent_status.skills,
-    ).model_dump())
+    return success(
+        AgentStatusResponse(
+            admin_id=agent_status.admin_id,
+            status=agent_status.status,
+            current_ticket_id=agent_status.current_ticket_id,
+            max_concurrent=agent_status.max_concurrent,
+            last_heartbeat=agent_status.last_heartbeat,
+            skills=agent_status.skills,
+        ).model_dump()
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -423,12 +419,10 @@ async def list_notifications(
     is_read: bool | None = Query(None),
     limit: int = Query(50, le=200),
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin_user),
 ):
     """获取当前坐席的通知列表"""
-    q = select(CsNotification).where(
-        CsNotification.recipient_id == current_user.id
-    )
+    q = select(CsNotification).where(CsNotification.recipient_id == current_user.id)
     if is_read is not None:
         q = q.where(CsNotification.is_read == is_read)
 
@@ -445,29 +439,27 @@ async def list_notifications(
     )
     unread_count = unread_result.scalar() or 0
     total_result = await db.execute(
-        select(func.count(CsNotification.id)).where(
-            CsNotification.recipient_id == current_user.id
-        )
+        select(func.count(CsNotification.id)).where(CsNotification.recipient_id == current_user.id)
     )
     total = total_result.scalar() or 0
 
-    return success(NotificationListResponse(
-        items=[NotificationResponse.model_validate(n).model_dump() for n in notifications],
-        unread_count=unread_count,
-        total=total,
-    ).model_dump())
+    return success(
+        NotificationListResponse(
+            items=[NotificationResponse.model_validate(n).model_dump() for n in notifications],
+            unread_count=unread_count,
+            total=total,
+        ).model_dump()
+    )
 
 
 @router.put("/notifications/{notification_id}/read", summary="标记通知已读")
 async def mark_read(
     notification_id: UUID,
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin_user),
 ):
     """标记指定通知为已读"""
-    result = await db.execute(
-        select(CsNotification).where(CsNotification.id == notification_id)
-    )
+    result = await db.execute(select(CsNotification).where(CsNotification.id == notification_id))
     notif = result.scalar_one_or_none()
     if not notif:
         raise HTTPException(status_code=404, detail="通知不存在")
@@ -484,13 +476,12 @@ async def mark_read(
 @router.put("/notifications/read-all", summary="全部已读")
 async def mark_all_read(
     db: AsyncSession = Depends(get_db),
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin_user),
 ):
     """标记当前坐席所有通知为已读"""
     await db.execute(
         text(
-            "UPDATE cs_notifications SET is_read = true, read_at = now() "
-            "WHERE recipient_id = :uid AND is_read = false"
+            "UPDATE cs_notifications SET is_read = true, read_at = now() WHERE recipient_id = :uid AND is_read = false"
         ),
         {"uid": current_user.id},
     )
@@ -501,7 +492,7 @@ async def mark_all_read(
 @router.get("/notifications/stream", summary="SSE 订阅通知流")
 async def stream_notifications(
     request: Request,
-    current_user=Depends(get_current_user),
+    current_user=Depends(require_admin_user),
 ):
     """SSE 端点 — 坐席端订阅实时通知"""
     return EventSourceResponse(_notification_stream(current_user.id, request))
@@ -515,7 +506,7 @@ async def stream_notifications(
 @router.get("/stats", summary="客服统计")
 async def get_stats(
     db: AsyncSession = Depends(get_db),
-    _u=Depends(get_current_user),
+    _u=Depends(require_admin_user),
 ):
     """获取客服统计数据"""
     now = datetime.now(UTC)
@@ -526,18 +517,12 @@ async def get_stats(
     total = total_result.scalar() or 0
 
     # Open count
-    open_result = await db.execute(
-        select(func.count(OmsSupportTicket.id)).where(
-            OmsSupportTicket.status == "open"
-        )
-    )
+    open_result = await db.execute(select(func.count(OmsSupportTicket.id)).where(OmsSupportTicket.status == "open"))
     open_count = open_result.scalar() or 0
 
     # In progress
     ip_result = await db.execute(
-        select(func.count(OmsSupportTicket.id)).where(
-            OmsSupportTicket.status == "in_progress"
-        )
+        select(func.count(OmsSupportTicket.id)).where(OmsSupportTicket.status == "in_progress")
     )
     ip_count = ip_result.scalar() or 0
 
@@ -563,9 +548,7 @@ async def get_stats(
 
     # Online agents
     agents_result = await db.execute(
-        select(func.count(CsAgentStatus.id)).where(
-            CsAgentStatus.status.in_(["online", "busy"])
-        )
+        select(func.count(CsAgentStatus.id)).where(CsAgentStatus.status.in_(["online", "busy"]))
     )
     online_agents = agents_result.scalar() or 0
 
@@ -579,15 +562,17 @@ async def get_stats(
     avg_raw = avg_result.scalar()
     avg_minutes = round(avg_raw.total_seconds() / 60, 1) if avg_raw else None
 
-    return success(CsStatsResponse(
-        total_tickets=total,
-        open_count=open_count,
-        in_progress_count=ip_count,
-        resolved_today=resolved_today,
-        avg_response_minutes=avg_minutes,
-        sla_breach_count=sla_breach,
-        online_agents=online_agents,
-    ).model_dump())
+    return success(
+        CsStatsResponse(
+            total_tickets=total,
+            open_count=open_count,
+            in_progress_count=ip_count,
+            resolved_today=resolved_today,
+            avg_response_minutes=avg_minutes,
+            sla_breach_count=sla_breach,
+            online_agents=online_agents,
+        ).model_dump()
+    )
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -600,6 +585,7 @@ def _get_redis():
     try:
         import redis.asyncio as aioredis
         from snaptrip_shared.core.config import settings
+
         return aioredis.from_url(settings.REDIS_URL)
     except Exception:
         return None
@@ -609,6 +595,7 @@ def _publish_ticket_event(event: str, ticket_id: str, status: str) -> None:
     """Publish ticket event to Redis (best-effort)."""
     try:
         import asyncio
+
         async def _pub():
             redis = _get_redis()
             if redis:
@@ -617,6 +604,7 @@ def _publish_ticket_event(event: str, ticket_id: str, status: str) -> None:
                     json.dumps({"event": event, "ticket_id": ticket_id, "status": status}),
                 )
                 await redis.close()
+
         asyncio.create_task(_pub())
     except Exception:
         pass
@@ -626,20 +614,24 @@ def _publish_message(ticket_id: str, msg: CsConversationMessage) -> None:
     """Publish chat message to Redis Pub/Sub (best-effort)."""
     try:
         import asyncio
+
         async def _pub():
             redis = _get_redis()
             if redis:
-                payload = json.dumps({
-                    "id": str(msg.id),
-                    "ticket_id": ticket_id,
-                    "sender_type": msg.sender_type,
-                    "sender_id": str(msg.sender_id) if msg.sender_id else None,
-                    "content": msg.content,
-                    "content_type": msg.content_type,
-                    "created_at": msg.created_at.isoformat() if msg.created_at else "",
-                })
+                payload = json.dumps(
+                    {
+                        "id": str(msg.id),
+                        "ticket_id": ticket_id,
+                        "sender_type": msg.sender_type,
+                        "sender_id": str(msg.sender_id) if msg.sender_id else None,
+                        "content": msg.content,
+                        "content_type": msg.content_type,
+                        "created_at": msg.created_at.isoformat() if msg.created_at else "",
+                    }
+                )
                 await redis.publish(f"ticket:{ticket_id}:messages", payload)
                 await redis.close()
+
         asyncio.create_task(_pub())
     except Exception:
         pass

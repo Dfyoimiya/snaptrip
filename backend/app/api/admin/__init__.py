@@ -19,6 +19,7 @@ from app.api.admin.member import router as member_router
 
 # ── UMS / RBAC (Phase 6) ──
 from app.api.admin.menu import router as menu_router
+from app.api.admin.notice import router as notice_router
 from app.api.admin.order import router as order_router
 
 # ── Order / Return ──
@@ -44,6 +45,7 @@ admin_router.include_router(dashboard_router)
 admin_router.include_router(flash_router)
 admin_router.include_router(cms_router)
 admin_router.include_router(stats_router)
+admin_router.include_router(notice_router)
 
 # ── UMS / RBAC ──
 admin_router.include_router(menu_router)

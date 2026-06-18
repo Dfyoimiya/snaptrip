@@ -19,23 +19,33 @@ class OmsOrderSetting(CommerceBase, AuditMixin):
     __tablename__ = "oms_order_settings"
 
     flash_order_overtime: Mapped[int] = mapped_column(
-        Integer, default=30, nullable=False,
+        Integer,
+        default=30,
+        nullable=False,
         comment="秒杀订单超时(分钟)",
     )
     normal_order_overtime: Mapped[int] = mapped_column(
-        Integer, default=120, nullable=False,
+        Integer,
+        default=120,
+        nullable=False,
         comment="普通订单超时(分钟)",
     )
     confirm_overtime: Mapped[int] = mapped_column(
-        Integer, default=15, nullable=False,
+        Integer,
+        default=15,
+        nullable=False,
         comment="发货后自动确认收货(天)",
     )
     finish_overtime: Mapped[int] = mapped_column(
-        Integer, default=7, nullable=False,
+        Integer,
+        default=7,
+        nullable=False,
         comment="交易完成后关闭(天)",
     )
     comment_overtime: Mapped[int] = mapped_column(
-        Integer, default=30, nullable=False,
+        Integer,
+        default=30,
+        nullable=False,
         comment="完成评价期限(天)",
     )
 

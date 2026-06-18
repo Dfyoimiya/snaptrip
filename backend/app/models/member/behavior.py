@@ -17,9 +17,8 @@ Date: 2026-06-16
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Integer, JSON, String, func
+from sqlalchemy import JSON, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -45,16 +44,12 @@ class UmsMemberBehavior(CommerceBase, AuditMixin):
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True, index=True, comment="用户ID (匿名用户为空)"
     )
-    session_id: Mapped[str | None] = mapped_column(
-        String(64), nullable=True, index=True, comment="匿名会话ID"
-    )
+    session_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True, comment="匿名会话ID")
     behavior_type: Mapped[str] = mapped_column(
-        String(32), nullable=False, index=True,
-        comment="行为类型: view/search/add_cart/purchase/favorite"
+        String(32), nullable=False, index=True, comment="行为类型: view/search/add_cart/purchase/favorite"
     )
     item_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), nullable=True, index=True,
-        comment="关联对象ID (如product_id)"
+        UUID(as_uuid=True), nullable=True, index=True, comment="关联对象ID (如product_id)"
     )
     item_type: Mapped[str | None] = mapped_column(
         String(32), nullable=True, comment="对象类型: product/category/brand/coupon"
@@ -76,15 +71,9 @@ class UmsMemberSearchLog(CommerceBase, AuditMixin):
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), nullable=True, index=True, comment="用户ID (匿名用户为空)"
     )
-    session_id: Mapped[str | None] = mapped_column(
-        String(64), nullable=True, index=True, comment="匿名会话ID"
-    )
-    keyword: Mapped[str] = mapped_column(
-        String(200), nullable=False, comment="搜索关键词"
-    )
+    session_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True, comment="匿名会话ID")
+    keyword: Mapped[str] = mapped_column(String(200), nullable=False, comment="搜索关键词")
     filters: Mapped[dict | None] = mapped_column(
         JSON, nullable=True, comment="筛选条件 (category_id/brand_id/price_range等)"
     )
-    result_count: Mapped[int | None] = mapped_column(
-        Integer, nullable=True, comment="搜索结果数量"
-    )
+    result_count: Mapped[int | None] = mapped_column(Integer, nullable=True, comment="搜索结果数量")

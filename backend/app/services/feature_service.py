@@ -105,11 +105,7 @@ class FeatureService:
             if not product_ids:
                 return {"count": 0, "category_ids": [], "recent_product_ids": []}
 
-            cat_stmt = (
-                select(PmsProduct.category_id)
-                .where(PmsProduct.id.in_(product_ids))
-                .distinct()
-            )
+            cat_stmt = select(PmsProduct.category_id).where(PmsProduct.id.in_(product_ids)).distinct()
             cat_result = await db.execute(cat_stmt)
             category_ids = [str(row[0]) for row in cat_result.fetchall() if row[0]]
 
@@ -123,10 +119,7 @@ class FeatureService:
         """从 PostgreSQL 聚合购买历史与 RFM 得分。"""
         async with self._db_factory() as db:
             order_stmt = (
-                select(OmsOrder)
-                .where(OmsOrder.member_id == user_id)
-                .order_by(OmsOrder.created_at.desc())
-                .limit(50)
+                select(OmsOrder).where(OmsOrder.member_id == user_id).order_by(OmsOrder.created_at.desc()).limit(50)
             )
             result = await db.execute(order_stmt)
             orders = result.scalars().all()

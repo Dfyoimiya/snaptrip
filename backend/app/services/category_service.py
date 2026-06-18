@@ -32,78 +32,109 @@ class CategoryService:
     """分类服务 —— 提供分类 CRUD + 树形结构查询"""
 
     def __init__(self, db: AsyncSession) -> None:
-        # FastAPI 依赖注入机制: get_db → yield session → 路由 → CategoryService(session)
-        # 每个请求一个独立的 AsyncSession，请求结束自动 commit/rollback
         self.db = db
 
     # ── 创建 ──
 
     async def create(self, data: CategoryCreate) -> CategoryResponse:
-        """
-        创建分类。
-
-        关键点:
-        - model_dump() 把 Pydantic 对象转成 dict，直接解包到 ORM 构造函数
-          不这样做: 需要手动逐个字段赋值，代码冗长且容易遗漏
-        """
         from app.models.product.category import PmsCategory
 
         category = PmsCategory(**data.model_dump())
         self.db.add(category)
-        await self.db.flush()  # flush 不提交事务，仅让 DB 生成 id，后续可以在同一事务中使用
-        # refresh 从 DB 重新加载对象，确保 created_at 等 server_default 字段被填充
+        await self.db.flush()
         await self.db.refresh(category)
         return CategoryResponse.model_validate(category)
 
     # ── 更新 ──
 
     async def update(self, category_id: UUID, data: CategoryUpdate) -> CategoryResponse:
-        """
-        编辑分类。
-
-        关键点:
-        - model_dump(exclude_unset=True): 只序列化用户实际传了的字段
-          如果用 model_dump(): 所有字段都序列化，未传的字段会设成 None，覆盖已有值
-          这是 Pydantic v2 的核心特性之一
-        """
         from app.models.product.category import PmsCategory
 
-        values = data.model_dump(exclude_unset=True)  # 只取用户实际传入的字段
+        values = data.model_dump(exclude_unset=True)
         if not values:
             from app.core.exceptions import CommerceException
+
             raise CommerceException(code="NO_FIELDS", message="没有提供需要更新的字段", status_code=400)
 
-        stmt = (
-            update(PmsCategory)
-            .where(PmsCategory.id == category_id)
-            .values(**values)
-            .returning(PmsCategory)  # RETURNING 子句，一次性获取更新后的行
-        )
+        stmt = update(PmsCategory).where(PmsCategory.id == category_id).values(**values).returning(PmsCategory)
         result = await self.db.execute(stmt)
         category = result.scalar_one_or_none()
         if not category:
             from app.core.exceptions import ProductNotFoundError
+
             raise ProductNotFoundError(str(category_id))
 
         return CategoryResponse.model_validate(category)
 
     # ── 删除 ──
 
-    async def delete(self, category_id: UUID) -> None:
-        """
-        删除分类。
+    async def delete(self, category_id: UUID, force: bool = False) -> None:
+        """删除分类 —— 带安全校验。
 
-        关键点:
-        - 子分类处理: ON DELETE SET NULL (见模型定义)，子分类的 parent_id 自动变 NULL
-          如果不设这个: 删除父分类时会报外键约束错误
+        安全规则:
+        1. 如果存在子分类且 force=False，抛出错误
+        2. 如果存在关联商品且 force=False，抛出错误
+        3. force=True 时：子分类的 parent_id 设为被删除分类的 parent_id，
+           关联商品的 category_id 设为 NULL
+
+        Args:
+            category_id: 要删除的分类 ID。
+            force: 是否强制删除（处理子分类和关联商品）。
+
+        Raises:
+            CommerceException: 当存在子分类或关联商品且 force=False 时。
         """
         from app.models.product.category import PmsCategory
+        from app.models.product.product import PmsProduct
 
         category = await self.db.get(PmsCategory, category_id)
         if not category:
             from app.core.exceptions import ProductNotFoundError
+
             raise ProductNotFoundError(str(category_id))
+
+        # 检查子分类数量
+        child_count_result = await self.db.execute(
+            select(func.count(PmsCategory.id)).where(PmsCategory.parent_id == category_id)
+        )
+        child_count = child_count_result.scalar() or 0
+
+        # 检查关联商品数量
+        product_count_result = await self.db.execute(
+            select(func.count(PmsProduct.id)).where(PmsProduct.category_id == category_id)
+        )
+        product_count = product_count_result.scalar() or 0
+
+        blockers: list[str] = []
+        if child_count > 0:
+            blockers.append(f"该分类下有 {child_count} 个子分类")
+        if product_count > 0:
+            blockers.append(f"该分类下有 {product_count} 个关联商品")
+
+        if blockers and not force:
+            from app.core.exceptions import CommerceException
+
+            raise CommerceException(
+                code="CATEGORY_DELETE_BLOCKED",
+                message="无法删除分类: " + "；".join(blockers) + "。可使用 force=true 强制删除",
+                status_code=409,
+            )
+
+        if force:
+            new_parent_id = category.parent_id
+            if child_count > 0:
+                # 将子分类重新挂载到被删除分类的父分类
+                await self.db.execute(
+                    update(PmsCategory).where(PmsCategory.parent_id == category_id).values(parent_id=new_parent_id)
+                )
+            if product_count > 0:
+                # 将关联商品的 category_id 设为 NULL
+                await self.db.execute(
+                    update(PmsProduct).where(PmsProduct.category_id == category_id).values(category_id=None)
+                )
+
         await self.db.delete(category)
+        await self.db.flush()
 
     # ── 查询: 详情 ──
 
@@ -113,22 +144,33 @@ class CategoryService:
         category = await self.db.get(PmsCategory, category_id)
         if not category:
             from app.core.exceptions import ProductNotFoundError
+
             raise ProductNotFoundError(str(category_id))
         return CategoryResponse.model_validate(category)
 
     # ── 查询: 分页列表 ──
 
     async def list_paginated(
-        self, parent_id: UUID | None = None, page: int = 1, page_size: int = 20
+        self,
+        parent_id: UUID | None = None,
+        show_status: int | None = None,
+        page: int = 1,
+        page_size: int = 20,
     ) -> tuple[list[CategoryResponse], int]:
         """
-        分页获取分类列表 —— 按 parent_id 筛选 + 分页。
+        分页获取分类列表 —— 按 parent_id 筛选 + show_status 过滤 + 分页。
 
-        返回值: (当前页列表, 总数)
+        Args:
+            parent_id: 父分类 ID，不传则不过滤层级。
+            show_status: 显示状态过滤，portal 端传 1 仅显示可见分类。
+            page: 页码。
+            page_size: 每页数量。
+
+        Returns:
+            (当前页列表, 总数)
         """
         from app.models.product.category import PmsCategory
 
-        # 构建基础查询
         base_query = select(PmsCategory)
         count_query = select(func.count(PmsCategory.id))
 
@@ -136,14 +178,15 @@ class CategoryService:
             base_query = base_query.where(PmsCategory.parent_id == parent_id)
             count_query = count_query.where(PmsCategory.parent_id == parent_id)
 
-        # 获取总数
+        if show_status is not None:
+            base_query = base_query.where(PmsCategory.show_status == show_status)
+            count_query = count_query.where(PmsCategory.show_status == show_status)
+
         result = await self.db.execute(count_query)
         total = result.scalar() or 0
 
-        # 获取当前页数据 —— order_by sort 确保自定义排序生效
         result = await self.db.execute(
-            base_query
-            .order_by(PmsCategory.sort.asc(), PmsCategory.created_at.desc())
+            base_query.order_by(PmsCategory.sort.asc(), PmsCategory.created_at.desc())
             .offset((page - 1) * page_size)
             .limit(page_size)
         )
@@ -152,23 +195,23 @@ class CategoryService:
 
     # ── 查询: 树形结构 ──
 
-    async def get_tree(self) -> list[CategoryTreeResponse]:
+    async def get_tree(self, show_status: int | None = None) -> list[CategoryTreeResponse]:
         """
         获取分类树 —— 一次查询全部分类，Python 端构建树。
 
-        为什么不直接在 SQL 中递归构建？
-        - 分类数据量少 (通常 < 1000)，全量加载到内存是最快的
-        - SQL 递归 CTE 的写法在不同 DB 中差异大，可移植性差
-        - Python 端构建更灵活 (排序、过滤子节点等)
+        Args:
+            show_status: 显示状态过滤，portal 端传 1 仅显示可见分类。
         """
         from app.models.product.category import PmsCategory
 
-        result = await self.db.execute(
-            select(PmsCategory).order_by(PmsCategory.sort.asc(), PmsCategory.created_at.desc())
-        )
+        stmt = select(PmsCategory).order_by(PmsCategory.sort.asc(), PmsCategory.created_at.desc())
+        if show_status is not None:
+            stmt = stmt.where(PmsCategory.show_status == show_status)
+
+        result = await self.db.execute(stmt)
         all_categories = result.scalars().all()
 
-        # Build parent_id → children map
+        # Build parent_id -> children map
         children_map: dict[UUID | None, list[PmsCategory]] = {}
         for cat in all_categories:
             pid = cat.parent_id
@@ -195,23 +238,13 @@ class CategoryService:
     # ── 状态切换 ──
 
     async def toggle_status(self, category_id: UUID, field: str, status: int) -> CategoryResponse:
-        """
-        切换分类状态 —— 通用方法，支持 nav_status / show_status。
-
-        field 参数是列名，通过 update() 动态设置。
-        如果不用通用方法: 每种状态切换都要写一个独立函数，代码重复
-        """
         from app.models.product.category import PmsCategory
 
-        stmt = (
-            update(PmsCategory)
-            .where(PmsCategory.id == category_id)
-            .values(**{field: status})
-            .returning(PmsCategory)
-        )
+        stmt = update(PmsCategory).where(PmsCategory.id == category_id).values(**{field: status}).returning(PmsCategory)
         result = await self.db.execute(stmt)
         category = result.scalar_one_or_none()
         if not category:
             from app.core.exceptions import ProductNotFoundError
+
             raise ProductNotFoundError(str(category_id))
         return CategoryResponse.model_validate(category)

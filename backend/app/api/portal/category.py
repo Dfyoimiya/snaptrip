@@ -26,13 +26,13 @@ async def list_categories(
 ):
     """前台分类列表 —— 只返回显示状态的分类"""
     svc = CategoryService(db)
-    items, _ = await svc.list_paginated(parent_id=parent_id, page=1, page_size=200)
+    items, _ = await svc.list_paginated(parent_id=parent_id, show_status=1, page=1, page_size=200)
     return success([item.model_dump() for item in items])
 
 
 @router.get("/tree", summary="分类树")
 async def category_tree(db: AsyncSession = Depends(get_db)):
-    """前台分类树 —— 导航栏使用"""
+    """前台分类树 —— 导航栏使用，仅返回显示状态的分类"""
     svc = CategoryService(db)
-    tree = await svc.get_tree()
+    tree = await svc.get_tree(show_status=1)
     return success([node.model_dump() for node in tree])

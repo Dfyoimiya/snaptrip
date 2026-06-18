@@ -13,6 +13,7 @@ from app.api.portal.cart import router as cart_router
 from app.api.portal.category import router as category_router
 from app.api.portal.coupon import router as coupon_router
 from app.api.portal.customer_service import router as cs_router
+from app.api.portal.flash import router as flash_router
 from app.api.portal.home import router as home_router
 from app.api.portal.homefeed import router as homefeed_router
 from app.api.portal.member import router as member_router
@@ -38,3 +39,4 @@ portal_router.include_router(coupon_router)
 portal_router.include_router(brand_router)
 portal_router.include_router(category_router)
 portal_router.include_router(notice_router)
+portal_router.include_router(flash_router)

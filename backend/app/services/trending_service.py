@@ -53,7 +53,9 @@ class TrendingService:
             await pipe.execute()
 
     async def get_trending_products(
-        self, window_hours: int = 24, limit: int = 20,
+        self,
+        window_hours: int = 24,
+        limit: int = 20,
     ) -> list[dict]:
         """获取 window_hours 内的 Trending 商品列表。
 
@@ -67,7 +69,7 @@ class TrendingService:
         for i in range(window_hours):
             bucket = f"trending:product:{now_hour - i}"
             source_keys.append(bucket)
-            weights.append(0.95 ** i)
+            weights.append(0.95**i)
 
         if not source_keys:
             return []
@@ -75,13 +77,19 @@ class TrendingService:
         merged_key = f"trending:product:merged:{window_hours}h:{_short_hash(str(now_hour))}"
         try:
             count = await self._memory.zset_union_store(
-                merged_key, source_keys, weights, ttl=600,
+                merged_key,
+                source_keys,
+                weights,
+                ttl=600,
             )
             if count == 0:
                 return []
 
             raw = await self._memory.zset_zrevrange(
-                merged_key, 0, limit * 2 - 1, withscores=True,
+                merged_key,
+                0,
+                limit * 2 - 1,
+                withscores=True,
             )
         except Exception:
             logger.warning("TrendingService: ZUNIONSTORE failed, trying individual buckets")
@@ -89,11 +97,13 @@ class TrendingService:
 
         results = []
         for product_id, score in raw:
-            results.append({
-                "product_id": product_id,
-                "trending_score": round(score, 4),
-                "_source": "trending",
-            })
+            results.append(
+                {
+                    "product_id": product_id,
+                    "trending_score": round(score, 4),
+                    "_source": "trending",
+                }
+            )
 
         # 按 trending_score 降序排序
         results.sort(key=lambda r: r["trending_score"], reverse=True)
@@ -112,7 +122,9 @@ class TrendingService:
         return sorted(counts.items(), key=lambda x: x[1], reverse=True)[:limit]
 
     async def get_trending_product_ids(
-        self, window_hours: int = 24, limit: int = 20,
+        self,
+        window_hours: int = 24,
+        limit: int = 20,
     ) -> list[str]:
         """便捷方法: 只返回 product_id 列表。"""
         products = await self.get_trending_products(window_hours, limit)
@@ -133,7 +145,9 @@ class TrendingService:
             await pipe.execute()
 
     async def get_trending_queries(
-        self, window_minutes: int = 30, limit: int = 10,
+        self,
+        window_minutes: int = 30,
+        limit: int = 10,
         spike_threshold: float = 2.0,
     ) -> list[dict]:
         """获取 Trending 搜索 query (含 velocity 检测)。
@@ -151,7 +165,9 @@ class TrendingService:
         baseline_counts: dict[str, float] = {}
         for i in range(1, 13):
             base_key = _minute_bucket_key(
-                "trending:query", bucket_minutes=5, offset_minutes=i * 5,
+                "trending:query",
+                bucket_minutes=5,
+                offset_minutes=i * 5,
             )
             try:
                 size = await self._memory.zset_zcard(base_key)
@@ -166,28 +182,37 @@ class TrendingService:
             baseline = baseline_counts.get(query, 1.0)
             velocity = count / max(baseline, 1.0)
             if velocity >= spike_threshold:
-                results.append({
-                    "query": query,
-                    "count": int(count),
-                    "velocity": round(velocity, 2),
-                })
+                results.append(
+                    {
+                        "query": query,
+                        "count": int(count),
+                        "velocity": round(velocity, 2),
+                    }
+                )
 
         results.sort(key=lambda r: r["velocity"], reverse=True)
         return results[:limit]
 
     async def get_hot_queries_simple(
-        self, window_minutes: int = 30, limit: int = 10,
+        self,
+        window_minutes: int = 30,
+        limit: int = 10,
     ) -> list[dict]:
         """简化版: 直接返回最近 N 个 5min 桶中 top queries。"""
         results: dict[str, float] = {}
         buckets_needed = max(1, window_minutes // 5)
         for i in range(buckets_needed):
             bucket = _minute_bucket_key(
-                "trending:query", bucket_minutes=5, offset_minutes=i * 5,
+                "trending:query",
+                bucket_minutes=5,
+                offset_minutes=i * 5,
             )
             try:
                 raw = await self._memory.zset_zrevrange(
-                    bucket, 0, limit - 1, withscores=True,
+                    bucket,
+                    0,
+                    limit - 1,
+                    withscores=True,
                 )
                 for query, count in raw:
                     results[query] = results.get(query, 0) + count
@@ -195,10 +220,7 @@ class TrendingService:
                 continue
 
         sorted_queries = sorted(results.items(), key=lambda x: x[1], reverse=True)
-        return [
-            {"query": q, "count": int(c), "velocity": 1.0}
-            for q, c in sorted_queries[:limit]
-        ]
+        return [{"query": q, "count": int(c), "velocity": 1.0} for q, c in sorted_queries[:limit]]
 
 
 def _hour_bucket_key(prefix: str) -> str:

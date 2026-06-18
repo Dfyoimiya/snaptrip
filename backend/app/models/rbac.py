@@ -69,9 +69,7 @@ class RolePermission(CommerceBase):
     """角色-权限关联表 —— ums_role_permissions"""
 
     __tablename__ = "ums_role_permissions"
-    __table_args__ = (
-        UniqueConstraint("role_id", "permission_id", name="uq_role_permission"),
-    )
+    __table_args__ = (UniqueConstraint("role_id", "permission_id", name="uq_role_permission"),)
 
     role_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -89,9 +87,7 @@ class UserRole(CommerceBase, AuditMixin):
     """用户-角色关联表 —— ums_user_roles"""
 
     __tablename__ = "ums_user_roles"
-    __table_args__ = (
-        UniqueConstraint("user_id", "role_id", name="uq_user_role"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "role_id", name="uq_user_role"),)
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

@@ -60,9 +60,7 @@ class MinioOSSClient:
         directory and strips leading slashes to prevent absolute paths.
         """
         if _PATH_TRAVERSAL_RE.search(object_name):
-            raise ValueError(
-                f"Invalid object_name: path traversal detected in '{object_name}'"
-            )
+            raise ValueError(f"Invalid object_name: path traversal detected in '{object_name}'")
         sanitized = object_name.lstrip("/")
         if not sanitized:
             raise ValueError("object_name must not be empty after sanitization")
@@ -84,9 +82,7 @@ class MinioOSSClient:
             )
         except ImportError:
             logger.warning("oss_minio_import_failed", fallback="mock")
-            raise RuntimeError(
-                "miniopy-async 未安装。安装命令: pip install miniopy-async"
-            ) from None
+            raise RuntimeError("miniopy-async 未安装。安装命令: pip install miniopy-async") from None
         self._initialized = True
 
     async def _ensure_bucket(self) -> None:

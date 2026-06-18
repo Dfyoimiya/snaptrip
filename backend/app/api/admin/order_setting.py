@@ -15,9 +15,9 @@ from snaptrip_shared.db.session import get_db
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.rbac import require_admin_user
 from app.models.order.setting import OmsOrderSetting
 from app.schemas.order_setting import OrderSettingResponse, OrderSettingUpdate
-from marketplace.app.core.security import get_current_user
 
 router = APIRouter(prefix="/admin/order-settings", tags=["Admin - 订单设置"])
 
@@ -39,7 +39,7 @@ async def _get_or_create_setting(db: AsyncSession) -> OmsOrderSetting:
 async def get_setting(
     setting_id: str,
     db: AsyncSession = Depends(get_db),
-    _u=Depends(get_current_user),
+    _u=Depends(require_admin_user),
 ):
     result = await db.execute(select(OmsOrderSetting).limit(1))
     setting = result.scalars().first()
@@ -55,7 +55,7 @@ async def update_setting(
     setting_id: str,
     data: OrderSettingUpdate,
     db: AsyncSession = Depends(get_db),
-    _u=Depends(get_current_user),
+    _u=Depends(require_admin_user),
 ):
     setting = await _get_or_create_setting(db)
     for field, value in data.model_dump(exclude_unset=True).items():

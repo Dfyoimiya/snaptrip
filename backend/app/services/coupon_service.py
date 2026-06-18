@@ -153,9 +153,7 @@ class CouponService:
         # 步骤1: 查模板并锁定行 —— SELECT FOR UPDATE 防止 per_limit
         # 检查和后续 UPDATE 之间的 TOCTOU 竞态条件。
         # 同一张券的并发领券请求会在此串行化，确保 per_limit 判断是准确的。
-        result = await self.db.execute(
-            select(SmsCoupon).where(SmsCoupon.id == coupon_id).with_for_update()
-        )
+        result = await self.db.execute(select(SmsCoupon).where(SmsCoupon.id == coupon_id).with_for_update())
         coupon = result.scalar_one_or_none()
         if not coupon or coupon.status != 1:
             from app.core.exceptions import CouponExpiredError

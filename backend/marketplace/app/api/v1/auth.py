@@ -14,6 +14,7 @@ Date: 2026-05-17
 from __future__ import annotations
 
 import logging
+import secrets
 import uuid
 from typing import Any
 
@@ -24,6 +25,7 @@ from snaptrip_shared.core.security import (
     hash_password,
     verify_password,
 )
+from snaptrip_shared.db.redis import get_redis_client
 from snaptrip_shared.db.session import get_db
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -42,10 +44,13 @@ from marketplace.app.core.security import (
 from marketplace.app.models.user_profile import UserProfile
 from marketplace.app.models.users import User
 from marketplace.app.schemas.auth import (
+    ChangePasswordRequest,
+    ForgotPasswordRequest,
     LoginRequest,
     LogoutRequest,
     RefreshRequest,
     RegisterRequest,
+    ResetPasswordRequest,
     TokenResponse,
     UserMeResponse,
 )
@@ -73,6 +78,7 @@ async def register(
         id=uuid.uuid4(),
         email=body.email,
         hashed_password=hash_password(body.password),
+        phone_number=body.phone_number,
     )
     db.add(user)
     await db.flush()
@@ -189,4 +195,101 @@ async def me(
             avatar_url=profile.avatar_url if profile else None,
         ).model_dump(),
     )
+    return data
+
+
+@router.post("/change-password", response_model=dict)
+async def change_password(
+    body: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """修改密码 —— 需要提供旧密码验证身份。"""
+    if not verify_password(body.old_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="旧密码不正确",
+        )
+    current_user.hashed_password = hash_password(body.new_password)
+    await db.flush()
+    await db.commit()
+    data: dict[str, Any] = success(message="密码修改成功")
+    return data
+
+
+@router.post("/forgot-password", response_model=dict)
+async def forgot_password(
+    body: ForgotPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """忘记密码 —— 发送重置链接（Mock：令牌打印到日志）。"""
+    result = await db.execute(select(User).where(User.email == body.email))
+    user = result.scalar_one_or_none()
+    # 无论用户是否存在都返回成功，防止邮箱枚举
+    if user is not None:
+        token = secrets.token_urlsafe(32)
+        try:
+            redis = await get_redis_client()
+            await redis.set(f"pwd_reset:{token}", str(user.id), ex=1800)  # 30 分钟有效
+            await redis.close()
+        except Exception:
+            _logger.exception("Redis 存储重置令牌失败")
+
+        _logger.info(
+            "【Mock 密码重置】用户 %s 的重置令牌: %s (30分钟有效)",
+            body.email,
+            token,
+        )
+
+    # 无论用户是否存在都返回成功，防止邮箱枚举
+    return success(message="如果该邮箱已注册，重置链接已发送")
+
+
+@router.post("/reset-password", response_model=dict)
+async def reset_password(
+    body: ResetPasswordRequest,
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """重置密码 —— 使用令牌验证身份后设置新密码。"""
+    user_id_str = None
+    try:
+        redis = await get_redis_client()
+        stored = await redis.get(f"pwd_reset:{body.token}")
+        if stored is not None:
+            user_id_str = stored.decode("utf-8") if isinstance(stored, bytes) else stored
+            await redis.delete(f"pwd_reset:{body.token}")
+        await redis.close()
+    except Exception:
+        _logger.exception("Redis 读取重置令牌失败")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="服务暂不可用，请稍后重试",
+        ) from None
+
+    if user_id_str is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="重置令牌无效或已过期",
+        )
+
+    try:
+        uid = uuid.UUID(user_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="重置令牌无效",
+        ) from None
+
+    result = await db.execute(select(User).where(User.id == uid))
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="用户不存在",
+        )
+
+    user.hashed_password = hash_password(body.new_password)
+    await db.flush()
+    await db.commit()
+    data: dict[str, Any] = success(message="密码重置成功")
     return data

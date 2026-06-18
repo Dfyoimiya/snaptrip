@@ -35,6 +35,12 @@ class User(Base):
         index=True,
         nullable=False,
     )
+    phone_number: Mapped[str | None] = mapped_column(
+        String(20),
+        unique=True,
+        index=True,
+        nullable=True,
+    )
     hashed_password: Mapped[str] = mapped_column(String(128), nullable=False)
     oauth_provider: Mapped[str | None] = mapped_column(String(32), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

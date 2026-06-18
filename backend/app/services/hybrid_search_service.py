@@ -80,9 +80,13 @@ class HybridSearchService:
         # 无关键词 → 纯分类/价格筛选 (不需要向量检索)
         if not keyword:
             return await self._filter_only(
-                category_id=category_id, brand_id=brand_id,
-                min_price=min_price, max_price=max_price,
-                sort_by=sort_by, page=page, page_size=page_size,
+                category_id=category_id,
+                brand_id=brand_id,
+                min_price=min_price,
+                max_price=max_price,
+                sort_by=sort_by,
+                page=page,
+                page_size=page_size,
             )
 
         # 1. 意图分类
@@ -103,7 +107,10 @@ class HybridSearchService:
         cf_future = self._cf_recall(user_id, page_size * 2)
 
         es_results, vec_results, cf_results = await asyncio.gather(
-            es_future, vec_future, cf_future, return_exceptions=True,
+            es_future,
+            vec_future,
+            cf_future,
+            return_exceptions=True,
         )
         if isinstance(es_results, Exception):
             logger.debug("hybrid_search: ES recall failed: %s", es_results)
@@ -137,7 +144,8 @@ class HybridSearchService:
         # 5. 价格后过滤 (vector 召回不做价格过滤, 在此统一处理)
         if min_price is not None or max_price is not None:
             fused = [
-                p for p in fused
+                p
+                for p in fused
                 if (min_price is None or p.get("price", 0) >= min_price)
                 and (max_price is None or p.get("price", 0) <= max_price)
             ]
@@ -150,9 +158,14 @@ class HybridSearchService:
         if not fused and self._db:
             logger.debug("hybrid_search: ES + vector empty, falling back to DB ILIKE")
             db_items, db_total = await self._db_ilike_fallback(
-                keyword=keyword, category_id=category_id, brand_id=brand_id,
-                min_price=min_price, max_price=max_price,
-                sort_by=sort_by, page=page, page_size=page_size,
+                keyword=keyword,
+                category_id=category_id,
+                brand_id=brand_id,
+                min_price=min_price,
+                max_price=max_price,
+                sort_by=sort_by,
+                page=page,
+                page_size=page_size,
             )
             return {
                 "items": db_items,
@@ -167,9 +180,13 @@ class HybridSearchService:
         fused = self._apply_sort(fused, sort_by)
         total = len(fused)
         start = (page - 1) * page_size
-        items = fused[start:start + page_size]
+        items = fused[start : start + page_size]
 
-        method = "hybrid" if (es_results and vec_results) else ("es_only" if es_results else "vector_only" if vec_results else "db_fallback")
+        method = (
+            "hybrid"
+            if (es_results and vec_results)
+            else ("es_only" if es_results else "vector_only" if vec_results else "db_fallback")
+        )
         if cf_results and method != "db_fallback":
             method = "hybrid_cf" if method == "hybrid" else method + "_cf"
 
@@ -185,9 +202,15 @@ class HybridSearchService:
     # ── 召回 ──
 
     async def _es_recall(
-        self, keyword: str, category_id: str | None, brand_id: str | None,
-        min_price: float | None, max_price: float | None,
-        sort_by: str, page: int, size: int,
+        self,
+        keyword: str,
+        category_id: str | None,
+        brand_id: str | None,
+        min_price: float | None,
+        max_price: float | None,
+        sort_by: str,
+        page: int,
+        size: int,
     ) -> list[dict]:
         if not self._es:
             return []
@@ -211,7 +234,10 @@ class HybridSearchService:
         return items
 
     async def _vector_recall(
-        self, keyword: str, category_id: str | None, limit: int,
+        self,
+        keyword: str,
+        category_id: str | None,
+        limit: int,
     ) -> list[dict]:
         if not self._vector:
             return []
@@ -220,7 +246,9 @@ class HybridSearchService:
             if not embedding:
                 return []
             results = await self._vector.search_by_text_embedding(
-                embedding, limit=limit, category_id=category_id,
+                embedding,
+                limit=limit,
+                category_id=category_id,
             )
             for r in results:
                 r["_source"] = "vector"
@@ -230,7 +258,9 @@ class HybridSearchService:
             return []
 
     async def _cf_recall(
-        self, user_id: UUID | str | None, limit: int,
+        self,
+        user_id: UUID | str | None,
+        limit: int,
     ) -> list[dict]:
         """协同过滤召回 (仅登录用户)。"""
         if not self._cf or not user_id:
@@ -269,19 +299,21 @@ class HybridSearchService:
             pid = r.get("product_id", "")
             p = products.get(pid)
             if p:
-                filled.append({
-                    "id": pid,
-                    "product_id": pid,
-                    "name": p.name or "",
-                    "price": float(p.price) if p.price else 0,
-                    "sale_count": p.sale_count or 0,
-                    "image_url": p.default_pic or "",
-                    "brand_name": getattr(p, "brand_name", "") or "",
-                    "category_id": str(p.category_id) if p.category_id else "",
-                    "stock": getattr(p, "stock", 100) or 100,
-                    "score": r.get("score", 0),
-                    "_source": "cf",
-                })
+                filled.append(
+                    {
+                        "id": pid,
+                        "product_id": pid,
+                        "name": p.name or "",
+                        "price": float(p.price) if p.price else 0,
+                        "sale_count": p.sale_count or 0,
+                        "image_url": p.default_pic or "",
+                        "brand_name": getattr(p, "brand_name", "") or "",
+                        "category_id": str(p.category_id) if p.category_id else "",
+                        "stock": getattr(p, "stock", 100) or 100,
+                        "score": r.get("score", 0),
+                        "_source": "cf",
+                    }
+                )
         return filled
 
     async def _get_query_embedding(self, query: str) -> list[float] | None:
@@ -291,7 +323,7 @@ class HybridSearchService:
         """
         # 优先: 本地 sentence-transformers
         try:
-            from sentence_transformers import SentenceTransformer
+
             model = _get_local_embedding_model()
             embedding = await asyncio.to_thread(model.encode, query, normalize_embeddings=True)
             return embedding.tolist()
@@ -301,6 +333,7 @@ class HybridSearchService:
         # 兜底: LiteLLM proxy
         try:
             import openai
+
             from app.core.config import commerce_settings
 
             client = openai.AsyncOpenAI(
@@ -319,8 +352,11 @@ class HybridSearchService:
     # ── 融合 ──
 
     def _fuse_scores(
-        self, es_results: list[dict], vec_results: list[dict],
-        cf_results: list[dict], weights: dict[str, float],
+        self,
+        es_results: list[dict],
+        vec_results: list[dict],
+        cf_results: list[dict],
+        weights: dict[str, float],
     ) -> list[dict]:
         """三路分数归一化 + 加权融合。
 
@@ -433,11 +469,7 @@ class HybridSearchService:
 
         # 计算最终分数 (三路加权)
         for item in merged.values():
-            item["score"] = (
-                item["_es_norm"] * w_bm25
-                + item["_vec_norm"] * w_vec
-                + item["_cf_norm"] * w_cf
-            )
+            item["score"] = item["_es_norm"] * w_bm25 + item["_vec_norm"] * w_vec + item["_cf_norm"] * w_cf
 
         result = sorted(merged.values(), key=lambda x: x.get("score", 0), reverse=True)
         return result
@@ -492,9 +524,7 @@ class HybridSearchService:
         result = await self._db.execute(count_q)
         total = result.scalar() or 0
 
-        result = await self._db.execute(
-            base.order_by(order_by).offset((page - 1) * page_size).limit(page_size)
-        )
+        result = await self._db.execute(base.order_by(order_by).offset((page - 1) * page_size).limit(page_size))
         products = result.scalars().all()
 
         items = [
@@ -592,9 +622,7 @@ class HybridSearchService:
         result = await self._db.execute(count_q)
         total = result.scalar() or 0
 
-        result = await self._db.execute(
-            base.order_by(order_by).offset((page - 1) * page_size).limit(page_size)
-        )
+        result = await self._db.execute(base.order_by(order_by).offset((page - 1) * page_size).limit(page_size))
         products = result.scalars().all()
 
         items = [
@@ -635,5 +663,6 @@ def _get_local_embedding_model():
     global _local_embedding_model
     if _local_embedding_model is None:
         from sentence_transformers import SentenceTransformer
+
         _local_embedding_model = SentenceTransformer(_LOCAL_MODEL_NAME, local_files_only=True)
     return _local_embedding_model

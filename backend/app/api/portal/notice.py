@@ -1,8 +1,8 @@
 """
-【前台商城 - 公告/帮助 API】— /api/v1/portal/notices
+【前台商城 - 公告/通知 API】— /api/v1/portal/notices
 
 Author: SnapTrip Team
-Date: 2026-06-14
+Date: 2026-06-18
 """
 
 from __future__ import annotations
@@ -15,20 +15,20 @@ from snaptrip_shared.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.schemas.common import PaginatedResponse, PaginationParams
-from app.services.cms_service import CmsService
+from app.services.cms_service import NoticeService
 
-router = APIRouter(prefix="/portal/notices", tags=["Portal - 公告/帮助"])
+router = APIRouter(prefix="/portal/notices", tags=["Portal - 公告/通知"])
 
 
-@router.get("", summary="公告/帮助列表")
+@router.get("", summary="公告/通知列表")
 async def list_notices(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
 ):
-    """前台公告列表 —— 只返回已启用的"""
-    svc = CmsService(db)
-    items, total = await svc.list_helps(status=1, page=page, page_size=page_size)
+    """前台公告列表 —— 只返回已发布且目标类型为 ALL 或 CUSTOMER 的公告，按发布时间倒序。"""
+    svc = NoticeService(db)
+    items, total = await svc.list_portal_notices(page=page, page_size=page_size)
     resp = PaginatedResponse.of(
         items=[item.model_dump() for item in items],
         total=total,
@@ -37,24 +37,26 @@ async def list_notices(
     return success(resp.model_dump())
 
 
-@router.get("/{notice_id}", summary="公告/帮助详情")
+@router.get("/{notice_id}", summary="公告/通知详情")
 async def get_notice_detail(
     notice_id: UUID,
     db: AsyncSession = Depends(get_db),
 ):
-    """单条公告详情 —— 通过 CmsHelp 实体"""
-    from app.models.cms.content import CmsHelp
+    """单条公告详情 —— 通过 CmsNotice 实体。只返回已发布的。"""
     from app.core.exceptions import ProductNotFoundError
+    from app.models.cms.notice import CmsNotice
 
-    help_item = await db.get(CmsHelp, notice_id)
-    if not help_item:
+    notice = await db.get(CmsNotice, notice_id)
+    if not notice or notice.status != 1:
         raise ProductNotFoundError(str(notice_id))
-    return success({
-        "id": str(help_item.id),
-        "title": help_item.title,
-        "content": help_item.content,
-        "category_name": help_item.category_name or "",
-        "status": help_item.status,
-        "sort": help_item.sort,
-        "created_at": str(help_item.created_at) if help_item.created_at else "",
-    })
+    return success(
+        {
+            "id": str(notice.id),
+            "title": notice.title,
+            "content": notice.content or "",
+            "target_type": notice.target_type,
+            "status": notice.status,
+            "publish_time": str(notice.publish_time) if notice.publish_time else "",
+            "created_at": str(notice.created_at) if notice.created_at else "",
+        }
+    )

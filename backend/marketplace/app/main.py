@@ -107,7 +107,8 @@ async def lifespan(app: FastAPI):
     app.state.vector_search_service = vector_svc
     app.state.autocomplete_service = autocomplete_svc
     app.state.cf_service = CollaborativeFilteringService(
-        db_factory=AsyncSessionLocal, memory=memory,
+        db_factory=AsyncSessionLocal,
+        memory=memory,
     )
 
     yield

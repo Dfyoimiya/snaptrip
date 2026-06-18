@@ -79,11 +79,7 @@ class TestAdminAuthRequired:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("path", PROTECTED_GET_ENDPOINTS)
-    async def test_admin_get_endpoint_returns_401_without_auth(
-        self, public_client: AsyncClient, path: str
-    ):
+    async def test_admin_get_endpoint_returns_401_without_auth(self, public_client: AsyncClient, path: str):
         """GET {path} without auth returns 401."""
         resp = await public_client.get(path)
-        assert resp.status_code == 401, (
-            f"Expected 401 for GET {path}, got {resp.status_code}: {resp.text[:200]}"
-        )
+        assert resp.status_code == 401, f"Expected 401 for GET {path}, got {resp.status_code}: {resp.text[:200]}"

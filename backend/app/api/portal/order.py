@@ -96,3 +96,15 @@ async def confirm_receipt(
     svc = OrderService(db)
     result = await svc.confirm_receipt(order_id, user_id=current_user.id)
     return success(result.model_dump())
+
+
+@router.post("/{order_id}/complete", summary="完成订单")
+async def complete_order(
+    order_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """用户确认订单已完成 —— 从已收货过渡到已完成"""
+    svc = OrderService(db)
+    result = await svc.complete(order_id, user_id=current_user.id)
+    return success(result.model_dump())

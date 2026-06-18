@@ -58,17 +58,13 @@ class Settings(BaseSettings):
         return self.DATABASE_URL
 
     @model_validator(mode="after")
-    def _validate_secrets(self) -> "Settings":
+    def _validate_secrets(self) -> Settings:
         """Ensure secret keys are set in production; auto-generate in dev."""
         if self.APP_ENV != "development":
             if not self.APP_SECRET_KEY:
-                raise ValueError(
-                    "APP_SECRET_KEY must be set via environment variable in production mode"
-                )
+                raise ValueError("APP_SECRET_KEY must be set via environment variable in production mode")
             if not self.JWT_SECRET_KEY:
-                raise ValueError(
-                    "JWT_SECRET_KEY must be set via environment variable in production mode"
-                )
+                raise ValueError("JWT_SECRET_KEY must be set via environment variable in production mode")
         else:
             if not self.APP_SECRET_KEY:
                 object.__setattr__(self, "APP_SECRET_KEY", os.urandom(32).hex())
@@ -119,6 +115,7 @@ class CommerceSettings(BaseSettings):
     # ── 业务参数 ──
     ORDER_AUTO_CANCEL_MINUTES: int = 30
     ORDER_AUTO_CONFIRM_DAYS: int = 15
+    ORDER_AUTO_COMPLETE_DAYS: int = 7  # 收货后N天自动完成
     COUPON_EXPIRE_DAYS: int = 7  # 优惠券默认有效期
 
     @property

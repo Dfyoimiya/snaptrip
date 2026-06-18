@@ -26,13 +26,12 @@ from snaptrip_shared.core.exceptions import SnapTripException
 class CommerceException(SnapTripException):
     """电商业务异常基类"""
 
-    def __init__(
-        self, code: str, message: str, status_code: int = 500, details: dict | None = None
-    ) -> None:
+    def __init__(self, code: str, message: str, status_code: int = 500, details: dict | None = None) -> None:
         super().__init__(code=code, message=message, status_code=status_code, details=details)
 
 
 # ── 商品域 ──
+
 
 class ProductNotFoundError(CommerceException):
     def __init__(self, product_id: str = "") -> None:
@@ -64,6 +63,7 @@ class InsufficientStockError(CommerceException):
 
 # ── 订单域 ──
 
+
 class OrderError(CommerceException):
     def __init__(self, code: str, message: str, status_code: int = 400, details: dict | None = None) -> None:
         super().__init__(code=code, message=message, status_code=status_code, details=details)
@@ -83,9 +83,7 @@ class OrderStatusError(OrderError):
         super().__init__(
             code="ORDER_STATUS_ERROR",
             message=(
-                f"订单状态不允许此操作"
-                f"{f': {order_id}' if order_id else ''}"
-                f", 当前 {current_status}, 期望 {expected}"
+                f"订单状态不允许此操作{f': {order_id}' if order_id else ''}, 当前 {current_status}, 期望 {expected}"
             ),
             status_code=409,
         )
@@ -101,6 +99,7 @@ class OrderPaymentError(OrderError):
 
 
 # ── 优惠券域 ──
+
 
 class CouponError(CommerceException):
     def __init__(self, code: str, message: str, status_code: int = 400, details: dict | None = None) -> None:
@@ -135,6 +134,7 @@ class CouponAlreadyClaimedError(CouponError):
 
 
 # ── 购物车域 ──
+
 
 class CartError(CommerceException):
     def __init__(self, code: str, message: str, status_code: int = 400, details: dict | None = None) -> None:

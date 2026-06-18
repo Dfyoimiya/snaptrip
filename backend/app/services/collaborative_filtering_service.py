@@ -75,10 +75,19 @@ class CollaborativeFilteringService:
 
         if n_users < 5 or n_items < 10:
             logger.warning("cf_train: insufficient data (users=%d, items=%d), skipping", n_users, n_items)
-            return {"model_version": "", "n_users": n_users, "n_items": n_items, "sparsity": 0.0, "elapsed_s": 0.0, "skipped": True}
+            return {
+                "model_version": "",
+                "n_users": n_users,
+                "n_items": n_items,
+                "sparsity": 0.0,
+                "elapsed_s": 0.0,
+                "skipped": True,
+            }
 
         sparsity = 1.0 - (matrix.nnz / (n_users * n_items))
-        logger.info("cf_train: matrix (%d × %d), %d interactions, sparsity=%.4f", n_users, n_items, matrix.nnz, sparsity)
+        logger.info(
+            "cf_train: matrix (%d × %d), %d interactions, sparsity=%.4f", n_users, n_items, matrix.nnz, sparsity
+        )
 
         # 2. 训练 ALS
         from implicit.als import AlternatingLeastSquares
@@ -97,8 +106,12 @@ class CollaborativeFilteringService:
         item_factors = model.item_factors  # (n_items, 64)
         user_factors = model.user_factors  # (n_users, 64)
 
-        logger.debug("cf_train: item_factors=%s, user_factors=%s, item_ids=%d",
-                     item_factors.shape, user_factors.shape, len(item_ids))
+        logger.debug(
+            "cf_train: item_factors=%s, user_factors=%s, item_ids=%d",
+            item_factors.shape,
+            user_factors.shape,
+            len(item_ids),
+        )
 
         model_version = f"als-v{datetime.now(UTC).strftime('%Y%m%d-%H%M%S')}"
 
@@ -109,7 +122,9 @@ class CollaborativeFilteringService:
         await self._save_user_vectors(user_ids, user_factors, model_version)
 
         elapsed = _time.monotonic() - t0
-        logger.info("cf_train: done — model=%s, users=%d, items=%d, elapsed=%.1fs", model_version, n_users, n_items, elapsed)
+        logger.info(
+            "cf_train: done — model=%s, users=%d, items=%d, elapsed=%.1fs", model_version, n_users, n_items, elapsed
+        )
 
         return {
             "model_version": model_version,
@@ -178,7 +193,10 @@ class CollaborativeFilteringService:
         return user_list, item_list, coo.tocsr()
 
     async def _save_item_vectors(
-        self, item_ids: list[str], item_factors: np.ndarray, model_version: str,
+        self,
+        item_ids: list[str],
+        item_factors: np.ndarray,
+        model_version: str,
     ) -> None:
         """将 item 隐因子向量写入 pms_product_cf_vectors (pgvector)。
 
@@ -214,7 +232,10 @@ class CollaborativeFilteringService:
         logger.info("cf_train: saved %d item vectors (version=%s)", min(n_factors, n_ids), model_version)
 
     async def _save_user_vectors(
-        self, user_ids: list[str], user_factors: np.ndarray, model_version: str,
+        self,
+        user_ids: list[str],
+        user_factors: np.ndarray,
+        model_version: str,
     ) -> None:
         """将 user 隐因子向量写入 Redis (7天 TTL), JSON 字符串格式。"""
         import json
@@ -231,7 +252,10 @@ class CollaborativeFilteringService:
     # ── 推理 ────────────────────────────────────────────────────────
 
     async def recommend(
-        self, user_id: UUID | str, n: int = 20, exclude_ids: set[str] | None = None,
+        self,
+        user_id: UUID | str,
+        n: int = 20,
+        exclude_ids: set[str] | None = None,
     ) -> list[dict[str, Any]]:
         """基于用户协同过滤向量召回商品。
 
@@ -272,10 +296,7 @@ class CollaborativeFilteringService:
             result = await db.execute(query, params)
             rows = result.fetchall()
 
-        return [
-            {"product_id": str(r[0]), "score": round(float(r[1]), 4), "_source": "cf"}
-            for r in rows if r[0]
-        ]
+        return [{"product_id": str(r[0]), "score": round(float(r[1]), 4), "_source": "cf"} for r in rows if r[0]]
 
     async def _get_user_vector(self, uid: str) -> str | None:
         """从 Redis 获取用户 CF 向量, 返回 pgvector 兼容格式字符串。"""
@@ -331,12 +352,12 @@ class CollaborativeFilteringService:
 
     async def get_status(self) -> dict[str, Any]:
         """获取模型状态 (版本/商品数/用户数)。"""
-        from sqlalchemy import func, text as sqla_text
+        from sqlalchemy import text as sqla_text
 
         async with self._db_factory() as db:
-            result = await db.execute(sqla_text(
-                "SELECT model_version, COUNT(*) FROM pms_product_cf_vectors GROUP BY model_version"
-            ))
+            result = await db.execute(
+                sqla_text("SELECT model_version, COUNT(*) FROM pms_product_cf_vectors GROUP BY model_version")
+            )
             row = result.fetchone()
             if not row:
                 return {"ready": False, "model_version": None, "n_items": 0, "n_users": 0}

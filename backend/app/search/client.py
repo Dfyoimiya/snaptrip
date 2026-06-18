@@ -155,13 +155,15 @@ class ESSearchClient:
             filter_clauses: list[dict[str, Any]] = []
 
             if keyword:
-                must_clauses.append({
-                    "multi_match": {
-                        "query": keyword,
-                        "fields": ["name^3", "sub_title^2", "keywords", "brand_name"],
-                        "type": "best_fields",
+                must_clauses.append(
+                    {
+                        "multi_match": {
+                            "query": keyword,
+                            "fields": ["name^3", "sub_title^2", "keywords", "brand_name"],
+                            "type": "best_fields",
+                        }
                     }
-                })
+                )
 
             if category_id:
                 filter_clauses.append({"term": {"category_id": category_id}})
@@ -183,7 +185,12 @@ class ESSearchClient:
             elif sort_by == "sales":
                 sort_configs.append({"sale_count": {"order": "desc"}})
             elif sort_by == "new":
-                sort_configs.append({"publish_time": {"order": "desc"}})
+                # Sort by publish_time descending — newest first.
+                # `missing: "_last"` ensures documents without this field
+                # (e.g. indexed before the publish_time field was added)
+                # are pushed to the end of search results rather than
+                # appearing first or causing errors.
+                sort_configs.append({"publish_time": {"order": "desc", "missing": "_last"}})
 
             if not sort_configs:
                 sort_configs.append({"_score": {"order": "desc"}})
@@ -198,9 +205,7 @@ class ESSearchClient:
                     }
                 },
                 "sort": sort_configs,
-                "highlight": {
-                    "fields": {"name": {}, "sub_title": {}}
-                },
+                "highlight": {"fields": {"name": {}, "sub_title": {}}},
             }
 
             result = await self._client.search(

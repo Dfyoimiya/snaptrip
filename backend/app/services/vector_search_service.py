@@ -14,10 +14,7 @@ Date: 2026-06-16
 
 from __future__ import annotations
 
-import hashlib
-import json
 import logging
-from typing import Any
 from uuid import UUID
 
 from sqlalchemy import text
@@ -38,7 +35,9 @@ class VectorSearchService:
         self._memory = memory
 
     async def search_similar_by_product(
-        self, product_id: UUID | str, limit: int = 20,
+        self,
+        product_id: UUID | str,
+        limit: int = 20,
         category_id: str | None = None,
     ) -> list[dict]:
         """基于商品向量查找相似商品。
@@ -93,11 +92,13 @@ class VectorSearchService:
                     LIMIT :limit
                 """)
                 result = await db.execute(
-                    query, {"pid": pid, "cat_id": category_id, "limit": limit},
+                    query,
+                    {"pid": pid, "cat_id": category_id, "limit": limit},
                 )
             else:
                 result = await db.execute(
-                    query, {"pid": pid, "limit": limit},
+                    query,
+                    {"pid": pid, "limit": limit},
                 )
 
             rows = result.fetchall()
@@ -118,7 +119,9 @@ class VectorSearchService:
             ]
 
     async def search_similar_by_favorites(
-        self, user_id: UUID | str, limit: int = 20,
+        self,
+        user_id: UUID | str,
+        limit: int = 20,
     ) -> list[dict]:
         """基于用户收藏商品的平均向量查找相似商品。
 
@@ -161,7 +164,8 @@ class VectorSearchService:
                 LIMIT :limit
             """)
             result = await db.execute(
-                avg_query, {"fav_ids": fav_ids, "limit": limit},
+                avg_query,
+                {"fav_ids": fav_ids, "limit": limit},
             )
             rows = result.fetchall()
             return [
@@ -181,7 +185,8 @@ class VectorSearchService:
             ]
 
     async def get_user_favorite_embedding(
-        self, user_id: UUID | str,
+        self,
+        user_id: UUID | str,
     ) -> list[float] | None:
         """获取用户收藏商品的平均向量 (1536-dim), 缓存 1h。"""
         uid = str(user_id)
@@ -220,7 +225,9 @@ class VectorSearchService:
             return avg
 
     async def search_by_text_embedding(
-        self, embedding: list[float], limit: int = 20,
+        self,
+        embedding: list[float],
+        limit: int = 20,
         category_id: str | None = None,
     ) -> list[dict]:
         """给定文本向量, 搜索最相似商品。
@@ -244,7 +251,8 @@ class VectorSearchService:
                     LIMIT :limit
                 """)
                 result = await db.execute(
-                    query, {"cat_id": category_id, "limit": limit},
+                    query,
+                    {"cat_id": category_id, "limit": limit},
                 )
             else:
                 query = text(f"""

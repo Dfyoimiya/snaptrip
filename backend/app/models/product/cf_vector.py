@@ -37,19 +37,15 @@ class PmsProductCFVector(CommerceBase):
         nullable=False,
         unique=True,
         index=True,
-        comment="商品ID (一对一关系)"
+        comment="商品ID (一对一关系)",
     )
-    cf_vector: Mapped[list[float]] = mapped_column(
-        Vector(64), nullable=False, comment="ALS 协同过滤隐因子向量 (64维)"
-    )
-    model_version: Mapped[str] = mapped_column(
-        String(32), nullable=False, comment="训练版本标识"
-    )
+    cf_vector: Mapped[list[float]] = mapped_column(Vector(64), nullable=False, comment="ALS 协同过滤隐因子向量 (64维)")
+    model_version: Mapped[str] = mapped_column(String(32), nullable=False, comment="训练版本标识")
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
         server_default=func.now(),
         onupdate=lambda: datetime.now(UTC),
         nullable=False,
-        comment="向量最后更新时间"
+        comment="向量最后更新时间",
     )

@@ -19,7 +19,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Header, Query, Request
 from snaptrip_shared.core.response import success
 
-from app.schemas.recommendation import RecommendationRequest, RecommendationResponse
+from app.schemas.recommendation import RecommendationRequest
 
 logger = logging.getLogger(__name__)
 

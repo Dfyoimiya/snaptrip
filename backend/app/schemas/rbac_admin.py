@@ -11,8 +11,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-
 # ===== Menu =====
+
 
 class MenuNode(BaseModel):
     id: UUID
@@ -23,7 +23,7 @@ class MenuNode(BaseModel):
     sort: int = 0
     hidden: int = 0
     level: int = 0
-    children: list["MenuNode"] = Field(default_factory=list)
+    children: list[MenuNode] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 
@@ -49,6 +49,7 @@ class MenuUpdate(BaseModel):
 
 
 # ===== Resource =====
+
 
 class ResourceCategoryResponse(BaseModel):
     id: UUID
@@ -96,6 +97,7 @@ class ResourceUpdate(BaseModel):
 
 # ===== Role =====
 
+
 class RoleResponse(BaseModel):
     id: UUID
     name: str
@@ -136,6 +138,7 @@ class AllocResourceRequest(BaseModel):
 
 
 # ===== Admin User =====
+
 
 class AdminUserResponse(BaseModel):
     id: UUID

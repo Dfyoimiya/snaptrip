@@ -36,9 +36,7 @@ class Checkpoint(Base):
     )
     version: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
     slots_snapshot: Mapped[dict] = mapped_column(JSON, nullable=False)
-    consensus_status: Mapped[str] = mapped_column(
-        String(32), nullable=False
-    )
+    consensus_status: Mapped[str] = mapped_column(String(32), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

@@ -17,22 +17,23 @@ resources (depends on resource_categories), then association tables last.
 
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
+from alembic import op
+
 # revision identifiers, used by Alembic.
 revision: str = "e7ff688378bb"
-down_revision: Union[str, Sequence[str], None] = "ca5f8d87ef32"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "ca5f8d87ef32"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def _table_exists(name: str) -> bool:
     """Check if a table exists in the current database."""
-    from sqlalchemy import inspect, text
+    from sqlalchemy import inspect
 
     conn = op.get_bind()
     inspector = inspect(conn)
@@ -76,9 +77,7 @@ def upgrade() -> None:
             sa.Column("name", sa.String(64), nullable=False),
             sa.Column("url", sa.String(128), nullable=True),
             sa.Column("description", sa.String(255), nullable=True),
-            sa.ForeignKeyConstraint(
-                ["category_id"], ["ums_resource_categories.id"], ondelete="SET NULL"
-            ),
+            sa.ForeignKeyConstraint(["category_id"], ["ums_resource_categories.id"], ondelete="SET NULL"),
             sa.PrimaryKeyConstraint("id"),
         )
 
@@ -103,9 +102,7 @@ def upgrade() -> None:
             sa.Column("role_id", postgresql.UUID(as_uuid=True), nullable=False),
             sa.Column("resource_id", postgresql.UUID(as_uuid=True), nullable=False),
             sa.ForeignKeyConstraint(["role_id"], ["ums_roles.id"], ondelete="CASCADE"),
-            sa.ForeignKeyConstraint(
-                ["resource_id"], ["ums_resources.id"], ondelete="CASCADE"
-            ),
+            sa.ForeignKeyConstraint(["resource_id"], ["ums_resources.id"], ondelete="CASCADE"),
             sa.PrimaryKeyConstraint("role_id", "resource_id", "id"),
             sa.UniqueConstraint("role_id", "resource_id", name="uq_role_resource"),
         )

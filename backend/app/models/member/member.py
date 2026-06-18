@@ -32,7 +32,10 @@ class UmsMemberAddress(CommerceBase, AuditMixin):
     __tablename__ = "ums_member_addresses"
 
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), nullable=False, index=True, comment="用户ID",
+        UUID(as_uuid=True),
+        nullable=False,
+        index=True,
+        comment="用户ID",
     )
     name: Mapped[str] = mapped_column(String(100), nullable=False, comment="收货人姓名")
     phone: Mapped[str] = mapped_column(String(32), nullable=False, comment="收货人电话")
@@ -56,20 +59,34 @@ class UmsMemberFavorite(CommerceBase):
     __table_args__ = (UniqueConstraint("user_id", "product_id", name="uq_user_product_fav"),)
 
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), nullable=False, index=True, comment="用户ID",
+        UUID(as_uuid=True),
+        nullable=False,
+        index=True,
+        comment="用户ID",
     )
     product_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), nullable=False, index=True, comment="商品ID",
+        UUID(as_uuid=True),
+        nullable=False,
+        index=True,
+        comment="商品ID",
     )
     product_name: Mapped[str] = mapped_column(
-        String(200), nullable=False, comment="商品名称(冗余)",
+        String(200),
+        nullable=False,
+        comment="商品名称(冗余)",
     )
     product_pic: Mapped[str | None] = mapped_column(
-        String(255), nullable=True, comment="商品图片(冗余)",
+        String(255),
+        nullable=True,
+        comment="商品图片(冗余)",
     )
     product_price: Mapped[str | None] = mapped_column(
-        String(32), nullable=True, comment="商品价格(冗余, 字符串避免Decimal序列化问题)",
+        String(32),
+        nullable=True,
+        comment="商品价格(冗余, 字符串避免Decimal序列化问题)",
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC), server_default=func.now(),
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        server_default=func.now(),
     )

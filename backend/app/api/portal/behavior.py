@@ -17,7 +17,7 @@ import time
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, Request
 from pydantic import BaseModel, Field
 from snaptrip_shared.core.response import success
 from snaptrip_shared.db.session import get_db
@@ -33,6 +33,7 @@ MAX_BATCH_SIZE = 50
 
 class BehaviorEvent(BaseModel):
     """单条行为事件"""
+
     behavior_type: str = Field(..., description="行为类型: view/search/add_cart/purchase/favorite")
     item_id: str | None = Field(None, description="关联对象ID")
     item_type: str | None = Field(None, description="对象类型: product/category/brand/coupon")
@@ -41,6 +42,7 @@ class BehaviorEvent(BaseModel):
 
 class BehaviorBatchRequest(BaseModel):
     """批量行为上报请求"""
+
     session_id: str = Field(..., min_length=1, max_length=64, description="会话ID")
     events: list[BehaviorEvent] = Field(..., min_length=1, max_length=MAX_BATCH_SIZE)
 
@@ -113,6 +115,7 @@ async def track_behaviors(
             if keyword_str:
                 try:
                     from app.services.autocomplete_service import AutocompleteService
+
                     autocomplete_svc = AutocompleteService(memory)
                     await autocomplete_svc.increment(keyword_str)
                 except Exception:

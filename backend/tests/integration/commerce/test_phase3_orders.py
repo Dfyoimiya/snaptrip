@@ -191,9 +191,7 @@ class TestPhase3OrderFlow:
         product_id = prod_resp.json()["data"]["id"]
 
         # 加购多个商品
-        await auth_client.post(
-            "/api/v1/portal/cart", json={"product_id": product_id, "sku_id": sku_id, "quantity": 1}
-        )
+        await auth_client.post("/api/v1/portal/cart", json={"product_id": product_id, "sku_id": sku_id, "quantity": 1})
 
         # 确认购物车非空
         before = await auth_client.get("/api/v1/portal/cart")

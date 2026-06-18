@@ -16,10 +16,12 @@ from pydantic import BaseModel, Field
 #  轮播图
 # ============================================================================
 
+
 class BannerCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=100)
     pic: str = Field(..., min_length=1, max_length=255)
     url: str | None = Field(None, max_length=500)
+    position: str = Field(default="HOME_TOP", pattern="^(HOME_TOP|HOME_MIDDLE)$")
     sort: int = Field(default=0, ge=0)
     status: int = Field(default=1, ge=0, le=1)
     start_time: datetime | None = None
@@ -30,6 +32,7 @@ class BannerUpdate(BaseModel):
     title: str | None = Field(None, min_length=1, max_length=100)
     pic: str | None = Field(None, min_length=1, max_length=255)
     url: str | None = Field(None, max_length=500)
+    position: str | None = Field(None, pattern="^(HOME_TOP|HOME_MIDDLE)$")
     sort: int | None = Field(None, ge=0)
     status: int | None = Field(None, ge=0, le=1)
     start_time: datetime | None = None
@@ -41,6 +44,7 @@ class BannerResponse(BaseModel):
     title: str
     pic: str
     url: str | None = None
+    position: str = "HOME_TOP"
     sort: int
     status: int
     start_time: datetime | None = None
@@ -52,6 +56,7 @@ class BannerResponse(BaseModel):
 # ============================================================================
 #  专题
 # ============================================================================
+
 
 class SubjectCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
@@ -90,6 +95,7 @@ class SubjectResponse(BaseModel):
 #  帮助中心
 # ============================================================================
 
+
 class HelpCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=100)
     content: str | None = None
@@ -121,8 +127,10 @@ class HelpResponse(BaseModel):
 #  统计看板
 # ============================================================================
 
+
 class DashboardOverview(BaseModel):
     """仪表盘概览 —— 今日关键指标"""
+
     today_order_count: int = Field(default=0, description="今日订单数")
     today_sales_amount: float = Field(default=0.0, description="今日销售额")
     today_new_member_count: int = Field(default=0, description="今日新增会员")
@@ -132,6 +140,7 @@ class DashboardOverview(BaseModel):
 
 class SalesStatItem(BaseModel):
     """销售额统计项"""
+
     date: str = Field(..., description="日期 YYYY-MM-DD")
     amount: float = Field(default=0.0)
     order_count: int = Field(default=0)
@@ -139,6 +148,7 @@ class SalesStatItem(BaseModel):
 
 class ProductRankItem(BaseModel):
     """商品销量排行"""
+
     product_id: str
     product_name: str
     sale_count: int = 0
@@ -146,8 +156,15 @@ class ProductRankItem(BaseModel):
 
 
 class HomePageAggregation(BaseModel):
-    """首页聚合数据 —— Banner + 推荐商品 + 秒杀 + 专题"""
-    banners: list[BannerResponse] = Field(default_factory=list)
+    """首页聚合数据 —— Banner + 推荐商品 + 秒杀 + 专题
+
+    banners 分位置返回:
+      - home_top_banners: HOME_TOP 位置的轮播图
+      - home_middle_banners: HOME_MIDDLE 位置的轮播图
+    """
+
+    home_top_banners: list[BannerResponse] = Field(default_factory=list)
+    home_middle_banners: list[BannerResponse] = Field(default_factory=list)
     new_products: list[dict] = Field(default_factory=list, description="新品推荐")
     recommend_products: list[dict] = Field(default_factory=list, description="推荐商品")
     subjects: list[SubjectResponse] = Field(default_factory=list)

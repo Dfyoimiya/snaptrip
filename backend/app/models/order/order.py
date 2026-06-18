@@ -30,6 +30,7 @@ from app.models.base import AuditMixin, CommerceBase
 #  订单主表
 # ============================================================================
 
+
 class OmsOrder(CommerceBase, AuditMixin):
     """
     订单表 —— 一个订单对应一个用户、一个收货地址。
@@ -232,6 +233,7 @@ class OmsOrder(CommerceBase, AuditMixin):
 #  订单商品明细
 # ============================================================================
 
+
 class OmsOrderItem(CommerceBase):
     """
     订单商品明细 —— 订单中每个 SKU 对应一条记录。
@@ -313,6 +315,7 @@ class OmsOrderItem(CommerceBase):
 # ============================================================================
 #  操作日志
 # ============================================================================
+
 
 class OmsOrderOperateLog(CommerceBase):
     """

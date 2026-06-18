@@ -46,10 +46,12 @@ def auto_cancel_expired_orders() -> dict:
         async with _get_session() as session:
             # 查超时待付款订单
             result = await session.execute(
-                select(OmsOrder).where(
+                select(OmsOrder)
+                .where(
                     OmsOrder.status == 0,  # 待付款
                     OmsOrder.created_at < deadline,
-                ).limit(100)
+                )
+                .limit(100)
             )
             orders = result.scalars().all()
 
@@ -58,9 +60,7 @@ def auto_cancel_expired_orders() -> dict:
                 order.status = 5  # 已关闭
 
                 # 释放锁定库存
-                items_result = await session.execute(
-                    select(OmsOrderItem).where(OmsOrderItem.order_id == order.id)
-                )
+                items_result = await session.execute(select(OmsOrderItem).where(OmsOrderItem.order_id == order.id))
                 for item in items_result.scalars().all():
                     await session.execute(
                         update(PmsSku)
@@ -68,13 +68,15 @@ def auto_cancel_expired_orders() -> dict:
                         .values(lock_stock=PmsSku.lock_stock - item.quantity)
                     )
 
-                session.add(OmsOrderOperateLog(
-                    order_id=order.id,
-                    operate_man="system",
-                    order_status_before=0,
-                    order_status_after=5,
-                    note=f"超时未支付自动取消 (>{timeout_minutes}分钟)",
-                ))
+                session.add(
+                    OmsOrderOperateLog(
+                        order_id=order.id,
+                        operate_man="system",
+                        order_status_before=0,
+                        order_status_after=5,
+                        note=f"超时未支付自动取消 (>{timeout_minutes}分钟)",
+                    )
+                )
                 cancelled += 1
 
             await session.commit()
@@ -88,7 +90,10 @@ def auto_cancel_expired_orders() -> dict:
 @shared_task(name="auto_confirm_receipt_orders", max_retries=1)
 def auto_confirm_receipt_orders() -> dict:
     """
-    自动确认收货 —— 发货超过 N 天自动确认。
+    自动确认收货 + 自动完成订单。
+
+    - 发货超过 ORDER_AUTO_CONFIRM_DAYS 天的订单 → 自动确认收货 (DELIVERED → RECEIVED)
+    - 收货超过 ORDER_AUTO_COMPLETE_DAYS 天的订单 → 自动完成 (RECEIVED → COMPLETED)
 
     Celery Beat 配置 (每天凌晨2点执行):
       CELERY_BEAT_SCHEDULE = {
@@ -108,35 +113,73 @@ def auto_confirm_receipt_orders() -> dict:
         from app.models.order.order import OmsOrder, OmsOrderOperateLog
 
         auto_confirm_days = commerce_settings.ORDER_AUTO_CONFIRM_DAYS
-        deadline = datetime.now(UTC) - timedelta(days=auto_confirm_days)
+        auto_complete_days = commerce_settings.ORDER_AUTO_COMPLETE_DAYS
+        now = datetime.now(UTC)
 
         async with _get_session() as session:
+            # ── 第一遍: 自动确认收货 (DELIVERED → RECEIVED) ──
+            confirm_deadline = now - timedelta(days=auto_confirm_days)
             result = await session.execute(
-                select(OmsOrder).where(
-                    OmsOrder.status == 2,  # 已发货
-                    OmsOrder.delivery_time < deadline,
+                select(OmsOrder)
+                .where(
+                    OmsOrder.status == 2,  # 已发货 (DELIVERED)
+                    OmsOrder.delivery_time < confirm_deadline,
                     OmsOrder.confirm_status == 0,
-                ).limit(500)
+                )
+                .limit(500)
             )
             orders = result.scalars().all()
 
             confirmed = 0
             for order in orders:
-                order.status = 3  # 已收货
+                order.status = 3  # 已收货 (RECEIVED)
                 order.confirm_status = 1
-                session.add(OmsOrderOperateLog(
-                    order_id=order.id,
-                    operate_man="system",
-                    order_status_before=2,
-                    order_status_after=3,
-                    note=f"超{auto_confirm_days}天自动确认收货",
-                ))
+                session.add(
+                    OmsOrderOperateLog(
+                        order_id=order.id,
+                        operate_man="system",
+                        order_status_before=2,
+                        order_status_after=3,
+                        note=f"超{auto_confirm_days}天自动确认收货",
+                    )
+                )
                 confirmed += 1
 
+            # ── 第二遍: 自动完成订单 (RECEIVED → COMPLETED) ──
+            complete_deadline = now - timedelta(days=auto_complete_days)
+            result = await session.execute(
+                select(OmsOrder)
+                .where(
+                    OmsOrder.status == 3,  # 已收货 (RECEIVED)
+                    OmsOrder.confirm_status == 1,
+                    OmsOrder.updated_at < complete_deadline,
+                )
+                .limit(500)
+            )
+            completed_orders = result.scalars().all()
+
+            completed = 0
+            for order in completed_orders:
+                order.status = 4  # 已完成 (COMPLETED)
+                session.add(
+                    OmsOrderOperateLog(
+                        order_id=order.id,
+                        operate_man="system",
+                        order_status_before=3,
+                        order_status_after=4,
+                        note=f"超{auto_complete_days}天自动完成",
+                    )
+                )
+                completed += 1
+
             await session.commit()
-            if confirmed:
-                logger.info("auto_confirm_done", confirmed=confirmed)
-            return {"confirmed": confirmed}
+            if confirmed or completed:
+                logger.info(
+                    "auto_confirm_and_complete_done",
+                    confirmed=confirmed,
+                    completed=completed,
+                )
+            return {"confirmed": confirmed, "completed": completed}
 
     return asyncio.run(_run())
 
@@ -144,4 +187,5 @@ def auto_confirm_receipt_orders() -> dict:
 def _get_session():
     """获取异步会话 —— Celery 同步任务中创建独立事件循环"""
     from snaptrip_shared.db.session import AsyncSessionLocal
+
     return AsyncSessionLocal()

@@ -38,9 +38,7 @@ class MemberService:
         # 如果设为默认，先取消该用户其他默认地址
         if data.default_status == 1:
             await self.db.execute(
-                update(UmsMemberAddress)
-                .where(UmsMemberAddress.user_id == user_id)
-                .values(default_status=0)
+                update(UmsMemberAddress).where(UmsMemberAddress.user_id == user_id).values(default_status=0)
             )
 
         addr = UmsMemberAddress(user_id=user_id, **data.model_dump())
@@ -55,40 +53,45 @@ class MemberService:
         values = data.model_dump(exclude_unset=True)
         if not values:
             from app.core.exceptions import CommerceException
+
             raise CommerceException(code="NO_FIELDS", message="没有提供需要更新的字段", status_code=400)
 
         if values.get("default_status") == 1:
             await self.db.execute(
-                update(UmsMemberAddress)
-                .where(UmsMemberAddress.user_id == user_id)
-                .values(default_status=0)
+                update(UmsMemberAddress).where(UmsMemberAddress.user_id == user_id).values(default_status=0)
             )
 
         stmt = (
             update(UmsMemberAddress)
             .where(UmsMemberAddress.id == addr_id, UmsMemberAddress.user_id == user_id)
-            .values(**values).returning(UmsMemberAddress)
+            .values(**values)
+            .returning(UmsMemberAddress)
         )
         result = await self.db.execute(stmt)
         addr = result.scalar_one_or_none()
         if not addr:
             from app.core.exceptions import ProductNotFoundError
+
             raise ProductNotFoundError(str(addr_id))
         return AddressResponse.model_validate(addr)
 
     async def delete_address(self, user_id: UUID, addr_id: UUID) -> None:
         from app.models.member.member import UmsMemberAddress
+
         result = await self.db.execute(
             delete(UmsMemberAddress).where(
-                UmsMemberAddress.id == addr_id, UmsMemberAddress.user_id == user_id,
+                UmsMemberAddress.id == addr_id,
+                UmsMemberAddress.user_id == user_id,
             )
         )
         if result.rowcount == 0:  # type: ignore[attr-defined]
             from app.core.exceptions import ProductNotFoundError
+
             raise ProductNotFoundError(str(addr_id))
 
     async def list_addresses(self, user_id: UUID) -> list[AddressResponse]:
         from app.models.member.member import UmsMemberAddress
+
         result = await self.db.execute(
             select(UmsMemberAddress)
             .where(UmsMemberAddress.user_id == user_id)
@@ -107,6 +110,7 @@ class MemberService:
         product = await self.db.get(PmsProduct, product_id)
         if not product or product.is_deleted:
             from app.core.exceptions import ProductNotFoundError
+
             raise ProductNotFoundError(str(product_id))
 
         # 幂等: 已收藏则直接返回
@@ -134,6 +138,7 @@ class MemberService:
 
     async def remove_favorite(self, user_id: UUID, product_id: UUID) -> None:
         from app.models.member.member import UmsMemberFavorite
+
         await self.db.execute(
             delete(UmsMemberFavorite).where(
                 UmsMemberFavorite.user_id == user_id,
@@ -141,16 +146,17 @@ class MemberService:
             )
         )
 
-    async def list_favorites(self, user_id: UUID, page: int = 1, page_size: int = 20
-                             ) -> tuple[list[FavoriteResponse], int]:
+    async def list_favorites(
+        self, user_id: UUID, page: int = 1, page_size: int = 20
+    ) -> tuple[list[FavoriteResponse], int]:
         from app.models.member.member import UmsMemberFavorite
+
         base = select(UmsMemberFavorite).where(UmsMemberFavorite.user_id == user_id)
         cnt = select(func.count(UmsMemberFavorite.id)).where(UmsMemberFavorite.user_id == user_id)
         result = await self.db.execute(cnt)
         total = result.scalar() or 0
         result = await self.db.execute(
-            base.order_by(UmsMemberFavorite.created_at.desc())
-            .offset((page - 1) * page_size).limit(page_size)
+            base.order_by(UmsMemberFavorite.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
         )
         return [FavoriteResponse.model_validate(f) for f in result.scalars().all()], total
 
@@ -158,9 +164,9 @@ class MemberService:
     #  管理后台: 会员列表 (复用 marketplace User)
     # =========================================================================
 
-    async def list_admin(self, keyword: str | None = None, is_active: bool | None = None,
-                         page: int = 1, page_size: int = 20
-                         ) -> tuple[list[MemberAdminResponse], int]:
+    async def list_admin(
+        self, keyword: str | None = None, is_active: bool | None = None, page: int = 1, page_size: int = 20
+    ) -> tuple[list[MemberAdminResponse], int]:
         from marketplace.app.models.users import User
 
         base = select(User)
@@ -179,7 +185,9 @@ class MemberService:
         )
         items = [
             MemberAdminResponse(
-                id=u.id, email=u.email, is_active=u.is_active,  # type: ignore[attr-defined]
+                id=u.id,
+                email=u.email,
+                is_active=u.is_active,  # type: ignore[attr-defined]
                 created_at=str(u.created_at) if u.created_at else None,  # type: ignore[attr-defined]
             )
             for u in result.scalars().all()
@@ -193,11 +201,10 @@ class MemberService:
         user = await self.db.get(User, user_id)
         if not user:
             from app.core.exceptions import ProductNotFoundError
+
             raise ProductNotFoundError(str(user_id))
 
-        profile_result = await self.db.execute(
-            select(UserProfile).where(UserProfile.user_id == user_id)
-        )
+        profile_result = await self.db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
         profile = profile_result.scalar_one_or_none()
 
         return {
@@ -217,8 +224,45 @@ class MemberService:
         user = result.scalar_one_or_none()
         if not user:
             from app.core.exceptions import ProductNotFoundError
+
             raise ProductNotFoundError(str(user_id))
         return {"id": str(user.id), "email": user.email, "is_active": user.is_active}
+
+    async def update_profile(self, user_id: UUID, data) -> MemberProfileResponse:
+        """更新会员个人资料（昵称、头像）。"""
+        from marketplace.app.models.user_profile import UserProfile
+
+        result = await self.db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
+        profile = result.scalar_one_or_none()
+        if not profile:
+            # 如果还没有 profile，创建一个
+            from marketplace.app.models.users import User
+
+            user = await self.db.get(User, user_id)
+            if not user:
+                from app.core.exceptions import ProductNotFoundError
+
+                raise ProductNotFoundError(str(user_id))
+            profile = UserProfile(user_id=user_id, nickname=user.email.split("@")[0])
+            self.db.add(profile)
+            await self.db.flush()
+
+        if data.nickname is not None:
+            profile.nickname = data.nickname
+        if data.avatar_url is not None:
+            profile.avatar_url = data.avatar_url
+
+        await self.db.flush()
+        await self.db.refresh(profile)
+
+        return MemberProfileResponse(
+            id=profile.user_id,
+            email="",  # will be populated in route handler
+            is_active=True,
+            nickname=profile.nickname,
+            avatar_url=profile.avatar_url,
+            created_at=None,
+        )
 
     async def get_profile(self, user_id: UUID) -> MemberProfileResponse:
         from marketplace.app.models.user_profile import UserProfile
@@ -227,15 +271,16 @@ class MemberService:
         user = await self.db.get(User, user_id)
         if not user:
             from app.core.exceptions import ProductNotFoundError
+
             raise ProductNotFoundError(str(user_id))
 
-        profile_result = await self.db.execute(
-            select(UserProfile).where(UserProfile.user_id == user_id)
-        )
+        profile_result = await self.db.execute(select(UserProfile).where(UserProfile.user_id == user_id))
         profile = profile_result.scalar_one_or_none()
 
         return MemberProfileResponse(
-            id=user.id, email=user.email, is_active=user.is_active,
+            id=user.id,
+            email=user.email,
+            is_active=user.is_active,
             nickname=profile.nickname if profile else None,
             avatar_url=profile.avatar_url if profile else None,
             created_at=str(user.created_at) if user.created_at else None,
@@ -252,7 +297,5 @@ class MemberService:
         from marketplace.app.models.users import User
 
         today = date.today()
-        result = await self.db.execute(
-            select(func.count(User.id)).where(User.created_at >= today)
-        )
+        result = await self.db.execute(select(func.count(User.id)).where(User.created_at >= today))
         return result.scalar() or 0

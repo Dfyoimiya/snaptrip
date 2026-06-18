@@ -20,18 +20,18 @@ branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
 CS_PERMISSIONS = [
-    ("cs:tickets:read",      "查看工单列表",       "/admin/cs/tickets",          "GET"),
-    ("cs:tickets:write",     "管理工单",           "/admin/cs/tickets/*",        "PUT"),
-    ("cs:tickets:assign",    "指派工单",           "/admin/cs/tickets/*/assign", "POST"),
-    ("cs:tickets:resolve",   "解决工单",           "/admin/cs/tickets/*/resolve","POST"),
-    ("cs:messages:read",     "查看聊天消息",        "/admin/cs/tickets/*/messages","GET"),
-    ("cs:messages:write",    "发送聊天消息",        "/admin/cs/tickets/*/messages","POST"),
-    ("cs:agents:read",       "查看坐席列表",        "/admin/cs/agents",           "GET"),
-    ("cs:agents:write",      "修改坐席状态",        "/admin/cs/agents/me/*",      "PUT"),
-    ("cs:stats:read",        "查看客服统计",        "/admin/cs/stats",            "GET"),
-    ("cs:notifications:read","查看通知",           "/admin/cs/notifications",    "GET"),
-    ("cs:notifications:write","标记通知已读",       "/admin/cs/notifications/*",  "PUT"),
-    ("cs:stream:read",       "订阅 SSE 消息流",     "/admin/cs/tickets/*/stream", "GET"),
+    ("cs:tickets:read", "查看工单列表", "/admin/cs/tickets", "GET"),
+    ("cs:tickets:write", "管理工单", "/admin/cs/tickets/*", "PUT"),
+    ("cs:tickets:assign", "指派工单", "/admin/cs/tickets/*/assign", "POST"),
+    ("cs:tickets:resolve", "解决工单", "/admin/cs/tickets/*/resolve", "POST"),
+    ("cs:messages:read", "查看聊天消息", "/admin/cs/tickets/*/messages", "GET"),
+    ("cs:messages:write", "发送聊天消息", "/admin/cs/tickets/*/messages", "POST"),
+    ("cs:agents:read", "查看坐席列表", "/admin/cs/agents", "GET"),
+    ("cs:agents:write", "修改坐席状态", "/admin/cs/agents/me/*", "PUT"),
+    ("cs:stats:read", "查看客服统计", "/admin/cs/stats", "GET"),
+    ("cs:notifications:read", "查看通知", "/admin/cs/notifications", "GET"),
+    ("cs:notifications:write", "标记通知已读", "/admin/cs/notifications/*", "PUT"),
+    ("cs:stream:read", "订阅 SSE 消息流", "/admin/cs/tickets/*/stream", "GET"),
 ]
 
 
@@ -60,10 +60,15 @@ def upgrade() -> None:
 
     # ── CS Agent 获得基础工单+消息+通知权限 ──
     agent_perms = [
-        "cs:tickets:read", "cs:tickets:assign", "cs:tickets:resolve",
-        "cs:messages:read", "cs:messages:write",
-        "cs:agents:read", "cs:agents:write",
-        "cs:notifications:read", "cs:notifications:write",
+        "cs:tickets:read",
+        "cs:tickets:assign",
+        "cs:tickets:resolve",
+        "cs:messages:read",
+        "cs:messages:write",
+        "cs:agents:read",
+        "cs:agents:write",
+        "cs:notifications:read",
+        "cs:notifications:write",
         "cs:stream:read",
     ]
     perm_list = ", ".join(f"'{p}'" for p in agent_perms)

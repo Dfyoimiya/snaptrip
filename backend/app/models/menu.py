@@ -33,7 +33,7 @@ class ResourceCategory(CommerceBase):
     name: Mapped[str] = mapped_column(String(64), nullable=False)
     sort: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
-    resources: Mapped[list["Resource"]] = relationship(back_populates="category", lazy="selectin")
+    resources: Mapped[list[Resource]] = relationship(back_populates="category", lazy="selectin")
 
 
 class Resource(CommerceBase):
@@ -53,9 +53,7 @@ class RoleMenu(CommerceBase):
     """角色-菜单关联表 —— ums_role_menus"""
 
     __tablename__ = "ums_role_menus"
-    __table_args__ = (
-        UniqueConstraint("role_id", "menu_id", name="uq_role_menu"),
-    )
+    __table_args__ = (UniqueConstraint("role_id", "menu_id", name="uq_role_menu"),)
 
     role_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -73,9 +71,7 @@ class RoleResource(CommerceBase):
     """角色-资源关联表 —— ums_role_resources"""
 
     __tablename__ = "ums_role_resources"
-    __table_args__ = (
-        UniqueConstraint("role_id", "resource_id", name="uq_role_resource"),
-    )
+    __table_args__ = (UniqueConstraint("role_id", "resource_id", name="uq_role_resource"),)
 
     role_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

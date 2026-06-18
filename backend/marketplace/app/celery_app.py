@@ -20,7 +20,7 @@ celery_app = Celery(
     "snaptrip",
     broker=settings.REDIS_URL,
     backend=settings.REDIS_URL,
-    include=["agent.tasks.plan_tasks", "app.tasks.cf_tasks", "app.tasks.sla_tasks"],
+    include=["agent.tasks.plan_tasks", "app.tasks.cf_tasks", "app.tasks.coupon_tasks", "app.tasks.sla_tasks"],
 )
 
 celery_app.conf.update(
@@ -55,6 +55,12 @@ celery_app.conf.update(
         "cs_agent_cleanup": {
             "task": "cleanup_stale_agents",
             "schedule": 120.0,
+            "options": {"queue": "agent"},
+        },
+        # 优惠券自动过期: 每 60 秒
+        "auto_expire_coupons": {
+            "task": "auto_expire_coupons",
+            "schedule": 60.0,
             "options": {"queue": "agent"},
         },
     },

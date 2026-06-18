@@ -39,14 +39,11 @@ class PmsProductEmbedding(CommerceBase):
         nullable=False,
         unique=True,
         index=True,
-        comment="商品ID (一对一关系)"
+        comment="商品ID (一对一关系)",
     )
-    embedding: Mapped[list[float]] = mapped_column(
-        Vector(384), nullable=False, comment="商品语义向量 (384维)"
-    )
+    embedding: Mapped[list[float]] = mapped_column(Vector(384), nullable=False, comment="商品语义向量 (384维)")
     model_name: Mapped[str] = mapped_column(
-        String(64), nullable=False, default="all-MiniLM-L6-v2",
-        comment="生成嵌入的模型名称"
+        String(64), nullable=False, default="all-MiniLM-L6-v2", comment="生成嵌入的模型名称"
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -54,5 +51,5 @@ class PmsProductEmbedding(CommerceBase):
         server_default=func.now(),
         onupdate=lambda: datetime.now(UTC),
         nullable=False,
-        comment="嵌入最后更新时间"
+        comment="嵌入最后更新时间",
     )

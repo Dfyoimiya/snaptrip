@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 #  收货地址
 # ============================================================================
 
+
 class AddressCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     phone: str = Field(..., min_length=1, max_length=32)
@@ -56,6 +57,7 @@ class AddressResponse(BaseModel):
 #  收藏
 # ============================================================================
 
+
 class FavoriteResponse(BaseModel):
     id: UUID
     product_id: UUID
@@ -70,8 +72,10 @@ class FavoriteResponse(BaseModel):
 #  会员管理 (复用 marketplace 的 User/UserProfile)
 # ============================================================================
 
+
 class MemberProfileResponse(BaseModel):
     """会员中心个人信息"""
+
     id: UUID
     email: str
     is_active: bool
@@ -81,8 +85,16 @@ class MemberProfileResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class MemberProfileUpdate(BaseModel):
+    """会员个人信息更新"""
+
+    nickname: str | None = Field(None, min_length=1, max_length=64)
+    avatar_url: str | None = Field(None, max_length=512)
+
+
 class MemberAdminResponse(BaseModel):
     """管理后台会员列表项"""
+
     id: UUID
     email: str
     is_active: bool

@@ -17,6 +17,7 @@ from typing import Any
 @dataclass
 class AgentMetric:
     """单个 Agent 的累积指标。"""
+
     call_count: int = 0
     success_count: int = 0
     total_latency_ms: float = 0.0
@@ -42,8 +43,11 @@ class MetricsCollector:
     # ── Agent 指标 ──
 
     def record_agent_call(
-        self, agent_name: str, success: bool,
-        latency_ms: float = 0.0, error: str = "",
+        self,
+        agent_name: str,
+        success: bool,
+        latency_ms: float = 0.0,
+        error: str = "",
     ) -> None:
         metric = self._agent_metrics[agent_name]
         metric.call_count += 1
@@ -67,11 +71,13 @@ class MetricsCollector:
     # ── 业务事件 ──
 
     def record_business_event(self, event_type: str, **kwargs: Any) -> None:
-        self._business_events.append({
-            "event_type": event_type,
-            "ts": time.time(),
-            **kwargs,
-        })
+        self._business_events.append(
+            {
+                "event_type": event_type,
+                "ts": time.time(),
+                **kwargs,
+            }
+        )
         # 保留最近 10000 条
         if len(self._business_events) > 10000:
             self._business_events = self._business_events[-5000:]

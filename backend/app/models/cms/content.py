@@ -31,6 +31,9 @@ class CmsBanner(CommerceBase, AuditMixin):
     title: Mapped[str] = mapped_column(String(100), nullable=False, comment="轮播图标题")
     pic: Mapped[str] = mapped_column(String(255), nullable=False, comment="图片URL")
     url: Mapped[str | None] = mapped_column(String(500), nullable=True, comment="跳转链接")
+    position: Mapped[str] = mapped_column(
+        String(30), default="HOME_TOP", nullable=False, comment="位置: HOME_TOP/HOME_MIDDLE"
+    )
     sort: Mapped[int] = mapped_column(Integer, default=0, nullable=False, comment="排序(越小越前)")
     status: Mapped[int] = mapped_column(Integer, default=1, nullable=False, comment="0=禁用 1=启用")
     start_time: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, comment="上线时间")

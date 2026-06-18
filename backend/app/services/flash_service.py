@@ -1,12 +1,13 @@
 """
-【秒杀 Service】— 活动/场次/商品管理
+【秒杀 Service】— 活动/场次/商品管理 + 库存预热
 
 Author: SnapTrip Team
-Date: 2026-05-26
+Date: 2026-05-26 / 2026-06-18
 """
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import func, select, update
@@ -153,18 +154,89 @@ class FlashService:
             from app.core.exceptions import ProductNotFoundError
 
             raise ProductNotFoundError(str(session_id))
+
+        # ── 场次结束时释放未售出的秒杀库存 ──
+        if status == 2:
+            await self.release_flash_stock(session_id)
+
         return FlashSessionResponse.model_validate(s)
 
     # ── 秒杀商品 ──
 
     async def add_product(self, data: FlashProductCreate) -> FlashProductResponse:
+        """添加秒杀商品，同时从 PmsSku 预扣库存（库存预热）。
+
+        使用乐观锁：UPDATE PmsSku SET stock = stock - :qty, lock_stock = lock_stock + :qty
+        WHERE id = :sku_id AND stock - lock_stock >= :qty
+
+        只有当可用库存（stock - lock_stock）足够时才允许预扣。
+        """
+        from app.core.exceptions import InsufficientStockError
+        from app.models.product.sku import PmsSku
         from app.models.promotion.flash import SmsFlashPromotionProduct
+
+        qty = data.flash_stock
+        sku_id = data.sku_id
+
+        # ── 乐观锁扣减 SKU 库存 ──
+        result = await self.db.execute(
+            update(PmsSku)
+            .where(
+                PmsSku.id == sku_id,
+                PmsSku.stock - PmsSku.lock_stock >= qty,
+            )
+            .values(
+                stock=PmsSku.stock - qty,
+                lock_stock=PmsSku.lock_stock + qty,
+            )
+            .returning(PmsSku.id)
+        )
+        if result.scalar_one_or_none() is None:
+            # 获取当前库存用于报错详情
+            sku = await self.db.get(PmsSku, sku_id)
+            available = (sku.stock - sku.lock_stock) if sku else 0
+            raise InsufficientStockError(
+                sku_id=str(sku_id),
+                available=available,
+                requested=qty,
+            )
 
         p = SmsFlashPromotionProduct(**data.model_dump())
         self.db.add(p)
         await self.db.flush()
         await self.db.refresh(p)
         return FlashProductResponse.model_validate(p)
+
+    async def release_flash_stock(self, session_id: UUID) -> None:
+        """场次结束时释放未售出的秒杀库存回 PmsSku。
+
+        将每个秒杀商品的 flash_stock（剩余库存）归还给对应的 PmsSku：
+         - PmsSku.stock += flash_stock
+         - PmsSku.lock_stock -= flash_stock
+
+        注意：这里只归还"剩余"库存（flash_stock 字段），已卖出的部分不再归还。
+        """
+        from app.models.product.sku import PmsSku
+        from app.models.promotion.flash import SmsFlashPromotionProduct
+
+        # 查询该场次所有秒杀商品（仅取还有剩余库存的）
+        products_result = await self.db.execute(
+            select(SmsFlashPromotionProduct).where(
+                SmsFlashPromotionProduct.session_id == session_id,
+                SmsFlashPromotionProduct.flash_stock > 0,
+            )
+        )
+        flash_products = products_result.scalars().all()
+
+        for fp in flash_products:
+            await self.db.execute(
+                update(PmsSku)
+                .where(PmsSku.id == fp.sku_id)
+                .values(
+                    stock=PmsSku.stock + fp.flash_stock,
+                    lock_stock=PmsSku.lock_stock - fp.flash_stock,
+                )
+            )
 
     async def list_products(
         self, session_id: UUID | None = None, page: int = 1, page_size: int = 20
@@ -180,9 +252,7 @@ class FlashService:
         cnt_result = await self.db.execute(cnt_q)
         total = cnt_result.scalar() or 0
         result = await self.db.execute(
-            base.order_by(SmsFlashPromotionProduct.sort.asc())
-            .offset((page - 1) * page_size)
-            .limit(page_size)
+            base.order_by(SmsFlashPromotionProduct.sort.asc()).offset((page - 1) * page_size).limit(page_size)
         )
         return [FlashProductResponse.model_validate(p) for p in result.scalars().all()], total
 
@@ -218,3 +288,65 @@ class FlashService:
 
             raise ProductNotFoundError(str(product_id))
         await self.db.delete(fp)
+
+    # ── 前台 Portal 查询 ──
+
+    async def list_active_portal_promotions(self) -> list[FlashPromotionResponse]:
+        """前台：列出当前活跃的秒杀活动（status=1，在有效时间范围内）。"""
+        from app.models.promotion.flash import SmsFlashPromotion
+
+        now = datetime.now(UTC)
+        result = await self.db.execute(
+            select(SmsFlashPromotion)
+            .where(
+                SmsFlashPromotion.status == 1,
+                SmsFlashPromotion.start_date <= now,
+                SmsFlashPromotion.end_date >= now,
+            )
+            .order_by(SmsFlashPromotion.start_date.asc())
+        )
+        return [FlashPromotionResponse.model_validate(p) for p in result.scalars().all()]
+
+    async def list_active_portal_sessions(self, promotion_id: UUID) -> list[FlashSessionResponse]:
+        """前台：列出活动下进行中的场次（status=1）。"""
+        from app.models.promotion.flash import SmsFlashPromotionSession
+
+        result = await self.db.execute(
+            select(SmsFlashPromotionSession)
+            .where(
+                SmsFlashPromotionSession.promotion_id == promotion_id,
+                SmsFlashPromotionSession.status == 1,
+            )
+            .order_by(SmsFlashPromotionSession.start_time.asc())
+        )
+        return [FlashSessionResponse.model_validate(s) for s in result.scalars().all()]
+
+    async def list_active_portal_products(self, session_id: UUID) -> list[dict]:
+        """前台：列出场次下的秒杀商品，包含 flash_price 和剩余 flash_stock。
+
+        返回 dict 列表，比 FlashProductResponse 多了 flash_stock 作为 countdown 剩余库存。
+        """
+        from app.models.promotion.flash import SmsFlashPromotionProduct
+
+        result = await self.db.execute(
+            select(SmsFlashPromotionProduct)
+            .where(
+                SmsFlashPromotionProduct.session_id == session_id,
+                SmsFlashPromotionProduct.flash_stock > 0,
+            )
+            .order_by(SmsFlashPromotionProduct.sort.asc())
+        )
+        products = result.scalars().all()
+        return [
+            {
+                "id": str(p.id),
+                "session_id": str(p.session_id),
+                "product_id": str(p.product_id),
+                "sku_id": str(p.sku_id),
+                "flash_price": float(p.flash_price),
+                "flash_stock": p.flash_stock,
+                "flash_limit": p.flash_limit,
+                "sort": p.sort,
+            }
+            for p in products
+        ]
