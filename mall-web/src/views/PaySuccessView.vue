@@ -70,13 +70,13 @@ onMounted(() => {
       <!-- 操作按钮 -->
       <div class="flex gap-4 justify-center">
         <button
-          class="px-8 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+          class="px-8 py-3 bg-brand-600 text-white rounded-lg font-medium hover:bg-brand-700 transition-colors"
           @click="router.push('/member/orders')"
         >
           查看订单
         </button>
         <button
-          class="px-8 py-3 border border-gray-200 text-gray-700 rounded-lg font-medium hover:border-red-300 hover:text-red-600 transition-colors"
+          class="px-8 py-3 border border-gray-200 text-gray-700 rounded-lg font-medium hover:border-brand-300 hover:text-brand-600 transition-colors"
           @click="router.push('/')"
         >
           返回首页

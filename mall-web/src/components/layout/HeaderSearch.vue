@@ -210,13 +210,13 @@ function handleGoHome() { emit('navigate', '/') }
 </script>
 
 <template>
-  <div class="bg-white border-b border-gray-100">
+  <div class="bg-white">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between py-5 gap-8">
         <!-- Logo -->
         <div class="flex-shrink-0 cursor-pointer" @click="handleGoHome">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center">
+            <div class="w-10 h-10 bg-brand-600 rounded-lg flex items-center justify-center">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
@@ -238,18 +238,18 @@ function handleGoHome() { emit('navigate', '/') }
                   v-model="keyword"
                   type="text"
                   placeholder="搜索商品、品牌..."
-                  class="w-full h-10 pl-4 pr-4 text-sm border-2 border-red-600 rounded-l-md focus:outline-none focus:ring-0 bg-white text-gray-700 placeholder-gray-400"
+                  class="w-full h-10 pl-4 pr-4 text-sm border-2 border-brand-600 rounded-l-md focus:outline-none focus:ring-0 bg-white text-gray-700 placeholder-gray-400"
                   @input="onInput"
                   @keydown="handleKeydown"
                   @focus="handleFocus"
                 />
                 <!-- loading 指示器 -->
                 <div v-if="loading" class="absolute right-3 top-1/2 -translate-y-1/2">
-                  <div class="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                  <div class="w-4 h-4 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
                 </div>
               </div>
               <button
-                class="h-10 px-8 bg-red-600 text-white text-sm font-medium rounded-r-md hover:bg-red-700 transition-colors flex items-center gap-2"
+                class="h-10 px-8 bg-brand-600 text-white text-sm font-medium rounded-r-md hover:bg-brand-700 transition-colors flex items-center gap-2"
                 @click="doSearch(keyword)"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -268,7 +268,7 @@ function handleGoHome() { emit('navigate', '/') }
               <div v-if="!keyword.trim() && loadHistory().length" class="px-4 py-3 border-b border-gray-100">
                 <div class="flex items-center justify-between mb-2">
                   <span class="text-xs text-gray-500 font-medium">搜索历史</span>
-                  <button class="text-xs text-gray-400 hover:text-red-600" @click="clearHistory">清除</button>
+                  <button class="text-xs text-gray-400 hover:text-brand-600" @click="clearHistory">清除</button>
                 </div>
                 <div class="flex flex-wrap gap-2">
                   <button
@@ -277,8 +277,8 @@ function handleGoHome() { emit('navigate', '/') }
                     :class="[
                       'inline-flex items-center gap-1 px-3 py-1 text-sm rounded-full transition-colors',
                       activeIndex === idx
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600',
+                        ? 'bg-brand-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-brand-50 hover:text-brand-600',
                     ]"
                     @click.stop="doSearch(q)"
                   >
@@ -332,9 +332,9 @@ function handleGoHome() { emit('navigate', '/') }
                         ? 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200'
                         : section.section_type === 'trending'
                         ? 'bg-orange-50 text-orange-700 hover:bg-orange-100'
-                        : 'bg-gray-100 text-gray-600 hover:bg-red-50 hover:text-red-600',
+                        : 'bg-gray-100 text-gray-600 hover:bg-brand-50 hover:text-brand-600',
                       activeIndex === getGlobalIndex(section, idx)
-                        ? 'ring-2 ring-red-600 ring-offset-1'
+                        ? 'ring-2 ring-brand-600 ring-offset-1'
                         : '',
                     ]"
                     @click.stop="doSearch(item.query)"
@@ -368,7 +368,7 @@ function handleGoHome() { emit('navigate', '/') }
             <button
               v-for="kw in ['手机', '笔记本电脑', '耳机', '运动鞋', '手表']"
               :key="kw"
-              class="text-xs text-gray-500 hover:text-red-600 transition-colors"
+              class="text-xs text-gray-500 hover:text-brand-600 transition-colors"
               @click="doSearch(kw)"
             >
               {{ kw }}
@@ -379,7 +379,7 @@ function handleGoHome() { emit('navigate', '/') }
         <!-- 购物车入口 -->
         <div class="flex-shrink-0">
           <button
-            class="flex items-center gap-2 h-10 px-5 border border-gray-200 rounded-md hover:border-red-600 hover:text-red-600 transition-colors text-sm text-gray-700 bg-white"
+            class="flex items-center gap-2 h-10 px-5 border border-gray-200 rounded-md hover:border-brand-600 hover:text-brand-600 transition-colors text-sm text-gray-700 bg-white"
             @click="handleGoCart"
           >
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -388,7 +388,7 @@ function handleGoHome() { emit('navigate', '/') }
             <span>购物车</span>
             <span
               v-if="cartCount > 0"
-              class="flex items-center justify-center min-w-5 h-5 px-1 bg-red-600 text-white text-xs font-medium rounded-full"
+              class="flex items-center justify-center min-w-5 h-5 px-1 bg-brand-600 text-white text-xs font-medium rounded-full"
             >
               {{ cartCount > 99 ? '99+' : cartCount }}
             </span>

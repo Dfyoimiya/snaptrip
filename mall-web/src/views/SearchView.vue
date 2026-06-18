@@ -11,6 +11,7 @@
  */
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import ProductCard from '@/components/product/ProductCard.vue'
 import { searchProductListAPI, getCategoryTreeAPI } from '@/apis/product'
 import { getBrandRecommendListAPI } from '@/apis/brand'
 import type { PmsProduct, CategoryTreeNode } from '@/types/product'
@@ -239,7 +240,7 @@ onMounted(() => {
             :class="[
               'px-3 py-1.5 text-sm rounded-md transition-colors',
               sortType === opt.value
-                ? 'bg-red-600 text-white font-medium'
+                ? 'bg-brand-600 text-white font-medium'
                 : 'text-gray-600 hover:bg-gray-100',
             ]"
             @click="handleSortChange(opt.value)"
@@ -262,8 +263,8 @@ onMounted(() => {
             :class="[
               'px-3 py-1 text-sm rounded-md transition-colors',
               categoryId === cat.id
-                ? 'bg-red-600 text-white'
-                : 'text-gray-600 bg-gray-50 hover:bg-red-50 hover:text-red-600',
+                ? 'bg-brand-600 text-white'
+                : 'text-gray-600 bg-gray-50 hover:bg-brand-50 hover:text-brand-600',
             ]"
             @click="selectCategory(cat.id)"
           >
@@ -282,8 +283,8 @@ onMounted(() => {
             :class="[
               'px-3 py-1 text-sm rounded-md transition-colors',
               brandId === brand.id
-                ? 'bg-red-600 text-white'
-                : 'text-gray-600 bg-gray-50 hover:bg-red-50 hover:text-red-600',
+                ? 'bg-brand-600 text-white'
+                : 'text-gray-600 bg-gray-50 hover:bg-brand-50 hover:text-brand-600',
             ]"
             @click="selectBrand(brand.id)"
           >
@@ -302,8 +303,8 @@ onMounted(() => {
             :class="[
               'px-3 py-1 text-sm rounded-md transition-colors',
               selectedPriceRange === index
-                ? 'bg-red-600 text-white'
-                : 'text-gray-600 bg-gray-50 hover:bg-red-50 hover:text-red-600',
+                ? 'bg-brand-600 text-white'
+                : 'text-gray-600 bg-gray-50 hover:bg-brand-50 hover:text-brand-600',
             ]"
             @click="selectPriceRange(index)"
           >
@@ -314,7 +315,7 @@ onMounted(() => {
               v-model.number="minPrice"
               type="number"
               placeholder="¥最低"
-              class="w-20 h-7 px-2 border border-gray-200 rounded text-sm text-center focus:outline-none focus:border-red-500"
+              class="w-20 h-7 px-2 border border-gray-200 rounded text-sm text-center focus:outline-none focus:border-brand-500"
               @blur="currentPage = 1"
             />
             <span class="text-gray-300">-</span>
@@ -322,7 +323,7 @@ onMounted(() => {
               v-model.number="maxPrice"
               type="number"
               placeholder="¥最高"
-              class="w-20 h-7 px-2 border border-gray-200 rounded text-sm text-center focus:outline-none focus:border-red-500"
+              class="w-20 h-7 px-2 border border-gray-200 rounded text-sm text-center focus:outline-none focus:border-brand-500"
               @blur="currentPage = 1"
             />
           </div>
@@ -336,50 +337,27 @@ onMounted(() => {
       <span
         v-for="filter in activeFilters"
         :key="filter.key"
-        class="inline-flex items-center gap-1 px-2.5 py-1 bg-red-50 text-red-600 text-xs rounded-full"
+        class="inline-flex items-center gap-1 px-2.5 py-1 bg-brand-50 text-brand-600 text-xs rounded-full"
       >
         {{ filter.label }}
-        <button class="hover:text-red-800" @click="removeFilter(filter.key)">
+        <button class="hover:text-brand-700" @click="removeFilter(filter.key)">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </span>
-      <button class="text-xs text-gray-500 hover:text-red-600 ml-2" @click="clearAllFilters">清除全部</button>
+      <button class="text-xs text-gray-500 hover:text-brand-600 ml-2" @click="clearAllFilters">清除全部</button>
     </div>
 
     <!-- ====== 商品网格 ====== -->
     <div v-if="productList.length" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-      <button
+      <ProductCard
         v-for="product in productList"
         :key="product.id"
-        class="group text-left bg-white rounded-xl border border-gray-100 hover:border-red-200 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 overflow-hidden"
+        :product="product"
+        :show-discount-badge="(product.originalPrice ?? 0) > product.price"
         @click="goProductDetail(product.id)"
-      >
-        <!-- 商品图片 -->
-        <div class="aspect-square bg-gray-50 overflow-hidden relative">
-          <img :src="product.defaultPic || ''" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-          <!-- 促销标签 -->
-          <span
-            v-if="(product.originalPrice ?? 0) > product.price"
-            class="absolute top-2 left-2 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded font-medium"
-          >
-            省{{ Math.round((1 - product.price / (product.originalPrice || product.price)) * 100) }}%
-          </span>
-        </div>
-        <!-- 商品信息 -->
-        <div class="p-3.5">
-          <p class="text-sm text-gray-800 line-clamp-2 leading-5 min-h-[40px] mb-2 group-hover:text-red-600 transition-colors">{{ product.name }}</p>
-          <div class="flex items-baseline gap-2">
-            <span class="text-red-600 font-bold text-base"><span class="text-xs">&yen;</span>{{ product.price }}</span>
-            <span v-if="product.originalPrice" class="text-xs text-gray-400 line-through">&yen;{{ product.originalPrice }}</span>
-          </div>
-          <div class="flex items-center justify-between mt-2">
-            <span class="text-xs text-gray-400">已售 {{ (product.saleCount ?? 0) >= 10000 ? ((product.saleCount ?? 0) / 10000).toFixed(1) + '万' : (product.saleCount ?? 0) }}</span>
-            <span class="text-xs text-gray-400">{{ product.brandName || '' }}</span>
-          </div>
-        </div>
-      </button>
+      />
     </div>
 
     <!-- ====== 空状态 ====== -->
@@ -388,7 +366,7 @@ onMounted(() => {
         <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
       </svg>
       <p class="text-lg">未找到符合条件的商品</p>
-      <button class="mt-4 text-sm text-red-600 hover:text-red-700" @click="clearAllFilters">清除筛选条件</button>
+      <button class="mt-4 text-sm text-brand-600 hover:text-brand-700" @click="clearAllFilters">清除筛选条件</button>
     </div>
 
     <!-- ====== 分页器 ====== -->
@@ -409,7 +387,7 @@ onMounted(() => {
         :class="[
           'min-w-9 h-9 px-2.5 flex items-center justify-center rounded-md text-sm transition-colors',
           currentPage === page
-            ? 'bg-red-600 text-white font-medium'
+            ? 'bg-brand-600 text-white font-medium'
             : 'border border-gray-200 text-gray-600 hover:bg-gray-50',
         ]"
         @click="goPage(page)"
@@ -434,11 +412,3 @@ onMounted(() => {
   </div>
 </template>
 
-<style scoped>
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-</style>

@@ -111,43 +111,43 @@ const isMenuActive = (path: string): boolean => {
     </main>
 
     <!-- 5. 页脚 -->
-    <footer class="bg-white border-t border-orange-100 mt-auto">
+    <footer class="bg-white border-t border-gray-100 mt-auto">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
           <!-- 关于我们 -->
           <div>
             <h3 class="text-sm font-semibold text-gray-900 tracking-wider uppercase mb-4">关于我们</h3>
             <ul class="space-y-2">
-              <li><button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="navigateTo('/about')">公司简介</button></li>
-              <li><button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="navigateTo('/contact')">联系我们</button></li>
-              <li><button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="navigateTo('/join')">加入我们</button></li>
+              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/about')">公司简介</button></li>
+              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/contact')">联系我们</button></li>
+              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/join')">加入我们</button></li>
             </ul>
           </div>
           <!-- 购物指南 -->
           <div>
             <h3 class="text-sm font-semibold text-gray-900 tracking-wider uppercase mb-4">购物指南</h3>
             <ul class="space-y-2">
-              <li><button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="navigateTo('/help')">购物流程</button></li>
-              <li><button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="navigateTo('/help')">支付方式</button></li>
-              <li><button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="navigateTo('/help')">配送说明</button></li>
+              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/help')">购物流程</button></li>
+              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/help')">支付方式</button></li>
+              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/help')">配送说明</button></li>
             </ul>
           </div>
           <!-- 售后服务 -->
           <div>
             <h3 class="text-sm font-semibold text-gray-900 tracking-wider uppercase mb-4">售后服务</h3>
             <ul class="space-y-2">
-              <li><button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="navigateTo('/help')">退换货政策</button></li>
-              <li><button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="navigateTo('/help')">退款说明</button></li>
-              <li><button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="navigateTo('/help')">取消订单</button></li>
+              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/help')">退换货政策</button></li>
+              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/help')">退款说明</button></li>
+              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/help')">取消订单</button></li>
             </ul>
           </div>
           <!-- 客户服务 -->
           <div>
             <h3 class="text-sm font-semibold text-gray-900 tracking-wider uppercase mb-4">客户服务</h3>
             <ul class="space-y-2">
-              <li><button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="navigateTo('/help')">常见问题</button></li>
-              <li><button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="chatStore.openChat()">在线客服</button></li>
-              <li><button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="navigateTo('/help')">投诉建议</button></li>
+              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/help')">常见问题</button></li>
+              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="chatStore.openChat()">在线客服</button></li>
+              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/help')">投诉建议</button></li>
             </ul>
           </div>
         </div>
@@ -165,18 +165,15 @@ const isMenuActive = (path: string): boolean => {
 
 <style scoped>
 .mall-shell {
-  background:
-    radial-gradient(circle at 50% 0, rgba(255, 122, 0, .11), transparent 360px),
-    #f5f5f5;
+  background: #ffffff;
 }
 
 .mall-nav {
-  background: rgba(255, 255, 255, .96);
-  border-bottom: 1px solid #ffe2d3;
+  background: #ffffff;
+  border-bottom: 1px solid #f5f5f5;
   position: sticky;
   top: 0;
   z-index: 30;
-  backdrop-filter: blur(12px);
 }
 
 .category-trigger {
@@ -185,35 +182,30 @@ const isMenuActive = (path: string): boolean => {
   align-items: center;
   gap: 8px;
   padding: 0 24px;
-  color: white;
-  background: linear-gradient(90deg, #ff7900, #ff5000);
+  color: #333;
+  background: transparent;
   font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
+  transition: color 0.2s;
 }
 
+.category-trigger:hover,
 .category-trigger.active {
-  box-shadow: inset 0 -3px 0 rgba(255, 255, 255, .75);
+  color: #ff5000;
 }
 
 .nav-menu-item {
   padding: 8px 18px;
   color: #333;
-  border-radius: 999px;
   font-size: 14px;
   font-weight: 600;
   white-space: nowrap;
-  transition: .2s;
+  transition: color 0.2s;
 }
 
-.nav-menu-item:hover {
-  color: #ff5000;
-  background: #fff1e9;
-}
-
+.nav-menu-item:hover,
 .nav-menu-item.active {
   color: #ff5000;
-  background: #fff1e9;
-  box-shadow: inset 0 0 0 1px #ffd7c2;
 }
 </style>

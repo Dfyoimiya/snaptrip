@@ -455,11 +455,11 @@ onUnmounted(() => {
   <div class="product-detail-page">
     <!-- 面包屑导航 -->
     <nav class="flex items-center gap-2 text-sm text-gray-500 mb-4">
-      <button class="hover:text-red-600 transition-colors" @click="router.push('/')">首页</button>
+      <button class="hover:text-brand-600 transition-colors" @click="router.push('/')">首页</button>
       <span class="text-gray-300">/</span>
-      <button class="hover:text-red-600 transition-colors" @click="router.push('/category')">{{ mockProduct.product.productCategoryName || '全部分类' }}</button>
+      <button class="hover:text-brand-600 transition-colors" @click="router.push('/category')">{{ mockProduct.product.productCategoryName || '全部分类' }}</button>
       <span class="text-gray-300">/</span>
-      <button v-if="mockProduct.brand.id" class="hover:text-red-600 transition-colors" @click="router.push(`/brand/${mockProduct.brand.id}`)">{{ mockProduct.product.brandName }}</button>
+      <button v-if="mockProduct.brand.id" class="hover:text-brand-600 transition-colors" @click="router.push(`/brand/${mockProduct.brand.id}`)">{{ mockProduct.product.brandName }}</button>
       <span v-if="mockProduct.brand.id" class="text-gray-300">/</span>
       <span class="text-gray-700 truncate max-w-md">{{ mockProduct.product.name || '商品详情' }}</span>
     </nav>
@@ -541,7 +541,7 @@ onUnmounted(() => {
                 :class="[
                   'w-[80px] h-[80px] rounded-md overflow-hidden border-2 transition-all flex-shrink-0',
                   currentImageIndex === index
-                    ? 'border-red-600 ring-1 ring-red-600'
+                    ? 'border-brand-600 ring-1 ring-brand-600'
                     : 'border-gray-200 hover:border-gray-400',
                 ]"
                 @mouseenter="currentImageIndex = index"
@@ -552,15 +552,15 @@ onUnmounted(() => {
 
             <!-- 分享/收藏 -->
             <div class="flex items-center gap-4 mt-4 text-sm text-gray-500">
-              <button class="flex items-center gap-1 hover:text-red-600 transition-colors">
+              <button class="flex items-center gap-1 hover:text-brand-600 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                 </svg>
                 分享
               </button>
               <button
-                class="flex items-center gap-1 hover:text-red-600 transition-colors"
-                :class="{ 'text-red-600': isFavorited }"
+                class="flex items-center gap-1 hover:text-brand-600 transition-colors"
+                :class="{ 'text-brand-600': isFavorited }"
                 :disabled="isFavoriting"
                 @click="handleToggleFavorite"
               >
@@ -580,7 +580,7 @@ onUnmounted(() => {
             </h1>
 
             <!-- 副标题 -->
-            <p v-if="mockProduct.product.subTitle" class="text-sm text-red-600 mb-4 leading-5">
+            <p v-if="mockProduct.product.subTitle" class="text-sm text-brand-600 mb-4 leading-5">
               {{ mockProduct.product.subTitle }}
             </p>
 
@@ -588,7 +588,7 @@ onUnmounted(() => {
             <div class="bg-gray-50 rounded-lg p-4 mb-5">
               <div class="flex items-baseline gap-3 mb-2">
                 <span class="text-sm text-gray-500">促销价</span>
-                <span class="text-3xl font-bold text-red-600">
+                <span class="text-3xl font-bold text-brand-600">
                   <span class="text-lg">&yen;</span>{{ formatPrice(selectedSku?.promotionPrice || selectedSku?.price || mockProduct.product.price) }}
                 </span>
                 <span v-if="selectedSku?.price" class="text-sm text-gray-400 line-through">
@@ -600,7 +600,7 @@ onUnmounted(() => {
                 <span>销量 <span class="text-gray-900 font-medium">{{ mockProduct.product.sale }}</span></span>
                 <span>
                   库存
-                  <span :class="(selectedSku?.stock || 0) > 20 ? 'text-gray-900' : 'text-red-600'" class="font-medium">
+                  <span :class="(selectedSku?.stock || 0) > 20 ? 'text-gray-900' : 'text-brand-600'" class="font-medium">
                     {{ selectedSku?.stock || 0 }}
                   </span>
                 </span>
@@ -609,7 +609,7 @@ onUnmounted(() => {
               <!-- 优惠信息 -->
               <div class="mt-3 pt-3 border-t border-gray-200 space-y-2">
                 <div v-for="fr in mockProduct.productFullReductionList" :key="fr.id" class="flex items-center gap-2 text-sm">
-                  <span class="bg-red-600 text-white text-xs px-2 py-0.5 rounded">满减</span>
+                  <span class="bg-brand-600 text-white text-xs px-2 py-0.5 rounded">满减</span>
                   <span class="text-gray-600">满{{ fr.fullPrice }}减{{ fr.reducePrice }}</span>
                 </div>
                 <div v-if="selectedSku?.promotionPrice" class="flex items-center gap-2 text-sm">
@@ -631,9 +631,9 @@ onUnmounted(() => {
                     :class="[
                       'px-4 py-2 text-sm border rounded-md transition-all',
                       isSpecSelected(dimension, value)
-                        ? 'border-red-600 text-red-600 bg-red-50 font-medium ring-1 ring-red-600'
+                        ? 'border-brand-600 text-brand-600 bg-brand-50 font-medium ring-1 ring-brand-600'
                         : isSpecAvailable(dimension, value)
-                          ? 'border-gray-200 text-gray-700 hover:border-red-300 hover:text-red-600'
+                          ? 'border-gray-200 text-gray-700 hover:border-brand-300 hover:text-brand-600'
                           : 'border-gray-100 text-gray-300 cursor-not-allowed bg-gray-50',
                     ]"
                     @click="selectSpec(dimension, value)"
@@ -649,7 +649,7 @@ onUnmounted(() => {
               <span class="text-sm text-gray-500 w-12 flex-shrink-0">数量</span>
               <div class="flex items-center border border-gray-200 rounded-md">
                 <button
-                  class="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-red-600 transition-colors disabled:opacity-30"
+                  class="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-brand-600 transition-colors disabled:opacity-30"
                   :disabled="quantity <= 1"
                   @click="quantity--"
                 >
@@ -659,7 +659,7 @@ onUnmounted(() => {
                 </button>
                 <span class="w-14 h-10 flex items-center justify-center text-sm border-x border-gray-200 font-medium">{{ quantity }}</span>
                 <button
-                  class="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-red-600 transition-colors disabled:opacity-30"
+                  class="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-brand-600 transition-colors disabled:opacity-30"
                   :disabled="quantity >= (selectedSku?.stock || 99)"
                   @click="quantity++"
                 >
@@ -674,7 +674,7 @@ onUnmounted(() => {
             <!-- 操作按钮 -->
             <div class="flex items-center gap-4 mb-6">
               <button
-                class="flex-1 h-12 bg-red-100 text-red-600 font-bold text-base rounded-lg hover:bg-red-200 transition-colors flex items-center justify-center gap-2 border border-red-200"
+                class="flex-1 h-12 bg-brand-100 text-brand-600 font-bold text-base rounded-lg hover:bg-brand-200 transition-colors flex items-center justify-center gap-2 border border-brand-200"
                 @click="handleAddToCart"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -683,7 +683,7 @@ onUnmounted(() => {
                 加入购物车
               </button>
               <button
-                class="flex-1 h-12 bg-red-600 text-white font-bold text-base rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center gap-2 shadow-md shadow-red-200"
+                class="flex-1 h-12 bg-brand-600 text-white font-bold text-base rounded-lg hover:bg-brand-700 transition-colors flex items-center justify-center gap-2 shadow-md shadow-brand-200"
                 @click="handleBuyNow"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -731,7 +731,7 @@ onUnmounted(() => {
         <!-- 优惠券 -->
         <div v-if="mockProduct.couponList.length > 0" class="col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-5">
           <h3 class="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
             </svg>
             可领优惠券
@@ -740,9 +740,9 @@ onUnmounted(() => {
             <div
               v-for="coupon in mockProduct.couponList"
               :key="coupon.id"
-              class="flex-1 border border-red-200 rounded-lg overflow-hidden flex"
+              class="flex-1 border border-brand-200 rounded-lg overflow-hidden flex"
             >
-              <div class="bg-red-600 text-white px-4 py-3 flex flex-col items-center justify-center flex-shrink-0">
+              <div class="bg-brand-600 text-white px-4 py-3 flex flex-col items-center justify-center flex-shrink-0">
                 <span class="text-lg font-bold">&yen;{{ coupon.amount }}</span>
                 <span class="text-xs opacity-80">满{{ coupon.minAmount }}可用</span>
               </div>
@@ -756,7 +756,7 @@ onUnmounted(() => {
                     'text-sm px-3 py-1.5 rounded-full transition-colors',
                     receivedCoupons.has(coupon.id)
                       ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-red-600 text-white hover:bg-red-700',
+                      : 'bg-brand-600 text-white hover:bg-brand-700',
                   ]"
                   :disabled="receivedCoupons.has(coupon.id)"
                   @click="receiveCoupon(coupon.id)"
@@ -779,7 +779,7 @@ onUnmounted(() => {
           <div class="space-y-2">
             <div v-for="ladder in mockProduct.productLadderList" :key="ladder.id" class="flex items-center justify-between text-sm">
               <span class="text-gray-600">满 {{ ladder.count }} 件</span>
-              <span class="text-red-600 font-medium">{{ (ladder.discount * 10).toFixed(1) }} 折</span>
+              <span class="text-brand-600 font-medium">{{ (ladder.discount * 10).toFixed(1) }} 折</span>
               <span class="text-gray-400">&yen;{{ ladder.price }}/件</span>
             </div>
           </div>
@@ -796,7 +796,7 @@ onUnmounted(() => {
             :class="[
               'px-8 py-4 text-sm font-medium transition-colors border-b-2',
               activeTab === 'detail'
-                ? 'text-red-600 border-red-600'
+                ? 'text-brand-600 border-brand-600'
                 : 'text-gray-500 border-transparent hover:text-gray-700',
             ]"
             @click="activeTab = 'detail'"
@@ -808,7 +808,7 @@ onUnmounted(() => {
             :class="[
               'px-8 py-4 text-sm font-medium transition-colors border-b-2',
               activeTab === 'params'
-                ? 'text-red-600 border-red-600'
+                ? 'text-brand-600 border-brand-600'
                 : 'text-gray-500 border-transparent hover:text-gray-700',
             ]"
             @click="activeTab = 'params'"
@@ -819,7 +819,7 @@ onUnmounted(() => {
             :class="[
               'px-8 py-4 text-sm font-medium transition-colors border-b-2',
               activeTab === 'reviews'
-                ? 'text-red-600 border-red-600'
+                ? 'text-brand-600 border-brand-600'
                 : 'text-gray-500 border-transparent hover:text-gray-700',
             ]"
             @click="activeTab = 'reviews'"

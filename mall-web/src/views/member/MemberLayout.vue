@@ -74,11 +74,11 @@ const avatarLetter = computed(() => {
     <aside class="w-[220px] flex-shrink-0">
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden sticky top-4">
         <!-- 用户信息摘要 -->
-        <div class="p-5 border-b border-gray-100 bg-gradient-to-br from-red-50 to-white">
+        <div class="p-5 border-b border-gray-100 bg-gradient-to-br from-brand-50 to-white">
           <div class="flex items-center gap-3">
-            <div class="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <div class="w-12 h-12 rounded-full bg-brand-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
               <img v-if="memberStore.avatar" :src="memberStore.avatar" class="w-full h-full object-cover" />
-              <span v-else class="text-lg font-bold text-red-600">{{ avatarLetter }}</span>
+              <span v-else class="text-lg font-bold text-brand-600">{{ avatarLetter }}</span>
             </div>
             <div class="min-w-0">
               <p class="text-sm font-bold text-gray-900 truncate">{{ memberStore.displayName }}</p>
@@ -86,17 +86,17 @@ const avatarLetter = computed(() => {
             </div>
           </div>
           <!-- 积分资产 -->
-          <div class="flex items-center justify-between mt-4 pt-3 border-t border-red-100/60">
+          <div class="flex items-center justify-between mt-4 pt-3 border-t border-brand-100/60">
             <div class="text-center flex-1">
-              <div class="text-sm font-bold text-red-600">{{ memberStore.integration }}</div>
+              <div class="text-sm font-bold text-brand-600">{{ memberStore.integration }}</div>
               <div class="text-[10px] text-gray-400">积分</div>
             </div>
-            <div class="w-px h-6 bg-red-100" />
+            <div class="w-px h-6 bg-brand-100" />
             <div class="text-center flex-1">
               <div class="text-sm font-bold text-orange-500">{{ (memberStore.memberInfo as any)?.couponCount || 0 }}</div>
               <div class="text-[10px] text-gray-400">优惠券</div>
             </div>
-            <div class="w-px h-6 bg-red-100" />
+            <div class="w-px h-6 bg-brand-100" />
             <div class="text-center flex-1">
               <div class="text-sm font-bold text-gray-700">V3</div>
               <div class="text-[10px] text-gray-400">等级</div>
@@ -112,7 +112,7 @@ const avatarLetter = computed(() => {
             :class="[
               'w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors text-left',
               isMenuActive(menu.path)
-                ? 'text-red-600 bg-red-50 font-medium border-l-3 border-red-600'
+                ? 'text-brand-600 bg-brand-50 font-medium border-l-3 border-brand-600'
                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900',
             ]"
             @click="router.push(menu.path)"

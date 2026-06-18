@@ -57,7 +57,7 @@ onMounted(loadCoupons)
         :key="tab.k"
         :class="[
           'px-4 py-2 text-sm rounded-lg transition-colors',
-          activeTab === tab.k ? 'bg-red-600 text-white font-medium' : 'text-gray-600 hover:bg-gray-100',
+          activeTab === tab.k ? 'bg-brand-600 text-white font-medium' : 'text-gray-600 hover:bg-gray-100',
         ]"
         @click="activeTab = tab.k as 'valid' | 'used' | 'expired'"
       >
@@ -75,9 +75,9 @@ onMounted(loadCoupons)
         <div
           v-for="coupon in validCoupons"
           :key="coupon.id"
-          class="flex border border-red-100 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+          class="flex border border-brand-100 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
         >
-          <div class="w-28 bg-red-600 text-white flex flex-col items-center justify-center flex-shrink-0 py-4">
+          <div class="w-28 bg-brand-600 text-white flex flex-col items-center justify-center flex-shrink-0 py-4">
             <div class="text-2xl font-bold">&yen;{{ coupon.couponAmount }}</div>
             <div class="text-xs opacity-80 mt-1">满{{ coupon.couponMinAmount }}可用</div>
           </div>

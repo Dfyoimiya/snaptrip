@@ -7,6 +7,7 @@
  */
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import ProductCard from '@/components/product/ProductCard.vue'
 import { searchProductListAPI } from '@/apis/product'
 import type { PmsProduct } from '@/types/product'
 
@@ -30,8 +31,6 @@ async function loadProducts() {
     loading.value = false
   }
 }
-
-const formatPrice = (p: number | null | undefined) => (p ?? 0).toLocaleString('zh-CN')
 
 onMounted(() => {
   loadProducts()
@@ -61,30 +60,14 @@ onMounted(() => {
 
     <!-- ====== 新品商品网格 ====== -->
     <div v-else class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-      <button
+      <ProductCard
         v-for="product in products"
         :key="product.id"
-        class="group text-left bg-white rounded-xl border border-gray-100 hover:border-green-200 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 overflow-hidden"
+        :product="product"
+        :show-new-badge="true"
+        :show-discount-badge="(product.originalPrice ?? 0) > product.price"
         @click="router.push(`/product/${product.id}`)"
-      >
-        <div class="aspect-square bg-gray-50 overflow-hidden relative">
-          <img :src="product.defaultPic || ''" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-          <span class="absolute top-2 left-2 bg-green-500 text-white text-[10px] px-2 py-0.5 rounded-full font-medium">NEW</span>
-          <span v-if="(product.originalPrice ?? 0) > product.price" class="absolute top-2 right-2 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded font-medium">
-            省{{ Math.round((1 - product.price / (product.originalPrice || product.price)) * 100) }}%
-          </span>
-        </div>
-        <div class="p-3.5">
-          <p class="text-sm text-gray-800 line-clamp-2 leading-5 min-h-[40px] mb-2 group-hover:text-green-600 transition-colors">{{ product.name }}</p>
-          <div class="flex items-baseline gap-2">
-            <span class="text-red-600 font-bold text-base"><span class="text-xs">&yen;</span>{{ formatPrice(product.price) }}</span>
-            <span class="text-xs text-gray-400 line-through">&yen;{{ formatPrice(product.originalPrice) }}</span>
-          </div>
-          <div class="flex items-center justify-between mt-2">
-            <span class="text-xs text-gray-400">已售 {{ (product.saleCount ?? 0) >= 10000 ? ((product.saleCount ?? 0) / 10000).toFixed(1) + '万' : (product.saleCount ?? 0) }}</span>
-          </div>
-        </div>
-      </button>
+      />
     </div>
   </div>
 </template>

@@ -55,7 +55,7 @@ onMounted(async () => {
         <button
           v-for="brand in brandList"
           :key="brand.id"
-          class="px-4 py-2 bg-gray-50 rounded-lg text-sm text-gray-700 hover:bg-red-50 hover:text-red-600 transition-colors"
+          class="px-4 py-2 bg-gray-50 rounded-lg text-sm text-gray-700 hover:bg-brand-50 hover:text-brand-600 transition-colors"
           @click="router.push(`/brand/${brand.id}`)"
         >
           {{ brand.name }}
@@ -79,7 +79,7 @@ onMounted(async () => {
             :class="[
               'flex-shrink-0 px-6 py-4 text-sm font-medium transition-colors border-b-2 whitespace-nowrap',
               activeTab === index
-                ? 'text-red-600 border-red-600 bg-red-50/50'
+                ? 'text-brand-600 border-brand-600 bg-brand-50/50'
                 : 'text-gray-600 border-transparent hover:text-gray-900 hover:bg-gray-50',
             ]"
             @click="activeTab = index"
@@ -100,7 +100,7 @@ onMounted(async () => {
               <button
                 v-for="item in child.children || []"
                 :key="item.id"
-                class="px-3 py-1.5 text-sm text-gray-600 bg-gray-50 rounded-md hover:bg-red-50 hover:text-red-600 transition-colors"
+                class="px-3 py-1.5 text-sm text-gray-600 bg-gray-50 rounded-md hover:bg-brand-50 hover:text-brand-600 transition-colors"
                 @click="goSearch(item.name)"
               >
                 {{ item.name }}

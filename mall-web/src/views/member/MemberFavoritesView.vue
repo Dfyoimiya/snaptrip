@@ -96,7 +96,7 @@ onMounted(() => {
         <!-- 批量操作按钮 -->
         <template v-if="batchMode">
           <label class="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer mr-2">
-            <input type="checkbox" :checked="isAllSelected()" class="rounded border-gray-300 text-red-600 focus:ring-red-500" @change="toggleSelectAll" />
+            <input type="checkbox" :checked="isAllSelected()" class="rounded border-gray-300 text-brand-600 focus:ring-brand-500" @change="toggleSelectAll" />
             全选
           </label>
           <button
@@ -110,7 +110,7 @@ onMounted(() => {
             完成
           </button>
         </template>
-        <button v-else class="text-sm text-gray-500 hover:text-red-600 px-3 py-1.5 border border-gray-200 rounded-lg hover:border-red-300 transition-colors" @click="toggleBatchMode">
+        <button v-else class="text-sm text-gray-500 hover:text-brand-600 px-3 py-1.5 border border-gray-200 rounded-lg hover:border-brand-300 transition-colors" @click="toggleBatchMode">
           批量管理
         </button>
       </div>
@@ -124,15 +124,15 @@ onMounted(() => {
       <div
         v-for="item in favorites"
         :key="item.id"
-        class="group relative rounded-lg border border-gray-100 hover:border-red-200 hover:shadow-md transition-all overflow-hidden"
-        :class="{ 'ring-2 ring-red-500': batchMode && selectedIds.has(item.productId) }"
+        class="group relative rounded-lg border border-gray-100 hover:border-brand-200 hover:shadow-md transition-all overflow-hidden"
+        :class="{ 'ring-2 ring-brand-500': batchMode && selectedIds.has(item.productId) }"
       >
         <!-- 批量选择复选框 -->
         <div v-if="batchMode" class="absolute top-2 left-2 z-20">
           <input
             type="checkbox"
             :checked="selectedIds.has(item.productId)"
-            class="w-5 h-5 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+            class="w-5 h-5 rounded border-gray-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
             @click.stop="toggleSelect(item.productId)"
           />
         </div>
@@ -140,7 +140,7 @@ onMounted(() => {
         <!-- 删除按钮（非批量模式） -->
         <button
           v-if="!batchMode"
-          class="absolute top-2 right-2 z-20 w-7 h-7 bg-white/80 backdrop-blur rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-white transition-all opacity-0 group-hover:opacity-100"
+          class="absolute top-2 right-2 z-20 w-7 h-7 bg-white/80 backdrop-blur rounded-full flex items-center justify-center text-gray-400 hover:text-brand-600 hover:bg-white transition-all opacity-0 group-hover:opacity-100"
           @click.stop="removeItem(item.productId)"
         >
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -154,9 +154,9 @@ onMounted(() => {
             <img :src="item.productPic" :alt="item.productName" class="w-full h-full object-cover group-hover:scale-105 transition-transform" />
           </div>
           <div class="p-3">
-            <p class="text-sm text-gray-800 line-clamp-2 min-h-[40px] mb-2 group-hover:text-red-600 transition-colors">{{ item.productName }}</p>
+            <p class="text-sm text-gray-800 line-clamp-2 min-h-[40px] mb-2 group-hover:text-brand-600 transition-colors">{{ item.productName }}</p>
             <div class="flex items-baseline gap-2">
-              <span class="text-red-600 font-bold">&yen;{{ item.productPrice }}</span>
+              <span class="text-brand-600 font-bold">&yen;{{ item.productPrice }}</span>
             </div>
           </div>
         </button>
@@ -169,7 +169,7 @@ onMounted(() => {
         <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
       </svg>
       <p>暂无收藏商品</p>
-      <button class="mt-4 px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors" @click="router.push('/')">
+      <button class="mt-4 px-6 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors" @click="router.push('/')">
         去逛逛
       </button>
     </div>

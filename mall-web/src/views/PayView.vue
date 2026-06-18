@@ -86,9 +86,9 @@ const goOrderDetail = () => {
       </div>
       <h2 class="text-2xl font-bold text-gray-900">支付成功</h2>
       <p class="text-gray-500">您的订单 <span class="font-mono text-gray-700">{{ orderId }}</span> 已支付成功</p>
-      <p class="text-2xl font-bold text-red-600">&yen;{{ formatPrice(orderAmount) }}</p>
+      <p class="text-2xl font-bold text-brand-600">&yen;{{ formatPrice(orderAmount) }}</p>
       <div class="flex items-center gap-3 justify-center pt-4">
-        <button class="px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium" @click="goOrderDetail">
+        <button class="px-6 py-2.5 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors font-medium" @click="goOrderDetail">
           查看订单
         </button>
         <button class="px-6 py-2.5 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors" @click="router.push('/')">
@@ -114,8 +114,8 @@ const goOrderDetail = () => {
     <!-- 支付页面 -->
     <div v-else class="w-full max-w-[600px]">
       <div class="text-center mb-8">
-        <div class="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <div class="w-14 h-14 rounded-full bg-brand-100 flex items-center justify-center mx-auto mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
           </svg>
         </div>
@@ -129,13 +129,13 @@ const goOrderDetail = () => {
               <p class="text-sm text-gray-500 mb-1">订单编号：{{ orderId }}</p>
               <p class="text-sm text-gray-500">剩余支付时间</p>
             </div>
-            <div :class="['text-2xl font-mono font-bold tabular-nums', countdownSeconds < 300 ? 'text-red-600' : 'text-gray-900']">
+            <div :class="['text-2xl font-mono font-bold tabular-nums', countdownSeconds < 300 ? 'text-brand-600' : 'text-gray-900']">
               {{ formattedCountdown }}
             </div>
           </div>
           <div class="mt-4 pt-4 border-t border-gray-100 flex items-baseline gap-2">
             <span class="text-sm text-gray-500">应付金额</span>
-            <span class="text-4xl font-bold text-red-600">
+            <span class="text-4xl font-bold text-brand-600">
               <span class="text-xl">&yen;</span>{{ formatPrice(orderAmount) }}
             </span>
           </div>
@@ -147,9 +147,9 @@ const goOrderDetail = () => {
             <label
               v-for="method in payMethods"
               :key="method.key"
-              :class="['flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all', selectedPayMethod === method.key ? 'border-red-500 bg-red-50/30' : 'border-gray-200 hover:border-gray-300']"
+              :class="['flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all', selectedPayMethod === method.key ? 'border-brand-500 bg-brand-50/30' : 'border-gray-200 hover:border-gray-300']"
             >
-              <input v-model="selectedPayMethod" type="radio" :value="method.key" class="w-4 h-4 text-red-600 focus:ring-red-500" />
+              <input v-model="selectedPayMethod" type="radio" :value="method.key" class="w-4 h-4 text-brand-600 focus:ring-brand-500" />
               <div :class="['w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0', method.iconBg]">
                 <span class="text-white font-bold">{{ method.iconChar }}</span>
               </div>
@@ -157,7 +157,7 @@ const goOrderDetail = () => {
                 <p class="text-sm font-medium text-gray-900">{{ method.label }}</p>
                 <p class="text-xs text-gray-400 mt-0.5">{{ method.desc }}</p>
               </div>
-              <svg v-if="selectedPayMethod === method.key" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <svg v-if="selectedPayMethod === method.key" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
               </svg>
             </label>
@@ -168,7 +168,7 @@ const goOrderDetail = () => {
           <div v-if="payError" class="text-sm text-red-600 text-center mb-3">{{ payError }}</div>
           <button
             :disabled="isExpired || paying"
-            class="w-full h-14 bg-red-600 text-white text-lg font-bold rounded-lg hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-lg shadow-red-200"
+            class="w-full h-14 bg-brand-600 text-white text-lg font-bold rounded-lg hover:bg-brand-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors shadow-lg shadow-brand-200"
             @click="handlePay"
           >
             <span v-if="paying" class="flex items-center justify-center gap-2">

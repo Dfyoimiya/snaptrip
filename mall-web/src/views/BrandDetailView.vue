@@ -6,6 +6,7 @@
  */
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import ProductCard from '@/components/product/ProductCard.vue'
 import { getBrandDetailAPI, getBrandProductListAPI } from '@/apis/brand'
 
 const route = useRoute()
@@ -114,7 +115,7 @@ watch(currentPage, () => loadData())
           <button
             v-for="opt in sortOptions"
             :key="opt.value"
-            :class="['px-4 py-2 text-sm rounded-md transition-colors', sortType === opt.value ? 'bg-red-600 text-white font-medium' : 'text-gray-600 hover:bg-gray-100']"
+            :class="['px-4 py-2 text-sm rounded-md transition-colors', sortType === opt.value ? 'bg-brand-600 text-white font-medium' : 'text-gray-600 hover:bg-gray-100']"
             @click="sortType = opt.value"
           >
             {{ opt.label }}
@@ -130,33 +131,13 @@ watch(currentPage, () => loadData())
 
     <!-- 商品网格 -->
     <div v-else-if="paginatedProducts.length" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-      <button
+      <ProductCard
         v-for="product in paginatedProducts"
         :key="product.id"
-        class="group text-left bg-white rounded-xl border border-gray-100 hover:border-red-200 hover:-translate-y-0.5 hover:shadow-lg transition-all duration-300 overflow-hidden"
+        :product="product"
+        :show-discount-badge="(product.originalPrice ?? 0) > product.price"
         @click="goProductDetail(product.id)"
-      >
-        <div class="aspect-square bg-gray-50 overflow-hidden relative">
-          <img v-if="product.defaultPic" :src="product.defaultPic" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-          <div v-else class="w-full h-full flex items-center justify-center text-gray-300">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-          </div>
-          <span v-if="product.originalPrice && product.originalPrice > product.price" class="absolute top-2 left-2 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded font-medium">
-            省{{ Math.round((1 - product.price / product.originalPrice) * 100) }}%
-          </span>
-        </div>
-        <div class="p-3.5">
-          <p class="text-sm text-gray-800 line-clamp-2 leading-5 min-h-[40px] mb-2 group-hover:text-red-600 transition-colors">{{ product.name }}</p>
-          <div class="flex items-baseline gap-2">
-            <span class="text-red-600 font-bold text-base"><span class="text-xs">&yen;</span>{{ product.price }}</span>
-            <span v-if="product.originalPrice && product.originalPrice > product.price" class="text-xs text-gray-400 line-through">&yen;{{ product.originalPrice }}</span>
-          </div>
-          <div class="flex items-center justify-between mt-2">
-            <span v-if="product.saleCount" class="text-xs text-gray-400">已售 {{ (product.saleCount ?? 0) >= 10000 ? ((product.saleCount ?? 0) / 10000).toFixed(1) + '万' : (product.saleCount ?? 0) }}</span>
-            <span v-if="product.subTitle" class="text-xs text-gray-400">{{ product.subTitle }}</span>
-          </div>
-        </div>
-      </button>
+      />
     </div>
 
     <div v-else class="bg-white rounded-xl shadow-sm border border-gray-100 p-20 text-center text-gray-400">
@@ -173,7 +154,7 @@ watch(currentPage, () => loadData())
       <button
         v-for="page in totalPages"
         :key="page"
-        :class="['min-w-9 h-9 px-2.5 flex items-center justify-center rounded-md text-sm transition-colors', currentPage === page ? 'bg-red-600 text-white font-medium' : 'border border-gray-200 text-gray-600 hover:bg-gray-50']"
+        :class="['min-w-9 h-9 px-2.5 flex items-center justify-center rounded-md text-sm transition-colors', currentPage === page ? 'bg-brand-600 text-white font-medium' : 'border border-gray-200 text-gray-600 hover:bg-gray-50']"
         @click="currentPage = page"
       >{{ page }}</button>
       <button

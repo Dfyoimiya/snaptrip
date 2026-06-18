@@ -50,7 +50,7 @@ onMounted(async () => {
     <!-- 页面标题 -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 px-6 py-4 mb-5">
       <div class="flex items-center gap-3">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
         <h1 class="text-xl font-bold text-gray-900">帮助中心</h1>
@@ -61,7 +61,7 @@ onMounted(async () => {
     <div v-if="categories.length" class="flex flex-wrap gap-2 mb-5">
       <button
         class="px-4 py-1.5 rounded-full text-sm transition-colors"
-        :class="selectedCategory === '' ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+        :class="selectedCategory === '' ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
         @click="selectedCategory = ''; selectedHelp = null"
       >
         全部
@@ -70,7 +70,7 @@ onMounted(async () => {
         v-for="cat in categories"
         :key="cat"
         class="px-4 py-1.5 rounded-full text-sm transition-colors"
-        :class="selectedCategory === cat ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+        :class="selectedCategory === cat ? 'bg-brand-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
         @click="selectedCategory = cat; selectedHelp = null"
       >
         {{ cat }}
@@ -89,7 +89,7 @@ onMounted(async () => {
             v-for="help in filteredHelps"
             :key="help.id"
             class="px-6 py-4 hover:bg-gray-50/30 transition-colors cursor-pointer"
-            :class="{ 'bg-red-50/50 border-l-4 border-red-500': selectedHelp?.id === help.id }"
+            :class="{ 'bg-brand-50/50 border-l-4 border-brand-500': selectedHelp?.id === help.id }"
             @click="selectedHelp = help"
           >
             <div class="flex items-center gap-3">
@@ -125,7 +125,7 @@ onMounted(async () => {
     <div class="mt-8 pt-6 border-t border-gray-100 text-center">
       <p class="text-sm text-gray-400 mb-3">没有找到答案？</p>
       <button
-        class="text-sm text-red-600 hover:text-red-700 font-medium underline underline-offset-2"
+        class="text-sm text-brand-600 hover:text-brand-700 font-medium underline underline-offset-2"
         @click="router.push('/notice')"
       >
         查看商城公告

@@ -271,7 +271,7 @@ describe('ProductDetailView', () => {
       await nextTick()
       // Detail tab should be active (red-600 text)
       const detailBtn = wrapper.findAll('button').find((b) => b.text() === '商品详情')
-      expect(detailBtn?.classes()).toContain('text-red-600')
+      expect(detailBtn?.classes()).toContain('text-brand-600')
     })
 
     it('should switch to reviews tab on click', async () => {

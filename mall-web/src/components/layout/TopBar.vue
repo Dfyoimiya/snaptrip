@@ -55,14 +55,14 @@ const handleLogout = () => {
 </script>
 
 <template>
-  <div class="bg-gray-800 text-gray-300">
+  <div class="bg-white text-gray-500">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-9 text-xs">
         <!-- 左侧：欢迎语 -->
         <div class="flex items-center gap-2">
           <template v-if="isLoggedIn">
             <span>欢迎，</span>
-            <span class="text-white font-medium">{{ displayName }}</span>
+            <span class="text-gray-800 font-medium">{{ displayName }}</span>
           </template>
           <template v-else>
             <span>欢迎来到商城！</span>
@@ -74,14 +74,14 @@ const handleLogout = () => {
           <!-- 未登录状态：登录 | 注册 -->
           <template v-if="!isLoggedIn">
             <button
-              class="px-2 py-1 hover:text-white transition-colors"
+              class="px-2 py-1 hover:text-gray-800 transition-colors"
               @click="handleLogin"
             >
               登录
             </button>
-            <span class="text-gray-600">|</span>
+            <span class="text-gray-300">|</span>
             <button
-              class="px-2 py-1 hover:text-white transition-colors"
+              class="px-2 py-1 hover:text-gray-800 transition-colors"
               @click="handleRegister"
             >
               注册
@@ -91,7 +91,7 @@ const handleLogout = () => {
           <!-- 已登录状态：退出 -->
           <template v-else>
             <button
-              class="px-2 py-1 hover:text-white transition-colors"
+              class="px-2 py-1 hover:text-gray-800 transition-colors"
               @click="handleLogout"
             >
               退出登录
@@ -99,13 +99,13 @@ const handleLogout = () => {
           </template>
 
           <!-- 分隔符 -->
-          <span class="text-gray-600 mx-1">|</span>
+          <span class="text-gray-300 mx-1">|</span>
 
           <!-- 快捷入口 -->
           <button
             v-for="(link, index) in filteredLinks"
             :key="link.path"
-            class="px-2 py-1 hover:text-white transition-colors"
+            class="px-2 py-1 hover:text-gray-800 transition-colors"
             @click="handleNavigate(link.path)"
           >
             {{ link.label }}

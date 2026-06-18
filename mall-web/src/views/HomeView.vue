@@ -7,6 +7,7 @@ import { useMemberStore } from '@/stores/member'
 import type { FeedSection } from '@/apis/home'
 import type { HomeContentResult, SmsHomeAdvertise } from '@/types/home'
 import type { CategoryTreeNode, PmsProduct } from '@/types/product'
+import ProductCard from '@/components/product/ProductCard.vue'
 import {
   getCategoryOutline,
   type CategoryOutlineGroup,
@@ -63,7 +64,7 @@ const visibleCategories = computed(() => {
       names.add(category.name)
       return true
     })
-    .slice(0, 12)
+    .slice(0, 10)
 })
 const searchSuggestions = computed(() => {
   const section = feedSections.value.find((item) => item.sectionType === 'search_discovery')
@@ -119,17 +120,6 @@ const productSections = computed<ProductSection[]>(() => {
   }
   return result
 })
-
-function productImage(product: PmsProduct): string {
-  return product.defaultPic || ''
-}
-
-function formatPrice(price: number | null | undefined): string {
-  return (price ?? 0).toLocaleString('zh-CN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-}
 
 function navigate(path: string): void {
   void router.push(path)
@@ -360,26 +350,12 @@ onUnmounted(() => {
           <button @click="navigate('/search')">查看更多 ›</button>
         </div>
         <div class="product-grid">
-          <button
+          <ProductCard
             v-for="product in section.products"
             :key="product.id"
-            class="product-card"
-            @click="navigate(`/product/${product.id}`)"
-          >
-            <div class="product-image">
-              <img v-if="productImage(product)" :src="productImage(product)" :alt="product.name" />
-              <span v-else>SnapTrip</span>
-              <em v-if="product.newStatus === 1">新品</em>
-            </div>
-            <div class="product-info">
-              <p>{{ product.name }}</p>
-              <small v-if="product.subTitle">{{ product.subTitle }}</small>
-              <div>
-                <strong><i>¥</i>{{ formatPrice(product.promotionPrice ?? product.price) }}</strong>
-                <span>已售 {{ product.saleCount ?? 0 }}</span>
-              </div>
-            </div>
-          </button>
+            :product="product"
+            :show-new-badge="product.newStatus === 1"
+          />
         </div>
       </section>
     </template>
@@ -388,12 +364,13 @@ onUnmounted(() => {
 
 <style scoped>
 .home-page { display: grid; gap: 22px; }
-.hero-grid { display: grid; grid-template-columns: 240px minmax(0, 1fr) 250px; gap: 14px; min-height: 420px; }
-.category-panel, .user-panel, .hero-center, .product-section, .subject-strip { background: #fff; border-radius: 18px; box-shadow: 0 6px 24px rgba(44, 31, 20, .06); }
-.category-panel { position: relative; padding: 14px 0; overflow: visible; z-index: 12; }
+.hero-grid { display: grid; grid-template-columns: 240px minmax(0, 1fr) 250px; gap: 14px; }
+.category-panel, .user-panel, .hero-center, .product-section, .subject-strip { background: #fff; border-radius: 18px; box-shadow: 0 2px 12px rgba(0, 0, 0, .04); }
+.category-panel { position: relative; padding: 14px 0; overflow: visible; z-index: 12; display: flex; flex-direction: column; }
+.category-list { overflow: hidden; border-radius: 18px; flex: 1; display: flex; flex-direction: column; justify-content: center; }
 .category-list { overflow: hidden; border-radius: 18px; }
 .section-heading button { color: #999; font-size: 12px; }
-.category-row { width: 100%; display: grid; grid-template-columns: 8px auto 1fr 12px; align-items: center; gap: 8px; padding: 8px 18px; color: #333; text-align: left; transition: .2s; }
+.category-row { width: 100%; display: grid; grid-template-columns: 8px auto 1fr 12px; align-items: center; gap: 8px; padding: 6px 18px; color: #333; text-align: left; transition: .2s; font-size: 13px; }
 .category-row:hover, .category-row.active { color: #ff5000; background: #fff3ed; }
 .category-dot { width: 4px; height: 4px; border-radius: 50%; background: #ff5000; }
 .category-children { color: #aaa; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -450,18 +427,6 @@ onUnmounted(() => {
 .section-heading strong { font-size: 22px; color: #222; }
 .section-heading span { color: #999; font-size: 12px; }
 .product-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
-.product-card { overflow: hidden; border: 1px solid #f2f2f2; border-radius: 14px; background: #fff; text-align: left; transition: .25s; }
-.product-card:hover { transform: translateY(-4px); border-color: #ffd8c3; box-shadow: 0 14px 30px rgba(255, 80, 0, .12); }
-.product-image { aspect-ratio: 1; background: #f7f7f7; position: relative; display: grid; place-items: center; color: #bbb; font-weight: 800; }
-.product-image img { width: 100%; height: 100%; object-fit: cover; }
-.product-image em { position: absolute; top: 8px; left: 8px; background: #ff5000; color: #fff; border-radius: 5px; padding: 3px 7px; font-size: 10px; font-style: normal; }
-.product-info { padding: 12px; }
-.product-info p { height: 40px; color: #333; line-height: 20px; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
-.product-info small { display: block; color: #ff5000; margin-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.product-info > div { margin-top: 10px; display: flex; justify-content: space-between; align-items: baseline; }
-.product-info strong { color: #ff5000; font-size: 19px; }
-.product-info i { font-size: 12px; font-style: normal; }
-.product-info span { color: #aaa; font-size: 11px; }
 .home-loading { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 .skeleton-card { height: 260px; border-radius: 18px; background: linear-gradient(90deg, #f3f3f3, #fafafa, #f3f3f3); background-size: 200% 100%; animation: pulse 1.3s infinite; }
 .load-error { min-height: 360px; display: grid; place-items: center; align-content: center; gap: 10px; background: #fff; border-radius: 18px; color: #999; }

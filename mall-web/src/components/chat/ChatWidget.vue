@@ -154,7 +154,7 @@ onMounted(() => {
     <!-- Floating FAB button -->
     <button
       v-if="!chatStore.isOpen"
-      class="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/30 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95"
+      class="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-brand-600 hover:bg-brand-700 text-white shadow-lg shadow-brand-600/30 flex flex-col items-center justify-center cursor-pointer transition-all hover:scale-105 active:scale-95"
       title="在线客服"
       @click="chatStore.openChat"
     >
@@ -174,7 +174,7 @@ onMounted(() => {
              max-md:inset-0 max-md:w-full max-md:h-full max-md:rounded-none"
     >
       <!-- Header -->
-      <div class="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-red-600 to-red-500 text-white shrink-0">
+      <div class="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-brand-600 to-brand-500 text-white shrink-0">
         <div class="flex items-center gap-2">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -210,7 +210,7 @@ onMounted(() => {
         <template v-for="(msg, idx) in chatStore.messages" :key="idx">
           <!-- System message -->
           <div v-if="msg.role === 'system'" class="flex justify-center">
-            <div class="bg-red-50 text-gray-600 rounded-lg px-3 py-2 text-xs text-center max-w-[90%] leading-relaxed">
+            <div class="bg-brand-50 text-gray-600 rounded-lg px-3 py-2 text-xs text-center max-w-[90%] leading-relaxed">
               {{ msg.content }}
             </div>
           </div>
@@ -221,7 +221,7 @@ onMounted(() => {
               <div
                 class="px-4 py-2.5 text-sm leading-relaxed"
                 :class="msg.role === 'user'
-                  ? 'bg-red-600 text-white rounded-2xl rounded-br-md'
+                  ? 'bg-brand-600 text-white rounded-2xl rounded-br-md'
                   : 'bg-white text-gray-800 rounded-2xl rounded-bl-md shadow-sm border border-gray-100'"
               >
                 <div
@@ -259,7 +259,7 @@ onMounted(() => {
         <button
           v-for="prompt in quickPrompts"
           :key="prompt"
-          class="border border-red-200 text-red-600 hover:bg-red-50 text-xs rounded-full px-3 py-1.5 cursor-pointer transition-colors"
+          class="border border-brand-200 text-brand-600 hover:bg-brand-50 text-xs rounded-full px-3 py-1.5 cursor-pointer transition-colors"
           @click="sendQuickPrompt(prompt)"
         >
           {{ prompt }}
@@ -271,13 +271,13 @@ onMounted(() => {
         <input
           v-model="inputText"
           type="text"
-          class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-400 focus:ring-1 focus:ring-red-400 placeholder-gray-400"
+          class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-brand-400 focus:ring-1 focus:ring-brand-400 placeholder-gray-400"
           :placeholder="memberStore.isLoggedIn ? '输入问题... (Enter 发送)' : '请先登录后再使用客服'"
           :disabled="chatStore.loading || !memberStore.isLoggedIn"
           @keydown="handleKeydown"
         />
         <button
-          class="bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors shrink-0"
+          class="bg-brand-600 hover:bg-brand-700 disabled:bg-brand-300 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors shrink-0"
           :disabled="chatStore.loading || !inputText.trim() || !memberStore.isLoggedIn"
           @click="sendMessage"
         >
@@ -352,14 +352,14 @@ onMounted(() => {
 }
 
 .markdown-body :deep(a) {
-  color: #dc2626;
+  color: #ff5000;
   text-decoration: underline;
   cursor: pointer;
 }
-.markdown-body :deep(a:hover) { color: #ef4444; }
+.markdown-body :deep(a:hover) { color: #ff5000; }
 
 .markdown-body :deep(blockquote) {
-  border-left: 3px solid #dc2626;
+  border-left: 3px solid #ff5000;
   padding-left: 10px;
   margin: 6px 0;
   color: #6b7280;

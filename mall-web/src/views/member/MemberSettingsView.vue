@@ -136,7 +136,7 @@ const settingMenus = [
           :class="[
             'w-full flex items-center gap-3 px-5 py-3 text-sm transition-colors text-left',
             activeSetting === menu.key
-              ? 'text-red-600 bg-red-50 font-medium border-l-3 border-red-600'
+              ? 'text-brand-600 bg-brand-50 font-medium border-l-3 border-brand-600'
               : 'text-gray-600 hover:bg-gray-50',
           ]"
           @click="activeSetting = menu.key"
@@ -172,7 +172,7 @@ const settingMenus = [
                 placeholder="请输入当前密码"
                 :class="[
                   'w-full h-11 px-4 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-colors',
-                  pwdErrors.oldPassword ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-red-500 focus:border-transparent',
+                  pwdErrors.oldPassword ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-brand-500 focus:border-transparent',
                 ]"
               />
               <p v-if="pwdErrors.oldPassword" class="text-xs text-red-500 mt-1">{{ pwdErrors.oldPassword }}</p>
@@ -186,7 +186,7 @@ const settingMenus = [
                 placeholder="6-20位，需包含字母和数字"
                 :class="[
                   'w-full h-11 px-4 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-colors',
-                  pwdErrors.newPassword ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-red-500 focus:border-transparent',
+                  pwdErrors.newPassword ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-brand-500 focus:border-transparent',
                 ]"
               />
               <p v-if="pwdErrors.newPassword" class="text-xs text-red-500 mt-1">{{ pwdErrors.newPassword }}</p>
@@ -211,7 +211,7 @@ const settingMenus = [
                 placeholder="请再次输入新密码"
                 :class="[
                   'w-full h-11 px-4 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-colors',
-                  pwdErrors.confirmPassword ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-red-500 focus:border-transparent',
+                  pwdErrors.confirmPassword ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-brand-500 focus:border-transparent',
                 ]"
               />
               <p v-if="pwdErrors.confirmPassword" class="text-xs text-red-500 mt-1">{{ pwdErrors.confirmPassword }}</p>
@@ -219,7 +219,7 @@ const settingMenus = [
 
             <button
               type="submit"
-              class="w-full h-11 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+              class="w-full h-11 bg-brand-600 text-white font-medium rounded-lg hover:bg-brand-700 transition-colors"
             >
               确认修改
             </button>
@@ -241,7 +241,7 @@ const settingMenus = [
                 maxlength="11"
                 :class="[
                   'w-full h-11 px-4 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-colors',
-                  phoneErrors.phone ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-red-500 focus:border-transparent',
+                  phoneErrors.phone ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-brand-500 focus:border-transparent',
                 ]"
               />
               <p v-if="phoneErrors.phone" class="text-xs text-red-500 mt-1">{{ phoneErrors.phone }}</p>
@@ -257,13 +257,13 @@ const settingMenus = [
                   maxlength="6"
                   :class="[
                     'flex-1 h-11 px-4 border rounded-lg text-sm focus:outline-none focus:ring-2 transition-colors',
-                    phoneErrors.authCode ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-red-500 focus:border-transparent',
+                    phoneErrors.authCode ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-brand-500 focus:border-transparent',
                   ]"
                 />
                 <button
                   type="button"
                   :disabled="countdown > 0"
-                  class="h-11 px-5 border border-red-600 text-red-600 rounded-lg text-sm font-medium hover:bg-red-50 disabled:border-gray-300 disabled:text-gray-400 disabled:hover:bg-transparent transition-colors flex-shrink-0"
+                  class="h-11 px-5 border border-brand-600 text-brand-600 rounded-lg text-sm font-medium hover:bg-brand-50 disabled:border-gray-300 disabled:text-gray-400 disabled:hover:bg-transparent transition-colors flex-shrink-0"
                   @click="startCountdown"
                 >
                   {{ countdown > 0 ? `${countdown}s后重发` : '获取验证码' }}
@@ -274,7 +274,7 @@ const settingMenus = [
 
             <button
               type="submit"
-              class="w-full h-11 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors"
+              class="w-full h-11 bg-brand-600 text-white font-medium rounded-lg hover:bg-brand-700 transition-colors"
             >
               确认绑定
             </button>
@@ -288,8 +288,8 @@ const settingMenus = [
 
           <div class="bg-gray-50 rounded-lg p-5 mb-6">
             <div class="flex items-center gap-4">
-              <div class="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
-                <span class="text-xl font-bold text-red-600">{{ memberStore.displayName.charAt(0).toUpperCase() }}</span>
+              <div class="w-14 h-14 rounded-full bg-brand-100 flex items-center justify-center flex-shrink-0">
+                <span class="text-xl font-bold text-brand-600">{{ memberStore.displayName.charAt(0).toUpperCase() }}</span>
               </div>
               <div>
                 <p class="text-sm font-medium text-gray-900">{{ memberStore.displayName }}</p>
@@ -299,7 +299,7 @@ const settingMenus = [
           </div>
 
           <button
-            class="w-full h-11 border border-red-600 text-red-600 font-medium rounded-lg hover:bg-red-50 transition-colors"
+            class="w-full h-11 border border-brand-600 text-brand-600 font-medium rounded-lg hover:bg-brand-50 transition-colors"
             @click="handleLogout"
           >
             确认退出登录

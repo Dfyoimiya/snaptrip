@@ -74,7 +74,7 @@ const handleRegister = async () => {
     <div class="w-full max-w-[420px]">
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
         <div class="text-center mb-8">
-          <div class="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+          <div class="w-12 h-12 bg-brand-600 rounded-xl flex items-center justify-center mx-auto mb-4">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
             </svg>
@@ -95,7 +95,7 @@ const handleRegister = async () => {
               v-model="form.email"
               type="email"
               placeholder="请输入邮箱地址"
-              :class="['w-full h-11 px-4 border rounded-lg text-sm transition-colors focus:outline-none focus:ring-2', errors.email ? 'border-red-300 focus:ring-red-200 bg-red-50/30' : 'border-gray-300 focus:ring-red-500']"
+              :class="['w-full h-11 px-4 border rounded-lg text-sm transition-colors focus:outline-none focus:ring-2', errors.email ? 'border-red-300 focus:ring-red-200 bg-red-50/30' : 'border-gray-300 focus:ring-brand-500']"
               @input="clearError('email')"
             />
             <p v-if="errors.email" class="text-xs text-red-500 mt-1">{{ errors.email }}</p>
@@ -109,7 +109,7 @@ const handleRegister = async () => {
               v-model="form.password"
               type="password"
               placeholder="6-128位"
-              :class="['w-full h-11 px-4 border rounded-lg text-sm transition-colors focus:outline-none focus:ring-2', errors.password ? 'border-red-300 focus:ring-red-200 bg-red-50/30' : 'border-gray-300 focus:ring-red-500']"
+              :class="['w-full h-11 px-4 border rounded-lg text-sm transition-colors focus:outline-none focus:ring-2', errors.password ? 'border-red-300 focus:ring-red-200 bg-red-50/30' : 'border-gray-300 focus:ring-brand-500']"
               @input="clearError('password')"
             />
             <p v-if="errors.password" class="text-xs text-red-500 mt-1">{{ errors.password }}</p>
@@ -123,7 +123,7 @@ const handleRegister = async () => {
               v-model="form.confirmPassword"
               type="password"
               placeholder="请再次输入密码"
-              :class="['w-full h-11 px-4 border rounded-lg text-sm transition-colors focus:outline-none focus:ring-2', errors.confirmPassword ? 'border-red-300 focus:ring-red-200 bg-red-50/30' : 'border-gray-300 focus:ring-red-500']"
+              :class="['w-full h-11 px-4 border rounded-lg text-sm transition-colors focus:outline-none focus:ring-2', errors.confirmPassword ? 'border-red-300 focus:ring-red-200 bg-red-50/30' : 'border-gray-300 focus:ring-brand-500']"
               @input="clearError('confirmPassword')"
             />
             <p v-if="errors.confirmPassword" class="text-xs text-red-500 mt-1">{{ errors.confirmPassword }}</p>
@@ -132,7 +132,7 @@ const handleRegister = async () => {
           <button
             type="submit"
             :disabled="loading"
-            class="w-full h-12 bg-red-600 text-white font-bold text-base rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md shadow-red-200"
+            class="w-full h-12 bg-brand-600 text-white font-bold text-base rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md shadow-brand-200"
           >
             {{ loading ? '注册中...' : '注 册' }}
           </button>
@@ -140,7 +140,7 @@ const handleRegister = async () => {
 
         <div class="mt-6 text-center text-sm">
           <span class="text-gray-500">已有账号？</span>
-          <button class="text-red-600 hover:text-red-700 font-medium ml-1" @click="$router.push('/login')">
+          <button class="text-brand-600 hover:text-brand-700 font-medium ml-1" @click="$router.push('/login')">
             去登录
           </button>
         </div>

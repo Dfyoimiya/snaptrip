@@ -168,7 +168,7 @@ onMounted(() => {
       </h1>
       <button
         v-if="cartStore.hasItems"
-        class="text-sm text-gray-400 hover:text-red-600 transition-colors"
+        class="text-sm text-gray-400 hover:text-brand-600 transition-colors"
         @click="handleClearAll"
       >
         清空购物车
@@ -198,7 +198,7 @@ onMounted(() => {
         <p class="text-lg text-gray-500 mb-2">购物车还是空的</p>
         <p class="text-sm text-gray-400 mb-6">快去挑选心仪的商品吧</p>
         <button
-          class="px-8 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+          class="px-8 py-2.5 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors font-medium"
           @click="router.push('/')">
           去逛逛
         </button>
@@ -216,7 +216,7 @@ onMounted(() => {
               <input
                 type="checkbox"
                 :checked="cartStore.isAllChecked"
-                class="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                class="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
                 @change="cartStore.toggleCheckAll(($event.target as HTMLInputElement).checked)"
               />
               <span class="text-xs">全选</span>
@@ -240,14 +240,14 @@ onMounted(() => {
         <div
           v-for="item in cartStore.cartList"
           :key="item.id"
-          class="grid grid-cols-[48px_1fr_140px_160px_140px_100px] items-center px-6 py-5 hover:bg-red-50/30 transition-colors group"
+          class="grid grid-cols-[48px_1fr_140px_160px_140px_100px] items-center px-6 py-5 hover:bg-brand-50/30 transition-colors group"
         >
           <!-- 复选框 -->
           <div class="flex items-center">
             <input
               type="checkbox"
               :checked="item.checked"
-              class="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+              class="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
               @change="cartStore.toggleCheck(item.id)"
             />
           </div>
@@ -256,7 +256,7 @@ onMounted(() => {
           <div class="flex items-center gap-4 pl-2 min-w-0">
             <!-- 商品图片 -->
             <button
-              class="w-20 h-20 rounded-lg bg-gray-50 flex-shrink-0 overflow-hidden border border-gray-100 hover:border-red-200 transition-colors"
+              class="w-20 h-20 rounded-lg bg-gray-50 flex-shrink-0 overflow-hidden border border-gray-100 hover:border-brand-200 transition-colors"
               @click="goProductDetail(item.productId)"
             >
               <img
@@ -268,7 +268,7 @@ onMounted(() => {
             <!-- 商品名称和规格 -->
             <div class="min-w-0 flex-1">
               <button
-                class="text-sm text-gray-800 font-medium line-clamp-2 text-left hover:text-red-600 transition-colors leading-5"
+                class="text-sm text-gray-800 font-medium line-clamp-2 text-left hover:text-brand-600 transition-colors leading-5"
                 @click="goProductDetail(item.productId)"
               >
                 {{ item.productName }}
@@ -294,7 +294,7 @@ onMounted(() => {
             <div class="flex items-center border border-gray-200 rounded-md overflow-hidden group-hover:border-gray-300 transition-colors">
               <!-- 减号 -->
               <button
-                class="w-9 h-9 flex items-center justify-center bg-white text-gray-500 hover:bg-gray-50 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                class="w-9 h-9 flex items-center justify-center bg-white text-gray-500 hover:bg-gray-50 hover:text-brand-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 :disabled="item.quantity <= 1"
                 @click="handleDecrease(item)"
               >
@@ -312,7 +312,7 @@ onMounted(() => {
               />
               <!-- 加号 -->
               <button
-                class="w-9 h-9 flex items-center justify-center bg-white text-gray-500 hover:bg-gray-50 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                class="w-9 h-9 flex items-center justify-center bg-white text-gray-500 hover:bg-gray-50 hover:text-brand-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                 :disabled="item.quantity >= 99"
                 @click="handleIncrease(item)"
               >
@@ -325,7 +325,7 @@ onMounted(() => {
 
           <!-- 小计（实时计算） -->
           <div class="text-center">
-            <div class="text-base font-bold text-red-600">
+            <div class="text-base font-bold text-brand-600">
               &yen;{{ formatPrice(calcSubtotal(item)) }}
             </div>
           </div>
@@ -333,7 +333,7 @@ onMounted(() => {
           <!-- 操作 -->
           <div class="flex items-center justify-center">
             <button
-              class="text-sm text-gray-400 hover:text-red-600 px-3 py-1 rounded hover:bg-red-50 transition-colors"
+              class="text-sm text-gray-400 hover:text-brand-600 px-3 py-1 rounded hover:bg-brand-50 transition-colors"
               @click="requestDelete(item.id)"
             >
               删除
@@ -354,7 +354,7 @@ onMounted(() => {
               <input
                 type="checkbox"
                 :checked="cartStore.isAllChecked"
-                class="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                class="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500 cursor-pointer"
                 @change="cartStore.toggleCheckAll(($event.target as HTMLInputElement).checked)"
               />
               <span>全选</span>
@@ -362,7 +362,7 @@ onMounted(() => {
 
             <!-- 删除选中 -->
             <button
-              class="text-gray-500 hover:text-red-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              class="text-gray-500 hover:text-brand-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               :disabled="!cartStore.hasChecked"
               @click="handleDeleteChecked"
             >
@@ -371,7 +371,7 @@ onMounted(() => {
 
             <!-- 已选数量 -->
             <span class="text-gray-500">
-              已选 <span class="text-red-600 font-medium">{{ cartStore.checkedCount }}</span> 件商品
+              已选 <span class="text-brand-600 font-medium">{{ cartStore.checkedCount }}</span> 件商品
             </span>
           </div>
 
@@ -386,7 +386,7 @@ onMounted(() => {
               <!-- 总价 -->
               <div class="flex items-baseline gap-2">
                 <span class="text-sm text-gray-600">合计：</span>
-                <span class="text-2xl font-bold text-red-600">
+                <span class="text-2xl font-bold text-brand-600">
                   <span class="text-sm">&yen;</span>{{ formatPrice(cartStore.checkedTotalPrice) }}
                 </span>
               </div>
@@ -395,7 +395,7 @@ onMounted(() => {
             <!-- 去结算按钮（大高亮） -->
             <button
               :disabled="!cartStore.hasChecked"
-              class="relative h-14 px-10 bg-red-600 text-white text-lg font-bold rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-lg shadow-red-200 hover:shadow-xl hover:shadow-red-300 active:scale-[0.98]"
+              class="relative h-14 px-10 bg-brand-600 text-white text-lg font-bold rounded-lg hover:bg-brand-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all shadow-lg shadow-brand-200 hover:shadow-xl hover:shadow-brand-300 active:scale-[0.98]"
               @click="handleCheckout"
             >
               去结算

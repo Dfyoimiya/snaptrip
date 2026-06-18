@@ -88,7 +88,7 @@ const handleLogin = async () => {
       <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
         <!-- 标题 -->
         <div class="text-center mb-8">
-          <div class="w-12 h-12 bg-red-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+          <div class="w-12 h-12 bg-brand-600 rounded-xl flex items-center justify-center mx-auto mb-4">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
@@ -117,7 +117,7 @@ const handleLogin = async () => {
                 'w-full h-12 px-4 border rounded-lg text-sm transition-colors focus:outline-none focus:ring-2',
                 errors.email
                   ? 'border-red-300 focus:ring-red-200 bg-red-50/30'
-                  : 'border-gray-300 focus:ring-red-500 focus:border-transparent',
+                  : 'border-gray-300 focus:ring-brand-500 focus:border-transparent',
               ]"
               @input="clearError('email')"
             />
@@ -142,7 +142,7 @@ const handleLogin = async () => {
                 'w-full h-12 px-4 border rounded-lg text-sm transition-colors focus:outline-none focus:ring-2',
                 errors.password
                   ? 'border-red-300 focus:ring-red-200 bg-red-50/30'
-                  : 'border-gray-300 focus:ring-red-500 focus:border-transparent',
+                  : 'border-gray-300 focus:ring-brand-500 focus:border-transparent',
               ]"
               @input="clearError('password')"
             />
@@ -158,7 +158,7 @@ const handleLogin = async () => {
           <button
             type="submit"
             :disabled="loading"
-            class="w-full h-12 bg-red-600 text-white font-bold text-base rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md shadow-red-200"
+            class="w-full h-12 bg-brand-600 text-white font-bold text-base rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-md shadow-brand-200"
           >
             {{ loading ? '登录中...' : '登 录' }}
           </button>
@@ -167,7 +167,7 @@ const handleLogin = async () => {
         <!-- 底部链接 -->
         <div class="mt-6 text-center text-sm">
           <span class="text-gray-500">还没有账号？</span>
-          <button class="text-red-600 hover:text-red-700 font-medium ml-1" @click="$router.push('/register')">
+          <button class="text-brand-600 hover:text-brand-700 font-medium ml-1" @click="$router.push('/register')">
             立即注册
           </button>
         </div>

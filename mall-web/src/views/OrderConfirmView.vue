@@ -120,7 +120,7 @@ const handleSubmitOrder = async () => {
   <div class="order-confirm-page space-y-5">
     <div class="flex items-center justify-between">
       <h1 class="text-xl font-bold text-gray-900">确认订单</h1>
-      <button class="text-sm text-gray-500 hover:text-red-600 transition-colors flex items-center gap-1" @click="router.push('/cart')">
+      <button class="text-sm text-gray-500 hover:text-brand-600 transition-colors flex items-center gap-1" @click="router.push('/cart')">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
         </svg>
@@ -132,7 +132,7 @@ const handleSubmitOrder = async () => {
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-base font-bold text-gray-900 flex items-center gap-2">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
           收货地址
@@ -144,11 +144,11 @@ const handleSubmitOrder = async () => {
         <div
           v-for="addr in addresses"
           :key="addr.id"
-          :class="['relative p-4 rounded-lg border-2 cursor-pointer transition-all', selectedAddressId === String(addr.id) ? 'border-red-500 bg-red-50/30 shadow-sm' : 'border-gray-200 bg-white hover:border-gray-300']"
+          :class="['relative p-4 rounded-lg border-2 cursor-pointer transition-all', selectedAddressId === String(addr.id) ? 'border-brand-500 bg-brand-50/30 shadow-sm' : 'border-gray-200 bg-white hover:border-gray-300']"
           @click="selectedAddressId = String(addr.id)"
         >
           <div v-if="selectedAddressId === String(addr.id)" class="absolute top-2 right-2">
-            <div class="w-5 h-5 rounded-full bg-red-600 flex items-center justify-center">
+            <div class="w-5 h-5 rounded-full bg-brand-600 flex items-center justify-center">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
               </svg>
@@ -161,7 +161,7 @@ const handleSubmitOrder = async () => {
           <p class="text-xs text-gray-600 leading-5">
             {{ addr.province }} {{ addr.city }} {{ addr.region }} {{ addr.detailAddress }}
           </p>
-          <span v-if="addr.defaultStatus === 1" class="inline-block mt-2 text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded font-medium">默认</span>
+          <span v-if="addr.defaultStatus === 1" class="inline-block mt-2 text-xs bg-brand-100 text-brand-600 px-2 py-0.5 rounded font-medium">默认</span>
         </div>
       </div>
       <div v-else class="text-center py-6 text-gray-400">
@@ -199,7 +199,7 @@ const handleSubmitOrder = async () => {
             </td>
             <td class="text-center text-gray-600">&yen;{{ formatPrice(item.price) }}</td>
             <td class="text-center text-gray-600">{{ item.quantity }}</td>
-            <td class="text-right pr-6 font-bold text-red-600">&yen;{{ formatPrice(item.price * item.quantity) }}</td>
+            <td class="text-right pr-6 font-bold text-brand-600">&yen;{{ formatPrice(item.price * item.quantity) }}</td>
           </tr>
         </tbody>
       </table>
@@ -209,7 +209,7 @@ const handleSubmitOrder = async () => {
     <div class="flex items-start gap-6">
       <div class="flex-1 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
         <h3 class="text-sm font-medium text-gray-700 mb-3">订单备注</h3>
-        <textarea rows="3" placeholder="如有特殊要求，请在此备注（选填）" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent" />
+        <textarea rows="3" placeholder="如有特殊要求，请在此备注（选填）" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
       </div>
 
       <div class="w-[380px] bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex-shrink-0">
@@ -227,19 +227,19 @@ const handleSubmitOrder = async () => {
           </div>
           <div v-if="discount > 0" class="flex items-center justify-between">
             <span class="text-gray-500">优惠</span>
-            <span class="text-red-600 font-medium">-&yen;{{ formatPrice(discount) }}</span>
+            <span class="text-brand-600 font-medium">-&yen;{{ formatPrice(discount) }}</span>
           </div>
           <div class="border-t border-gray-100 pt-3 mt-3">
             <div class="flex items-center justify-between">
               <span class="text-gray-900 font-medium">应付金额</span>
-              <span class="text-2xl font-bold text-red-600"><span class="text-sm">&yen;</span>{{ formatPrice(payableAmount) }}</span>
+              <span class="text-2xl font-bold text-brand-600"><span class="text-sm">&yen;</span>{{ formatPrice(payableAmount) }}</span>
             </div>
           </div>
         </div>
 
         <button
           :disabled="submitting || orderItems.length === 0"
-          class="w-full mt-6 h-12 bg-red-600 text-white font-bold text-base rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors shadow-md shadow-red-200"
+          class="w-full mt-6 h-12 bg-brand-600 text-white font-bold text-base rounded-lg hover:bg-brand-700 disabled:opacity-50 transition-colors shadow-md shadow-brand-200"
           @click="handleSubmitOrder"
         >
           {{ submitting ? '订单提交中...' : '提交订单' }}

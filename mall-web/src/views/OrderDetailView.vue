@@ -103,7 +103,7 @@ onMounted(async () => {
 <template>
   <div class="order-detail-page space-y-5">
     <nav class="flex items-center gap-2 text-sm text-gray-500">
-      <button class="hover:text-red-600" @click="router.push('/member/orders')">我的订单</button>
+      <button class="hover:text-brand-600" @click="router.push('/member/orders')">我的订单</button>
       <span class="text-gray-300">/</span>
       <span class="text-gray-900 font-medium">订单详情</span>
     </nav>
@@ -127,17 +127,17 @@ onMounted(async () => {
           </div>
           <div class="text-right">
             <p class="text-sm text-gray-500">应付金额</p>
-            <p class="text-2xl font-bold text-red-600">&yen;{{ formatPrice(order.payAmount || 0) }}</p>
+            <p class="text-2xl font-bold text-brand-600">&yen;{{ formatPrice(order.payAmount || 0) }}</p>
           </div>
         </div>
 
         <!-- 步骤条 -->
         <div class="relative px-4 mb-2">
           <div class="absolute top-5 left-16 right-16 h-1 bg-gray-100 rounded-full" />
-          <div class="absolute top-5 left-16 h-1 bg-red-500 rounded-full transition-all duration-500" :style="{ width: `calc(${progressPercent}% - 32px)` }" />
+          <div class="absolute top-5 left-16 h-1 bg-brand-500 rounded-full transition-all duration-500" :style="{ width: `calc(${progressPercent}% - 32px)` }" />
           <div class="relative flex items-center justify-between">
             <div v-for="(step, index) in steps" :key="step.key" class="flex flex-col items-center" :style="{ width: index === 0 || index === steps.length - 1 ? 'auto' : '120px' }">
-              <div :class="['w-10 h-10 rounded-full flex items-center justify-center z-10 transition-all duration-300', isStepComplete(index) ? 'bg-red-600 text-white shadow-lg shadow-red-200' : 'bg-gray-100 text-gray-300']">
+              <div :class="['w-10 h-10 rounded-full flex items-center justify-center z-10 transition-all duration-300', isStepComplete(index) ? 'bg-brand-600 text-white shadow-lg shadow-brand-200' : 'bg-gray-100 text-gray-300']">
                 <svg v-if="isStepComplete(index)" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
@@ -203,7 +203,7 @@ onMounted(async () => {
               </td>
               <td class="text-center text-gray-600">&yen;{{ formatPrice(item.price || 0) }}</td>
               <td class="text-center text-gray-600">{{ item.quantity }}</td>
-              <td class="text-right pr-6 font-bold text-red-600">&yen;{{ formatPrice((item.price || 0) * (item.quantity || 0)) }}</td>
+              <td class="text-right pr-6 font-bold text-brand-600">&yen;{{ formatPrice((item.price || 0) * (item.quantity || 0)) }}</td>
             </tr>
           </tbody>
         </table>
@@ -224,11 +224,11 @@ onMounted(async () => {
             </div>
             <div class="flex justify-between">
               <span class="text-gray-500">优惠</span>
-              <span class="text-red-600">-&yen;{{ formatPrice(order.discountAmount || 0) }}</span>
+              <span class="text-brand-600">-&yen;{{ formatPrice(order.discountAmount || 0) }}</span>
             </div>
             <div class="border-t border-gray-100 pt-3 flex justify-between">
               <span class="text-gray-900 font-medium">应付金额</span>
-              <span class="text-2xl font-bold text-red-600">&yen;{{ formatPrice(order.payAmount || 0) }}</span>
+              <span class="text-2xl font-bold text-brand-600">&yen;{{ formatPrice(order.payAmount || 0) }}</span>
             </div>
           </div>
         </div>
@@ -239,8 +239,8 @@ onMounted(async () => {
 
 <style scoped>
 @keyframes pulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
-  50% { box-shadow: 0 0 0 8px rgba(220, 38, 38, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 80, 0, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(255, 80, 0, 0); }
 }
 .animate-pulse {
   animation: pulse 2s infinite;

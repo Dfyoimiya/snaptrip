@@ -28,7 +28,7 @@ const orderStatuses = [
 
 /** 功能快捷入口 */
 const quickActions = [
-  { label: '我的收藏', value: 0, path: '/member/favorites', color: 'text-red-500' },
+  { label: '我的收藏', value: 0, path: '/member/favorites', color: 'text-brand-500' },
   { label: '浏览足迹', value: 0, path: '/member/favorites', color: 'text-blue-500' },
   { label: '我的优惠券', value: 0, path: '/member/coupons', color: 'text-orange-500' },
   { label: '收货地址', value: 3, path: '/member/address', color: 'text-green-500' },
@@ -50,15 +50,15 @@ const formatPrice = (p: number | null | undefined) => (p ?? 0).toLocaleString('z
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <div class="flex items-center gap-5">
         <!-- 头像 -->
-        <div class="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 overflow-hidden border-2 border-red-100">
+        <div class="w-20 h-20 rounded-full bg-brand-100 flex items-center justify-center flex-shrink-0 overflow-hidden border-2 border-red-100">
           <img v-if="memberStore.avatar" :src="memberStore.avatar" class="w-full h-full object-cover" />
-          <span v-else class="text-2xl font-bold text-red-600">{{ avatarLetter }}</span>
+          <span v-else class="text-2xl font-bold text-brand-600">{{ avatarLetter }}</span>
         </div>
         <!-- 信息 -->
         <div class="flex-1">
           <div class="flex items-center gap-3">
             <h2 class="text-xl font-bold text-gray-900">{{ memberStore.displayName }}</h2>
-            <span class="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-medium">黄金会员</span>
+            <span class="text-xs bg-brand-100 text-brand-600 px-2 py-0.5 rounded-full font-medium">黄金会员</span>
           </div>
           <p class="text-sm text-gray-500 mt-1">热爱购物，品质生活</p>
           <div class="flex items-center gap-4 mt-2 text-xs text-gray-400">
@@ -74,7 +74,7 @@ const formatPrice = (p: number | null | undefined) => (p ?? 0).toLocaleString('z
             <div class="text-xs text-gray-400 mt-1">积分</div>
           </div>
           <div class="text-center">
-            <div class="text-2xl font-bold text-red-600">0</div>
+            <div class="text-2xl font-bold text-brand-600">0</div>
             <div class="text-xs text-gray-400 mt-1">优惠券</div>
           </div>
           <div class="text-center">
@@ -89,7 +89,7 @@ const formatPrice = (p: number | null | undefined) => (p ?? 0).toLocaleString('z
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-base font-bold text-gray-900">我的订单</h3>
-        <button class="text-sm text-gray-500 hover:text-red-600 transition-colors" @click="router.push('/member/orders')">
+        <button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="router.push('/member/orders')">
           查看全部 &rarr;
         </button>
       </div>
@@ -109,7 +109,7 @@ const formatPrice = (p: number | null | undefined) => (p ?? 0).toLocaleString('z
           <!-- 角标数字 -->
           <span
             v-if="status.count > 0"
-            class="absolute top-2 right-6 min-w-5 h-5 bg-red-600 text-white text-xs rounded-full flex items-center justify-center px-1 font-medium"
+            class="absolute top-2 right-6 min-w-5 h-5 bg-brand-600 text-white text-xs rounded-full flex items-center justify-center px-1 font-medium"
           >
             {{ status.count > 99 ? '99+' : status.count }}
           </span>
@@ -122,7 +122,7 @@ const formatPrice = (p: number | null | undefined) => (p ?? 0).toLocaleString('z
       <button
         v-for="action in quickActions"
         :key="action.label"
-        class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center gap-4 hover:border-red-200 hover:shadow-md transition-all group"
+        class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center gap-4 hover:border-brand-200 hover:shadow-md transition-all group"
         @click="router.push(action.path)"
       >
         <div :class="['text-2xl font-bold', action.color]">{{ action.value }}</div>

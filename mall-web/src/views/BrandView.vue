@@ -76,7 +76,7 @@ onMounted(() => {
         <button
           v-for="brand in hotBrands"
           :key="brand.id"
-          class="group flex flex-col items-center gap-2 p-3 rounded-lg border border-gray-100 hover:border-red-200 hover:shadow-md transition-all"
+          class="group flex flex-col items-center gap-2 p-3 rounded-lg border border-gray-100 hover:border-brand-200 hover:shadow-md transition-all"
           @click="router.push(`/brand/${brand.id}`)"
         >
           <div class="w-14 h-14 rounded-full bg-gray-50 overflow-hidden flex items-center justify-center">
@@ -94,7 +94,7 @@ onMounted(() => {
         <button
           :class="[
             'px-3 py-1.5 text-sm rounded-md transition-colors flex-shrink-0',
-            activeLetter === '' ? 'bg-red-600 text-white font-medium' : 'text-gray-600 hover:bg-gray-100',
+            activeLetter === '' ? 'bg-brand-600 text-white font-medium' : 'text-gray-600 hover:bg-gray-100',
           ]"
           @click="activeLetter = ''"
         >
@@ -106,7 +106,7 @@ onMounted(() => {
           :class="[
             'w-9 h-9 flex items-center justify-center text-sm rounded-md transition-colors flex-shrink-0',
             activeLetter === letter
-              ? 'bg-red-600 text-white font-medium'
+              ? 'bg-brand-600 text-white font-medium'
               : 'text-gray-600 hover:bg-gray-100',
           ]"
           @click="activeLetter = activeLetter === letter ? '' : letter"
@@ -123,7 +123,7 @@ onMounted(() => {
           class="flex items-start gap-4"
         >
           <!-- 字母标识 -->
-          <div class="w-10 h-10 rounded-lg bg-red-600 flex items-center justify-center flex-shrink-0">
+          <div class="w-10 h-10 rounded-lg bg-brand-600 flex items-center justify-center flex-shrink-0">
             <span class="text-lg font-bold text-white">{{ letter }}</span>
           </div>
 
@@ -132,14 +132,14 @@ onMounted(() => {
             <button
               v-for="brand in group"
               :key="brand.id"
-              class="group flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:border-red-200 hover:shadow-sm transition-all text-left"
+              class="group flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:border-brand-200 hover:shadow-sm transition-all text-left"
               @click="router.push(`/brand/${brand.id}`)"
             >
               <div class="w-10 h-10 rounded bg-gray-50 overflow-hidden flex-shrink-0">
                 <img :src="brand.logo" :alt="brand.name" class="w-full h-full object-cover" />
               </div>
               <div class="min-w-0 flex-1">
-                <p class="text-sm text-gray-800 truncate group-hover:text-red-600 transition-colors">{{ brand.name }}</p>
+                <p class="text-sm text-gray-800 truncate group-hover:text-brand-600 transition-colors">{{ brand.name }}</p>
                 <p class="text-xs text-gray-400">{{ brand.productCount }} 件商品</p>
               </div>
             </button>

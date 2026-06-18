@@ -81,7 +81,7 @@ onMounted(() => {
     <!-- ====== Banner 氛围图 ====== -->
     <div class="relative rounded-xl overflow-hidden mb-6 h-[160px]">
       <img src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200&h=300&fit=crop" alt="领券中心" class="w-full h-full object-cover" />
-      <div class="absolute inset-0 bg-gradient-to-r from-red-600/80 to-orange-500/60" />
+      <div class="absolute inset-0 bg-gradient-to-r from-brand-600/80 to-orange-500/60" />
       <div class="absolute inset-0 flex items-center px-10">
         <div>
           <h1 class="text-3xl font-bold text-white mb-2">领券中心</h1>
@@ -107,7 +107,7 @@ onMounted(() => {
         <button
           v-for="cat in categories"
           :key="String(cat.key)"
-          :class="['px-4 py-2 text-sm rounded-lg transition-colors', activeCategory === cat.key ? 'bg-red-600 text-white font-medium' : 'text-gray-600 hover:bg-gray-100']"
+          :class="['px-4 py-2 text-sm rounded-lg transition-colors', activeCategory === cat.key ? 'bg-brand-600 text-white font-medium' : 'text-gray-600 hover:bg-gray-100']"
           @click="activeCategory = cat.key"
         >
           {{ cat.label }}
@@ -126,7 +126,7 @@ onMounted(() => {
         class="flex bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow"
       >
         <!-- 左侧金额区 -->
-        <div class="w-32 bg-gradient-to-br from-red-600 to-red-500 text-white flex flex-col items-center justify-center flex-shrink-0 py-5 relative">
+        <div class="w-32 bg-gradient-to-br from-brand-600 to-brand-500 text-white flex flex-col items-center justify-center flex-shrink-0 py-5 relative">
           <div class="text-3xl font-bold">&yen;{{ coupon.amount }}</div>
           <div class="text-xs opacity-80 mt-1">满{{ coupon.minAmount }}可用</div>
           <!-- 锯齿边缘 -->
@@ -146,7 +146,7 @@ onMounted(() => {
             <!-- 进度条 -->
             <div class="mt-2 flex items-center gap-2">
               <div class="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                <div class="h-full bg-red-500 rounded-full transition-all" :style="{ width: getProgress(coupon) + '%' }" />
+                <div class="h-full bg-brand-500 rounded-full transition-all" :style="{ width: getProgress(coupon) + '%' }" />
               </div>
               <span class="text-xs text-gray-400">{{ getProgress(coupon) }}%</span>
             </div>
@@ -163,7 +163,7 @@ onMounted(() => {
                   ? 'bg-gray-100 text-gray-400 cursor-default'
                   : getProgress(coupon) >= 100
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-red-600 text-white hover:bg-red-700',
+                    : 'bg-brand-600 text-white hover:bg-brand-700',
               ]"
               @click="receiveCoupon(coupon.id)"
             >

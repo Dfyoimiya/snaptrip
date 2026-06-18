@@ -131,7 +131,7 @@ onMounted(() => {
         :key="opt.value"
         :class="[
           'px-4 py-2 text-sm rounded-lg transition-colors whitespace-nowrap flex-shrink-0',
-          activeStatus === opt.value ? 'bg-red-600 text-white font-medium' : 'text-gray-600 hover:bg-gray-100',
+          activeStatus === opt.value ? 'bg-brand-600 text-white font-medium' : 'text-gray-600 hover:bg-gray-100',
         ]"
         @click="activeStatus = opt.value; loadOrders()"
       >
@@ -195,7 +195,7 @@ onMounted(() => {
               合计：<span class="text-lg font-bold text-gray-900">&yen;{{ formatPrice(order.payAmount) }}</span>
             </span>
             <button
-              class="text-sm text-gray-600 hover:text-red-600 px-3 py-1.5 border border-gray-200 rounded hover:border-red-300 transition-colors"
+              class="text-sm text-gray-600 hover:text-brand-600 px-3 py-1.5 border border-gray-200 rounded hover:border-brand-300 transition-colors"
               @click="viewDetail(order.id)"
             >
               查看详情
@@ -206,7 +206,7 @@ onMounted(() => {
               :class="[
                 'text-sm px-4 py-1.5 rounded transition-colors',
                 action.type === 'primary'
-                  ? 'bg-red-600 text-white hover:bg-red-700'
+                  ? 'bg-brand-600 text-white hover:bg-brand-700'
                   : action.type === 'danger'
                     ? 'border border-red-200 text-red-600 hover:bg-red-50'
                     : 'border border-gray-200 text-gray-600 hover:bg-gray-50',

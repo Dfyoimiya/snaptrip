@@ -173,7 +173,7 @@ onMounted(() => {
     <div v-else class="p-5 grid grid-cols-2 gap-4">
       <!-- 新增地址卡片 -->
       <button
-        class="h-40 border-2 border-dashed border-gray-200 rounded-lg flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-red-300 hover:text-red-500 transition-colors"
+        class="h-40 border-2 border-dashed border-gray-200 rounded-lg flex flex-col items-center justify-center gap-2 text-gray-400 hover:border-brand-300 hover:text-brand-500 transition-colors"
         @click="openAddDialog"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -189,14 +189,14 @@ onMounted(() => {
         :class="[
           'relative p-4 rounded-lg border transition-all',
           addr.defaultStatus === 1
-            ? 'border-red-300 bg-red-50/40 shadow-sm'
+            ? 'border-brand-300 bg-brand-50/40 shadow-sm'
             : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm',
         ]"
       >
         <!-- 默认标签 -->
         <span
           v-if="addr.defaultStatus === 1"
-          class="absolute top-3 right-3 text-xs bg-red-600 text-white px-2 py-0.5 rounded font-medium"
+          class="absolute top-3 right-3 text-xs bg-brand-600 text-white px-2 py-0.5 rounded font-medium"
         >默认</span>
 
         <!-- 地址内容 -->
@@ -215,7 +215,7 @@ onMounted(() => {
         <div class="flex items-center gap-3 mt-3 pt-3 border-t border-gray-100/60">
           <button
             v-if="addr.defaultStatus !== 1"
-            class="text-xs text-gray-500 hover:text-red-600 transition-colors"
+            class="text-xs text-gray-500 hover:text-brand-600 transition-colors"
             @click="handleSetDefault(addr.id)"
           >设为默认</button>
           <button class="text-xs text-gray-500 hover:text-blue-600 transition-colors" @click="openEditDialog(addr)">编辑</button>
@@ -253,7 +253,7 @@ onMounted(() => {
                 v-model="editingAddress.name"
                 type="text"
                 placeholder="姓名"
-                :class="['w-full h-10 px-3 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent', formErrors.name ? 'border-red-300' : 'border-gray-300']"
+                :class="['w-full h-10 px-3 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent', formErrors.name ? 'border-red-300' : 'border-gray-300']"
               />
               <p v-if="formErrors.name" class="text-xs text-red-500 mt-1">{{ formErrors.name }}</p>
             </div>
@@ -264,7 +264,7 @@ onMounted(() => {
                 type="tel"
                 maxlength="11"
                 placeholder="11位手机号"
-                :class="['w-full h-10 px-3 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent', formErrors.phone ? 'border-red-300' : 'border-gray-300']"
+                :class="['w-full h-10 px-3 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent', formErrors.phone ? 'border-red-300' : 'border-gray-300']"
               />
               <p v-if="formErrors.phone" class="text-xs text-red-500 mt-1">{{ formErrors.phone }}</p>
             </div>
@@ -277,7 +277,7 @@ onMounted(() => {
               <!-- 省份 -->
               <select
                 v-model="selectedProvince"
-                class="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white"
+                class="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
                 @change="onProvinceChange"
               >
                 <option value="">请选择省份</option>
@@ -286,7 +286,7 @@ onMounted(() => {
               <!-- 城市 -->
               <select
                 v-model="selectedCity"
-                class="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white"
+                class="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
                 @change="onCityChange"
               >
                 <option value="">请选择城市</option>
@@ -295,7 +295,7 @@ onMounted(() => {
               <!-- 区县 -->
               <select
                 v-model="selectedRegion"
-                class="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white"
+                class="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
               >
                 <option value="">请选择区县</option>
                 <option v-for="r in getRegionList(selectedProvince, selectedCity)" :key="r.value" :value="r.value">{{ r.label }}</option>
@@ -311,7 +311,7 @@ onMounted(() => {
               v-model="editingAddress.detailAddress"
               rows="2"
               placeholder="街道、门牌号、楼层等"
-              :class="['w-full px-3 py-2 border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent', formErrors.detailAddress ? 'border-red-300' : 'border-gray-300']"
+              :class="['w-full px-3 py-2 border rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent', formErrors.detailAddress ? 'border-red-300' : 'border-gray-300']"
             />
             <p v-if="formErrors.detailAddress" class="text-xs text-red-500 mt-1">{{ formErrors.detailAddress }}</p>
           </div>
@@ -323,7 +323,7 @@ onMounted(() => {
               type="checkbox"
               :true-value="1"
               :false-value="0"
-              class="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+              class="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
             />
             <span>设为默认地址</span>
           </label>
@@ -333,7 +333,7 @@ onMounted(() => {
         <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50">
           <button class="h-10 px-6 border border-gray-300 text-gray-600 text-sm rounded-lg hover:bg-gray-100 transition-colors" @click="closeDialog">取消</button>
           <button
-            class="h-10 px-6 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+            class="h-10 px-6 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50"
             :disabled="saving"
             @click="handleSave"
           >{{ saving ? '保存中...' : '保存' }}</button>
