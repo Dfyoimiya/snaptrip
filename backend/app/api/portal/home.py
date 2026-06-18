@@ -22,4 +22,4 @@ async def home_page(db: AsyncSession = Depends(get_db)):
     """首页聚合 —— Banner + 新品 + 推荐商品 + 专题，游客可访问"""
     svc = StatsService(db)
     result = await svc.get_homepage()
-    return success(result.model_dump())
+    return success(result.model_dump(mode="json", by_alias=True))

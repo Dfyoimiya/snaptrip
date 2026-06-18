@@ -336,25 +336,17 @@ class StatsService:
         ]
 
     async def get_homepage(self) -> HomePageAggregation:
-        """首页聚合 —— Banner(按位置分组) + 新品 + 推荐商品 + 推荐专题"""
+        """首页聚合 —— Banner + 新品 + 推荐商品 + 推荐专题"""
         from app.models.cms.content import CmsBanner, CmsSubject
 
-        # Banner —— 按 position 分组查询
-        top_result = await self.db.execute(
+        # Banner —— 合并 HOME_TOP + HOME_MIDDLE 按 sort 排序
+        banner_result = await self.db.execute(
             select(CmsBanner)
-            .where(CmsBanner.status == 1, CmsBanner.position == "HOME_TOP")
+            .where(CmsBanner.status == 1, CmsBanner.position.in_(["HOME_TOP", "HOME_MIDDLE"]))
             .order_by(CmsBanner.sort.asc())
-            .limit(5)
+            .limit(10)
         )
-        home_top_banners = [BannerResponse.model_validate(b) for b in top_result.scalars().all()]
-
-        middle_result = await self.db.execute(
-            select(CmsBanner)
-            .where(CmsBanner.status == 1, CmsBanner.position == "HOME_MIDDLE")
-            .order_by(CmsBanner.sort.asc())
-            .limit(5)
-        )
-        home_middle_banners = [BannerResponse.model_validate(b) for b in middle_result.scalars().all()]
+        banners = [BannerResponse.model_validate(b) for b in banner_result.scalars().all()]
 
         # 新品推荐 (最近上架的 8 个商品)
         from app.models.product.product import PmsProduct
@@ -370,8 +362,8 @@ class StatsService:
                 "id": str(p.id),
                 "name": p.name,
                 "price": float(p.price),
-                "default_pic": p.default_pic or "",
-                "sale_count": p.sale_count or 0,
+                "defaultPic": p.default_pic or "",
+                "saleCount": p.sale_count or 0,
             }
             for p in new_result.scalars().all()
         ]
@@ -393,8 +385,8 @@ class StatsService:
                 "id": str(p.id),
                 "name": p.name,
                 "price": float(p.price),
-                "default_pic": p.default_pic or "",
-                "sale_count": p.sale_count or 0,
+                "defaultPic": p.default_pic or "",
+                "saleCount": p.sale_count or 0,
             }
             for p in rec_result.scalars().all()
         ]
@@ -409,8 +401,7 @@ class StatsService:
         subjects = [SubjectResponse.model_validate(s) for s in subject_result.scalars().all()]
 
         return HomePageAggregation(
-            home_top_banners=home_top_banners,
-            home_middle_banners=home_middle_banners,
+            banners=banners,
             new_products=new_products,
             recommend_products=recommend_products,
             subjects=subjects,

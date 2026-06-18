@@ -47,9 +47,9 @@ class BannerResponse(BaseModel):
     position: str = "HOME_TOP"
     sort: int
     status: int
-    start_time: datetime | None = None
-    end_time: datetime | None = None
-    created_at: datetime | None = None
+    start_time: datetime | None = Field(None, serialization_alias="startTime")
+    end_time: datetime | None = Field(None, serialization_alias="endTime")
+    created_at: datetime | None = Field(None, serialization_alias="createdAt")
     model_config = {"from_attributes": True}
 
 
@@ -84,10 +84,10 @@ class SubjectResponse(BaseModel):
     summary: str | None = None
     pic: str | None = None
     content: str | None = None
-    category_name: str | None = None
+    category_name: str | None = Field(None, serialization_alias="categoryName")
     status: int
-    recommend_status: int
-    created_at: datetime | None = None
+    recommend_status: int = Field(..., serialization_alias="recommendStatus")
+    created_at: datetime | None = Field(None, serialization_alias="createdAt")
     model_config = {"from_attributes": True}
 
 
@@ -156,15 +156,13 @@ class ProductRankItem(BaseModel):
 
 
 class HomePageAggregation(BaseModel):
-    """首页聚合数据 —— Banner + 推荐商品 + 秒杀 + 专题
+    """首页聚合数据 —— Banner + 推荐商品 + 专题"""
 
-    banners 分位置返回:
-      - home_top_banners: HOME_TOP 位置的轮播图
-      - home_middle_banners: HOME_MIDDLE 位置的轮播图
-    """
-
-    home_top_banners: list[BannerResponse] = Field(default_factory=list)
-    home_middle_banners: list[BannerResponse] = Field(default_factory=list)
-    new_products: list[dict] = Field(default_factory=list, description="新品推荐")
-    recommend_products: list[dict] = Field(default_factory=list, description="推荐商品")
+    banners: list[BannerResponse] = Field(default_factory=list, description="轮播图（合并 HOME_TOP + HOME_MIDDLE）")
+    new_products: list[dict] = Field(
+        default_factory=list, serialization_alias="newProducts", description="新品推荐"
+    )
+    recommend_products: list[dict] = Field(
+        default_factory=list, serialization_alias="recommendProducts", description="推荐商品"
+    )
     subjects: list[SubjectResponse] = Field(default_factory=list)
