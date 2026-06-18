@@ -69,6 +69,18 @@ class BehaviorTracker {
     }, BATCH_INTERVAL)
   }
 
+  private getAuthHeaders(): Record<string, string> {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    try {
+      const raw = localStorage.getItem('snaptrip_member')
+      if (raw) {
+        const { token } = JSON.parse(raw)
+        if (token) headers['Authorization'] = `Bearer ${token}`
+      }
+    } catch { /* ignore */ }
+    return headers
+  }
+
   private async flush() {
     if (this.timer) {
       clearTimeout(this.timer)
@@ -80,7 +92,7 @@ class BehaviorTracker {
     try {
       await fetch(BEHAVIOR_ENDPOINT, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getAuthHeaders(),
         body: JSON.stringify({
           session_id: this.sessionId,
           events: batch,

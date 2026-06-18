@@ -9,7 +9,7 @@
  * 支持 Keyword + CategoryId + BrandId 组合查询
  * ============================================
  */
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ProductCard from '@/components/product/ProductCard.vue'
 import { searchProductListAPI, getCategoryTreeAPI } from '@/apis/product'
@@ -114,6 +114,77 @@ async function fetchProducts() {
 /** 总页数 */
 const totalPages = ref(1)
 
+/** 浏览模式：'page' 分页 | 'scroll' 无限滚动 */
+const browseMode = ref<'page' | 'scroll'>('page')
+
+/** 无限滚动：是否正在加载更多 */
+const loadingMore = ref(false)
+
+/** 无限滚动 sentinel 元素 */
+const scrollSentinel = ref<HTMLDivElement | null>(null)
+
+/** 省略号分页按钮 */
+const displayPages = computed(() => {
+  const tp = totalPages.value
+  const cp = currentPage.value
+  if (tp <= 7) {
+    return Array.from({ length: tp }, (_, i) => i + 1)
+  }
+  const pages: (number | string)[] = [1]
+  if (cp > 3) pages.push('...')
+  const start = Math.max(2, cp - 1)
+  const end = Math.min(tp - 1, cp + 1)
+  for (let i = start; i <= end; i++) pages.push(i)
+  if (cp < tp - 2) pages.push('...')
+  pages.push(tp)
+  return pages
+})
+
+/** 无限滚动：追加加载下一页 */
+async function loadMore() {
+  if (loadingMore.value || currentPage.value >= totalPages.value) return
+  loadingMore.value = true
+  try {
+    const res = await searchProductListAPI({
+      keyword: keyword.value || undefined,
+      productCategoryId: categoryId.value,
+      brandId: brandId.value,
+      sort: sortType.value,
+      minPrice: minPrice.value,
+      maxPrice: maxPrice.value,
+      page: currentPage.value + 1,
+      pageSize,
+    })
+    productList.value.push(...(res.items || []))
+    total.value = res.total || 0
+    totalPages.value = res.totalPages || 1
+    currentPage.value++
+  } catch (err: any) {
+    console.error('加载更多失败:', err?.message || err)
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+/** IntersectionObserver */
+let observer: IntersectionObserver | null = null
+
+const setupObserver = () => {
+  if (observer) observer.disconnect()
+  if (browseMode.value !== 'scroll' || !scrollSentinel.value) return
+  observer = new IntersectionObserver((entries) => {
+    if (entries[0]?.isIntersecting) loadMore()
+  }, { rootMargin: '100px' })
+  observer.observe(scrollSentinel.value)
+}
+
+watch(browseMode, () => {
+  // Reset when switching modes
+  currentPage.value = 1
+  productList.value = []
+  fetchProducts().then(() => setTimeout(setupObserver, 100))
+})
+
 /** 已选筛选标签 */
 const activeFilters = computed(() => {
   const filters: { key: string; label: string }[] = []
@@ -211,14 +282,26 @@ watch(
   { immediate: true },
 )
 
-// 筛选条件变化时重新搜索
-watch([categoryId, brandId, sortType, minPrice, maxPrice, currentPage], () => {
-  fetchProducts()
+// 筛选条件变化时重新搜索（重置到第一页）
+watch([categoryId, brandId, sortType, minPrice, maxPrice], () => {
+  currentPage.value = 1
+  fetchProducts().then(() => { if (browseMode.value === 'scroll') setTimeout(setupObserver, 100) })
+})
+
+// 分页模式下 currentPage 变化触发搜索
+watch(currentPage, (newPage, oldPage) => {
+  if (browseMode.value === 'page' && newPage !== oldPage) {
+    fetchProducts()
+  }
 })
 
 onMounted(() => {
   loadFilterOptions()
-  fetchProducts()
+  fetchProducts().then(() => setTimeout(setupObserver, 100))
+})
+
+onUnmounted(() => {
+  if (observer) observer.disconnect()
 })
 </script>
 
@@ -232,20 +315,28 @@ onMounted(() => {
           <span v-else>全部商品</span>
           <span class="text-sm font-normal text-gray-400 ml-2">共 {{ total }} 件商品</span>
         </h1>
-        <!-- 排序按钮 -->
-        <div class="flex items-center gap-1">
+        <!-- 排序按钮 + 浏览模式切换 -->
+        <div class="flex items-center gap-3">
+          <div class="flex items-center gap-1">
+            <button
+              v-for="opt in sortOptions"
+              :key="opt.value"
+              :class="[
+                'px-3 py-1.5 text-sm rounded-md transition-colors',
+                sortType === opt.value
+                  ? 'bg-brand-600 text-white font-medium'
+                  : 'text-gray-600 hover:bg-gray-100',
+              ]"
+              @click="handleSortChange(opt.value)"
+            >
+              {{ opt.label }}
+            </button>
+          </div>
           <button
-            v-for="opt in sortOptions"
-            :key="opt.value"
-            :class="[
-              'px-3 py-1.5 text-sm rounded-md transition-colors',
-              sortType === opt.value
-                ? 'bg-brand-600 text-white font-medium'
-                : 'text-gray-600 hover:bg-gray-100',
-            ]"
-            @click="handleSortChange(opt.value)"
+            :class="['px-3 py-1.5 text-xs rounded-md border transition-colors', browseMode === 'page' ? 'bg-brand-600 text-white border-brand-600' : 'text-gray-500 border-gray-200 hover:bg-gray-50']"
+            @click="browseMode = browseMode === 'page' ? 'scroll' : 'page'"
           >
-            {{ opt.label }}
+            {{ browseMode === 'page' ? '分页' : '滚动加载' }}
           </button>
         </div>
       </div>
@@ -369,8 +460,8 @@ onMounted(() => {
       <button class="mt-4 text-sm text-brand-600 hover:text-brand-700" @click="clearAllFilters">清除筛选条件</button>
     </div>
 
-    <!-- ====== 分页器 ====== -->
-    <div v-if="totalPages > 1" class="flex items-center justify-center gap-1.5 py-4">
+    <!-- ====== 分页器 (省略号截断) ====== -->
+    <div v-if="browseMode === 'page' && totalPages > 1" class="flex items-center justify-center gap-1.5 py-4">
       <button
         class="w-9 h-9 flex items-center justify-center rounded-md border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
         :disabled="currentPage === 1"
@@ -381,19 +472,21 @@ onMounted(() => {
         </svg>
       </button>
 
-      <button
-        v-for="page in totalPages"
-        :key="page"
-        :class="[
-          'min-w-9 h-9 px-2.5 flex items-center justify-center rounded-md text-sm transition-colors',
-          currentPage === page
-            ? 'bg-brand-600 text-white font-medium'
-            : 'border border-gray-200 text-gray-600 hover:bg-gray-50',
-        ]"
-        @click="goPage(page)"
-      >
-        {{ page }}
-      </button>
+      <template v-for="page in displayPages" :key="page">
+        <span v-if="page === '...'" class="w-9 h-9 flex items-center justify-center text-sm text-gray-400">...</span>
+        <button
+          v-else
+          :class="[
+            'min-w-9 h-9 px-2.5 flex items-center justify-center rounded-md text-sm transition-colors',
+            currentPage === page
+              ? 'bg-brand-600 text-white font-medium'
+              : 'border border-gray-200 text-gray-600 hover:bg-gray-50',
+          ]"
+          @click="goPage(page as number)"
+        >
+          {{ page }}
+        </button>
+      </template>
 
       <button
         class="w-9 h-9 flex items-center justify-center rounded-md border border-gray-200 text-gray-500 hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
@@ -408,6 +501,25 @@ onMounted(() => {
       <span class="text-sm text-gray-400 ml-3">
         第 {{ currentPage }} / {{ totalPages }} 页，共 {{ total }} 件
       </span>
+    </div>
+
+    <!-- ====== 无限滚动 Sentinel + 加载指示器 ====== -->
+    <div v-if="browseMode === 'scroll'" class="py-6">
+      <div v-if="loadingMore" class="flex items-center justify-center gap-2 text-sm text-gray-400">
+        <svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+        <span>加载中...</span>
+      </div>
+      <div
+        v-else-if="currentPage < totalPages"
+        ref="scrollSentinel"
+        class="h-10 flex items-center justify-center text-xs text-gray-300"
+      >
+        上滑加载更多
+      </div>
+      <div v-else class="text-center text-xs text-gray-300">— 已全部加载，共 {{ total }} 件 —</div>
     </div>
   </div>
 </template>

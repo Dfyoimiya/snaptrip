@@ -23,8 +23,11 @@ export const getBrandDetailAPI = (id: string) => {
  * @param page 页码
  * @param pageSize 每页数量
  */
-export const getBrandProductListAPI = (brandId: string, page = 1, pageSize = 10) => {
-  return get<CommonPage<unknown>>('/api/v1/portal/products', { brand_id: brandId, page, page_size: pageSize })
+export const getBrandProductListAPI = (brandId: string, page = 1, pageSize = 10, sort = 0) => {
+  const sortMap: Record<number, string> = { 0: 'default', 1: 'new', 2: 'sales', 3: 'price_asc', 4: 'price_desc' }
+  return get<CommonPage<unknown>>('/api/v1/portal/products', {
+    brand_id: brandId, page, page_size: pageSize, sort_by: sortMap[sort] || 'default',
+  })
 }
 
 /**

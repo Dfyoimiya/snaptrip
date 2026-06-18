@@ -68,13 +68,13 @@ const isMenuActive = (path: string): boolean => {
     <TopBar
       :is-logged-in="isLoggedIn"
       :display-name="memberStore.displayName"
+      :cart-count="cartCount"
       @navigate="navigateTo"
       @logout="handleLogout"
     />
 
-    <!-- 2. Logo + 搜索框 + 购物车 -->
+    <!-- 2. Logo + 搜索框 -->
     <HeaderSearch
-      :cart-count="cartCount"
       @navigate="navigateTo"
     />
 

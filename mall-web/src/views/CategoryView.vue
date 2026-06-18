@@ -25,8 +25,8 @@ const loading = ref(false)
 
 const currentCategory = computed(() => categories.value[activeTab.value])
 
-const goSearch = (catName: string) => {
-  router.push({ path: '/search', query: { keyword: catName } })
+const goSearch = (catId: string, catName: string) => {
+  router.push({ path: '/search', query: { categoryId: catId, keyword: catName } })
 }
 
 onMounted(async () => {
@@ -101,7 +101,7 @@ onMounted(async () => {
                 v-for="item in child.children || []"
                 :key="item.id"
                 class="px-3 py-1.5 text-sm text-gray-600 bg-gray-50 rounded-md hover:bg-brand-50 hover:text-brand-600 transition-colors"
-                @click="goSearch(item.name)"
+                @click="goSearch(item.id, item.name)"
               >
                 {{ item.name }}
               </button>

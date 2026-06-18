@@ -136,8 +136,8 @@ export interface OmsOrderItem {
   productName: string
   /** 商品主图 */
   productPic: string
-  /** 商品销售属性 JSON 字符串 */
-  productAttr: string
+  /** 商品规格描述 JSON 字符串 */
+  spec: string
   /** 商品SKU ID */
   skuId: string
   /** 商品SKU条码 */
