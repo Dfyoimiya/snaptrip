@@ -15,8 +15,8 @@ const orderId = route.params.id as string
 interface OrderItem {
   productName?: string
   productPic?: string
-  productPrice?: number
-  productQuantity?: number
+  price?: number
+  quantity?: number
   productAttr?: string
   productId?: string
 }

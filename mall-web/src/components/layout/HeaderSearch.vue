@@ -155,7 +155,8 @@ function handleKeydown(e: KeyboardEvent) {
     e.preventDefault()
     if (showDropdown.value && activeIndex.value >= 0 && activeIndex.value < flatItems.value.length) {
       // 选中下拉项
-      doSearch(flatItems.value[activeIndex.value].query)
+      const selectedItem = flatItems.value[activeIndex.value]
+      if (selectedItem) doSearch(selectedItem.query)
     } else {
       doSearch(keyword.value)
     }

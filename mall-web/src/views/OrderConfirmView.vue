@@ -53,7 +53,12 @@ onMounted(async () => {
     addresses.value = addrList || []
     if (addresses.value.length) {
       const defaultAddr = addresses.value.find(a => a.defaultStatus === 1)
-      selectedAddressId.value = defaultAddr ? String(defaultAddr.id) : String(addresses.value[0].id)
+      const firstAddress = addresses.value[0]
+      selectedAddressId.value = defaultAddr
+        ? String(defaultAddr.id)
+        : firstAddress
+          ? String(firstAddress.id)
+          : ''
     }
 
     // Get selected cart items (checked items from cart store)
@@ -97,9 +102,8 @@ const handleSubmitOrder = async () => {
       note: '',
       pay_type: payType.value,
       coupon_id: null,
-    } as any)
-    const orderData = result as any
-    const orderId = orderData?.id || orderData?.orderId || ''
+    })
+    const orderId = result.id
     router.push({
       path: '/pay',
       query: { orderId: String(orderId), amount: payableAmount.value },

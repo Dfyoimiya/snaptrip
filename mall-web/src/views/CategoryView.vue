@@ -34,10 +34,10 @@ onMounted(async () => {
   try {
     const [tree, brands] = await Promise.all([
       getCategoryTreeAPI(),
-      getBrandRecommendListAPI({ page: 1, page_size: 10 }).catch(() => []),
+      getBrandRecommendListAPI({ page: 1, page_size: 10 }).catch(() => null),
     ])
     categories.value = (tree as CategoryNode[]) || []
-    brandList.value = (brands as { id: string; name: string }[]) || []
+    brandList.value = brands?.items || []
   } catch {
     // empty
   } finally {

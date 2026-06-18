@@ -1,4 +1,4 @@
-import type { RouteRecordRaw } from 'vue-router'
+import type { Component, RouteLocationRaw } from 'vue-router'
 
 /** 路由元信息扩展 */
 export interface RouteMetaExt {
@@ -18,8 +18,12 @@ export interface RouteMetaExt {
   keepAlive?: boolean
 }
 
-/** vue-router 路由扩展 */
-export type RouteRecordExt = RouteRecordRaw & {
+/** 项目内部路由描述。注册到 vue-router 时统一转换，避免与其联合类型发生交叉冲突。 */
+export interface RouteRecordExt {
+  path: string
+  name?: string
+  component?: Component | (() => Promise<unknown>)
+  redirect?: RouteLocationRaw
   /** 前端隐藏 */
   hidden?: boolean
   /** 前端排序 */

@@ -16,8 +16,27 @@ import { useMemberStore } from '@/stores/member'
 import { isTokenExpired } from './jwt'
 import router from '@/router'
 
-// 请求基地址（从环境变量读取）
-const baseURL = import.meta.env.VITE_API_BASE_URL || ''
+// 开发环境统一走 Vite 同源代理；生产环境读取部署配置。
+const baseURL = import.meta.env.DEV ? '' : (import.meta.env.VITE_API_BASE_URL || '')
+
+interface APIErrorPayload {
+  message?: string
+  detail?: string | Array<{ msg?: string }>
+}
+
+function getErrorMessage(data: APIErrorPayload | undefined, fallback: string): string {
+  if (!data) return fallback
+  if (data.message) return data.message
+  if (typeof data.detail === 'string') return data.detail
+  if (Array.isArray(data.detail)) {
+    const validationMessage = data.detail
+      .map((item) => item.msg)
+      .filter((message): message is string => Boolean(message))
+      .join('；')
+    if (validationMessage) return validationMessage
+  }
+  return fallback
+}
 
 // ── snake_case → camelCase 深度转换 ────────────────────────────────────────
 
@@ -75,7 +94,7 @@ async function refreshAndRetry(): Promise<string> {
     throw new Error(res.message || 'Token refresh failed')
   }
   const { accessToken, refreshToken: newRefreshToken } = res.data
-  memberStore.setLoginInfo(accessToken, newRefreshToken, memberStore.memberInfo)
+  memberStore.setLoginInfo(accessToken, newRefreshToken, memberStore.memberInfo ?? undefined)
   return accessToken
 }
 
@@ -173,8 +192,8 @@ request.interceptors.response.use(
   async (error) => {
     if (error.response) {
       const status = error.response.status
-      const data = error.response.data as CommonResult<unknown> | undefined
-      const message = data?.message || '请求错误'
+      const data = error.response.data as (CommonResult<unknown> & APIErrorPayload) | undefined
+      const message = getErrorMessage(data, '请求错误')
 
       if (status === 401) {
         // 登录/注册端点的 401 是正常业务响应，不应触发 token 刷新
@@ -223,7 +242,7 @@ request.interceptors.response.use(
     }
     // 网络错误
     console.error('[Network Error]', error.message)
-    return Promise.reject(new Error('网络错误，请检查网络连接'))
+    return Promise.reject(new Error('暂时无法连接服务器，请稍后重试'))
   },
 )
 

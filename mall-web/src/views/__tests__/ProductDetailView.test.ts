@@ -12,8 +12,10 @@ import ProductDetailView from '@/views/ProductDetailView.vue'
 // ─── Mock vue-router ──────────────────────────────────────────
 const mockPush = vi.fn()
 vi.mock('vue-router', () => ({
+  createRouter: vi.fn(() => ({ beforeEach: vi.fn() })),
+  createWebHistory: vi.fn(() => ({})),
   useRoute: () => ({
-    params: { id: '123' },
+    params: { id: '00000000-0000-4000-8000-000000000123' },
     query: {},
   }),
   useRouter: () => ({
@@ -28,6 +30,12 @@ vi.mock('@/apis/product', () => ({
 
 vi.mock('@/apis/cart', () => ({
   addCartAPI: vi.fn(),
+}))
+
+vi.mock('@/apis/memberProductCollection', () => ({
+  createProductCollectionAPI: vi.fn(),
+  deleteProductCollectionAPI: vi.fn(),
+  fetchProductCollectionListAPI: vi.fn().mockResolvedValue({ items: [] }),
 }))
 
 // ─── Mock Stores ──────────────────────────────────────────────

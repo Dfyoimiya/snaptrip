@@ -34,7 +34,7 @@ export interface PageParam {
   /** 当前页码，从1开始 */
   page?: number
   /** 每页数量，默认10 */
-  page_size?: number
+  pageSize?: number
   /** 查询关键字 */
   keyword?: string
 }

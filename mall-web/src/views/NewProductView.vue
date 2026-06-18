@@ -20,9 +20,9 @@ async function loadProducts() {
   try {
     const res = await searchProductListAPI({
       sort: 1, // new
-      pageNum: 1,
+      page: 1,
       pageSize: 20,
-    }) as unknown as { items: PmsProduct[] }
+    })
     products.value = res.items || []
   } catch (err: any) {
     console.error('加载新品失败:', err?.message || err)
@@ -68,10 +68,10 @@ onMounted(() => {
         @click="router.push(`/product/${product.id}`)"
       >
         <div class="aspect-square bg-gray-50 overflow-hidden relative">
-          <img :src="product.defaultPic" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+          <img :src="product.defaultPic || ''" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
           <span class="absolute top-2 left-2 bg-green-500 text-white text-[10px] px-2 py-0.5 rounded-full font-medium">NEW</span>
-          <span v-if="product.originalPrice > product.price" class="absolute top-2 right-2 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded font-medium">
-            省{{ Math.round((1 - product.price / product.originalPrice) * 100) }}%
+          <span v-if="(product.originalPrice ?? 0) > product.price" class="absolute top-2 right-2 bg-red-600 text-white text-[10px] px-1.5 py-0.5 rounded font-medium">
+            省{{ Math.round((1 - product.price / (product.originalPrice || product.price)) * 100) }}%
           </span>
         </div>
         <div class="p-3.5">

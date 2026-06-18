@@ -108,34 +108,30 @@ export interface ConfirmOrderResult {
 
 /** 创建订单请求参数（对应API文档 OrderParam） */
 export interface OrderParam {
-  /** 支付方式：0->未支付；1->支付宝；2->微信 */
-  payType: number
-  /** 优惠券ID */
-  couponId?: number
-  /** 被选中的购物车商品ID列表 */
-  cartIds: number[]
-  /** 收货地址ID */
-  memberReceiveAddressId?: number
-  /** 使用的积分数 */
-  useIntegration: number
+  cart_item_ids: string[]
+  receiver_name: string
+  receiver_phone: string
+  receiver_province?: string
+  receiver_city?: string
+  receiver_region?: string
+  receiver_detail_address: string
+  receiver_post_code?: string
+  note?: string
+  pay_type: number
+  coupon_id?: string | null
 }
 
 /** 生成订单返回结果（对应后端 OrderResult） */
-export interface GenerateOrderResult {
-  /** 订单信息 */
-  order: OmsOrderDetail
-  /** 订单商品列表 */
-  orderItemsList: OmsOrderItem[]
-}
+export type GenerateOrderResult = OmsOrderDetail
 
 /** 订单商品项 */
 export interface OmsOrderItem {
   /** ID */
-  id: number
+  id: string
   /** 订单ID */
-  orderId: number
+  orderId?: string
   /** 商品ID */
-  productId: number
+  productId: string
   /** 商品名称 */
   productName: string
   /** 商品主图 */
@@ -143,7 +139,7 @@ export interface OmsOrderItem {
   /** 商品销售属性 JSON 字符串 */
   productAttr: string
   /** 商品SKU ID */
-  skuId: number
+  skuId: string
   /** 商品SKU条码 */
   skuCode: string
   /** 销售价格 */
@@ -155,7 +151,9 @@ export interface OmsOrderItem {
 /** 订单详情（对应API文档 OmsOrderDetail） */
 export interface OmsOrderDetail {
   /** 订单ID */
-  id: number
+  id: string
+  /** 订单编号 */
+  orderSn: string
   /** 用户帐号 */
   memberUsername: string
   /** 订单总金额 */
@@ -169,15 +167,15 @@ export interface OmsOrderDetail {
   /** 订单状态：0->待付款；1->待发货；2->已发货；3->已完成；4->已关闭；5->无效订单 */
   status: number
   /** 优惠券ID */
-  couponId: number
+  couponId?: string | null
   /** 订单备注 */
-  note: string
+  note?: string | null
   /** 提交时间 */
   createdAt: string
   /** 支付时间 */
-  paymentTime: string
+  paymentTime?: string | null
   /** 发货时间 */
-  deliveryTime: string
+  deliveryTime?: string | null
   /** 收货人姓名 */
   receiverName: string
   /** 收货人电话 */
@@ -191,11 +189,11 @@ export interface OmsOrderDetail {
   /** 详细地址 */
   receiverDetailAddress: string
   /** 收货人邮编 */
-  receiverPostCode: string
+  receiverPostCode?: string | null
   /** 物流公司 */
-  deliveryCompany: string
+  deliveryCompany?: string | null
   /** 物流单号 */
-  deliverySn: string
+  deliverySn?: string | null
   /** 管理员后台调整订单使用的折扣金额 */
   discountAmount: number
   /** 订单商品列表 */

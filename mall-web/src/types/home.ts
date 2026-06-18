@@ -13,35 +13,37 @@ export interface CmsSubject {
   /** ID */
   id: string
   /** 分类ID */
-  categoryId: string
+  categoryId?: string
   /** 专题分类名称 */
-  categoryName: string
+  categoryName?: string | null
   /** 专题主图 */
-  pic: string
+  pic?: string | null
   /** 画册图片用逗号分割 */
-  albumPics: string
+  albumPics?: string
   /** 标题 */
   title: string
   /** 专题分类名称 */
-  description: string
+  description?: string
+  summary?: string | null
   /** 显示状态：0->不显示；1->显示 */
-  showStatus: number
+  showStatus?: number
+  status?: number
   /** 专题内容 */
-  content: string
+  content?: string | null
   /** 转发数 */
-  forwardCount: number
+  forwardCount?: number
   /** 收藏数 */
-  collectCount: number
+  collectCount?: number
   /** 阅读数 */
-  readCount: number
+  readCount?: number
   /** 评论数 */
-  commentCount: number
+  commentCount?: number
   /** 关联产品数量 */
-  productCount: number
+  productCount?: number
   /** 推荐状态 */
   recommendStatus: number
   /** 创建时间 */
-  createdAt: string
+  createdAt?: string | null
 }
 
 /** 首页广告信息 */
@@ -49,27 +51,27 @@ export interface SmsHomeAdvertise {
   /** ID */
   id: string
   /** 名称 */
-  name: string
+  title: string
   /** 广告图片 */
   pic: string
   /** 开始时间 */
-  startTime: string
+  startTime?: string | null
   /** 结束时间 */
-  endTime: string
+  endTime?: string | null
   /** 上线状态：0->关闭；1->开启 */
   status: number
   /** 点击数 */
-  clickCount: number
+  clickCount?: number
   /** 下单数 */
-  orderCount: number
+  orderCount?: number
   /** 链接地址 */
-  url: string
+  url?: string | null
   /** 备注 */
-  note: string
+  note?: string | null
   /** 排序 */
   sort: number
   /** 创建时间 */
-  createdAt: string
+  createdAt?: string | null
 }
 
 /** 首页秒杀信息 */

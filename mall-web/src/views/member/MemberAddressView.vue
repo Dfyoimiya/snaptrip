@@ -134,7 +134,7 @@ const handleSave = async () => {
   }
 }
 
-const handleDelete = async (id?: number) => {
+const handleDelete = async (id?: string) => {
   if (!id || !confirm('确定删除该地址吗？')) return
   try {
     await deleteAddressAPI(String(id))
@@ -144,7 +144,7 @@ const handleDelete = async (id?: number) => {
   }
 }
 
-const handleSetDefault = async (id?: number) => {
+const handleSetDefault = async (id?: string) => {
   if (!id) return
   try {
     await updateAddressAPI(String(id), { defaultStatus: 1 } as Partial<MemberReceiveAddress>)

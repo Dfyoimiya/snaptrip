@@ -91,20 +91,20 @@ export const getHomeRecommendationsAPI = (limit: number = 10) => {
 // ── 多维度首页推荐 Feed ──
 
 export interface FeedProduct {
-  product_id: string
+  productId: string
   name: string
   price: number
-  image_url: string
-  brand_name: string
-  category_id: string
-  sale_count: number
+  imageUrl: string
+  brandName: string
+  categoryId: string
+  saleCount: number
   stock: number
   score: number
-  marketing_copy: string
-  promotion_price: number | null
-  promotion_type: number
-  new_status: number
-  recommend_status: number
+  marketingCopy: string
+  promotionPrice: number | null
+  promotionType: number
+  newStatus: number
+  recommendStatus: number
 }
 
 export interface SearchDiscoveryItem {
@@ -113,17 +113,17 @@ export interface SearchDiscoveryItem {
 }
 
 export interface FeedSection {
-  section_type: 'guess_you_like' | 'trending_now' | 'new_arrivals' | 'recently_viewed' | 'search_discovery'
+  sectionType: 'guess_you_like' | 'trending_now' | 'new_arrivals' | 'recently_viewed' | 'search_discovery'
   title: string
-  sub_title: string
+  subTitle: string
   products: FeedProduct[]
   suggestions: SearchDiscoveryItem[]
 }
 
 export interface HomeFeedResponse {
   sections: FeedSection[]
-  user_id: string | null
-  session_id: string | null
+  userId: string | null
+  sessionId: string | null
 }
 
 /** 首页多维度推荐 Feed */

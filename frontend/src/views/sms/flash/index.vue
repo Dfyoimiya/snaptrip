@@ -226,8 +226,12 @@ async function loadProductList() {
   productLoading.value = true
   try {
     const res = await fetchFlashProductList({
-      promotionId: productSearch.flashPromotionId,
-      sessionId: productSearch.flashPromotionSessionId,
+      promotionId:
+        productSearch.flashPromotionId != null ? String(productSearch.flashPromotionId) : undefined,
+      sessionId:
+        productSearch.flashPromotionSessionId != null
+          ? String(productSearch.flashPromotionSessionId)
+          : undefined,
       flashPromotionId: productSearch.flashPromotionId != null ? String(productSearch.flashPromotionId) : '',
       flashPromotionSessionId: productSearch.flashPromotionSessionId != null ? String(productSearch.flashPromotionSessionId) : '',
       page: 1,

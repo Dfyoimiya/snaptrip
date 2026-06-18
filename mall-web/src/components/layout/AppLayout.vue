@@ -10,7 +10,7 @@
  * ============================================
  */
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useMemberStore } from '@/stores/member'
 import { useCartStore } from '@/stores/cart'
 import { useChatStore } from '@/stores/chat'
@@ -18,6 +18,7 @@ import TopBar from './TopBar.vue'
 import HeaderSearch from './HeaderSearch.vue'
 
 const router = useRouter()
+const route = useRoute()
 const memberStore = useMemberStore()
 const chatStore = useChatStore()
 const cartStore = useCartStore()
@@ -51,10 +52,18 @@ const navMenus = [
   { label: '新品上架', path: '/new' },
   { label: '人气推荐', path: '/hot' },
 ]
+
+const isMenuActive = (path: string): boolean => {
+  if (path === '/') return route.path === '/'
+  if (path === '/category') {
+    return route.path === '/category' || route.path === '/search' || route.path.startsWith('/product/')
+  }
+  return route.path === path || route.path.startsWith(`${path}/`)
+}
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col bg-gray-50">
+  <div class="min-h-screen flex flex-col mall-shell">
     <!-- 1. 顶部通栏导航条 -->
     <TopBar
       :is-logged-in="isLoggedIn"
@@ -70,13 +79,22 @@ const navMenus = [
     />
 
     <!-- 3. 主导航栏 -->
-    <nav class="bg-white border-b border-gray-200">
+    <nav class="mall-nav">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center gap-1 h-12 overflow-x-auto">
+        <div class="flex items-center gap-2 h-12 overflow-x-auto">
+          <button
+            class="category-trigger"
+            :class="{ active: isMenuActive('/category') }"
+            @click="navigateTo('/category')"
+          >
+            <span>☰</span> 全部分类
+          </button>
           <button
             v-for="menu in navMenus"
             :key="menu.path"
-            class="px-5 py-2 text-sm font-medium text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors whitespace-nowrap"
+            class="nav-menu-item"
+            :class="{ active: isMenuActive(menu.path) }"
+            :aria-current="isMenuActive(menu.path) ? 'page' : undefined"
             @click="navigateTo(menu.path)"
           >
             {{ menu.label }}
@@ -87,13 +105,13 @@ const navMenus = [
 
     <!-- 4. 主体内容区 -->
     <main class="flex-1">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div class="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 py-5">
         <slot />
       </div>
     </main>
 
     <!-- 5. 页脚 -->
-    <footer class="bg-white border-t border-gray-200 mt-auto">
+    <footer class="bg-white border-t border-orange-100 mt-auto">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
           <!-- 关于我们 -->
@@ -137,10 +155,65 @@ const navMenus = [
         <!-- 底部版权 -->
         <div class="mt-8 pt-8 border-t border-gray-200">
           <p class="text-center text-xs text-gray-400">
-            &copy; 2026 Mall PC Web. All rights reserved. 本网站仅供演示使用
+            &copy; 2026 SnapTrip. 智能推荐驱动的品质商城
           </p>
         </div>
       </div>
     </footer>
   </div>
 </template>
+
+<style scoped>
+.mall-shell {
+  background:
+    radial-gradient(circle at 50% 0, rgba(255, 122, 0, .11), transparent 360px),
+    #f5f5f5;
+}
+
+.mall-nav {
+  background: rgba(255, 255, 255, .96);
+  border-bottom: 1px solid #ffe2d3;
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  backdrop-filter: blur(12px);
+}
+
+.category-trigger {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 24px;
+  color: white;
+  background: linear-gradient(90deg, #ff7900, #ff5000);
+  font-size: 14px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.category-trigger.active {
+  box-shadow: inset 0 -3px 0 rgba(255, 255, 255, .75);
+}
+
+.nav-menu-item {
+  padding: 8px 18px;
+  color: #333;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: .2s;
+}
+
+.nav-menu-item:hover {
+  color: #ff5000;
+  background: #fff1e9;
+}
+
+.nav-menu-item.active {
+  color: #ff5000;
+  background: #fff1e9;
+  box-shadow: inset 0 0 0 1px #ffd7c2;
+}
+</style>

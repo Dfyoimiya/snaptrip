@@ -8,7 +8,7 @@
 /** 会员收货地址 */
 export interface MemberReceiveAddress {
   /** 地址ID */
-  id?: number
+  id?: string
   /** 收货人名称 */
   name: string
   /** 手机号码 */

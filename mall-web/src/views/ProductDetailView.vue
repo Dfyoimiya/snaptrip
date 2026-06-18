@@ -83,7 +83,7 @@ const mockProduct = ref<MockProductDetail>({
 /** 将 API SKU 列表映射为 skuStockList 格式 */
 function mapSkuStockList(skus: Record<string, unknown>[]): PmsSkuStock[] {
   return skus.map((sku) => ({
-    id: sku.id as number,
+    id: String(sku.id || ''),
     skuCode: (sku.skuCode || '') as string,
     price: (sku.price as number) || 0,
     stock: (sku.stock as number) || 0,
@@ -92,7 +92,7 @@ function mapSkuStockList(skus: Record<string, unknown>[]): PmsSkuStock[] {
     lockStock: (sku.lockStock as number) || 0,
     lowStock: (sku.lowStock as number) || 0,
     pic: (sku.pic || '') as string,
-    productId: (sku.productId as number) || 0,
+    productId: String(sku.productId || ''),
     sale: (sku.saleCount as number) || (sku.sale as number) || 0,
   }))
 }
@@ -105,7 +105,7 @@ async function loadProduct() {
 
   loading.value = true
   try {
-    const data = await getProductDetailAPI(productId) as Record<string, unknown>
+    const data = await getProductDetailAPI(productId)
 
     // 图片列表
     const pics = (data.defaultPic || '') as string
@@ -114,14 +114,14 @@ async function loadProduct() {
     productImages.value = allPics.length > 0 ? allPics : ['']
 
     // SKU
-    const skus = (data.skus || []) as Record<string, unknown>[]
+    const skus = (data.skus || []) as unknown as Record<string, unknown>[]
     const skuStockList = mapSkuStockList(skus)
 
     // 属性值
-    const attrValues = (data.attributeValues || []) as Record<string, unknown>[]
+    const attrValues = data.attributeValues || []
     const productAttributeValueList = attrValues.map((av, i) => ({
-      id: av.id || i + 1,
-      productAttributeId: av.attributeId || av.productAttributeId || 0,
+      id: String(av.id || i + 1),
+      productAttributeId: String(av.attributeId || av.productAttributeId || ''),
       value: (av.value || '') as string,
     }))
 
@@ -141,24 +141,24 @@ async function loadProduct() {
 
     mockProduct.value = {
       product: {
-        id: data.id || 0,
+        id: data.id,
         name: (data.name || '') as string,
         subTitle: (data.subTitle || '') as string,
         price: (data.price as number) || 0,
         originalPrice: (data.originalPrice as number) || 0,
-        sale: (data.saleCount as number) || (data.sale as number) || 0,
+        sale: data.saleCount || 0,
         stock: (data.stock as number) || 0,
-        brandName: (data.brandName || '') as string,
-        productCategoryName: (data.productCategoryName || '') as string,
+        brandName: '',
+        productCategoryName: '',
         pic: allPics[0] || '',
         albumPics: albumPics,
         description: (data.description || '') as string,
         serviceIds: (data.serviceIds || '') as string,
-        detailMobileHtml: (data.detailMobileHtml || '') as string,
+        detailMobileHtml: data.description || '',
         productSn: (data.productSn || '') as string,
         promotionType: (data.promotionType as number) || 0,
       },
-      brand: { ...defaultBrand, id: (data.brandId as string) || '', name: (data.brandName || '') as string },
+      brand: { ...defaultBrand, id: data.brandId || '' },
       skuStockList,
       productAttributeList,
       productAttributeValueList,
@@ -428,8 +428,8 @@ async function checkFavoriteStatus() {
 }
 
 /** 领取优惠券 */
-const receivedCoupons = ref<Set<number>>(new Set())
-const receiveCoupon = (couponId: number) => {
+const receivedCoupons = ref<Set<string>>(new Set())
+const receiveCoupon = (couponId: string) => {
   receivedCoupons.value.add(couponId)
   const toast = document.createElement('div')
   toast.className = 'fixed top-20 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 text-sm font-medium'

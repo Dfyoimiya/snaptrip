@@ -18,8 +18,8 @@ const brands = ref<PmsBrand[]>([])
 async function loadBrands() {
   loading.value = true
   try {
-    const res = await getBrandRecommendListAPI({ page: 1, page_size: 100 }) as unknown as { items: PmsBrand[] }
-    brands.value = res?.items || []
+    const res = await getBrandRecommendListAPI({ page: 1, page_size: 100 })
+    brands.value = res.items || []
   } catch (err: any) {
     console.error('加载品牌列表失败:', err?.message || err)
   } finally {
@@ -48,7 +48,7 @@ const groupedBrands = computed(() => {
 
   // 按字母排序
   return Object.keys(groups).sort().reduce((acc, key) => {
-    acc[key] = groups[key]
+    acc[key] = groups[key] || []
     return acc
   }, {} as Record<string, PmsBrand[]>)
 })
