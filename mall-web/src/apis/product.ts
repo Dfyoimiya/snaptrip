@@ -7,6 +7,7 @@
 
 import { get } from '@/utils/request'
 import type {
+  PmsProduct,
   PmsPortalProductDetail,
   ProductListParam,
   CategoryTreeNode,
@@ -26,15 +27,15 @@ export const getProductDetailAPI = (id: string) => {
  * @param params 搜索参数
  */
 export const searchProductListAPI = (params: ProductListParam) => {
-  return get<CommonPage<unknown>>('/api/v1/portal/products', {
+  return get<CommonPage<PmsProduct>>('/api/v1/portal/products', {
     keyword: params.keyword,
     category_id: params.productCategoryId,
     brand_id: params.brandId,
     min_price: params.minPrice,
     max_price: params.maxPrice,
     sort_by: _mapSort(params.sort),
-    page: (params as unknown as Record<string, unknown>).pageNum || 1,
-    page_size: (params as unknown as Record<string, unknown>).pageSize || 20,
+    page: params.page || 1,
+    page_size: params.pageSize || 20,
   })
 }
 
@@ -62,7 +63,7 @@ export const getProductsByCategoryAPI = (
   page = 1,
   pageSize = 10,
 ) => {
-  return get<CommonPage<unknown>>(`/api/v1/portal/products/category/${categoryId}`, {
+  return get<CommonPage<PmsProduct>>(`/api/v1/portal/products/category/${categoryId}`, {
     page,
     page_size: pageSize,
   })

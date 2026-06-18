@@ -19,9 +19,9 @@ const loading = ref(false)
 const coupons = ref<SmsCoupon[]>([])
 
 /** 已领取的券 ID */
-const receivedIds = ref<Set<number>>(new Set())
+const receivedIds = ref<Set<string>>(new Set())
 /** 正在领取中的券 ID */
-const claimingIds = ref<Set<number>>(new Set())
+const claimingIds = ref<Set<string>>(new Set())
 
 /** 分类筛选 — useType: 0=全场 1=品类 2=品牌 */
 const activeCategory = ref<number | 'all'>('all')
@@ -39,7 +39,7 @@ const filteredCoupons = computed(() => {
 })
 
 /** 领取优惠券 */
-const receiveCoupon = async (couponId: number) => {
+const receiveCoupon = async (couponId: string) => {
   if (receivedIds.value.has(couponId) || claimingIds.value.has(couponId)) return
   claimingIds.value.add(couponId)
   try {

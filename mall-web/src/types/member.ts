@@ -38,7 +38,11 @@ export interface MemberInfo {
   /** 邮箱 */
   email: string
   /** 昵称 */
-  nickname: string
+  nickname: string | null
   /** 头像 URL */
-  avatarUrl: string
+  avatarUrl: string | null
+  /** 会员资料接口当前未提供手机号，保留为空用于兼容个人中心表单。 */
+  phone?: string | null
+  /** 积分字段为可选扩展字段。 */
+  integration?: number
 }

@@ -81,7 +81,7 @@ const getActions = (status: number) => {
 }
 
 /** 查看订单详情 */
-const viewDetail = (orderId: number) => {
+const viewDetail = (orderId: string) => {
   router.push(`/order/${orderId}`)
 }
 

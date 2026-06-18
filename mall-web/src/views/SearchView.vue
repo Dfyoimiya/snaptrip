@@ -76,8 +76,7 @@ async function loadFilterOptions() {
       categoryOptions.value = flat
     }
     if (brandRes) {
-      const brands = Array.isArray(brandRes) ? brandRes : (brandRes as unknown as { data: { items: PmsBrand[] } }).data?.items || []
-      brandOptions.value = brands.map(b => ({ id: b.id, name: b.name }))
+      brandOptions.value = brandRes.items.map((brand) => ({ id: brand.id, name: brand.name }))
     }
   } catch {
     // Silently ignore filter loading errors — search still works without filters
@@ -95,9 +94,9 @@ async function fetchProducts() {
       sort: sortType.value,
       minPrice: minPrice.value,
       maxPrice: maxPrice.value,
-      pageNum: currentPage.value,
+      page: currentPage.value,
       pageSize,
-    }) as unknown as { items: PmsProduct[]; total: number; totalPages: number; page: number }
+    })
     productList.value = res.items || []
     total.value = res.total || 0
     totalPages.value = res.totalPages || 1
@@ -155,6 +154,7 @@ const selectPriceRange = (index: number) => {
   } else {
     selectedPriceRange.value = index
     const range = priceRanges[index]
+    if (!range) return
     minPrice.value = range.min
     maxPrice.value = range.max
   }
@@ -358,7 +358,7 @@ onMounted(() => {
       >
         <!-- 商品图片 -->
         <div class="aspect-square bg-gray-50 overflow-hidden relative">
-          <img :src="product.defaultPic" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+          <img :src="product.defaultPic || ''" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
           <!-- 促销标签 -->
           <span
             v-if="(product.originalPrice ?? 0) > product.price"

@@ -20,9 +20,9 @@ async function loadProducts() {
   try {
     const res = await searchProductListAPI({
       sort: 2, // sales
-      pageNum: 1,
+      page: 1,
       pageSize: 20,
-    }) as unknown as { items: PmsProduct[] }
+    })
     products.value = res.items || []
   } catch (err: any) {
     console.error('加载热门商品失败:', err?.message || err)
@@ -78,7 +78,7 @@ onMounted(() => {
         </div>
 
         <div class="aspect-square bg-gray-50 overflow-hidden relative">
-          <img :src="product.defaultPic" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+          <img :src="product.defaultPic || ''" :alt="product.name" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
         </div>
         <div class="p-3.5">
           <p class="text-sm text-gray-800 line-clamp-2 leading-5 min-h-[40px] mb-2 group-hover:text-red-600 transition-colors">{{ product.name }}</p>

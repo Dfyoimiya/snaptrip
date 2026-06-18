@@ -35,8 +35,8 @@ function handleClickOutside() {
     <!-- Logo -->
     <div class="sidebar-logo" :class="{ collapse: isCollapse }">
       <router-link to="/" class="logo-link">
-        <img src="/vite.svg" class="logo-img" alt="logo" />
-        <h1 v-show="!isCollapse" class="logo-title">Mall Admin</h1>
+        <span class="logo-img">S</span>
+        <h1 v-show="!isCollapse" class="logo-title">SnapTrip Admin</h1>
       </router-link>
     </div>
 
@@ -109,6 +109,13 @@ function handleClickOutside() {
         width: 28px;
         height: 28px;
         flex-shrink: 0;
+        display: grid;
+        place-items: center;
+        border-radius: 8px;
+        background: linear-gradient(135deg, #165dff, #6aa1ff);
+        color: #fff;
+        font-weight: 800;
+        box-shadow: 0 5px 12px rgba(22, 93, 255, 0.22);
       }
 
       .logo-title {

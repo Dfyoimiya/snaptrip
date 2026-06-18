@@ -8,8 +8,6 @@
  * ============================================
  */
 
-import type { PmsBrand } from './brand'
-import type { SmsCoupon } from './coupon'
 import type { PageParam } from './common'
 
 /** 商品信息（列表项 —— 匹配 portal/products 返回字段） */
@@ -222,16 +220,32 @@ export interface PmsProductLadder {
 
 /** 商品详情响应结果 - 对应后端 PortalProductDetailResponse Schema */
 export interface PmsPortalProductDetail {
-  /** 商品信息 (PortalProductResponse 字段) */
-  product: PmsProduct
-  /** 品牌信息 */
-  brand: PmsBrand
+  /** 后端 PortalProductDetailResponse 为扁平商品结构。 */
+  id: string
+  name: string
+  subTitle?: string | null
+  brandId?: string | null
+  categoryId?: string | null
+  productSn?: string | null
+  price: number
+  originalPrice?: number | null
+  promotionPrice?: number | null
+  promotionPerLimit?: number
+  promotionType?: number
+  stock: number
+  saleCount?: number
+  pics?: string | null
+  albumPics?: string | null
+  defaultPic?: string | null
+  description?: string | null
+  keywords?: string | null
+  unit?: string | null
+  weight?: number | null
+  serviceIds?: string | null
   /** SKU 列表 */
   skus: PmsSkuStock[]
   /** 属性值列表 */
   attributeValues: Record<string, unknown>[]
-  /** 商品可用优惠券 */
-  couponList: SmsCoupon[]
 }
 
 /** 规格选项（前端专用） */

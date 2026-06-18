@@ -31,5 +31,5 @@ export const getBrandProductListAPI = (brandId: string, page = 1, pageSize = 10)
  * 获取推荐品牌列表
  */
 export const getBrandRecommendListAPI = (params?: { page?: number; page_size?: number }) => {
-  return get<PmsBrand[]>('/api/v1/portal/brands', params as Record<string, unknown>)
+  return get<CommonPage<PmsBrand>>('/api/v1/portal/brands', params as Record<string, unknown>)
 }

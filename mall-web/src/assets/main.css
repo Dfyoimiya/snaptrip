@@ -20,8 +20,13 @@
   }
 
   body {
-    color: #1f2937;
-    background-color: #f9fafb;
+    color: #2f241f;
+    background-color: #f5f5f5;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
   }
 
   /* 滚动条样式 */
