@@ -18,11 +18,19 @@ export const deleteProductCollectionAPI = (params: { productId: string }) => {
 }
 
 /** 获取商品收藏列表 → GET /api/v1/portal/member/favorites */
-export const fetchProductCollectionListAPI = (params: { pageNum: number; pageSize: number }) => {
-  return get<CommonPage<unknown>>('/api/v1/portal/member/favorites', {
+export const fetchProductCollectionListAPI = (params: {
+  pageNum: number
+  pageSize: number
+  productStatus?: number
+}) => {
+  const query: Record<string, unknown> = {
     page: params.pageNum,
     page_size: params.pageSize,
-  })
+  }
+  if (params.productStatus !== undefined) {
+    query.product_status = params.productStatus
+  }
+  return get<CommonPage<unknown>>('/api/v1/portal/member/favorites', query)
 }
 
 /** 查询商品收藏详情 — 后端无此接口，返回 null */

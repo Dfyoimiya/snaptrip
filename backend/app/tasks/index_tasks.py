@@ -43,7 +43,12 @@ def sync_all_products_to_es() -> dict:
         await get_search_client().create_product_index()
 
         # 全量查询 — 预加载品牌和分类名称用于 ES 文档
-        from snaptrip_shared.db.session import AsyncSessionLocal
+        from snaptrip_shared.db.session import AsyncSessionLocal, async_engine
+
+        try:
+            await async_engine.dispose()
+        except RuntimeError:
+            pass  # 旧事件循环已关闭，连接无法清理，安全忽略
 
         from app.models.product.brand import PmsBrand
         from app.models.product.category import PmsCategory
@@ -107,7 +112,12 @@ def sync_product_to_es_by_id(product_id: str) -> bool:
     async def _run():
         from uuid import UUID
 
-        from snaptrip_shared.db.session import AsyncSessionLocal
+        from snaptrip_shared.db.session import AsyncSessionLocal, async_engine
+
+        try:
+            await async_engine.dispose()
+        except RuntimeError:
+            pass  # 旧事件循环已关闭，连接无法清理，安全忽略
 
         from app.models.product.product import PmsProduct
         from app.services.product_service import sync_product_to_es

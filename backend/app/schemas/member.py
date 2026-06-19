@@ -64,6 +64,7 @@ class FavoriteResponse(BaseModel):
     product_name: str
     product_pic: str | None = None
     product_price: str | None = None
+    product_status: int | None = None  # 0=下架 1=上架
     created_at: datetime | None = None
     model_config = {"from_attributes": True}
 

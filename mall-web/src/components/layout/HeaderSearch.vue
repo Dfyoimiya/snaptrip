@@ -17,10 +17,6 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { getSearchSuggestAPI, type SuggestSection, type SuggestQuery } from '@/apis/search'
 import { trackSearch } from '@/utils/tracker'
 
-const props = defineProps<{
-  cartCount: number
-}>()
-
 const emit = defineEmits<{
   (e: 'navigate', path: string): void
 }>()
@@ -205,16 +201,15 @@ onUnmounted(() => {
 })
 
 // ── 快捷事件 ──
-function handleGoCart() { emit('navigate', '/cart') }
 function handleGoHome() { emit('navigate', '/') }
 </script>
 
 <template>
-  <div class="bg-white">
+  <div class="sticky top-0 z-40 bg-white/70 backdrop-blur-2xl border-b border-white/30">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between py-5 gap-8">
-        <!-- Logo -->
-        <div class="flex-shrink-0 cursor-pointer" @click="handleGoHome">
+      <div class="flex items-center py-5 gap-8">
+        <!-- Logo —— flex-1 占位确保搜索框居中 -->
+        <div class="flex-1 flex justify-start cursor-pointer" @click="handleGoHome">
           <div class="flex items-center gap-3">
             <div class="w-10 h-10 bg-brand-600 rounded-lg flex items-center justify-center">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -229,41 +224,41 @@ function handleGoHome() { emit('navigate', '/') }
         </div>
 
         <!-- 搜索区 -->
-        <div class="flex-1 max-w-2xl header-search-wrapper">
-          <div class="relative">
-            <!-- 搜索输入框 + 按钮 -->
-            <div class="flex">
-              <div class="flex-1 relative">
-                <input
-                  v-model="keyword"
-                  type="text"
-                  placeholder="搜索商品、品牌..."
-                  class="w-full h-10 pl-4 pr-4 text-sm border-2 border-brand-600 rounded-l-md focus:outline-none focus:ring-0 bg-white text-gray-700 placeholder-gray-400"
-                  @input="onInput"
-                  @keydown="handleKeydown"
-                  @focus="handleFocus"
-                />
-                <!-- loading 指示器 -->
-                <div v-if="loading" class="absolute right-3 top-1/2 -translate-y-1/2">
-                  <div class="w-4 h-4 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
-                </div>
+        <div class="flex-none w-full max-w-[630px] header-search-wrapper">
+          <!-- 统一搜索容器：输入框 + 下拉面板融为一体 -->
+          <div
+            class="border-2 border-brand-600 rounded-[12px] overflow-hidden bg-white/80 transition-shadow duration-300"
+            :class="{ 'shadow-xl': showDropdown }"
+          >
+            <!-- 搜索输入行 -->
+            <div class="flex items-center h-11">
+              <input
+                v-model="keyword"
+                type="text"
+                placeholder="搜索商品、品牌..."
+                class="flex-1 h-full pl-5 pr-3 text-sm border-none outline-none bg-transparent text-gray-700 placeholder-gray-400"
+                @input="onInput"
+                @keydown="handleKeydown"
+                @focus="handleFocus"
+              />
+              <!-- loading 指示器 -->
+              <div v-if="loading" class="mr-2">
+                <div class="w-4 h-4 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
               </div>
               <button
-                class="h-10 px-8 bg-brand-600 text-white text-sm font-medium rounded-r-md hover:bg-brand-700 transition-colors flex items-center gap-2"
+                class="h-[36px] px-6 mr-[2.2px] bg-brand-600 text-white text-sm font-medium rounded-[8px] hover:bg-brand-700 transition-colors flex-shrink-0"
                 @click="doSearch(keyword)"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
                 搜索
               </button>
             </div>
 
-            <!-- ====== 下拉建议面板 ====== -->
+            <!-- 下拉面板 — 线性展开动画 -->
             <div
-              v-if="showDropdown"
-              class="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden"
+              class="overflow-hidden transition-[max-height] duration-300 ease-linear"
+              :style="{ maxHeight: showDropdown ? '600px' : '0px' }"
             >
+              <div class="border-t border-gray-100">
               <!-- 搜索历史 -->
               <div v-if="!keyword.trim() && loadHistory().length" class="px-4 py-3 border-b border-gray-100">
                 <div class="flex items-center justify-between mb-2">
@@ -361,6 +356,7 @@ function handleGoHome() { emit('navigate', '/') }
               </div>
             </div>
           </div>
+          </div>
 
           <!-- 热门搜索标签 (无输入时的默认展示) -->
           <div v-if="!showDropdown" class="flex items-center gap-3 mt-2">
@@ -376,24 +372,8 @@ function handleGoHome() { emit('navigate', '/') }
           </div>
         </div>
 
-        <!-- 购物车入口 -->
-        <div class="flex-shrink-0">
-          <button
-            class="flex items-center gap-2 h-10 px-5 border border-gray-200 rounded-md hover:border-brand-600 hover:text-brand-600 transition-colors text-sm text-gray-700 bg-white"
-            @click="handleGoCart"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-            </svg>
-            <span>购物车</span>
-            <span
-              v-if="cartCount > 0"
-              class="flex items-center justify-center min-w-5 h-5 px-1 bg-brand-600 text-white text-xs font-medium rounded-full"
-            >
-              {{ cartCount > 99 ? '99+' : cartCount }}
-            </span>
-          </button>
-        </div>
+        <!-- 右侧占位，保持搜索框居中 -->
+        <div class="flex-1" />
       </div>
     </div>
   </div>

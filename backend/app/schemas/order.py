@@ -91,9 +91,9 @@ class OrderItemResponse(BaseModel):
     product_id: UUID
     product_name: str
     product_pic: str | None = None
+    spec: str
     sku_id: UUID
     sku_code: str
-    spec: str
     price: Decimal
     quantity: int
 
@@ -161,6 +161,7 @@ class OrderResponse(BaseModel):
     note: str | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+    items: list[OrderItemResponse] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 
@@ -179,9 +180,8 @@ class OrderOperateLogResponse(BaseModel):
 
 
 class OrderDetailResponse(OrderResponse):
-    """订单详情 —— 含商品明细 + 操作日志"""
+    """订单详情 —— 含操作日志"""
 
-    items: list[OrderItemResponse] = Field(default_factory=list)
     logs: list[OrderOperateLogResponse] = Field(default_factory=list)
 
 

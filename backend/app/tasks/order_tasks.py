@@ -34,12 +34,18 @@ def auto_cancel_expired_orders() -> dict:
     from datetime import UTC, datetime, timedelta
 
     async def _run():
+        from snaptrip_shared.db.session import async_engine
         from sqlalchemy import select, update
 
         from app.core.config import commerce_settings
         from app.models.order.order import OmsOrder, OmsOrderItem, OmsOrderOperateLog
         from app.models.product.sku import PmsSku
         from app.schemas.order import OrderStatus
+
+        try:
+            await async_engine.dispose()
+        except RuntimeError:
+            pass  # 旧事件循环已关闭，连接无法清理，安全忽略
 
         timeout_minutes = commerce_settings.ORDER_AUTO_CANCEL_MINUTES
         deadline = datetime.now(UTC) - timedelta(minutes=timeout_minutes)
@@ -110,11 +116,17 @@ def auto_confirm_receipt_orders() -> dict:
     from datetime import UTC, datetime, timedelta
 
     async def _run():
+        from snaptrip_shared.db.session import async_engine
         from sqlalchemy import select
 
         from app.core.config import commerce_settings
         from app.models.order.order import OmsOrder, OmsOrderOperateLog
         from app.schemas.order import OrderStatus
+
+        try:
+            await async_engine.dispose()
+        except RuntimeError:
+            pass  # 旧事件循环已关闭，连接无法清理，安全忽略
 
         default_confirm_days = commerce_settings.ORDER_AUTO_CONFIRM_DAYS
         default_complete_days = commerce_settings.ORDER_AUTO_COMPLETE_DAYS

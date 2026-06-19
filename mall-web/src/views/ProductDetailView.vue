@@ -13,6 +13,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { addCartAPI } from '@/apis/cart'
 import { getProductDetailAPI } from '@/apis/product'
 import { createProductCollectionAPI, deleteProductCollectionAPI, fetchProductCollectionListAPI } from '@/apis/memberProductCollection'
+import { trackView } from '@/utils/tracker'
 import { useCartStore } from '@/stores/cart'
 import { useMemberStore } from '@/stores/member'
 import DOMPurify from 'dompurify'
@@ -172,6 +173,9 @@ async function loadProduct() {
       const firstInStock = skuStockList.find((s) => s.stock > 0)
       if (firstInStock) selectedSku.value = firstInStock
     }
+
+    // 埋点：记录商品浏览
+    if (productId) trackView(productId)
   } catch (err: any) {
     console.error('商品加载失败:', err?.message || err)
     error.value = err?.message || '商品加载失败'
@@ -365,20 +369,30 @@ const handleAddToCart = async () => {
 }
 
 /** 立即购买 */
-const handleBuyNow = () => {
+const buying = ref(false)
+const handleBuyNow = async () => {
   if (!memberStore.isLoggedIn) {
     router.push(`/login?redirect=/product/${productId.value}`)
     return
   }
-  if (!selectedSku.value) return
-  router.push({
-    path: '/order-confirm',
-    query: {
-      productId: productId.value,
-      skuId: String(selectedSku.value.id),
+  if (!selectedSku.value) {
+    showToast('请选择商品规格', 'error')
+    return
+  }
+  buying.value = true
+  try {
+    await addCartAPI({
+      product_id: productId.value,
+      sku_id: String(selectedSku.value.id),
       quantity: quantity.value,
-    },
-  })
+    })
+    await cartStore.fetchCartList()
+    router.push('/order-confirm')
+  } catch {
+    showToast('操作失败，请重试', 'error')
+  } finally {
+    buying.value = false
+  }
 }
 
 /** 收藏状态 */
@@ -445,7 +459,9 @@ const receiveCoupon = (couponId: string) => {
 // ============================================================
 
 onMounted(() => {
-  loadProduct().then(() => checkFavoriteStatus())
+  loadProduct().then(() => {
+    checkFavoriteStatus()
+  })
 })
 
 onUnmounted(() => {
@@ -685,13 +701,18 @@ onUnmounted(() => {
                 加入购物车
               </button>
               <button
-                class="flex-1 h-12 bg-brand-600 text-white font-bold text-base rounded-lg hover:bg-brand-700 transition-colors flex items-center justify-center gap-2 shadow-md shadow-brand-200"
+                :disabled="buying"
+                class="flex-1 h-12 bg-brand-600 text-white font-bold text-base rounded-lg hover:bg-brand-700 transition-colors flex items-center justify-center gap-2 shadow-md shadow-brand-200 disabled:opacity-60"
                 @click="handleBuyNow"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <svg v-if="!buying" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
-                立即购买
+                <svg v-else class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                {{ buying ? '处理中...' : '立即购买' }}
               </button>
             </div>
 
@@ -884,10 +905,12 @@ onUnmounted(() => {
           </div>
 
           <!-- 用户评价 -->
-          <div v-if="activeTab === 'reviews'">
-            <div class="flex items-center justify-center py-12 text-gray-400 text-sm">
-              暂无评价
-            </div>
+          <div v-if="activeTab === 'reviews'" class="flex flex-col items-center justify-center py-16 text-gray-400 text-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mb-3 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            <p>暂无评价</p>
+            <p class="text-xs mt-1">成为第一个评价的人吧</p>
           </div>
         </div>
       </div>

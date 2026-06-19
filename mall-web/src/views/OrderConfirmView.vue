@@ -14,6 +14,7 @@ import { useCartStore } from '@/stores/cart'
 import { getAddressListAPI, addAddressAPI, updateAddressAPI, deleteAddressAPI } from '@/apis/address'
 import { generateOrderAPI } from '@/apis/order'
 import { getProductDetailAPI } from '@/apis/product'
+import RegionCascader from '@/components/RegionCascader.vue'
 import type { MemberReceiveAddress } from '@/types/address'
 import type { OrderParam, OrderDirectParam } from '@/types/order'
 
@@ -35,7 +36,7 @@ const addrDialogVisible = ref(false)
 const addrDialogTitle = ref('新增收货地址')
 const addrForm = reactive<MemberReceiveAddress>({
   name: '', phone: '', province: '', city: '', region: '',
-  detailAddress: '', postCode: '', defaultStatus: 0,
+  detailAddress: '', defaultStatus: 0,
 })
 const editingAddrId = ref<string | null>(null)
 const addrSubmitting = ref(false)
@@ -165,7 +166,6 @@ function openAddDialog(): void {
   addrForm.city = ''
   addrForm.region = ''
   addrForm.detailAddress = ''
-  addrForm.postCode = ''
   addrForm.defaultStatus = 0
   addrDialogVisible.value = true
 }
@@ -179,7 +179,6 @@ function openEditDialog(addr: MemberReceiveAddress): void {
   addrForm.city = addr.city || ''
   addrForm.region = addr.region || ''
   addrForm.detailAddress = addr.detailAddress || ''
-  addrForm.postCode = addr.postCode || ''
   addrForm.defaultStatus = addr.defaultStatus ?? 0
   addrDialogVisible.value = true
 }
@@ -189,16 +188,23 @@ async function handleSaveAddress(): Promise<void> {
     alert('请填写收货人、联系电话和详细地址')
     return
   }
+  if (!/^1[3-9]\d{9}$/.test(addrForm.phone.trim())) {
+    alert('请输入正确的11位手机号码')
+    return
+  }
+  if (!addrForm.province || !addrForm.city || !addrForm.region) {
+    alert('请选择完整的省/市/区')
+    return
+  }
   addrSubmitting.value = true
   try {
     const payload = {
       name: addrForm.name.trim(),
       phone: addrForm.phone.trim(),
-      province: addrForm.province.trim() || null,
-      city: addrForm.city.trim() || null,
-      region: addrForm.region.trim() || null,
+      province: addrForm.province,
+      city: addrForm.city,
+      region: addrForm.region,
       detail_address: addrForm.detailAddress.trim(),
-      post_code: addrForm.postCode.trim() || null,
       default_status: addrForm.defaultStatus,
     }
     if (editingAddrId.value) {
@@ -263,7 +269,6 @@ const handleSubmitOrder = async () => {
       receiver_city: addr.city || '',
       receiver_region: addr.region || '',
       receiver_detail_address: addr.detailAddress || '',
-      receiver_post_code: addr.postCode || '',
       note: orderNote.value,
       pay_type: payType.value,
       coupon_id: null,
@@ -541,25 +546,16 @@ const handleSubmitOrder = async () => {
                 </div>
                 <div>
                   <label class="block text-xs font-medium text-gray-500 mb-1.5">联系电话 <span class="text-red-400">*</span></label>
-                  <input v-model="addrForm.phone" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" placeholder="手机号码" />
+                  <input v-model="addrForm.phone" type="tel" maxlength="11" pattern="^1[3-9]\d{9}$" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" placeholder="11位手机号码" />
                 </div>
               </div>
 
-              <!-- 省市区 -->
-              <div class="grid grid-cols-3 gap-3">
-                <div>
-                  <label class="block text-xs font-medium text-gray-500 mb-1.5">省</label>
-                  <input v-model="addrForm.province" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" placeholder="省/直辖市" />
-                </div>
-                <div>
-                  <label class="block text-xs font-medium text-gray-500 mb-1.5">市</label>
-                  <input v-model="addrForm.city" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" placeholder="城市" />
-                </div>
-                <div>
-                  <label class="block text-xs font-medium text-gray-500 mb-1.5">区</label>
-                  <input v-model="addrForm.region" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" placeholder="区/县" />
-                </div>
-              </div>
+              <!-- 省市区级联选择 -->
+              <RegionCascader
+                v-model:province="addrForm.province"
+                v-model:city="addrForm.city"
+                v-model:region="addrForm.region"
+              />
 
               <!-- 详细地址 -->
               <div>
@@ -567,13 +563,9 @@ const handleSubmitOrder = async () => {
                 <input v-model="addrForm.detailAddress" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" placeholder="街道、门牌号等" />
               </div>
 
-              <!-- 邮编 + 默认 -->
+              <!-- 默认地址 -->
               <div class="flex items-center gap-6">
-                <div class="flex-1">
-                  <label class="block text-xs font-medium text-gray-500 mb-1.5">邮政编码</label>
-                  <input v-model="addrForm.postCode" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" placeholder="选填" />
-                </div>
-                <label class="flex items-center gap-2 cursor-pointer pt-5 select-none">
+                <label class="flex items-center gap-2 cursor-pointer select-none">
                   <input v-model="addrForm.defaultStatus" :true-value="1" :false-value="0" type="checkbox" class="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500" />
                   <span class="text-sm text-gray-600">设为默认地址</span>
                 </label>

@@ -9,24 +9,22 @@ import type { OmsOrderReturnApply } from '@/types/returnApply'
 
 const router = useRouter()
 
-const defaultStatusOptions = [
+const statusOptions = [
   { label: '待处理', value: 0 },
   { label: '退货中', value: 1 },
-  { label: '已完成', value: 2 },
-  { label: '已拒绝', value: 3 },
+  { label: '已拒绝', value: 2 },
+  { label: '已退款', value: 3 },
 ]
 
 const listQuery = ref({
   id: undefined as string | undefined,
   status: undefined as number | undefined,
-  createdAt: '',
-  handleMan: '',
-  handleTime: '',
+  create_time: '',
+  handle_man: '',
+  handle_time: '',
   pageNum: 1,
   pageSize: 10,
 })
-
-const statusOptions = ref([...defaultStatusOptions])
 
 const list = ref<OmsOrderReturnApply[]>([])
 const total = ref(0)
@@ -36,7 +34,7 @@ const operateType = ref<number>()
 
 const operateOptions = ref([{ label: '批量删除', value: 1 }])
 
-const formatStatus = (status?: number) => defaultStatusOptions.find(item => item.value === status)?.label || ''
+const formatStatus = (status?: number) => statusOptions.find(item => item.value === status)?.label || ''
 const formatReturnAmount = (row: OmsOrderReturnApply) => (row.productRealPrice || 0) * (row.productCount || 0)
 
 const handleSelectionChange = (val: OmsOrderReturnApply[]) => { multipleSelection.value = val }
@@ -47,9 +45,9 @@ const fetchData = async () => {
     const res = await getReturnApplyListAPI({
       id: listQuery.value.id,
       status: listQuery.value.status,
-      createdAt: listQuery.value.createdAt || undefined,
-      handleMan: listQuery.value.handleMan || undefined,
-      handleTime: listQuery.value.handleTime || undefined,
+      create_time: listQuery.value.create_time || undefined,
+      handle_man: listQuery.value.handle_man || undefined,
+      handle_time: listQuery.value.handle_time || undefined,
       page: listQuery.value.pageNum,
       page_size: listQuery.value.pageSize,
     })
@@ -65,7 +63,10 @@ const fetchData = async () => {
 
 onMounted(() => { fetchData() })
 
-const handleResetSearch = () => { listQuery.value = { id: undefined, status: undefined, createdAt: '', handleMan: '', handleTime: '', pageNum: 1, pageSize: 10 }; fetchData() }
+const handleResetSearch = () => {
+  listQuery.value = { id: undefined, status: undefined, create_time: '', handle_man: '', handle_time: '', pageNum: 1, pageSize: 10 }
+  fetchData()
+}
 const handleSearchList = () => { listQuery.value.pageNum = 1; fetchData() }
 const handleViewDetail = (_index: number, row: OmsOrderReturnApply) => {
   if (!row.id) return ElMessage.error('退货申请ID不能为空')
@@ -73,7 +74,10 @@ const handleViewDetail = (_index: number, row: OmsOrderReturnApply) => {
 }
 
 const handleBatchOperate = async () => {
-  if (!multipleSelection.value || multipleSelection.value.length < 1) { ElMessage({ message: '请选择要操作的申请', type: 'warning', duration: 1000 }); return }
+  if (!multipleSelection.value || multipleSelection.value.length < 1) {
+    ElMessage({ message: '请选择要操作的申请', type: 'warning', duration: 1000 })
+    return
+  }
   if (operateType.value === 1) {
     await ElMessageBox.confirm('是否要进行删除操作?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
     try {
@@ -111,13 +115,13 @@ const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; fe
             </el-select>
           </el-form-item>
           <el-form-item label="申请时间：">
-            <el-date-picker class="input-width" v-model="listQuery.createdAt" value-format="YYYY-MM-DD" type="date" placeholder="请选择时间"></el-date-picker>
+            <el-date-picker class="input-width" v-model="listQuery.create_time" value-format="YYYY-MM-DD" type="date" placeholder="请选择时间"></el-date-picker>
           </el-form-item>
           <el-form-item label="操作人员：">
-            <el-input v-model="listQuery.handleMan" class="input-width" placeholder="全部"></el-input>
+            <el-input v-model="listQuery.handle_man" class="input-width" placeholder="全部"></el-input>
           </el-form-item>
           <el-form-item label="处理时间：">
-            <el-date-picker class="input-width" v-model="listQuery.handleTime" value-format="YYYY-MM-DD" type="date" placeholder="请选择时间"></el-date-picker>
+            <el-date-picker class="input-width" v-model="listQuery.handle_time" value-format="YYYY-MM-DD" type="date" placeholder="请选择时间"></el-date-picker>
           </el-form-item>
         </el-form>
       </div>

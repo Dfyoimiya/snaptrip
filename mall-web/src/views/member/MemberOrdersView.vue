@@ -58,12 +58,12 @@ function fullAddress(o: OmsOrderDetail): string {
 
 /** 规格文本 */
 function specText(item: OmsOrderDetail['items'][number]): string {
-  if (!item.productAttr || item.productAttr === '[]') return ''
+  if (!item.spec || item.spec === '[]') return ''
   try {
-    const parsed = JSON.parse(item.productAttr)
+    const parsed = JSON.parse(item.spec)
     if (Array.isArray(parsed)) return parsed.map((a: { value: string }) => a.value).join(' / ')
-    return item.productAttr
-  } catch { return item.productAttr }
+    return item.spec
+  } catch { return item.spec }
 }
 
 const formatPrice = (p: number | null | undefined) => (p ?? 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })

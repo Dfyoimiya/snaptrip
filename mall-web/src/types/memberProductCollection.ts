@@ -5,7 +5,7 @@
  * ============================================
  */
 
-/** 会员商品收藏 - 对应后端 MemberProductCollection Schema */
+/** 会员商品收藏 - 对应后端 FavoriteResponse Schema */
 export interface MemberProductCollection {
   /** ID */
   id?: string
@@ -18,5 +18,7 @@ export interface MemberProductCollection {
   /** 商品图片 */
   productPic: string
   /** 商品价格 */
-  productPrice: number
+  productPrice: string
+  /** 商品状态: 0=下架 1=上架 */
+  productStatus?: number
 }

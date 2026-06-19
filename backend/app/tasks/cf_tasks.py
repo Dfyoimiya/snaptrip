@@ -44,7 +44,12 @@ def train_cf_model() -> dict:
     """
 
     async def _run():
-        from snaptrip_shared.db.session import AsyncSessionLocal
+        from snaptrip_shared.db.session import AsyncSessionLocal, async_engine
+
+        try:
+            await async_engine.dispose()
+        except RuntimeError:
+            pass  # 旧事件循环已关闭，连接无法清理，安全忽略
 
         from app.services.collaborative_filtering_service import CollaborativeFilteringService
         from app.services.memory_service import MemoryService

@@ -763,14 +763,17 @@ class OrderService:
 
         from app.schemas.order import OrderOperateLogResponse
 
+        order_resp = OrderResponse.model_validate(order)
+        order_resp.items = [OrderItemResponse.model_validate(i) for i in items]
         return OrderDetailResponse(
-            **OrderResponse.model_validate(order).model_dump(),
-            items=[OrderItemResponse.model_validate(i) for i in items],
+            **order_resp.model_dump(),
             logs=[OrderOperateLogResponse.model_validate(log) for log in logs],
         )
 
     async def list_admin(self, query: OrderListQuery) -> tuple[list[OrderResponse], int]:
         """管理后台订单列表 —— 多条件筛选"""
+        from sqlalchemy.orm import selectinload
+
         from app.models.order.order import OmsOrder
 
         base = select(OmsOrder)
@@ -797,7 +800,10 @@ class OrderService:
         total = result.scalar() or 0
 
         result = await self.db.execute(
-            base.order_by(OmsOrder.created_at.desc()).offset((query.page - 1) * query.page_size).limit(query.page_size)
+            base.options(selectinload(OmsOrder.items))
+            .order_by(OmsOrder.created_at.desc())
+            .offset((query.page - 1) * query.page_size)
+            .limit(query.page_size)
         )
         orders = result.scalars().all()
         return [OrderResponse.model_validate(o) for o in orders], total
@@ -806,6 +812,8 @@ class OrderService:
         self, user_id: UUID, status: int | None = None, page: int = 1, page_size: int = 20
     ) -> tuple[list[OrderResponse], int]:
         """用户订单列表"""
+        from sqlalchemy.orm import selectinload
+
         from app.models.order.order import OmsOrder
 
         base = select(OmsOrder).where(
@@ -825,7 +833,10 @@ class OrderService:
         total = result.scalar() or 0
 
         result = await self.db.execute(
-            base.order_by(OmsOrder.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+            base.options(selectinload(OmsOrder.items))
+            .order_by(OmsOrder.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
         )
         orders = result.scalars().all()
         return [OrderResponse.model_validate(o) for o in orders], total

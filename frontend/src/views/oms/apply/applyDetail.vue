@@ -3,72 +3,60 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { formatDateTime } from '@/utils/datetime'
+import { getReturnApplyDetailAPI, updateReturnApplyStatusAPI } from '@/apis/returnApply'
+import type { OmsOrderReturnApply } from '@/types/returnApply'
 
 const route = useRoute()
 const router = useRouter()
 
-const defaultUpdateStatusParam = {
-  id: '', companyAddressId: null as string | null, handleMan: 'admin', handleNote: '',
-  receiveMan: 'admin', receiveNote: '', returnAmount: 0, status: 0
-}
-
-const id = ref<number>()
-const orderReturnApply = ref<any>({})
+const id = ref('')
+const orderReturnApply = ref<OmsOrderReturnApply>({})
 const proofPics = ref<string[]>([])
-const productList = ref<any[]>([])
-const companyAddressList = ref<any[]>([])
-const updateStatusParam = ref(Object.assign({}, defaultUpdateStatusParam))
+const detailLoading = ref(false)
 
-const allMockData: Record<number, any> = {
-  1: { id: 1, orderId: 101, productId: 1, orderSn: 'ORD-20240528001', createdAt: '2024-05-28T10:30:00', memberUsername: 'user_001', returnAmount: 9999, returnName: '张三', returnPhone: '13800138001', status: 0, reason: '商品质量问题', description: '收到的手机屏幕有划痕', productPic: 'https://picsum.photos/seed/iphone/200/200', productName: 'iPhone 15 Pro Max', productBrand: 'Apple', productAttr: '[{\"key\":\"颜色\",\"value\":\"黑色\"},{\"key\":\"容量\",\"value\":\"256GB\"}]', productCount: 1, productRealPrice: 9999, proofPics: 'https://picsum.photos/seed/p1/200/200,https://picsum.photos/seed/p2/200/200' },
-  2: { id: 2, orderId: 102, productId: 2, orderSn: 'ORD-20240527002', createdAt: '2024-05-27T14:20:00', memberUsername: 'user_002', returnAmount: 6999, returnName: '李四', returnPhone: '13800138002', status: 1, reason: '商品与描述不符', description: '颜色与图片不符', productPic: 'https://picsum.photos/seed/huawei/200/200', productName: '华为 Mate 60 Pro', productBrand: '华为', productAttr: '[{\"key\":\"颜色\",\"value\":\"白色\"},{\"key\":\"容量\",\"value\":\"256GB\"}]', productCount: 1, productRealPrice: 6999, proofPics: 'https://picsum.photos/seed/p3/200/200' },
-  3: { id: 3, orderId: 103, productId: 3, orderSn: 'ORD-20240526003', createdAt: '2024-05-26T09:10:00', memberUsername: 'user_003', returnAmount: 3798, returnName: '王五', returnPhone: '13800138003', status: 2, reason: '不想要了', description: '买多了想退', productPic: 'https://picsum.photos/seed/airpods/200/200', productName: 'AirPods Pro 2', productBrand: 'Apple', productAttr: '[{\"key\":\"颜色\",\"value\":\"白色\"}]', productCount: 2, productRealPrice: 1899, proofPics: '', handleMan: 'admin', handleTime: '2024-05-27T10:00:00', handleNote: '同意退货', receiveMan: 'admin', receiveTime: '2024-05-29T14:00:00', receiveNote: '商品已验收' },
-  4: { id: 4, orderId: 104, productId: 4, orderSn: 'ORD-20240525004', createdAt: '2024-05-25T16:45:00', memberUsername: 'user_004', returnAmount: 5999, returnName: '赵六', returnPhone: '13800138004', status: 3, reason: '其他原因', description: '价格降了', productPic: 'https://picsum.photos/seed/mi14/200/200', productName: '小米14 Ultra', productBrand: '小米', productAttr: '[{\"key\":\"颜色\",\"value\":\"黑色\"},{\"key\":\"容量\",\"value\":\"512GB\"}]', productCount: 1, productRealPrice: 5999, proofPics: '' },
+const updateStatusParam = ref({
+  return_amount: 0,
+  handle_note: '',
+  receive_note: '',
+})
+
+// 状态: 0=待处理 1=退货中 2=已拒绝 3=已退款
+const formatStatus = (status?: number) => {
+  const map: Record<number, string> = { 0: '待处理', 1: '退货中', 2: '已拒绝', 3: '已退款' }
+  return map[status ?? 0] || ''
 }
 
-const getDetail = () => {
-  const data = allMockData[id.value || 1]
-  if (data) {
-    orderReturnApply.value = data
-    productList.value = [data]
-    if (data.proofPics) proofPics.value = data.proofPics.split(',')
-    if (data.status === 1 || data.status === 2) {
-      updateStatusParam.value.returnAmount = data.returnAmount
-      updateStatusParam.value.companyAddressId = data.companyAddressId || 1
+const totalAmount = computed(() => {
+  return (orderReturnApply.value.productRealPrice || 0) * (orderReturnApply.value.productCount || 0)
+})
+
+const fetchDetail = async () => {
+  detailLoading.value = true
+  try {
+    const res = await getReturnApplyDetailAPI(id.value)
+    orderReturnApply.value = res.data
+    if (res.data.proofPics) {
+      proofPics.value = res.data.proofPics.split(',')
     }
+    if (res.data.returnAmount !== undefined) {
+      updateStatusParam.value.return_amount = res.data.returnAmount
+    }
+  } catch {
+    ElMessage.error('获取退货申请详情失败')
+  } finally {
+    detailLoading.value = false
   }
 }
 
 onMounted(() => {
-  id.value = Number(route.query.id) || 1
-  getDetail()
+  id.value = (route.query.id as string) || ''
+  if (!id.value) {
+    ElMessage.error('缺少退货申请ID')
+    router.back()
+    return
+  }
+  fetchDetail()
 })
-
-const totalAmount = computed(() => {
-  if (orderReturnApply.value) return (orderReturnApply.value.productRealPrice || 0) * (orderReturnApply.value.productCount || 0)
-  return 0
-})
-
-const currentAddress = computed(() => {
-  const idValue = updateStatusParam.value.companyAddressId
-  if (!companyAddressList.value) return undefined
-  return companyAddressList.value.find((item: any) => item.id === idValue)
-})
-
-const formatStatus = (status?: number) => {
-  if (status === 1) return '退货中'
-  if (status === 2) return '已完成'
-  if (status === 3) return '已拒绝'
-  return '待处理'
-}
-
-const formatRegion = (address?: any) => {
-  if (!address) return ''
-  let str = address.province || ''
-  if (address.city) str += '  ' + address.city
-  str += '  ' + (address.region || '')
-  return str
-}
 
 const handleViewOrder = () => {
   if (!orderReturnApply.value.orderId) return ElMessage.error('订单ID不能为空')
@@ -76,23 +64,42 @@ const handleViewOrder = () => {
 }
 
 const handleUpdateStatus = async (status: number) => {
-  updateStatusParam.value.status = status
-  await ElMessageBox.confirm('是否要进行此操作?', '提示', { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' })
-  orderReturnApply.value.status = status
-  if (status === 1) { orderReturnApply.value.handleMan = 'admin'; orderReturnApply.value.handleTime = new Date().toISOString(); orderReturnApply.value.handleNote = updateStatusParam.value.handleNote }
-  if (status === 2) { orderReturnApply.value.receiveMan = 'admin'; orderReturnApply.value.receiveTime = new Date().toISOString(); orderReturnApply.value.receiveNote = updateStatusParam.value.receiveNote }
-  ElMessage({ type: 'success', message: '操作成功!', duration: 1000 })
-  router.back()
+  const confirmMessages: Record<number, string> = {
+    1: '确认将该申请标记为"退货中"？',
+    2: '确认拒绝该退货申请？',
+    3: '确认退款？该操作将把订单状态改为"已退款"。',
+  }
+  try {
+    await ElMessageBox.confirm(
+      confirmMessages[status] || '是否要进行此操作?',
+      '提示',
+      { confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning' },
+    )
+    await updateReturnApplyStatusAPI(id.value, {
+      status,
+      handle_note: updateStatusParam.value.handle_note || undefined,
+      receive_note: updateStatusParam.value.receive_note || undefined,
+      return_amount: updateStatusParam.value.return_amount || undefined,
+    })
+    ElMessage({ type: 'success', message: '操作成功!', duration: 1000 })
+    router.back()
+  } catch (e) {
+    if (e !== 'cancel') {
+      ElMessage({ type: 'error', message: '操作失败' })
+    }
+  }
 }
 </script>
 
 <template>
-  <div class="detail-container">
+  <div class="detail-container" v-loading="detailLoading">
     <el-card shadow="never">
       <span class="font-title-medium">退货商品</span>
-      <el-table border class="standard-margin" ref="productTable" :data="productList">
+      <el-table border class="standard-margin" :data="orderReturnApply ? [orderReturnApply] : []">
         <el-table-column label="商品图片" width="160" align="center">
-          <template #default="scope"><img style="height:80px" :src="scope.row.productPic"></template>
+          <template #default="scope">
+            <img style="height:80px" :src="scope.row.productPic" v-if="scope.row.productPic">
+          </template>
         </el-table-column>
         <el-table-column label="商品名称" align="center">
           <template #default="scope">
@@ -121,6 +128,7 @@ const handleUpdateStatus = async (status: number) => {
         <span class="font-title-medium color-danger">￥{{ totalAmount }}</span>
       </div>
     </el-card>
+
     <el-card shadow="never" class="standard-margin">
       <span class="font-title-medium">服务单信息</span>
       <div class="form-container-border">
@@ -170,6 +178,7 @@ const handleUpdateStatus = async (status: number) => {
           </el-col>
         </el-row>
       </div>
+
       <div class="form-container-border">
         <el-row>
           <el-col class="form-border form-left-bg font-small" :span="6">订单金额</el-col>
@@ -178,10 +187,12 @@ const handleUpdateStatus = async (status: number) => {
         <el-row>
           <el-col class="form-border form-left-bg font-small" :span="6" style="height:52px;line-height:32px">确认退款金额</el-col>
           <el-col class="form-border font-small" style="height:52px" :span="18">
-            ￥<el-input size="small" v-model="updateStatusParam.returnAmount" :disabled="orderReturnApply.status !== 0" style="width:200px;margin-left: 10px"></el-input>
+            ￥<el-input size="small" v-model="updateStatusParam.return_amount" :disabled="orderReturnApply.status !== 0" style="width:200px;margin-left: 10px"></el-input>
           </el-col>
         </el-row>
       </div>
+
+      <!-- 已处理信息 -->
       <div class="form-container-border" v-show="orderReturnApply.status !== 0">
         <el-row>
           <el-col class="form-border form-left-bg font-small" :span="6">处理人员</el-col>
@@ -191,47 +202,57 @@ const handleUpdateStatus = async (status: number) => {
           <el-col class="form-border form-left-bg font-small" :span="6">处理时间</el-col>
           <el-col class="form-border font-small" :span="18">{{ formatDateTime(orderReturnApply.handleTime) }}</el-col>
         </el-row>
-        <el-row>
+        <el-row v-if="orderReturnApply.handleNote">
           <el-col class="form-border form-left-bg font-small" :span="6">处理备注</el-col>
           <el-col class="form-border font-small" :span="18">{{ orderReturnApply.handleNote }}</el-col>
         </el-row>
       </div>
-      <div class="form-container-border" v-show="orderReturnApply.status === 2">
+
+      <!-- 收货信息（状态=1 退货中 or 3 已退款） -->
+      <div class="form-container-border" v-show="orderReturnApply.status === 1 || orderReturnApply.status === 3">
         <el-row>
           <el-col class="form-border form-left-bg font-small" :span="6">收货人员</el-col>
           <el-col class="form-border font-small" :span="18">{{ orderReturnApply.receiveMan }}</el-col>
         </el-row>
-        <el-row>
+        <el-row v-if="orderReturnApply.receiveTime">
           <el-col class="form-border form-left-bg font-small" :span="6">收货时间</el-col>
           <el-col class="form-border font-small" :span="18">{{ formatDateTime(orderReturnApply.receiveTime) }}</el-col>
         </el-row>
-        <el-row>
+        <el-row v-if="orderReturnApply.receiveNote">
           <el-col class="form-border form-left-bg font-small" :span="6">收货备注</el-col>
           <el-col class="form-border font-small" :span="18">{{ orderReturnApply.receiveNote }}</el-col>
         </el-row>
       </div>
+
+      <!-- 待处理: 处理备注输入 -->
       <div class="form-container-border" v-show="orderReturnApply.status === 0">
         <el-row>
           <el-col class="form-border form-left-bg font-small" :span="6" style="height:52px;line-height:32px">处理备注</el-col>
           <el-col class="form-border font-small" :span="18">
-            <el-input size="small" v-model="updateStatusParam.handleNote" style="width:200px;margin-left: 10px"></el-input>
+            <el-input size="small" v-model="updateStatusParam.handle_note" style="width:200px;margin-left: 10px" placeholder="可选"></el-input>
           </el-col>
         </el-row>
       </div>
+
+      <!-- 退货中: 收货备注输入 -->
       <div class="form-container-border" v-show="orderReturnApply.status === 1">
         <el-row>
           <el-col class="form-border form-left-bg font-small" :span="6" style="height:52px;line-height:32px">收货备注</el-col>
           <el-col class="form-border font-small" :span="18">
-            <el-input size="small" v-model="updateStatusParam.receiveNote" style="width:200px;margin-left: 10px"></el-input>
+            <el-input size="small" v-model="updateStatusParam.receive_note" style="width:200px;margin-left: 10px" placeholder="可选"></el-input>
           </el-col>
         </el-row>
       </div>
+
+      <!-- 操作按钮: 待处理 → 确认退货 / 拒绝退货 -->
       <div style="margin-top:15px;text-align: center" v-show="orderReturnApply.status === 0">
         <el-button type="primary" size="small" @click="handleUpdateStatus(1)">确认退货</el-button>
-        <el-button type="danger" size="small" @click="handleUpdateStatus(3)">拒绝退货</el-button>
+        <el-button type="danger" size="small" @click="handleUpdateStatus(2)">拒绝退货</el-button>
       </div>
+
+      <!-- 操作按钮: 退货中 → 确认退款 -->
       <div style="margin-top:15px;text-align: center" v-show="orderReturnApply.status === 1">
-        <el-button type="primary" size="small" @click="handleUpdateStatus(2)">确认收货</el-button>
+        <el-button type="primary" size="small" @click="handleUpdateStatus(3)">确认退款</el-button>
       </div>
     </el-card>
   </div>

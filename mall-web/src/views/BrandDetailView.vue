@@ -46,15 +46,7 @@ const sortOptions = [
   { label: '新品', value: 1 },
 ]
 
-const totalPages = computed(() => Math.ceil(total.value / pageSize))
-
-const paginatedProducts = computed(() => {
-  let result = [...products.value]
-  if (sortType.value === 2) result.sort((a, b) => (b.saleCount || 0) - (a.saleCount || 0))
-  else if (sortType.value === 3) result.sort((a, b) => a.price - b.price)
-  else if (sortType.value === 4) result.sort((a, b) => b.price - a.price)
-  return result
-})
+const totalPages = ref(1)
 
 async function loadData() {
   const brandId = route.params.id as string
@@ -63,12 +55,13 @@ async function loadData() {
   try {
     const [brandData, productData] = await Promise.all([
       getBrandDetailAPI(brandId),
-      getBrandProductListAPI(brandId, currentPage.value, pageSize),
+      getBrandProductListAPI(brandId, currentPage.value, pageSize, sortType.value),
     ])
     brand.value = brandData as unknown as BrandInfo
     const pd = productData as any
     products.value = (pd?.items || pd?.list || []) as ProductItem[]
-    total.value = pd?.total || products.value.length
+    total.value = pd?.total || 0
+    totalPages.value = pd?.totalPages || Math.ceil(total.value / pageSize)
   } catch {
     brand.value = null
   } finally {
@@ -85,6 +78,7 @@ function goProductDetail(id: string) {
 onMounted(loadData)
 watch(() => route.params.id, loadData)
 watch(currentPage, () => loadData())
+watch(sortType, () => { currentPage.value = 1; loadData() })
 </script>
 
 <template>
@@ -130,9 +124,9 @@ watch(currentPage, () => loadData())
     </div>
 
     <!-- 商品网格 -->
-    <div v-else-if="paginatedProducts.length" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+    <div v-else-if="products.length" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
       <ProductCard
-        v-for="product in paginatedProducts"
+        v-for="product in products"
         :key="product.id"
         :product="product"
         :show-discount-badge="(product.originalPrice ?? 0) > product.price"

@@ -322,21 +322,6 @@ onUnmounted(() => {
         </aside>
       </section>
 
-      <section v-if="homeContent.subjects.length" class="subject-strip">
-        <button
-          v-for="subject in homeContent.subjects"
-          :key="subject.id"
-          class="subject-card"
-          @click="searchKeyword(subject.title)"
-        >
-          <img v-if="subject.pic" :src="subject.pic" :alt="subject.title" />
-          <span>
-            <strong>{{ subject.title }}</strong>
-            <small>{{ subject.categoryName || subject.summary || subject.description || '精选专题' }}</small>
-          </span>
-        </button>
-      </section>
-
       <section
         v-for="section in productSections"
         :key="section.key"
@@ -365,7 +350,7 @@ onUnmounted(() => {
 <style scoped>
 .home-page { display: grid; gap: 22px; }
 .hero-grid { display: grid; grid-template-columns: 240px minmax(0, 1fr) 250px; gap: 14px; }
-.category-panel, .user-panel, .hero-center, .product-section, .subject-strip { background: #fff; border-radius: 18px; box-shadow: 0 2px 12px rgba(0, 0, 0, .04); }
+.category-panel, .user-panel, .hero-center, .product-section { background: #fff; border-radius: 18px; box-shadow: 0 2px 12px rgba(0, 0, 0, .04); }
 .category-panel { position: relative; padding: 14px 0; overflow: visible; z-index: 12; display: flex; flex-direction: column; }
 .category-list { overflow: hidden; border-radius: 18px; flex: 1; display: flex; flex-direction: column; justify-content: center; }
 .category-list { overflow: hidden; border-radius: 18px; }
@@ -415,12 +400,6 @@ onUnmounted(() => {
 .quick-grid { margin-top: 22px; padding-top: 18px; border-top: 1px solid #f3f3f3; display: grid; grid-template-columns: 1fr 1fr; gap: 14px 8px; }
 .quick-grid button { color: #666; font-size: 12px; display: grid; gap: 5px; justify-items: center; }
 .quick-grid span { width: 32px; height: 32px; border-radius: 10px; background: #fff4ee; color: #ff5000; display: grid; place-items: center; font-weight: 800; }
-.subject-strip { padding: 14px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-.subject-card { min-width: 0; display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 12px; background: #fafafa; text-align: left; }
-.subject-card img { width: 54px; height: 54px; border-radius: 10px; object-fit: cover; }
-.subject-card span { min-width: 0; display: grid; gap: 5px; }
-.subject-card strong, .subject-card small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.subject-card small { color: #999; }
 .product-section { padding: 20px; }
 .section-heading { display: flex; align-items: end; justify-content: space-between; margin-bottom: 16px; }
 .section-heading > div { display: flex; align-items: baseline; gap: 10px; }
@@ -443,7 +422,6 @@ onUnmounted(() => {
   .category-panel { display: none; }
   .banner-card { min-height: 260px; }
   .banner-copy strong { font-size: 23px; }
-  .subject-strip { grid-template-columns: 1fr 1fr; }
   .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .section-heading span { display: none; }
 }

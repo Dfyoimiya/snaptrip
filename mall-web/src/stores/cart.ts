@@ -1,11 +1,13 @@
 /**
  * ============================================
  * 购物车状态管理 (Pinia Store)
+ * 仅登录用户可用，数据完全由后端管理
  * ============================================
  */
 
 import { ref, computed, watch } from 'vue'
 import { defineStore } from 'pinia'
+import { useRouter } from 'vue-router'
 import type { CartItem } from '@/types/cart'
 import {
   getCartListAPI,
@@ -15,25 +17,23 @@ import {
   clearCartAPI,
   toggleCartCheckedAPI,
 } from '@/apis/cart'
-
-const STORAGE_KEY = 'snaptrip_cart'
-
-function loadCart(): CartItem[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch { /* ignore */ }
-  return []
-}
+import { useMemberStore } from '@/stores/member'
 
 export const useCartStore = defineStore('cart', () => {
-  const cartList = ref<CartItem[]>(loadCart())
+  const memberStore = useMemberStore()
+  const router = useRouter()
+
+  const cartList = ref<CartItem[]>([])
   const loading = ref(false)
 
-  // Auto-persist
-  watch(cartList, (val) => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(val)) } catch { /* ignore */ }
-  }, { deep: true })
+  /** 未登录时跳转登录页，返回 false 表示已拦截 */
+  const requireAuth = (): boolean => {
+    if (!memberStore.isLoggedIn) {
+      router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
+      return false
+    }
+    return true
+  }
 
   const totalCount = computed(() =>
     cartList.value.reduce((sum, item) => sum + item.quantity, 0),
@@ -56,6 +56,7 @@ export const useCartStore = defineStore('cart', () => {
   const hasChecked = computed(() => cartList.value.some((item) => item.checked))
 
   const fetchCartList = async () => {
+    if (!memberStore.isLoggedIn) return
     loading.value = true
     try {
       cartList.value = await getCartListAPI()
@@ -66,7 +67,22 @@ export const useCartStore = defineStore('cart', () => {
     }
   }
 
+  // 登录后自动拉取服务端购物车
+  watch(() => memberStore.isLoggedIn, async (loggedIn) => {
+    if (loggedIn) {
+      await fetchCartList()
+    } else {
+      cartList.value = []
+    }
+  })
+
+  // 初始化：已登录则拉取
+  if (memberStore.isLoggedIn) {
+    fetchCartList()
+  }
+
   const addToCart = async (productId: string, skuId: string, quantity = 1) => {
+    if (!requireAuth()) return
     await addCartAPI({ product_id: productId, sku_id: skuId, quantity })
     await fetchCartList()
   }

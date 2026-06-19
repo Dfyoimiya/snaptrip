@@ -1,4 +1,4 @@
-/** 退货申请 */
+/** 退货申请（后端 snake_case 经响应拦截器转 camelCase） */
 export interface OmsOrderReturnApply {
   id?: string
   orderId?: string
@@ -25,28 +25,27 @@ export interface OmsOrderReturnApply {
   receiveMan?: string
   receiveTime?: string
   receiveNote?: string
-  companyAddressId?: string
+  companyAddressId?: number
 }
 
-/** 退货申请查询参数 */
+/** 退货申请查询参数（发送给后端，使用 snake_case） */
 export interface ReturnApplyQueryParam {
   id?: string
   status?: number
-  createdAt?: string
-  handleMan?: string
-  handleTime?: string
+  create_time?: string
+  handle_man?: string
+  handle_time?: string
   page: number
   page_size: number
 }
 
-/** 更新退货申请状态参数 */
-export interface OmsUpdateStatusParam {
-  id: string
-  companyAddressId: string
-  handleMan: string
-  handleNote: string
-  receiveMan: string
-  receiveNote: string
-  returnAmount: number
+/** 更新退货申请状态参数（匹配后端 ReturnApplyUpdateStatus） */
+export interface ReturnApplyUpdateStatusParam {
   status: number
+  handle_note?: string
+  handle_man?: string
+  receive_man?: string
+  receive_note?: string
+  return_amount?: number
+  company_address_id?: number
 }

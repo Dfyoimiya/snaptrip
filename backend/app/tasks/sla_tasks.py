@@ -47,13 +47,18 @@ def check_sla_deadlines() -> dict:
       1. 写入 cs_notifications 通知指派坐席
       2. 发布 Redis Pub/Sub 实时告警
     """
-    return asyncio.get_event_loop().run_until_complete(_check_sla())
+    return asyncio.run(_check_sla())
 
 
 async def _check_sla() -> dict:
     from snaptrip_shared.core.config import settings
-    from snaptrip_shared.db.session import AsyncSessionLocal
+    from snaptrip_shared.db.session import AsyncSessionLocal, async_engine
     from sqlalchemy import select
+
+    try:
+        await async_engine.dispose()  # 绑定到当前 event loop
+    except RuntimeError:
+        pass  # 旧事件循环已关闭，连接无法清理，安全忽略
 
     from app.models.infra.notification import CsNotification
     from app.models.order.support_ticket import OmsSupportTicket
@@ -65,7 +70,7 @@ async def _check_sla() -> dict:
     try:
         import redis.asyncio as aioredis
 
-        redis = aioredis.from_url(settings.REDIS_URL)
+        redis = aioredis.from_url(settings.effective_redis_url)
     except Exception:
         redis = None
 
@@ -149,12 +154,17 @@ def cleanup_stale_agents() -> dict:
 
     超过 5 分钟没有心跳的坐席标记为 offline。
     """
-    return asyncio.get_event_loop().run_until_complete(_cleanup_agents())
+    return asyncio.run(_cleanup_agents())
 
 
 async def _cleanup_agents() -> dict:
-    from snaptrip_shared.db.session import AsyncSessionLocal
+    from snaptrip_shared.db.session import AsyncSessionLocal, async_engine
     from sqlalchemy import update
+
+    try:
+        await async_engine.dispose()  # 绑定到当前 event loop
+    except RuntimeError:
+        pass  # 旧事件循环已关闭，连接无法清理，安全忽略
 
     from app.models.member.cs_agent import CsAgentStatus
 

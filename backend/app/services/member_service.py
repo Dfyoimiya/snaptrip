@@ -147,18 +147,47 @@ class MemberService:
         )
 
     async def list_favorites(
-        self, user_id: UUID, page: int = 1, page_size: int = 20
+        self, user_id: UUID, page: int = 1, page_size: int = 20,
+        product_status: int | None = None,
     ) -> tuple[list[FavoriteResponse], int]:
         from app.models.member.member import UmsMemberFavorite
+        from app.models.product.product import PmsProduct
 
-        base = select(UmsMemberFavorite).where(UmsMemberFavorite.user_id == user_id)
-        cnt = select(func.count(UmsMemberFavorite.id)).where(UmsMemberFavorite.user_id == user_id)
-        result = await self.db.execute(cnt)
+        base = (
+            select(
+                UmsMemberFavorite,
+                PmsProduct.publish_status.label("product_status"),
+            )
+            .outerjoin(PmsProduct, UmsMemberFavorite.product_id == PmsProduct.id)
+            .where(UmsMemberFavorite.user_id == user_id)
+        )
+        cnt_base = (
+            select(func.count(UmsMemberFavorite.id))
+            .outerjoin(PmsProduct, UmsMemberFavorite.product_id == PmsProduct.id)
+            .where(UmsMemberFavorite.user_id == user_id)
+        )
+        if product_status is not None:
+            base = base.where(PmsProduct.publish_status == product_status)
+            cnt_base = cnt_base.where(PmsProduct.publish_status == product_status)
+
+        result = await self.db.execute(cnt_base)
         total = result.scalar() or 0
         result = await self.db.execute(
             base.order_by(UmsMemberFavorite.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
         )
-        return [FavoriteResponse.model_validate(f) for f in result.scalars().all()], total
+        rows = result.all()
+        return [
+            FavoriteResponse(
+                id=f.UmsMemberFavorite.id,
+                product_id=f.UmsMemberFavorite.product_id,
+                product_name=f.UmsMemberFavorite.product_name,
+                product_pic=f.UmsMemberFavorite.product_pic,
+                product_price=f.UmsMemberFavorite.product_price,
+                product_status=f.product_status,
+                created_at=f.UmsMemberFavorite.created_at,
+            )
+            for f in rows
+        ], total
 
     # =========================================================================
     #  管理后台: 会员列表 (复用 marketplace User)
