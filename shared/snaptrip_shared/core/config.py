@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     REDIS_PASSWORD: str = ""
     REDIS_POOL_SIZE: int = 10
 
+    @property
+    def effective_redis_url(self) -> str:
+        """Redis URL with password injected if not already present."""
+        url = self.REDIS_TEST_URL if self.APP_ENV == "test" else self.REDIS_URL
+        if self.REDIS_PASSWORD and self.REDIS_PASSWORD not in url:
+            url = url.replace("redis://", f"redis://:{self.REDIS_PASSWORD}@")
+        return url
+
     SNAPTRIP_MARKETPLACE_URL: str = "http://marketplace:8000"
 
     # ── LLM (LiteLLM Gateway) ──

@@ -15,18 +15,19 @@ Date: 2026-05-13
 
 from __future__ import annotations
 
+import logging
 import os
 from contextlib import asynccontextmanager
 
 from agent.adapters.persistence.runtime_event import SQLRuntimeEventRepository
 from agent.events.redis_bus import RedisEventBus
-from agent.graph import build_graph
-from agent.nodes.recommendation.supervisor import RecommendationSupervisor
 from agent.runtime import AgentRuntime
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from snaptrip_shared.core.config import settings
+
+logger = logging.getLogger(__name__)
 from snaptrip_shared.core.exception_handlers import (
     adapter_exception_handler,
     authentication_handler,
@@ -86,30 +87,42 @@ async def lifespan(app: FastAPI):
         repository=SQLRuntimeEventRepository(),
     )
     runtime = AgentRuntime(event_bus=event_bus)
-    app.state.plan_graph = await build_graph(runtime=runtime)
 
-    # ── 推荐系统 ──
-    ab_engine = ABTestEngine()
-    feature_svc = FeatureService(db_factory=AsyncSessionLocal, memory=memory)
-    trending_svc = TrendingService(memory)
-    vector_svc = VectorSearchService(db_factory=AsyncSessionLocal, memory=memory)
-    autocomplete_svc = AutocompleteService(memory)
-    app.state.recommendation_supervisor = RecommendationSupervisor(
-        llm_adapter=runtime.llm_adapter,
-        db_factory=AsyncSessionLocal,
-        feature_service=feature_svc,
-        es_client=None,
-        ab_engine=ab_engine,
-    )
-    app.state.ab_engine = ab_engine
-    app.state.feature_service = feature_svc
-    app.state.trending_service = trending_svc
-    app.state.vector_search_service = vector_svc
-    app.state.autocomplete_service = autocomplete_svc
-    app.state.cf_service = CollaborativeFilteringService(
-        db_factory=AsyncSessionLocal,
-        memory=memory,
-    )
+    try:
+        from agent.graph import build_graph
+        from agent.nodes.recommendation.supervisor import RecommendationSupervisor
+
+        app.state.plan_graph = await build_graph(runtime=runtime)
+
+        # ── 推荐系统 ──
+        ab_engine = ABTestEngine()
+        feature_svc = FeatureService(db_factory=AsyncSessionLocal, memory=memory)
+        trending_svc = TrendingService(memory)
+        vector_svc = VectorSearchService(db_factory=AsyncSessionLocal, memory=memory)
+        autocomplete_svc = AutocompleteService(memory)
+        app.state.recommendation_supervisor = RecommendationSupervisor(
+            llm_adapter=runtime.llm_adapter,
+            db_factory=AsyncSessionLocal,
+            feature_service=feature_svc,
+            es_client=None,
+            ab_engine=ab_engine,
+        )
+        app.state.ab_engine = ab_engine
+        app.state.feature_service = feature_svc
+        app.state.trending_service = trending_svc
+        app.state.vector_search_service = vector_svc
+        app.state.autocomplete_service = autocomplete_svc
+        app.state.cf_service = CollaborativeFilteringService(
+            db_factory=AsyncSessionLocal,
+            memory=memory,
+        )
+    except Exception:
+        logger.warning(
+            "Agent/LLM initialization failed — continuing without agent graph. "
+            "Set LITELLM_API_KEY and ensure LiteLLM proxy is reachable.",
+            exc_info=True,
+        )
+        app.state.plan_graph = None
 
     yield
     await app.state.memory.stop()

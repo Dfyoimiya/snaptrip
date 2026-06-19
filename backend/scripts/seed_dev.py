@@ -54,6 +54,7 @@ CANONICAL_MENUS = [
 # ====================================================================
 DEV_USERS = [
     ("admin@snaptrip.com", "admin123", "super_admin"),
+    ("super@mall.com", "super123", "super_admin"),
     ("user@snaptrip.com", "user123", None),
 ]
 

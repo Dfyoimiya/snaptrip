@@ -24,7 +24,7 @@ class MemoryService:
     """记忆服务：封装 Redis 异步操作"""
 
     def __init__(self, redis_url: str = "") -> None:
-        self._redis_url = redis_url or settings.REDIS_URL
+        self._redis_url = redis_url or settings.effective_redis_url
         self._client: Redis | None = None
 
     # ===== 生命周期 =====

@@ -5,13 +5,31 @@
  * 标准 PC 端：左侧通用侧边栏导航 + 右侧内容面板
  * ============================================
  */
-import { computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMemberStore } from '@/stores/member'
+import { getMemberCouponListAPI } from '@/apis/coupon'
 
 const route = useRoute()
 const router = useRouter()
 const memberStore = useMemberStore()
+
+const couponCount = ref(0)
+
+const memberLevel = computed(() => {
+  const pts = memberStore.integration
+  if (pts >= 20000) return { tier: '钻石会员', level: 'V5' }
+  if (pts >= 5000) return { tier: '黄金会员', level: 'V4' }
+  if (pts >= 1000) return { tier: '白银会员', level: 'V3' }
+  return { tier: '普通会员', level: 'V2' }
+})
+
+onMounted(async () => {
+  try {
+    const coupons = await getMemberCouponListAPI(0)
+    couponCount.value = Array.isArray(coupons) ? coupons.length : 0
+  } catch { /* ignore */ }
+})
 
 /** 侧边栏菜单 */
 const sidebarMenus = [
@@ -82,7 +100,7 @@ const avatarLetter = computed(() => {
             </div>
             <div class="min-w-0">
               <p class="text-sm font-bold text-gray-900 truncate">{{ memberStore.displayName }}</p>
-              <p class="text-xs text-gray-400 mt-0.5">{{ memberStore.memberInfo?.phone || '138****8888' }}</p>
+              <p class="text-xs text-gray-400 mt-0.5">{{ memberStore.memberInfo?.email || '' }}</p>
             </div>
           </div>
           <!-- 积分资产 -->
@@ -93,12 +111,12 @@ const avatarLetter = computed(() => {
             </div>
             <div class="w-px h-6 bg-brand-100" />
             <div class="text-center flex-1">
-              <div class="text-sm font-bold text-orange-500">{{ (memberStore.memberInfo as any)?.couponCount || 0 }}</div>
+              <div class="text-sm font-bold text-orange-500">{{ couponCount }}</div>
               <div class="text-[10px] text-gray-400">优惠券</div>
             </div>
             <div class="w-px h-6 bg-brand-100" />
             <div class="text-center flex-1">
-              <div class="text-sm font-bold text-gray-700">V3</div>
+              <div class="text-sm font-bold text-gray-700">{{ memberLevel.level }}</div>
               <div class="text-[10px] text-gray-400">等级</div>
             </div>
           </div>

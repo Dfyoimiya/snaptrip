@@ -769,7 +769,7 @@ def _get_redis():
         import redis.asyncio as aioredis
         from snaptrip_shared.core.config import settings
 
-        return aioredis.from_url(settings.REDIS_URL)
+        return aioredis.from_url(settings.effective_redis_url)
     except Exception:
         return None
 

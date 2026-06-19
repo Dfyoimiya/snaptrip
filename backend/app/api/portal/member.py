@@ -84,11 +84,12 @@ async def delete_address(addr_id: UUID, db: AsyncSession = Depends(get_db), u: U
 async def list_favorites(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    product_status: int | None = Query(None, ge=0, le=1, description="商品状态: 0=下架 1=上架"),
     db: AsyncSession = Depends(get_db),
     u: User = Depends(get_current_user),
 ):
     svc = MemberService(db)
-    items, total = await svc.list_favorites(u.id, page=page, page_size=page_size)
+    items, total = await svc.list_favorites(u.id, page=page, page_size=page_size, product_status=product_status)
     resp = PaginatedResponse.of(
         items=[i.model_dump() for i in items],
         total=total,

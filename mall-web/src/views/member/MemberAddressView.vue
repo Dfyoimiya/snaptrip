@@ -7,27 +7,10 @@
  */
 import { ref, onMounted } from 'vue'
 import type { MemberReceiveAddress } from '@/types/address'
-import { provinceData } from '@/data/region'
 import { getAddressListAPI, addAddressAPI, updateAddressAPI, deleteAddressAPI } from '@/apis/address'
+import RegionCascader from '@/components/RegionCascader.vue'
 
-// ===== 级联选择器相关 =====
-const provinceList = provinceData
-
-/** 根据省份获取城市列表 */
-const getCityList = (province: string) => {
-  const p = provinceList.find(p => p.value === province)
-  return p?.children || []
-}
-
-/** 根据城市获取区县列表 */
-const getRegionList = (province: string, city: string) => {
-  const p = provinceList.find(p => p.value === province)
-  const c = p?.children?.find(c => c.value === city)
-  return c?.children || []
-}
-
-/** 级联选择器选中的路径 */
-const cascadePath = ref<string[]>([])
+// ===== 级联选择器 =====
 const selectedProvince = ref('')
 const selectedCity = ref('')
 const selectedRegion = ref('')
@@ -85,17 +68,6 @@ const closeDialog = () => {
   showDialog.value = false
 }
 
-/** 省份变化时重置城市和区县 */
-const onProvinceChange = () => {
-  selectedCity.value = ''
-  selectedRegion.value = ''
-}
-
-/** 城市变化时重置区县 */
-const onCityChange = () => {
-  selectedRegion.value = ''
-}
-
 const validateForm = () => {
   const errors: Record<string, string> = {}
   if (!editingAddress.value.name?.trim()) errors.name = '请输入收货人姓名'
@@ -115,8 +87,8 @@ const handleSave = async () => {
     province: selectedProvince.value,
     city: selectedCity.value,
     region: selectedRegion.value,
-    detailAddress: editingAddress.value.detailAddress!,
-    defaultStatus: editingAddress.value.defaultStatus ?? 0,
+    detail_address: editingAddress.value.detailAddress!,
+    default_status: editingAddress.value.defaultStatus ?? 0,
   }
   saving.value = true
   try {
@@ -147,7 +119,7 @@ const handleDelete = async (id?: string) => {
 const handleSetDefault = async (id?: string) => {
   if (!id) return
   try {
-    await updateAddressAPI(String(id), { defaultStatus: 1 } as Partial<MemberReceiveAddress>)
+    await updateAddressAPI(String(id), { default_status: 1 } as Partial<MemberReceiveAddress>)
     await loadAddresses()
   } catch (err: any) {
     console.error('设置默认地址失败:', err?.message || err)
@@ -270,37 +242,14 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- 省市区联动级联选择器 -->
+          <!-- 省市区联动级联选择器（CDN 动态加载数据） -->
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">所在地区 <span class="text-red-500">*</span></label>
-            <div class="grid grid-cols-3 gap-3">
-              <!-- 省份 -->
-              <select
-                v-model="selectedProvince"
-                class="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-                @change="onProvinceChange"
-              >
-                <option value="">请选择省份</option>
-                <option v-for="p in provinceList" :key="p.value" :value="p.value">{{ p.label }}</option>
-              </select>
-              <!-- 城市 -->
-              <select
-                v-model="selectedCity"
-                class="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-                @change="onCityChange"
-              >
-                <option value="">请选择城市</option>
-                <option v-for="c in getCityList(selectedProvince)" :key="c.value" :value="c.value">{{ c.label }}</option>
-              </select>
-              <!-- 区县 -->
-              <select
-                v-model="selectedRegion"
-                class="w-full h-10 px-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white"
-              >
-                <option value="">请选择区县</option>
-                <option v-for="r in getRegionList(selectedProvince, selectedCity)" :key="r.value" :value="r.value">{{ r.label }}</option>
-              </select>
-            </div>
+            <RegionCascader
+              v-model:province="selectedProvince"
+              v-model:city="selectedCity"
+              v-model:region="selectedRegion"
+            />
             <p v-if="formErrors.region" class="text-xs text-red-500 mt-1">{{ formErrors.region }}</p>
           </div>
 

@@ -37,9 +37,15 @@ def auto_expire_coupons() -> dict:
 
 
 async def _auto_expire_coupons_async() -> dict:
+    from snaptrip_shared.db.session import async_engine
     from sqlalchemy import update
 
     from app.models.promotion.coupon import SmsCouponHistory
+
+    try:
+        await async_engine.dispose()  # 绑定到当前 event loop
+    except RuntimeError:
+        pass  # 旧事件循环已关闭，连接无法清理，安全忽略
 
     now = datetime.now(UTC)
 

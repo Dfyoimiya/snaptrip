@@ -39,8 +39,8 @@ const navigateTo = (path: string) => {
  * 退出登录
  */
 const handleLogout = () => {
-  memberStore.memberLogout()
   cartStore.clearCart()
+  memberStore.memberLogout()
   router.push('/')
 }
 

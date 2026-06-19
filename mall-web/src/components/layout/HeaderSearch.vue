@@ -225,9 +225,13 @@ function handleGoHome() { emit('navigate', '/') }
 
         <!-- 搜索区 -->
         <div class="flex-none w-full max-w-[630px] header-search-wrapper">
-          <div class="relative">
-            <!-- 搜索框：统一容器 + 内部按钮 -->
-            <div class="flex items-center h-11 border-2 border-brand-600 rounded-[12px] overflow-hidden bg-white/80">
+          <!-- 统一搜索容器：输入框 + 下拉面板融为一体 -->
+          <div
+            class="border-2 border-brand-600 rounded-[12px] overflow-hidden bg-white/80 transition-shadow duration-300"
+            :class="{ 'shadow-xl': showDropdown }"
+          >
+            <!-- 搜索输入行 -->
+            <div class="flex items-center h-11">
               <input
                 v-model="keyword"
                 type="text"
@@ -249,11 +253,12 @@ function handleGoHome() { emit('navigate', '/') }
               </button>
             </div>
 
-            <!-- ====== 下拉建议面板 ====== -->
+            <!-- 下拉面板 — 线性展开动画 -->
             <div
-              v-if="showDropdown"
-              class="absolute left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden"
+              class="overflow-hidden transition-[max-height] duration-300 ease-linear"
+              :style="{ maxHeight: showDropdown ? '600px' : '0px' }"
             >
+              <div class="border-t border-gray-100">
               <!-- 搜索历史 -->
               <div v-if="!keyword.trim() && loadHistory().length" class="px-4 py-3 border-b border-gray-100">
                 <div class="flex items-center justify-between mb-2">
@@ -350,6 +355,7 @@ function handleGoHome() { emit('navigate', '/') }
                 输入关键词搜索商品
               </div>
             </div>
+          </div>
           </div>
 
           <!-- 热门搜索标签 (无输入时的默认展示) -->

@@ -18,8 +18,8 @@ from snaptrip_shared.core.config import settings
 
 celery_app = Celery(
     "snaptrip",
-    broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL,
+    broker=settings.effective_redis_url,
+    backend=settings.effective_redis_url,
     include=["agent.tasks.plan_tasks", "app.tasks.cf_tasks", "app.tasks.coupon_tasks", "app.tasks.sla_tasks"],
 )
 
