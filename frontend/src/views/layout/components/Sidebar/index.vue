@@ -1,219 +1,382 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { usePermissionStore } from '@/stores/permission'
+import { useUserStore } from '@/stores/user'
 import SidebarItem from './SidebarItem.vue'
 
 const route = useRoute()
+const router = useRouter()
 const appStore = useAppStore()
 const permissionStore = usePermissionStore()
+const userStore = useUserStore()
 
 const sidebar = computed(() => appStore.sidebar)
 const device = computed(() => appStore.device)
-const isCollapse = computed(() => !sidebar.value.opened)
+const isCollapse = computed(() => device.value === 'desktop' && !sidebar.value.opened)
+const displayName = computed(
+  () => userStore.userInfo.nickname || userStore.userInfo.username || '管理员',
+)
+const userInitial = computed(() => displayName.value.slice(0, 1).toUpperCase())
 
 const activeMenu = computed(() => {
   const { meta, path } = route
-  if (meta?.activeMenu) return meta.activeMenu as string
-  return path
+  return (meta?.activeMenu as string) || path
 })
 
 const menuRoutes = computed(() => {
-  return permissionStore.routers.filter((r) => !r.hidden && r.meta)
+  return permissionStore.routers.filter((item) => !item.hidden && item.meta)
 })
 
-function handleClickOutside() {
-  if (device.value === 'mobile' && sidebar.value.opened) {
-    appStore.closeSidebar(false)
+function handleWorkspaceCommand(command: string): void {
+  if (command === 'members') router.push('/ums/admin')
+  if (command === 'roles') router.push('/ums/role')
+  if (command === 'settings') router.push('/setting/oss')
+}
+
+async function handleAccountCommand(command: string): Promise<void> {
+  if (command === 'home') {
+    await router.push('/home')
+  }
+  if (command === 'logout') {
+    await userStore.logout()
+    await router.replace('/login')
   }
 }
 </script>
 
 <template>
-  <div class="sidebar-wrapper">
-    <!-- Logo -->
-    <div class="sidebar-logo" :class="{ collapse: isCollapse }">
-      <router-link to="/" class="logo-link">
-        <span class="logo-img">S</span>
-        <h1 v-show="!isCollapse" class="logo-title">SnapTrip Admin</h1>
+  <aside
+    class="sidebar-wrapper"
+    :class="{ collapsed: isCollapse }"
+  >
+    <template v-if="!isCollapse">
+    <div class="brand-row">
+      <router-link to="/home" class="brand-link">
+        <span class="brand-mark">S</span>
+        <span class="brand-name">SnapTrip</span>
       </router-link>
+      <button
+        v-if="device === 'mobile'"
+        class="close-button"
+        type="button"
+        aria-label="关闭侧边栏"
+        @click.stop="appStore.closeSidebar(false)"
+      >
+        <el-icon><Close /></el-icon>
+      </button>
     </div>
 
-    <!-- Menu -->
+    <div class="workspace-row">
+      <el-dropdown
+        trigger="click"
+        placement="bottom-start"
+        popper-class="sidebar-workspace-dropdown"
+        @command="handleWorkspaceCommand"
+      >
+        <button class="workspace-trigger" type="button">
+          <span class="workspace-avatar">ST</span>
+          <span class="workspace-copy">
+            <strong>SnapTrip 商务管理</strong>
+            <small>管理工作区</small>
+          </span>
+          <el-icon class="workspace-chevron"><ArrowUpBold /></el-icon>
+        </button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="members">
+              <el-icon><UserFilled /></el-icon>成员管理
+            </el-dropdown-item>
+            <el-dropdown-item command="roles">
+              <el-icon><Key /></el-icon>角色与权限
+            </el-dropdown-item>
+            <el-dropdown-item command="settings" divided>
+              <el-icon><Setting /></el-icon>系统设置
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+    </div>
+
+    <div class="menu-caption">工作台</div>
+
     <el-scrollbar class="sidebar-scroll">
       <el-menu
         :default-active="activeMenu"
-        :collapse="isCollapse"
+        :collapse="false"
         :collapse-transition="false"
         :unique-opened="true"
         mode="vertical"
         router
       >
         <SidebarItem
-          v-for="r in menuRoutes"
-          :key="r.path"
-          :item="r"
-          :base-path="r.path"
+          v-for="item in menuRoutes"
+          :key="item.path"
+          :item="item"
+          :base-path="item.path"
         />
       </el-menu>
     </el-scrollbar>
 
-    <!-- 底部折叠按钮 -->
-    <div class="sidebar-footer" @click="appStore.toggleSidebar">
-      <el-icon :size="14">
-        <Fold v-if="sidebar.opened" />
-        <Expand v-else />
-      </el-icon>
-    </div>
+    <div class="sidebar-bottom">
+      <router-link to="/setting/oss" class="bottom-link" title="系统设置">
+        <el-icon><Setting /></el-icon>
+        <span>系统设置</span>
+      </router-link>
 
-    <!-- 移动端遮罩 -->
-    <div
-      v-if="device === 'mobile' && sidebar.opened"
-      class="drawer-bg"
-      @click="handleClickOutside"
-    />
-  </div>
+      <el-dropdown
+        trigger="click"
+        placement="top-start"
+        popper-class="sidebar-account-dropdown"
+        @command="handleAccountCommand"
+      >
+        <button class="account-trigger" type="button">
+          <el-avatar :size="28" :src="userStore.avatar">
+            {{ userInitial }}
+          </el-avatar>
+          <span class="account-copy">
+            <strong>{{ displayName }}</strong>
+            <small>{{ userStore.userInfo.username }}</small>
+          </span>
+          <el-icon class="account-chevron"><MoreFilled /></el-icon>
+        </button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <div class="account-summary">
+              <el-avatar :size="48" :src="userStore.avatar">{{ userInitial }}</el-avatar>
+              <span class="account-summary-copy">
+                <strong>{{ displayName }}</strong>
+                <small>{{ userStore.userInfo.username }}</small>
+              </span>
+            </div>
+            <el-dropdown-item command="home" divided>
+              <el-icon><User /></el-icon>个人账户
+            </el-dropdown-item>
+            <el-dropdown-item command="logout">
+              <el-icon><SwitchButton /></el-icon>退出账户
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+    </div>
+    </template>
+  </aside>
 </template>
 
 <style lang="scss" scoped>
 .sidebar-wrapper {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  background-color: #fff;
-  border-right: 1px solid #f0f0f0;
-  box-shadow: 2px 0 8px rgba(29, 35, 41, 0.05);
   position: relative;
   z-index: 200;
-
-  .sidebar-logo {
-    flex-shrink: 0;
-    height: 48px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0 16px;
-    border-bottom: 1px solid #f0f0f0;
-    overflow: hidden;
-
-    .logo-link {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
-      height: 100%;
-      width: 100%;
-
-      .logo-img {
-        width: 28px;
-        height: 28px;
-        flex-shrink: 0;
-        display: grid;
-        place-items: center;
-        border-radius: 8px;
-        background: linear-gradient(135deg, #165dff, #6aa1ff);
-        color: #fff;
-        font-weight: 800;
-        box-shadow: 0 5px 12px rgba(22, 93, 255, 0.22);
-      }
-
-      .logo-title {
-        margin: 0;
-        font-size: 16px;
-        font-weight: 700;
-        color: #1f2229;
-        white-space: nowrap;
-        letter-spacing: -0.3px;
-      }
-    }
-  }
-
-  .sidebar-scroll {
-    flex: 1;
-    overflow: hidden;
-
-    :deep(.el-scrollbar__wrap) {
-      overflow-x: hidden !important;
-    }
-
-    :deep(.el-menu) {
-      border-right: none;
-      background: transparent;
-
-      // 选中项蓝色左边框
-      .el-menu-item.is-active {
-        color: #165dff;
-        background-color: #f2f3f5;
-        border-right: 3px solid #165dff;
-        font-weight: 600;
-
-        .el-icon {
-          color: #165dff;
-        }
-      }
-
-      .el-menu-item:hover {
-        background-color: #f2f3f5;
-        color: #1f2229;
-      }
-
-      .el-sub-menu {
-        .el-sub-menu__title:hover {
-          background-color: #f2f3f5;
-          color: #1f2229;
-        }
-
-        &.is-active .el-sub-menu__title {
-          color: #165dff;
-          font-weight: 600;
-
-          .el-icon {
-            color: #165dff;
-          }
-        }
-      }
-    }
-  }
-
-  .sidebar-footer {
-    flex-shrink: 0;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-top: 1px solid #f0f0f0;
-    cursor: pointer;
-    color: #86909c;
-    transition: all 0.2s;
-
-    &:hover {
-      background: #f2f3f5;
-      color: #165dff;
-    }
-  }
-}
-
-/* 收起状态 */
-:global(.hideSidebar) .sidebar-wrapper {
-  .sidebar-logo {
-    padding: 0;
-    justify-content: center;
-
-    .logo-link {
-      justify-content: center;
-    }
-  }
-}
-
-/* 移动端遮罩 */
-.drawer-bg {
-  position: fixed;
-  top: 0;
-  left: 0;
-  z-index: 198;
+  display: flex;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.3);
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--admin-border);
+  color: var(--admin-text-secondary);
+  background: var(--admin-surface);
+  box-shadow: 2px 0 12px rgba(15, 23, 42, .035);
+  transition: width .22s ease;
+}
+
+.brand-row {
+  display: flex;
+  height: 56px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.brand-link {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  color: var(--admin-text);
+  text-decoration: none;
+}
+
+.brand-mark, .workspace-avatar {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  color: #fff;
+  background: linear-gradient(135deg, #409eff, #337ecc);
+  font-weight: 800;
+}
+
+.brand-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  box-shadow: 0 6px 16px rgba(64, 158, 255, .24);
+}
+
+.brand-name {
+  white-space: nowrap;
+  font-size: 16px;
+  font-weight: 750;
+  letter-spacing: -.3px;
+}
+
+.close-button {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  cursor: pointer;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  color: #9ca3af;
+  background: transparent;
+  transition: .18s ease;
+
+  &:hover { color: #409eff; background: var(--admin-hover); }
+}
+
+.workspace-row { padding: 10px 8px 6px; }
+.workspace-trigger {
+  display: flex;
+  width: 100%;
+  height: 48px;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 9px;
+  color: var(--admin-text);
+  background: transparent;
+  text-align: left;
+  transition: background .18s ease;
+
+  &:hover { background: var(--admin-hover); }
+}
+.workspace-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  font-size: 10px;
+}
+.workspace-copy, .account-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  line-height: 1.25;
+
+  strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; }
+  small { overflow: hidden; margin-top: 3px; color: #9ca3af; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; }
+}
+.workspace-chevron, .account-chevron { flex-shrink: 0; color: #b4bac4; font-size: 12px; }
+
+.menu-caption {
+  padding: 10px 16px 6px;
+  color: #b0b6c0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+
+.sidebar-scroll {
+  flex: 1;
+  overflow: hidden;
+  padding: 0 8px;
+
+  :deep(.el-scrollbar__wrap) { overflow-x: hidden !important; }
+  :deep(.el-menu) {
+    width: 100%;
+    border-right: 0;
+    background: transparent;
+  }
+}
+
+.sidebar-bottom {
+  flex-shrink: 0;
+  padding: 8px;
+  border-top: 1px solid var(--admin-border);
+}
+
+.bottom-link, .account-trigger {
+  display: flex;
+  width: 100%;
+  height: 40px;
+  align-items: center;
+  gap: 11px;
+  cursor: pointer;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 8px;
+  color: #667085;
+  background: transparent;
+  text-decoration: none;
+  transition: .18s ease;
+
+  &:hover { color: #409eff; background: var(--admin-hover); }
+  .el-icon { flex-shrink: 0; font-size: 17px; }
+}
+.account-trigger { height: 48px; margin-top: 4px; text-align: left; }
+:global(.sidebar-workspace-dropdown),
+:global(.sidebar-account-dropdown) {
+  min-width: 210px;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 10px !important;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, .12) !important;
+}
+
+:global(.sidebar-account-dropdown) {
+  width: 240px;
+}
+
+:global(.sidebar-account-dropdown .el-dropdown-menu) {
+  padding: 6px 0;
+}
+
+:global(.sidebar-account-dropdown .account-summary) {
+  display: flex;
+  width: 100%;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 14px 16px 16px;
+  text-align: center;
+}
+
+:global(.sidebar-account-dropdown .account-summary-copy) {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+}
+
+:global(.sidebar-account-dropdown .account-summary-copy strong),
+:global(.sidebar-account-dropdown .account-summary-copy small) {
+  display: block;
+  overflow: hidden;
+  width: 100%;
+  white-space: nowrap;
+  text-align: center;
+  text-overflow: ellipsis;
+}
+
+:global(.sidebar-account-dropdown .account-summary-copy strong) {
+  color: var(--admin-text);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+:global(.sidebar-account-dropdown .account-summary-copy small) {
+  margin-top: 3px;
+  color: #909399;
+  font-size: 11px;
+  line-height: 16px;
 }
 </style>

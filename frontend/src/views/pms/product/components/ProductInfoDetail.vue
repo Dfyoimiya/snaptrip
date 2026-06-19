@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, inject, type Ref } from 'vue'
 import { ElMessage, type FormInstance } from 'element-plus'
+import { getBrandAllAPI } from '@/apis/brand'
+import { getProductCategoryListWithChildrenAPI } from '@/apis/productCate'
+import type { PmsProductCategory } from '@/types/productCate'
 
 const props = defineProps({
   isEdit: { type: Boolean, default: false }
@@ -10,35 +13,17 @@ const emit = defineEmits(['next-step'])
 // 获取跨层数据
 const compProductParam = inject('product-key') as Ref<any>
 
-const selectProductCateValue = ref<number[]>([])
+const selectProductCateValue = ref<string[]>([])
 const productInfoForm = ref<FormInstance>()
 
-const productCateOptions = ref([
-  { label: '手机数码', value: 1, children: [
-    { label: '手机', value: 11 },
-    { label: '平板电脑', value: 12 },
-    { label: '智能手表', value: 13 },
-  ]},
-  { label: '电脑办公', value: 2, children: [
-    { label: '笔记本电脑', value: 21 },
-    { label: '台式机', value: 22 },
-    { label: '显示器', value: 23 },
-  ]},
-  { label: '服装鞋包', value: 3, children: [
-    { label: '男装', value: 31 },
-    { label: '女装', value: 32 },
-    { label: '运动鞋', value: 33 },
-  ]},
-])
+interface CascaderOption {
+  label: string
+  value: string
+  children?: CascaderOption[]
+}
 
-const brandOptions = ref([
-  { label: 'Apple', value: 1 },
-  { label: '华为', value: 2 },
-  { label: '小米', value: 3 },
-  { label: 'Nike', value: 4 },
-  { label: 'Adidas', value: 5 },
-  { label: '索尼', value: 6 },
-])
+const productCateOptions = ref<CascaderOption[]>([])
+const brandOptions = ref<Array<{ label: string; value: string }>>([])
 
 const rules = {
   name: [
@@ -46,49 +31,99 @@ const rules = {
     { min: 2, max: 140, message: '长度在 2 到 140 个字符', trigger: 'blur' }
   ],
   subTitle: [{ required: true, message: '请输入商品副标题', trigger: 'blur' }],
-  productCategoryId: [{ required: true, message: '请选择商品分类', trigger: 'blur' }],
+  categoryId: [{ required: true, message: '请选择商品分类', trigger: 'blur' }],
   brandId: [{ required: true, message: '请选择商品品牌', trigger: 'blur' }],
 }
 
 watch(selectProductCateValue, (newValue) => {
-  if (newValue && newValue.length === 2) {
-    compProductParam.value.productCategoryId = newValue[1]
-    compProductParam.value.productCategoryName = getCateNameById(newValue[1])
+  if (newValue && newValue.length > 0) {
+    const categoryId = newValue[newValue.length - 1]
+    compProductParam.value.categoryId = categoryId
+    compProductParam.value.productCategoryName = getCateNameById(categoryId)
   } else {
-    compProductParam.value.productCategoryId = undefined
+    compProductParam.value.categoryId = undefined
     compProductParam.value.productCategoryName = undefined
   }
 })
 
-onMounted(() => {
+watch(
+  () => compProductParam.value.categoryId,
+  (categoryId) => {
+    if (props.isEdit && categoryId) handleEditCreated()
+  },
+)
+
+onMounted(async () => {
+  await loadOptions()
   if (props.isEdit) handleEditCreated()
 })
 
 const hasEditCreated = ref(false)
 
 const handleEditCreated = () => {
-  if (compProductParam.value.productCategoryId) {
-    const cateId = compProductParam.value.productCategoryId
-    for (const item of productCateOptions.value) {
-      const child = item.children?.find(c => c.value === cateId)
-      if (child) {
-        selectProductCateValue.value = [item.value, cateId]
-        break
-      }
-    }
+  if (compProductParam.value.categoryId) {
+    selectProductCateValue.value = findCategoryPath(
+      productCateOptions.value,
+      compProductParam.value.categoryId,
+    )
   }
   hasEditCreated.value = true
 }
 
-const getCateNameById = (id: number) => {
+const getCateNameById = (id: string): string | undefined => {
   for (const item of productCateOptions.value) {
-    const child = item.children?.find(c => c.value === id)
-    if (child) return child.label
+    if (item.value === id) return item.label
+    const childName = item.children ? getCateNameFromTree(item.children, id) : undefined
+    if (childName) return childName
   }
   return undefined
 }
 
-const handleBrandChange = (val: number) => {
+function getCateNameFromTree(options: CascaderOption[], id: string): string | undefined {
+  for (const option of options) {
+    if (option.value === id) return option.label
+    const childName = option.children ? getCateNameFromTree(option.children, id) : undefined
+    if (childName) return childName
+  }
+  return undefined
+}
+
+function findCategoryPath(options: CascaderOption[], id: string): string[] {
+  for (const option of options) {
+    if (option.value === id) return [option.value]
+    if (option.children) {
+      const childPath = findCategoryPath(option.children, id)
+      if (childPath.length > 0) return [option.value, ...childPath]
+    }
+  }
+  return []
+}
+
+function mapCategoryTree(categories: PmsProductCategory[]): CascaderOption[] {
+  return categories.map((category) => ({
+    label: category.name,
+    value: category.id || '',
+    children: category.children?.length ? mapCategoryTree(category.children) : undefined,
+  }))
+}
+
+async function loadOptions(): Promise<void> {
+  try {
+    const [brandResponse, categoryResponse] = await Promise.all([
+      getBrandAllAPI(),
+      getProductCategoryListWithChildrenAPI(),
+    ])
+    brandOptions.value = brandResponse.data.map((brand) => ({
+      label: brand.name,
+      value: brand.id || '',
+    }))
+    productCateOptions.value = mapCategoryTree(categoryResponse.data)
+  } catch {
+    ElMessage.error('加载品牌和商品分类失败')
+  }
+}
+
+const handleBrandChange = (val: string) => {
   const findBrand = brandOptions.value.find(item => item.value === val)
   compProductParam.value.brandName = findBrand?.label
 }
@@ -107,7 +142,7 @@ const handleNext = async () => {
 <template>
   <div style="margin-top: 50px">
     <el-form :model="compProductParam" :rules="rules" ref="productInfoForm" label-width="120px" class="form-inner-container">
-      <el-form-item label="商品分类：" prop="productCategoryId">
+      <el-form-item label="商品分类：" prop="categoryId">
         <el-cascader v-model="selectProductCateValue" :options="productCateOptions" placeholder="请选择" />
       </el-form-item>
       <el-form-item label="商品名称：" prop="name">

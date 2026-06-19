@@ -3,6 +3,7 @@ import { reactive, computed, ref } from 'vue'
 
 /** 设备类型 */
 export type DeviceType = 'desktop' | 'mobile'
+export type ThemeType = 'light' | 'dark'
 
 /** 侧边栏状态 */
 interface SidebarState {
@@ -18,6 +19,9 @@ export const useAppStore = defineStore('app', () => {
   })
   const device = ref<DeviceType>('desktop')
   const fixedHeader = ref(true)
+  const theme = ref<ThemeType>(
+    localStorage.getItem('admin_theme') === 'dark' ? 'dark' : 'light',
+  )
 
   // Getters
   const sidebarOpened = computed(() => sidebar.opened)
@@ -46,14 +50,28 @@ export const useAppStore = defineStore('app', () => {
     device.value = val
   }
 
+  function applyTheme() {
+    document.documentElement.classList.toggle('dark', theme.value === 'dark')
+    document.documentElement.style.colorScheme = theme.value
+  }
+
+  function toggleTheme() {
+    theme.value = theme.value === 'light' ? 'dark' : 'light'
+    localStorage.setItem('admin_theme', theme.value)
+    applyTheme()
+  }
+
   return {
     sidebar,
     device,
     fixedHeader,
+    theme,
     sidebarOpened,
     toggleSidebar,
     closeSidebar,
     openSidebar,
     toggleDevice,
+    applyTheme,
+    toggleTheme,
   }
 })

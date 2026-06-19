@@ -243,11 +243,15 @@ class ProductService:
         """
         from app.models.product.product import PmsProduct
 
-        base = select(PmsProduct).options(
-            selectinload(PmsProduct.brand),
-            selectinload(PmsProduct.category),
+        base = (
+            select(PmsProduct)
+            .where(PmsProduct.is_deleted.is_(False))
+            .options(
+                selectinload(PmsProduct.brand),
+                selectinload(PmsProduct.category),
+            )
         )
-        count_q = select(func.count(PmsProduct.id))
+        count_q = select(func.count(PmsProduct.id)).where(PmsProduct.is_deleted.is_(False))
 
         if query.keyword:
             base = base.where(

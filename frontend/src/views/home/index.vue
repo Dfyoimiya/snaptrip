@@ -108,9 +108,9 @@ onMounted(() => {
     <el-card class="welcome-card" shadow="never">
       <div class="welcome-content">
         <div class="welcome-left">
-          <img src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png" class="welcome-avatar" alt="avatar" />
+          <img src="https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png" class="welcome-avatar" alt="管理员头像" />
           <div>
-            <div class="welcome-title">{{ greeting }}，Admin，开始您一天的工作吧！</div>
+            <div class="welcome-title">{{ greeting }}，管理员，开始您一天的工作吧！</div>
             <div class="welcome-subtitle">SnapTrip B 端管理后台</div>
           </div>
         </div>
@@ -157,7 +157,7 @@ onMounted(() => {
           <div class="chart-container">
             <div v-for="(day, i) in weekDays" :key="day" class="chart-bar-wrapper">
               <div class="chart-bar" :style="{ height: barHeight(weekSales[i]) }">
-                <span class="chart-bar-value">¥{{ (weekSales[i] / 1000).toFixed(1) }}k</span>
+                <span class="chart-bar-value">¥{{ (weekSales[i] / 1000).toFixed(1) }}千</span>
               </div>
               <div class="chart-bar-label">{{ day }}</div>
             </div>
@@ -168,7 +168,7 @@ onMounted(() => {
         <el-card shadow="never">
           <template #header>
             <div class="panel-header">
-              <span class="panel-title">商品销售排行 TOP5</span>
+              <span class="panel-title">商品销售排行前五名</span>
             </div>
           </template>
           <div class="product-rank">

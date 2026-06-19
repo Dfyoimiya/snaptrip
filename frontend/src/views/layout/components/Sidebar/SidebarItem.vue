@@ -65,7 +65,7 @@ function getIcon(iconName: string): string {
     </template>
 
     <SidebarItem
-      v-for="child in item.children"
+      v-for="child in item.children?.filter((route) => !route.hidden)"
       :key="child.path"
       :item="child"
       :base-path="resolvePath(child.path)"
@@ -76,75 +76,86 @@ function getIcon(iconName: string): string {
 
 <style lang="scss" scoped>
 .menu-title {
-  font-size: 14px;
-  margin-left: 2px;
+  overflow: hidden;
+  margin-left: 3px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  font-weight: 500;
 }
 
-/* 白色风格菜单项 */
 :deep(.el-menu-item) {
-  height: 42px;
-  line-height: 42px;
-  color: #4e5969;
-  border-right: 3px solid transparent;
+  height: 40px;
+  margin: 2px 0;
+  padding: 0 11px !important;
+  border-radius: 8px;
+  color: var(--admin-text-secondary);
+  line-height: 40px;
+  transition: color .18s ease, background .18s ease;
 
   .el-icon {
-    color: #86909c;
+    color: var(--admin-text-muted);
+    font-size: 17px;
   }
 
   &:hover {
-    background-color: #f2f3f5 !important;
-    color: #1f2229;
+    color: var(--admin-text);
+    background: var(--admin-hover) !important;
   }
 
   &.is-active {
-    color: #165dff;
-    background-color: #f2f3f5 !important;
-    border-right-color: #165dff;
+    color: #1677ff;
+    background: #edf5ff !important;
     font-weight: 600;
 
-    .el-icon {
-      color: #165dff;
-    }
+    .el-icon { color: #409eff; }
   }
 }
 
 :deep(.el-sub-menu__title) {
-  height: 42px;
-  line-height: 42px;
-  color: #4e5969;
+  height: 40px;
+  margin: 2px 0;
+  padding: 0 11px !important;
+  border-radius: 8px;
+  color: var(--admin-text-secondary);
+  line-height: 40px;
 
-  .el-icon {
-    color: #86909c;
-  }
+  .el-icon { color: var(--admin-text-muted); font-size: 17px; }
 
   &:hover {
-    background-color: #f2f3f5 !important;
-    color: #1f2229;
+    color: var(--admin-text);
+    background: var(--admin-hover) !important;
   }
 }
 
-/* 弹出菜单白色风格 */
-:global(.sidebar-popper-white) {
-  background: #fff !important;
-  border: 1px solid #e5e6eb !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+:deep(.el-sub-menu.is-active > .el-sub-menu__title) {
+  color: #1677ff;
+  .el-icon { color: #409eff; }
+}
 
-  .el-menu {
-    background: #fff !important;
-  }
+:deep(.el-menu--inline) {
+  padding-left: 8px;
+  background: transparent;
+}
+
+:global(.sidebar-popper-white) {
+  background: var(--admin-surface) !important;
+  border: 1px solid var(--admin-border) !important;
+  border-radius: 9px !important;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, .12) !important;
+
+  .el-menu { padding: 5px !important; background: var(--admin-surface) !important; }
 
   .el-menu-item {
-    color: #4e5969 !important;
-    height: 38px !important;
-    line-height: 38px !important;
-
-    &:hover {
-      background-color: #f2f3f5 !important;
-    }
-
+    height: 36px !important;
+    margin: 2px 0;
+    border-radius: 7px;
+    color: var(--admin-text-secondary) !important;
+    line-height: 36px !important;
+    &:hover { background: var(--admin-hover) !important; }
     &.is-active {
-      color: #165dff !important;
-      background-color: #f2f3f5 !important;
+      color: #1677ff !important;
+      background: #edf5ff !important;
     }
   }
 }

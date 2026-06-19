@@ -94,7 +94,7 @@ watch(() => route.query.id, (newId) => {
             <el-descriptions-item label="下单时间">{{ order?.createdAt }}</el-descriptions-item>
             <el-descriptions-item label="支付方式">{{ payTypeMap[order?.payType] || '--' }}</el-descriptions-item>
             <el-descriptions-item label="订单来源">
-              {{ order?.sourceType === 0 ? 'PC端' : order?.sourceType === 1 ? 'APP端' : '小程序' }}
+              {{ order?.sourceType === 0 ? '电脑端' : order?.sourceType === 1 ? '移动应用端' : '小程序' }}
             </el-descriptions-item>
             <el-descriptions-item label="自动确认天数">{{ order?.autoConfirmDay }}天</el-descriptions-item>
             <el-descriptions-item label="备注" :span="2">{{ order?.remark || '--' }}</el-descriptions-item>

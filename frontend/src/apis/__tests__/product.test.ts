@@ -82,7 +82,7 @@ describe('product API', () => {
   })
 
   describe('createProductAPI', () => {
-    it('should POST to /admin/products with product data', async () => {
+    it('should POST a snake_case payload to /admin/products', async () => {
       const data = {
         name: 'Test Phone',
         brandId: '1',
@@ -100,12 +100,23 @@ describe('product API', () => {
       const callArgs = mockRequest.mock.calls[0][0]
       expect(callArgs.method).toBe('post')
       expect(callArgs.url).toBe('/admin/products')
-      expect(callArgs.data).toEqual(data)
+      expect(callArgs.data).toMatchObject({
+        name: 'Test Phone',
+        brand_id: '1',
+        category_id: '10',
+        product_sn: 'SN-NEW',
+        default_pic: '/img/test.png',
+        price: 2999,
+        sub_title: 'Best phone',
+        skus: [],
+        attribute_values: {},
+      })
+      expect(callArgs.data.brandId).toBeUndefined()
     })
   })
 
   describe('updateProductAPI', () => {
-    it('should PUT to /admin/products/{id} with product data', async () => {
+    it('should PUT a snake_case payload to /admin/products/{id}', async () => {
       const data = { name: 'Updated Phone', price: 2599, brandId: '1', categoryId: '10', defaultPic: '', productSn: '', subTitle: '' }
 
       mockRequest.mockResolvedValueOnce({ data: { code: 200, data: 1 } })
@@ -115,7 +126,17 @@ describe('product API', () => {
       const callArgs = mockRequest.mock.calls[0][0]
       expect(callArgs.method).toBe('put')
       expect(callArgs.url).toBe('/admin/products/42')
-      expect(callArgs.data).toEqual(data)
+      expect(callArgs.data).toMatchObject({
+        name: 'Updated Phone',
+        price: 2599,
+        brand_id: '1',
+        category_id: '10',
+        default_pic: null,
+        product_sn: null,
+        sub_title: null,
+      })
+      expect(callArgs.data.skus).toBeUndefined()
+      expect(callArgs.data.attribute_values).toBeUndefined()
     })
   })
 

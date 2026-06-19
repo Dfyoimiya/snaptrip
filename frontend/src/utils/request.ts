@@ -173,8 +173,22 @@ request.interceptors.response.use(
       return Promise.reject(error)
     }
 
+    if (error.response?.status === 403) {
+      const message = error.response?.data?.message || error.response?.data?.detail || '暂无访问权限'
+      ElMessage.error(message)
+      if (!window.location.hash.startsWith('#/403')) {
+        window.location.hash = '#/403'
+      }
+      return Promise.reject(error)
+    }
+
     // 非 401 错误
-    ElMessage.error(error.response?.data?.message || '网络错误')
+    ElMessage.error(
+      error.response?.data?.message
+      || error.response?.data?.detail
+      || error.message
+      || '网络错误',
+    )
     return Promise.reject(error)
   },
 )

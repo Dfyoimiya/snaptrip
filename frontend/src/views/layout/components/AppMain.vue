@@ -22,7 +22,7 @@ const routerKey = computed(() => route.path)
 .app-main {
   padding: 12px;
   overflow-x: hidden;
-  background-color: #f7f8fa;
+  background-color: var(--admin-bg);
   min-height: calc(100vh - 96px);
 }
 

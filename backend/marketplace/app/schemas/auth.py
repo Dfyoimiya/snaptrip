@@ -6,7 +6,17 @@ Date: 2026-05-17
 
 from __future__ import annotations
 
+from typing import Generic, TypeVar
+
 from pydantic import BaseModel, EmailStr, Field
+
+T = TypeVar("T")
+
+
+class AuthAPIResponse(BaseModel, Generic[T]):
+    code: int = 0
+    message: str = "success"
+    data: T
 
 
 class RegisterRequest(BaseModel):
@@ -59,3 +69,19 @@ class UserMeResponse(BaseModel):
     nickname: str | None = None
     avatar_url: str | None = None
     gender: int | None = None
+
+
+class AccessMenuItem(BaseModel):
+    id: str
+    parent_id: str | None = None
+    title: str
+    name: str | None = None
+    icon: str | None = None
+    sort: int = 0
+    hidden: int = 0
+
+
+class UserAccessResponse(BaseModel):
+    roles: list[str]
+    permissions: list[str]
+    menus: list[AccessMenuItem]

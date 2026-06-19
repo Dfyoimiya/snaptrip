@@ -223,6 +223,13 @@ const productRules = {
 }
 
 async function loadProductList() {
+  if (
+    productSearch.flashPromotionId == null
+    || productSearch.flashPromotionSessionId == null
+  ) {
+    productList.value = []
+    return
+  }
   productLoading.value = true
   try {
     const res = await fetchFlashProductList({

@@ -5,6 +5,13 @@ import Layout from '@/views/layout/Layout.vue'
 // ========== 常量路由（无需权限） ==========
 export const constantRouterMap: RouteRecordExt[] = [
   {
+    path: '/403',
+    name: '403',
+    component: () => import('@/views/normal/403/index.vue'),
+    hidden: true,
+    meta: { title: '无权限', hidden: true },
+  },
+  {
     path: '/login',
     name: 'login',
     component: () => import('@/views/login/index.vue'),

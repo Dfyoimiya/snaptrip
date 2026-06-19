@@ -30,6 +30,8 @@ export interface PmsProduct {
   weight?: number
   previewStatus?: number
   serviceIds?: string
+  description?: string
+  freightTemplateId?: string
   keywords?: string
   note?: string
   albumPics?: string
@@ -67,6 +69,60 @@ export interface PmsProductParam extends PmsProduct {
   productParamValueList?: ProductParamValue[]
 }
 
+/** FastAPI 商品详情响应 */
+export interface ProductDetailResponse extends PmsProduct {
+  categoryName?: string
+  skus: Array<SkuStock & { pic?: string }>
+  attributeValues: Array<{
+    attributeId: string
+    value: string
+  }>
+}
+
+/** FastAPI 商品创建请求体 */
+export interface ProductCreatePayload {
+  name: string
+  sub_title?: string | null
+  brand_id?: string | null
+  category_id?: string | null
+  product_sn?: string | null
+  price: number
+  original_price?: number | null
+  promotion_price?: number | null
+  promotion_start_time?: string | null
+  promotion_end_time?: string | null
+  promotion_per_limit?: number
+  promotion_type?: number
+  publish_status?: number
+  new_status?: number
+  recommend_status?: number
+  description?: string | null
+  keywords?: string | null
+  unit?: string | null
+  weight?: number | null
+  service_ids?: string | null
+  freight_template_id?: string | null
+  pics?: string | null
+  album_pics?: string | null
+  default_pic?: string | null
+  skus: ProductSkuPayload[]
+  attribute_values: Record<string, string>
+}
+
+/** FastAPI 商品编辑请求体 */
+export type ProductUpdatePayload = Omit<ProductCreatePayload, 'skus' | 'attribute_values'>
+
+/** FastAPI SKU 请求体 */
+export interface ProductSkuPayload {
+  sku_code: string
+  spec: string
+  price: number
+  promotion_price?: number | null
+  stock: number
+  low_stock: number
+  pic?: string | null
+}
+
 /** 商品属性值 */
 export interface ProductAttrValue {
   id?: string
@@ -88,6 +144,7 @@ export interface SkuStock {
   promotionPrice?: number
   lockStock?: number
   spec?: string
+  spData?: string
 }
 
 /** 商品参数值 */

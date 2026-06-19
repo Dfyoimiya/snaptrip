@@ -12,6 +12,7 @@ vi.mock('@/apis/auth', () => ({
   loginApi: vi.fn(),
   logoutApi: vi.fn(),
   getUserInfoApi: vi.fn(),
+  getUserAccessApi: vi.fn(),
 }))
 
 vi.mock('@/utils/storage', () => {
@@ -39,10 +40,11 @@ const FUTURE_TOKEN =
   btoa(JSON.stringify({ sub: '1', username: 'admin', exp: 9999999999 })) +
   '.signature'
 
-import { loginApi, logoutApi, getUserInfoApi } from '@/apis/auth'
+import { getUserAccessApi, loginApi, logoutApi, getUserInfoApi } from '@/apis/auth'
 const mockLoginApi = loginApi as ReturnType<typeof vi.fn>
 const mockLogoutApi = logoutApi as ReturnType<typeof vi.fn>
 const mockGetUserInfoApi = getUserInfoApi as ReturnType<typeof vi.fn>
+const mockGetUserAccessApi = getUserAccessApi as ReturnType<typeof vi.fn>
 
 describe('useUserStore', () => {
   beforeEach(() => {
@@ -50,6 +52,13 @@ describe('useUserStore', () => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
     localStorage.clear()
+    mockGetUserAccessApi.mockResolvedValue({
+      data: {
+        menus: [{ id: '1', parentId: null, title: '商品管理', name: 'pms' }],
+        roles: ['admin_manager'],
+        permissions: ['product:list'],
+      },
+    })
   })
 
   describe('initial state', () => {
@@ -112,15 +121,16 @@ describe('useUserStore', () => {
       expect(store.userInfo.nickname).toBe('Admin')
       expect(store.userInfo.avatar).toBe('https://cdn.snaptrip.com/avatar.png')
 
-      // 默认菜单和角色已设置
+      // 后端菜单、角色和权限已设置
       expect(store.userInfo.menus.length).toBeGreaterThan(0)
-      expect(store.userInfo.roles).toContain('admin')
+      expect(store.userInfo.roles).toContain('admin_manager')
+      expect(store.userInfo.permissions).toContain('product:list')
 
       // 登录后 isLoggedIn 为 true
       expect(store.isLoggedIn).toBe(true)
     })
 
-    it('should fallback to form username when /me API fails', async () => {
+    it('should reject login and clear token when access profile loading fails', async () => {
       const store = useUserStore()
 
       mockLoginApi.mockResolvedValueOnce({
@@ -132,12 +142,9 @@ describe('useUserStore', () => {
 
       mockGetUserInfoApi.mockRejectedValueOnce(new Error('Network Error'))
 
-      await store.login({ username: 'admin', password: '123456' })
-
-      // 应回退到表单用户名
-      expect(store.userInfo.username).toBe('admin')
-      expect(store.userInfo.nickname).toBe('admin')
-      expect(store.userInfo.avatar).toBe('')
+      await expect(store.login({ username: 'admin', password: '123456' }))
+        .rejects.toThrow('Network Error')
+      expect(store.userInfo.token).toBe('')
     })
   })
 
@@ -197,6 +204,30 @@ describe('useUserStore', () => {
   })
 
   describe('token handling', () => {
+    it('should update logged-in state reactively after login', async () => {
+      const store = useUserStore()
+      expect(store.isLoggedIn).toBe(false)
+
+      mockLoginApi.mockResolvedValueOnce({
+        data: {
+          accessToken: FUTURE_TOKEN,
+          refreshToken: 'refresh-token',
+        },
+      })
+      mockGetUserInfoApi.mockResolvedValueOnce({
+        data: {
+          id: 'user-1',
+          email: 'admin@snaptrip.com',
+          nickname: 'Admin',
+          avatarUrl: null,
+          gender: null,
+        },
+      })
+
+      await store.login({ username: 'admin@snaptrip.com', password: 'admin123' })
+      expect(store.isLoggedIn).toBe(true)
+    })
+
     it('should recognize valid token as logged in', async () => {
       const store = useUserStore()
 

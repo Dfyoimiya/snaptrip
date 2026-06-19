@@ -1,9 +1,12 @@
 <script lang="ts" setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onActivated, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Tickets, Edit } from '@element-plus/icons-vue'
 import { getProductListAPI, productUpdatePublishStatusAPI, productUpdateNewStatusAPI, productUpdateRecommendStatusAPI, productUpdateDeleteStatusAPI } from '@/apis/product'
+import { getBrandAllAPI } from '@/apis/brand'
+import { getProductCategoryListWithChildrenAPI } from '@/apis/productCate'
+import type { PmsProductCategory } from '@/types/productCate'
 
 const router = useRouter()
 
@@ -19,32 +22,14 @@ const listQuery = ref({
   page_size: 10,
 })
 
-const brandOptions = ref([
-  { label: 'Apple', value: 1 },
-  { label: '华为', value: 2 },
-  { label: '小米', value: 3 },
-  { label: 'Nike', value: 4 },
-  { label: 'Adidas', value: 5 },
-  { label: '索尼', value: 6 },
-])
+interface CascaderOption {
+  label: string
+  value: string
+  children?: CascaderOption[]
+}
 
-const cateOptions = ref([
-  { label: '手机数码', value: 1, children: [
-    { label: '手机', value: 11 },
-    { label: '平板电脑', value: 12 },
-    { label: '智能手表', value: 13 },
-  ]},
-  { label: '电脑办公', value: 2, children: [
-    { label: '笔记本电脑', value: 21 },
-    { label: '台式机', value: 22 },
-    { label: '显示器', value: 23 },
-  ]},
-  { label: '服装鞋包', value: 3, children: [
-    { label: '男装', value: 31 },
-    { label: '女装', value: 32 },
-    { label: '运动鞋', value: 33 },
-  ]},
-])
+const brandOptions = ref<Array<{ label: string; value: string }>>([])
+const cateOptions = ref<CascaderOption[]>([])
 
 const publishStatusOptions = ref([{ value: 1, label: '上架' }, { value: 0, label: '下架' }])
 const verifyStatusOptions = ref([{ value: 1, label: '审核通过' }, { value: 0, label: '未审核' }])
@@ -72,9 +57,35 @@ async function fetchList() {
   }
 }
 
+function mapCategoryTree(categories: PmsProductCategory[]): CascaderOption[] {
+  return categories.map((category) => ({
+    label: category.name,
+    value: category.id || '',
+    children: category.children?.length ? mapCategoryTree(category.children) : undefined,
+  }))
+}
+
+async function loadFilterOptions(): Promise<void> {
+  try {
+    const [brandResponse, categoryResponse] = await Promise.all([
+      getBrandAllAPI(),
+      getProductCategoryListWithChildrenAPI(),
+    ])
+    brandOptions.value = brandResponse.data.map((brand) => ({
+      label: brand.name,
+      value: brand.id || '',
+    }))
+    cateOptions.value = mapCategoryTree(categoryResponse.data)
+  } catch {
+    ElMessage.warning('品牌或分类筛选项加载失败')
+  }
+}
+
 onMounted(() => {
-  fetchList()
+  loadFilterOptions()
 })
+
+onActivated(fetchList)
 
 // ========== 搜索 ==========
 function handleSearchList() {
@@ -113,6 +124,8 @@ async function handlePublishStatusChange(_index: number, row: any) {
     ElMessage.success('上架状态已更新')
   } catch {
     ElMessage.error('上架状态更新失败')
+  } finally {
+    await fetchList()
   }
 }
 async function handleNewStatusChange(_index: number, row: any) {
@@ -121,6 +134,8 @@ async function handleNewStatusChange(_index: number, row: any) {
     ElMessage.success('新品状态已更新')
   } catch {
     ElMessage.error('新品状态更新失败')
+  } finally {
+    await fetchList()
   }
 }
 async function handleRecommendStatusChange(_index: number, row: any) {
@@ -129,6 +144,8 @@ async function handleRecommendStatusChange(_index: number, row: any) {
     ElMessage.success('推荐状态已更新')
   } catch {
     ElMessage.error('推荐状态更新失败')
+  } finally {
+    await fetchList()
   }
 }
 function verifyStatusFilter(value: number) {
@@ -143,16 +160,24 @@ function handleUpdateProduct(_index: number, row: any) {
   if (!row.id) return ElMessage.error('商品ID不能为空')
   router.push({ path: '/pms/updateProduct', query: { id: row.id } })
 }
-function handleDelete(_index: number, row: any) {
-  ElMessageBox.confirm('是否要进行删除操作?', '提示', { type: 'warning' }).then(async () => {
-    try {
-      await productUpdateDeleteStatusAPI(String(row.id))
-      ElMessage.success('删除成功')
-      fetchList()
-    } catch {
+async function handleDelete(_index: number, row: any) {
+  try {
+    await ElMessageBox.confirm('确定删除该商品吗？删除后商品将从列表下架。', '删除确认', {
+      confirmButtonText: '确定删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    await productUpdateDeleteStatusAPI(String(row.id))
+    if (list.value.length === 1 && listQuery.value.page > 1) {
+      listQuery.value.page -= 1
+    }
+    await fetchList()
+    ElMessage.success('商品已删除，列表和数据库已同步')
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
       ElMessage.error('删除失败')
     }
-  })
+  }
 }
 function handleShowProduct(_index: number, row: any) {
   console.log('查看商品', row)
@@ -330,7 +355,13 @@ function handleEditSkuConfirm() {
             <el-input style="width: 203px" v-model="listQuery.productSn" placeholder="商品货号"></el-input>
           </el-form-item>
           <el-form-item label="商品分类：">
-            <el-cascader clearable v-model="listQuery.categoryId" :options="cateOptions" style="width: 203px"></el-cascader>
+            <el-cascader
+              clearable
+              v-model="listQuery.categoryId"
+              :options="cateOptions"
+              :props="{ emitPath: false }"
+              style="width: 203px"
+            />
           </el-form-item>
           <el-form-item label="商品品牌：">
             <el-select v-model="listQuery.brandId" placeholder="请选择品牌" clearable style="width: 203px">
@@ -355,7 +386,7 @@ function handleEditSkuConfirm() {
     <el-card class="operate-container" shadow="never">
       <el-icon class="el-icon-middle"><Tickets /></el-icon>
       <span>数据列表</span>
-      <el-button class="btn-add" @click="handleAddProduct">添加</el-button>
+      <el-button v-permission="'product:create'" class="btn-add" @click="handleAddProduct">添加</el-button>
     </el-card>
 
     <!-- 表格 -->

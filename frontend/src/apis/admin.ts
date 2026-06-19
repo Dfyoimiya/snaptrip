@@ -8,11 +8,28 @@ export function getAdminListAPI(params: PageParam) {
 }
 
 export function adminRegisterAPI(data: UmsAdmin) {
-  return request<CommonResult<UmsAdmin>>({ url: '/admin/register', method: 'post', data })
+  return request<CommonResult<UmsAdmin>>({
+    url: '/admin/register',
+    method: 'post',
+    data: {
+      email: data.email || '',
+      password: data.password,
+      role_ids: data.roleIds || [],
+    },
+  })
 }
 
 export function adminUpdateByIdAPI(id: string, data: UmsAdmin) {
-  return request<CommonResult<number>>({ url: '/admin/update/' + id, method: 'post', data })
+  return request<CommonResult<number>>({
+    url: '/admin/update/' + id,
+    method: 'post',
+    data: {
+      email: data.email || undefined,
+      password: data.password || undefined,
+      is_active: data.isActive,
+      role_ids: data.roleIds,
+    },
+  })
 }
 
 export function adminUpdateStatusByIdAPI(id: string, params: { status: number }) {
@@ -24,9 +41,19 @@ export function adminDeleteByIdAPI(id: string) {
 }
 
 export function getRoleByAdminIdAPI(adminId: string) {
-  return request<CommonResult<any[]>>({ url: '/admin/role/' + adminId, method: 'get' })
+  return request<CommonResult<Array<{ id: string; name: string }>>>({
+    url: '/admin/role/' + adminId,
+    method: 'get',
+  })
 }
 
-export function adminRoleUpdateAPI(params: { adminId: string; roleIds: string }) {
-  return request<CommonResult<number>>({ url: '/admin/role/update', method: 'post', params })
+export function adminRoleUpdateAPI(data: { adminId: string; roleIds: string[] }) {
+  return request<CommonResult<number>>({
+    url: '/admin/role/update',
+    method: 'post',
+    data: {
+      admin_id: data.adminId,
+      role_ids: data.roleIds,
+    },
+  })
 }

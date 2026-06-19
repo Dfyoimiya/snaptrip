@@ -46,6 +46,11 @@ useResizeHandler()
 <template>
   <div class="app-wrapper" :class="classObj">
     <Sidebar class="sidebar-container" />
+    <div
+      v-if="device === 'mobile' && sidebar.opened"
+      class="mobile-mask"
+      @click="appStore.closeSidebar(false)"
+    />
     <div class="main-container">
       <Navbar class="fixed-header" />
       <AppMain />
@@ -62,9 +67,11 @@ useResizeHandler()
   display: flex;
 
   .sidebar-container {
-    width: 220px;
+    width: 240px;
+    min-width: 240px;
+    max-width: 240px;
     height: 100%;
-    transition: width 0.25s ease;
+    transition: width 0.25s ease, min-width 0.25s ease, max-width 0.25s ease;
     flex-shrink: 0;
   }
 
@@ -73,7 +80,7 @@ useResizeHandler()
     display: flex;
     flex-direction: column;
     min-width: 0;
-    background-color: #f7f8fa;
+    background-color: var(--admin-bg);
     overflow: hidden;
 
     .fixed-header {
@@ -85,7 +92,11 @@ useResizeHandler()
   // 收起
   &.hideSidebar {
     .sidebar-container {
-      width: 58px;
+      width: 0;
+      min-width: 0;
+      max-width: 0;
+      border: 0;
+      box-shadow: none;
     }
   }
 
@@ -97,14 +108,25 @@ useResizeHandler()
       left: 0;
       z-index: 999;
       height: 100%;
-      width: 220px;
+      width: 240px;
+      min-width: 240px;
+      max-width: 240px;
       transition: transform 0.25s ease;
+      box-shadow: 12px 0 32px rgba(15, 23, 42, 0.18);
     }
 
     &.hideSidebar .sidebar-container {
       transform: translateX(-100%);
       pointer-events: none;
     }
+  }
+
+  .mobile-mask {
+    position: fixed;
+    inset: 0;
+    z-index: 998;
+    background: rgba(15, 23, 42, 0.42);
+    backdrop-filter: blur(2px);
   }
 }
 </style>

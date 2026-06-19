@@ -2,10 +2,12 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { RouteLocationNormalized } from 'vue-router'
 
+export const HOME_TAB_PATH = '/home'
+
 /** Tab 状态管理（多标签页） */
 export const useTabStore = defineStore('tab', () => {
   // State
-  const visitedViews = ref<TabView[]>([])
+  const visitedViews = ref<TabView[]>(loadVisitedViews())
   const cachedViews = ref<string[]>([])
 
   // Getters
@@ -18,6 +20,7 @@ export const useTabStore = defineStore('tab', () => {
     // 已存在则不重复添加
     if (visitedViews.value.some((v) => v.path === view.path)) return
     visitedViews.value.push(view)
+    persistVisitedViews(visitedViews.value)
     // 缓存
     if (view.meta?.keepAlive && view.name) {
       if (!cachedViews.value.includes(view.name as string)) {
@@ -28,10 +31,19 @@ export const useTabStore = defineStore('tab', () => {
 
   /** 关闭标签页 */
   function removeView(path: string) {
+    if (
+      visitedViews.value.length === 1
+      && visitedViews.value[0]?.path === HOME_TAB_PATH
+      && path === HOME_TAB_PATH
+    ) {
+      return
+    }
+
     const index = visitedViews.value.findIndex((v) => v.path === path)
     if (index > -1) {
       const view = visitedViews.value[index]
       visitedViews.value.splice(index, 1)
+      persistVisitedViews(visitedViews.value)
       // 移除缓存
       if (view.name) {
         const i = cachedViews.value.indexOf(view.name as string)
@@ -48,12 +60,18 @@ export const useTabStore = defineStore('tab', () => {
     cachedViews.value = visitedViews.value
       .filter((v) => v.meta?.keepAlive && v.name)
       .map((v) => v.name as string)
+    persistVisitedViews(visitedViews.value)
   }
 
   /** 关闭所有标签页（保留固定的） */
   function closeAllViews() {
-    visitedViews.value = visitedViews.value.filter((v) => v.meta?.affix)
-    cachedViews.value = []
+    visitedViews.value = visitedViews.value.filter(
+      (v) => v.meta?.affix || v.path === HOME_TAB_PATH
+    )
+    cachedViews.value = visitedViews.value
+      .filter((v) => v.meta?.keepAlive && v.name)
+      .map((v) => v.name as string)
+    persistVisitedViews(visitedViews.value)
   }
 
   return {
@@ -66,6 +84,20 @@ export const useTabStore = defineStore('tab', () => {
     closeAllViews,
   }
 })
+
+const TABS_KEY = 'admin_tags_view'
+
+function loadVisitedViews(): TabView[] {
+  try {
+    return JSON.parse(localStorage.getItem(TABS_KEY) || '[]') as TabView[]
+  } catch {
+    return []
+  }
+}
+
+function persistVisitedViews(views: TabView[]): void {
+  localStorage.setItem(TABS_KEY, JSON.stringify(views))
+}
 
 /** Tab 视图项 */
 export interface TabView {

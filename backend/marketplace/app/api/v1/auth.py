@@ -44,6 +44,8 @@ from marketplace.app.core.security import (
 from marketplace.app.models.user_profile import UserProfile
 from marketplace.app.models.users import User
 from marketplace.app.schemas.auth import (
+    AccessMenuItem,
+    AuthAPIResponse,
     ChangePasswordRequest,
     ForgotPasswordRequest,
     LoginRequest,
@@ -53,6 +55,7 @@ from marketplace.app.schemas.auth import (
     RegisterRequest,
     ResetPasswordRequest,
     TokenResponse,
+    UserAccessResponse,
     UserMeResponse,
 )
 
@@ -105,7 +108,7 @@ async def register(
     return data
 
 
-@router.post("/login", response_model=dict)
+@router.post("/login", response_model=AuthAPIResponse[TokenResponse])
 async def login(
     body: LoginRequest,
     request: Request,
@@ -173,7 +176,7 @@ async def login_phone(
     return data
 
 
-@router.post("/refresh", response_model=dict)
+@router.post("/refresh", response_model=AuthAPIResponse[TokenResponse])
 async def refresh(
     body: RefreshRequest,
     request: Request,
@@ -214,7 +217,7 @@ async def logout(
     return data
 
 
-@router.get("/me", response_model=dict)
+@router.get("/me", response_model=AuthAPIResponse[UserMeResponse])
 async def me(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -232,6 +235,86 @@ async def me(
         ).model_dump(),
     )
     return data
+
+
+@router.get(
+    "/access",
+    response_model=AuthAPIResponse[UserAccessResponse],
+    summary="当前后台用户菜单与权限",
+)
+async def access(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Return RBAC data used by the admin frontend to build routes and buttons."""
+    from app.models.menu import Menu, RoleMenu
+    from app.models.rbac import Permission, Role, RolePermission, UserRole
+
+    role_result = await db.execute(
+        select(Role.id, Role.name)
+        .join(UserRole, UserRole.role_id == Role.id)
+        .where(UserRole.user_id == current_user.id, Role.status == 1)
+    )
+    role_rows = role_result.all()
+    role_ids = [role_id for role_id, _role_name in role_rows]
+    role_names = [role_name for _role_id, role_name in role_rows]
+    is_super_admin = "super_admin" in role_names
+    is_admin = is_super_admin or any(
+        role_name.startswith("admin") or role_name.endswith(("_admin", "_manager", "_agent"))
+        for role_name in role_names
+    )
+    if not is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="需要后台管理权限",
+        )
+
+    if is_super_admin:
+        menu_result = await db.execute(select(Menu).order_by(Menu.sort.desc()))
+        permission_result = await db.execute(
+            select(Permission.name).where(Permission.status == 1).order_by(Permission.name)
+        )
+    else:
+        menu_result = await db.execute(
+            select(Menu)
+            .join(RoleMenu, RoleMenu.menu_id == Menu.id)
+            .where(RoleMenu.role_id.in_(role_ids))
+            .distinct()
+            .order_by(Menu.sort.desc())
+        )
+        permission_result = await db.execute(
+            select(Permission.name)
+            .join(RolePermission, RolePermission.permission_id == Permission.id)
+            .where(
+                RolePermission.role_id.in_(role_ids),
+                Permission.status == 1,
+            )
+            .distinct()
+            .order_by(Permission.name)
+        )
+
+    menus = [
+        AccessMenuItem(
+            id=str(menu.id),
+            parent_id=str(menu.parent_id) if menu.parent_id else None,
+            title=menu.title,
+            name=menu.name,
+            icon=menu.icon,
+            sort=menu.sort,
+            hidden=menu.hidden,
+        )
+        for menu in menu_result.scalars().all()
+    ]
+    permissions = list(permission_result.scalars().all())
+    if is_super_admin:
+        permissions.insert(0, "*")
+
+    payload = UserAccessResponse(
+        roles=role_names,
+        permissions=permissions,
+        menus=menus,
+    )
+    return success(data=payload.model_dump())
 
 
 @router.post("/change-password", response_model=dict)

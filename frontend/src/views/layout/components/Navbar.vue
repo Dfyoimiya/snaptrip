@@ -1,31 +1,86 @@
 <script lang="ts" setup>
-import { computed, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Fold, Expand, Search, RefreshRight, FullScreen,
-  Bell, Setting, ArrowDown, SwitchButton, UserFilled,
-  Close, CloseBold, CircleCloseFilled, Moon, Sunny,
+  Bell, Setting, Close, Moon, Sunny, Right,
 } from '@element-plus/icons-vue'
 import { useAppStore } from '@/stores/app'
-import { useUserStore } from '@/stores/user'
+import { usePermissionStore } from '@/stores/permission'
 import { useTabStore } from '@/stores/tab'
+import { HOME_TAB_PATH } from '@/stores/tab'
 import type { TabView } from '@/stores/tab'
+import type { RouteRecordExt } from '@/types'
+
+interface SearchRouteItem {
+  path: string
+  title: string
+  breadcrumb: string
+  icon?: string
+}
 
 const appStore = useAppStore()
-const userStore = useUserStore()
+const permissionStore = usePermissionStore()
 const tabStore = useTabStore()
 const route = useRoute()
 const router = useRouter()
 
 const sidebar = computed(() => appStore.sidebar)
-const username = computed(() => userStore.username)
-const avatar = computed(() => userStore.avatar)
 const tabs = computed(() => tabStore.tabList)
 const activePath = computed(() => route.path)
+const theme = computed(() => appStore.theme)
+const searchVisible = ref(false)
+const searchKeyword = ref('')
+const searchInputRef = ref<HTMLInputElement>()
+
+function resolveRoutePath(parentPath: string, routePath: string): string {
+  if (routePath.startsWith('/')) return routePath
+  if (!routePath) return parentPath || '/'
+  return `${parentPath.replace(/\/$/, '')}/${routePath}`.replace(/\/+/g, '/')
+}
+
+function collectSearchRoutes(
+  routes: RouteRecordExt[],
+  parentPath = '',
+  parents: string[] = [],
+): SearchRouteItem[] {
+  return routes.flatMap((item) => {
+    if (item.hidden || item.meta?.hidden) return []
+    const path = resolveRoutePath(parentPath, item.path)
+    const title = item.meta?.title
+    const titles = title ? [...parents, title] : parents
+    const children = item.children ? collectSearchRoutes(item.children, path, titles) : []
+    const self = title && (!item.children || item.children.length === 0)
+      ? [{ path, title, breadcrumb: titles.join(' / '), icon: item.meta?.icon }]
+      : []
+    return [...self, ...children]
+  })
+}
+
+const searchableRoutes = computed(() => {
+  const seen = new Set<string>()
+  return collectSearchRoutes(permissionStore.routers).filter((item) => {
+    if (seen.has(item.path)) return false
+    seen.add(item.path)
+    return !['/login', '/403', '/404'].includes(item.path)
+  })
+})
+
+const searchResults = computed(() => {
+  const keyword = searchKeyword.value.trim().toLowerCase()
+  if (!keyword) return searchableRoutes.value.slice(0, 8)
+  return searchableRoutes.value
+    .filter((item) =>
+      `${item.title} ${item.breadcrumb} ${item.path}`.toLowerCase().includes(keyword),
+    )
+    .slice(0, 12)
+})
 
 // 面包屑
 const breadcrumbs = computed(() => {
-  return route.matched.filter((item) => item.meta && item.meta.title)
+  return route.matched.filter(
+    (item) => item.meta?.title && item.meta.title !== '首页',
+  )
 })
 
 // 通知
@@ -42,7 +97,28 @@ const tabMenuPosition = ref({ x: 0, y: 0 })
 const selectedTab = ref('')
 
 function toggleSidebar() { appStore.toggleSidebar() }
-function goHome() { router.push('/') }
+function openSearch() { searchVisible.value = true }
+function closeSearch() {
+  searchVisible.value = false
+  searchKeyword.value = ''
+}
+async function navigateToSearchResult(item: SearchRouteItem) {
+  closeSearch()
+  await router.push(item.path)
+}
+async function handleSearchEnter() {
+  if (searchResults.value.length > 0) {
+    await navigateToSearchResult(searchResults.value[0])
+  }
+}
+function handleGlobalKeydown(event: KeyboardEvent) {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+    event.preventDefault()
+    openSearch()
+  } else if (event.key === 'Escape' && searchVisible.value) {
+    closeSearch()
+  }
+}
 
 // 刷新页面
 function handleRefresh() {
@@ -58,23 +134,19 @@ function handleFullscreen() {
   }
 }
 
-// 用户命令
-function handleCommand(command: string) {
-  if (command === 'logout') {
-    userStore.logout().then(() => router.push('/login'))
-  } else if (command === 'home') {
-    goHome()
-  }
-}
-
 // Tab 操作
 function onTabClick(tab: TabView) {
   router.push(tab.fullPath)
 }
+function isLastHomeTab(tab: TabView): boolean {
+  return tabs.value.length === 1 && tab.path === HOME_TAB_PATH
+}
 function onTabRemove(path: string) {
   const isActive = path === route.path
   tabStore.removeView(path)
-  if (isActive && tabs.value.length > 0) {
+  if (tabs.value.length === 0) {
+    router.push(HOME_TAB_PATH)
+  } else if (isActive) {
     router.push(tabs.value[tabs.value.length - 1].fullPath)
   }
 }
@@ -82,6 +154,10 @@ function onTabRemove(path: string) {
 // Tab 右键菜单
 function onTabContextmenu(e: MouseEvent, tab: TabView) {
   e.preventDefault()
+  if (isLastHomeTab(tab)) {
+    closeTabMenu()
+    return
+  }
   selectedTab.value = tab.path
   tabMenuPosition.value = { x: e.clientX, y: e.clientY }
   tabMenuVisible.value = true
@@ -97,7 +173,7 @@ function handleCloseAll() {
   if (tabs.value.length > 0) {
     router.push(tabs.value[tabs.value.length - 1].fullPath)
   } else {
-    router.push('/')
+    router.push(HOME_TAB_PATH)
   }
   closeTabMenu()
 }
@@ -108,6 +184,16 @@ function handleCloseRight() {
   }
   closeTabMenu()
 }
+
+watch(searchVisible, async (visible) => {
+  if (visible) {
+    await nextTick()
+    searchInputRef.value?.focus()
+  }
+})
+
+onMounted(() => window.addEventListener('keydown', handleGlobalKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown))
 </script>
 
 <template>
@@ -136,7 +222,13 @@ function handleCloseRight() {
       <!-- 右侧工具 -->
       <div class="top-right">
         <!-- 搜索 -->
-        <div class="search-box">
+        <div
+          class="search-box"
+          role="button"
+          tabindex="0"
+          @click="openSearch"
+          @keydown.enter="openSearch"
+        >
           <el-icon :size="15"><Search /></el-icon>
           <span class="search-text">搜索</span>
           <kbd class="search-kbd">Ctrl K</kbd>
@@ -149,10 +241,10 @@ function handleCloseRight() {
         <div class="tool-btn" title="全屏" @click="handleFullscreen">
           <el-icon :size="16"><FullScreen /></el-icon>
         </div>
-        <div class="tool-btn" title="主题">
-          <el-icon :size="16"><Moon /></el-icon>
+        <div class="tool-btn" title="切换主题" @click="appStore.toggleTheme">
+          <el-icon :size="16"><Moon v-if="theme === 'light'" /><Sunny v-else /></el-icon>
         </div>
-        <div class="tool-btn" title="设置">
+        <div class="tool-btn" title="设置" @click="router.push('/setting/oss')">
           <el-icon :size="16"><Setting /></el-icon>
         </div>
 
@@ -182,24 +274,6 @@ function handleCloseRight() {
           </template>
         </el-dropdown>
 
-        <!-- 用户 -->
-        <el-dropdown trigger="click" @command="handleCommand">
-          <div class="user-info">
-            <img :src="avatar" class="user-avatar" alt="avatar" />
-            <span class="user-name">{{ username }}</span>
-            <el-icon :size="12"><ArrowDown /></el-icon>
-          </div>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item command="home">
-                <el-icon><UserFilled /></el-icon> 个人中心
-              </el-dropdown-item>
-              <el-dropdown-item divided command="logout">
-                <el-icon><SwitchButton /></el-icon> 退出登录
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
       </div>
     </div>
 
@@ -215,7 +289,7 @@ function handleCloseRight() {
       >
         <span class="tab-title">{{ tab.title || tab.meta?.title || '未命名' }}</span>
         <el-icon
-          v-if="!tab.meta?.affix"
+          v-if="!tab.meta?.affix && !isLastHomeTab(tab)"
           :size="12"
           class="tab-close"
           @click.stop="onTabRemove(tab.path)"
@@ -236,13 +310,62 @@ function handleCloseRight() {
         <div class="context-menu-item" @click="handleCloseAll">关闭全部</div>
       </div>
     </div>
+
+    <el-dialog
+      v-model="searchVisible"
+      class="route-search-dialog"
+      width="560px"
+      :show-close="false"
+      :close-on-click-modal="true"
+      align-center
+      @closed="searchKeyword = ''"
+    >
+      <div class="route-search">
+        <div class="route-search-input">
+          <el-icon><Search /></el-icon>
+          <input
+            ref="searchInputRef"
+            v-model="searchKeyword"
+            type="search"
+            placeholder="搜索菜单、页面或功能…"
+            @keydown.enter.prevent="handleSearchEnter"
+          />
+          <kbd>ESC</kbd>
+        </div>
+        <div class="route-search-results">
+          <button
+            v-for="item in searchResults"
+            :key="item.path"
+            type="button"
+            class="route-result"
+            @click="navigateToSearchResult(item)"
+          >
+            <span class="route-icon">
+              <el-icon><component :is="item.icon || 'Document'" /></el-icon>
+            </span>
+            <span class="route-copy">
+              <strong>{{ item.title }}</strong>
+              <small>{{ item.breadcrumb }}</small>
+            </span>
+            <el-icon class="route-arrow"><Right /></el-icon>
+          </button>
+          <div v-if="searchResults.length === 0" class="route-empty">
+            没有找到“{{ searchKeyword }}”相关页面
+          </div>
+        </div>
+        <div class="route-search-footer">
+          <span><kbd>↵</kbd> 打开首项</span>
+          <span>共 {{ searchableRoutes.length }} 个可访问页面</span>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <style lang="scss" scoped>
 .navbar-vben {
-  background: #fff;
-  border-bottom: 1px solid #e8e8e8;
+  background: var(--admin-surface);
+  border-bottom: 1px solid var(--admin-border);
 }
 
 /* 顶部工具栏 */
@@ -252,10 +375,13 @@ function handleCloseRight() {
   justify-content: space-between;
   height: 48px;
   padding: 0 16px;
+  gap: 12px;
 }
 
 .top-left {
   display: flex;
+  min-width: 0;
+  flex: 1;
   align-items: center;
   gap: 12px;
 
@@ -267,21 +393,25 @@ function handleCloseRight() {
     justify-content: center;
     border-radius: 6px;
     cursor: pointer;
-    color: #606266;
+    color: var(--admin-text-secondary);
     transition: all 0.2s;
 
     &:hover {
-      background: #f2f3f5;
+      background: var(--admin-hover);
       color: #165dff;
     }
   }
 
   .breadcrumb {
+    min-width: 0;
+    overflow: hidden;
+
     :deep(.el-breadcrumb__inner) {
       font-size: 14px;
+      white-space: nowrap;
     }
     :deep(.el-breadcrumb__item:last-child .el-breadcrumb__inner) {
-      color: #1f2229;
+      color: var(--admin-text);
       font-weight: 500;
     }
   }
@@ -289,6 +419,7 @@ function handleCloseRight() {
 
 .top-right {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 4px;
 
@@ -297,7 +428,7 @@ function handleCloseRight() {
     align-items: center;
     gap: 8px;
     padding: 6px 12px;
-    background: #f2f3f5;
+    background: var(--admin-hover);
     border-radius: 6px;
     cursor: pointer;
     color: #86909c;
@@ -306,15 +437,15 @@ function handleCloseRight() {
     transition: all 0.2s;
 
     &:hover {
-      background: #e5e6eb;
+      background: var(--admin-border);
     }
 
     .search-kbd {
       font-size: 11px;
       padding: 1px 6px;
       border-radius: 4px;
-      background: #fff;
-      border: 1px solid #e5e6eb;
+      background: var(--admin-surface);
+      border: 1px solid var(--admin-border);
       color: #86909c;
       font-family: monospace;
     }
@@ -328,12 +459,12 @@ function handleCloseRight() {
     justify-content: center;
     border-radius: 6px;
     cursor: pointer;
-    color: #606266;
+    color: var(--admin-text-secondary);
     transition: all 0.2s;
     position: relative;
 
     &:hover {
-      background: #f2f3f5;
+      background: var(--admin-hover);
       color: #165dff;
     }
 
@@ -355,30 +486,6 @@ function handleCloseRight() {
     }
   }
 
-  .user-info {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    padding: 4px 8px;
-    border-radius: 6px;
-    margin-left: 4px;
-
-    &:hover {
-      background: #f2f3f5;
-    }
-
-    .user-avatar {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-    }
-
-    .user-name {
-      font-size: 14px;
-      color: #1f2229;
-    }
-  }
 }
 
 /* Tab 标签栏 */
@@ -387,8 +494,8 @@ function handleCloseRight() {
   align-items: center;
   gap: 2px;
   padding: 6px 12px 0;
-  background: #f0f2f5;
-  border-top: 1px solid #e8e8e8;
+  background: var(--admin-bg);
+  border-top: 1px solid var(--admin-border);
   overflow-x: auto;
   position: relative;
 
@@ -397,11 +504,11 @@ function handleCloseRight() {
     align-items: center;
     gap: 8px;
     padding: 7px 14px;
-    background: #fff;
+    background: var(--admin-surface);
     border-radius: 8px 8px 0 0;
     cursor: pointer;
     font-size: 13px;
-    color: #4e5969;
+    color: var(--admin-text-secondary);
     border: 1px solid transparent;
     border-bottom: none;
     transition: all 0.2s;
@@ -413,11 +520,11 @@ function handleCloseRight() {
     }
 
     &.active {
-      background: #f7f8fa;
+      background: var(--admin-bg);
       color: #165dff;
       font-weight: 500;
-      border-color: #e8e8e8;
-      border-bottom: 1px solid #f7f8fa;
+      border-color: var(--admin-border);
+      border-bottom: 1px solid var(--admin-bg);
       margin-bottom: -1px;
     }
 
@@ -440,8 +547,8 @@ function handleCloseRight() {
 .tab-context-menu {
   position: fixed;
   z-index: 3000;
-  background: #fff;
-  border: 1px solid #e5e6eb;
+  background: var(--admin-surface);
+  border: 1px solid var(--admin-border);
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   padding: 4px 0;
@@ -450,12 +557,12 @@ function handleCloseRight() {
   .context-menu-item {
     padding: 8px 16px;
     font-size: 13px;
-    color: #4e5969;
+    color: var(--admin-text-secondary);
     cursor: pointer;
     transition: all 0.15s;
 
     &:hover {
-      background: #f2f3f5;
+      background: var(--admin-hover);
       color: #165dff;
     }
   }
@@ -503,6 +610,226 @@ function handleCloseRight() {
     padding: 8px;
     text-align: center;
     border-top: 1px solid #e5e6eb;
+  }
+}
+
+:global(.route-search-dialog) {
+  max-width: calc(100vw - 24px);
+  overflow: hidden;
+  padding: 0 !important;
+  border-radius: 14px !important;
+  background: var(--admin-surface) !important;
+}
+
+@media (max-width: 900px) {
+  .navbar-top {
+    padding: 0 10px;
+  }
+
+  .top-left {
+    gap: 6px;
+  }
+
+  .top-right {
+    gap: 1px;
+
+    .search-box {
+      width: 32px;
+      height: 32px;
+      justify-content: center;
+      margin-right: 2px;
+      padding: 0;
+
+      .search-text,
+      .search-kbd {
+        display: none;
+      }
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .breadcrumb {
+    display: none;
+  }
+
+  .navbar-top {
+    height: 50px;
+  }
+
+  .top-right .tool-btn {
+    width: 30px;
+    height: 30px;
+  }
+
+  .tab-bar {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+}
+
+:global(.route-search-dialog .el-dialog__header) {
+  display: none;
+}
+
+:global(.route-search-dialog .el-dialog__body) {
+  padding: 0;
+}
+
+.route-search {
+  color: var(--admin-text);
+}
+
+.route-search-input {
+  display: flex;
+  height: 60px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--admin-border);
+  color: var(--admin-text-secondary);
+
+  input {
+    min-width: 0;
+    flex: 1;
+    border: 0;
+    outline: 0;
+    color: var(--admin-text);
+    background: transparent;
+    font-size: 15px;
+  }
+
+  kbd {
+    padding: 2px 6px;
+    border: 1px solid var(--admin-border);
+    border-radius: 5px;
+    background: var(--admin-hover);
+    font-size: 10px;
+  }
+}
+
+.route-search-results {
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.route-result {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 9px;
+  color: var(--admin-text);
+  background: transparent;
+  text-align: left;
+
+  &:hover {
+    background: var(--admin-hover);
+  }
+}
+
+.route-icon {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 8px;
+  color: #409eff;
+  background: rgba(64, 158, 255, 0.12);
+}
+
+.route-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+
+  strong {
+    font-size: 14px;
+  }
+
+  small {
+    overflow: hidden;
+    margin-top: 3px;
+    color: var(--admin-text-muted);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 11px;
+  }
+}
+
+.route-arrow {
+  color: var(--admin-text-muted);
+}
+
+.route-empty {
+  padding: 48px 20px;
+  color: var(--admin-text-muted);
+  text-align: center;
+}
+
+.route-search-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 18px;
+  border-top: 1px solid var(--admin-border);
+  color: var(--admin-text-muted);
+  background: var(--admin-bg);
+  font-size: 11px;
+}
+
+:global(.dark) {
+  .navbar-vben {
+    border-color: var(--admin-border);
+    background: var(--admin-surface);
+  }
+
+  .top-left .breadcrumb :deep(.el-breadcrumb__inner),
+  .top-left .breadcrumb :deep(.el-breadcrumb__item:last-child .el-breadcrumb__inner) {
+    color: var(--admin-text-secondary);
+  }
+
+  .top-right .search-box,
+  .top-right .tool-btn {
+    color: var(--admin-text-secondary);
+  }
+
+  .top-right .search-box,
+  .top-right .tool-btn:hover,
+  .top-left .hamburger:hover {
+    background: var(--admin-hover);
+  }
+
+  .top-right .search-box .search-kbd {
+    border-color: var(--admin-border);
+    color: var(--admin-text-muted);
+    background: var(--admin-surface);
+  }
+
+  .tab-bar {
+    border-color: var(--admin-border);
+    background: var(--admin-bg);
+  }
+
+  .tab-bar .tab-item {
+    color: var(--admin-text-secondary);
+    background: var(--admin-surface);
+
+    &.active {
+      border-color: var(--admin-border);
+      color: #79bbff;
+      background: var(--admin-bg);
+    }
+  }
+
+  .tab-context-menu {
+    border-color: var(--admin-border);
+    background: var(--admin-surface);
   }
 }
 </style>

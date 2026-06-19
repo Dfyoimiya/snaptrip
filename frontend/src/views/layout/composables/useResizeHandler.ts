@@ -17,11 +17,15 @@ export default function useResizeHandler() {
   function resizeHandler() {
     const isMobileDevice = isMobile()
     if (isMobileDevice) {
-      appStore.toggleDevice('mobile')
-      appStore.closeSidebar(true)
+      if (appStore.device !== 'mobile') {
+        appStore.toggleDevice('mobile')
+        appStore.closeSidebar(true)
+      }
     } else {
-      appStore.toggleDevice('desktop')
-      appStore.openSidebar()
+      if (appStore.device !== 'desktop') {
+        appStore.toggleDevice('desktop')
+        appStore.openSidebar()
+      }
     }
   }
 

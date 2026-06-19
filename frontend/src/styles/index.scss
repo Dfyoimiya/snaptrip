@@ -16,8 +16,56 @@ body {
     'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  color: #2c3e50;
-  background-color: #f0f2f5;
+  color: var(--admin-text);
+  background-color: var(--admin-bg);
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+
+:root {
+  --el-color-primary: #409eff;
+  --admin-bg: #f7f8fa;
+  --admin-surface: #ffffff;
+  --admin-border: #e8eaed;
+  --admin-hover: #f2f4f7;
+  --admin-text: #1f2937;
+  --admin-text-secondary: #667085;
+  --admin-text-muted: #98a2b3;
+}
+
+html.dark {
+  --admin-bg: #111827;
+  --admin-surface: #1b2432;
+  --admin-border: #303b4d;
+  --admin-hover: #263244;
+  --admin-text: #f3f4f6;
+  --admin-text-secondary: #c5cbd5;
+  --admin-text-muted: #8f9aaa;
+
+  body,
+  #app {
+    background: var(--admin-bg);
+  }
+
+  .el-card,
+  .el-dialog,
+  .el-drawer,
+  .el-table,
+  .el-table__expanded-cell {
+    color: var(--admin-text);
+    border-color: var(--admin-border);
+    background-color: var(--admin-surface);
+  }
+
+  .el-card__header,
+  .el-table th.el-table__cell,
+  .el-table tr {
+    border-color: var(--admin-border);
+    background-color: var(--admin-surface);
+  }
+
+  .el-table td.el-table__cell {
+    border-color: var(--admin-border);
+  }
 }
 
 #app {

@@ -22,7 +22,7 @@ const list = ref<UmsAdmin[]>([])
 const total = ref(0)
 const listLoading = ref(false)
 
-const admin = ref<UmsAdmin>({ username: '', password: '', status: 1 })
+const admin = ref<UmsAdmin>({ email: '', password: '', isActive: true })
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 
@@ -55,11 +55,15 @@ const handleSearchList = () => { listQuery.value.pageNum = 1; fetchData() }
 const handleSizeChange = (val: number) => { listQuery.value.pageNum = 1; listQuery.value.pageSize = val; fetchData() }
 const handleCurrentChange = (val: number) => { listQuery.value.pageNum = val; fetchData() }
 
-const handleAdd = () => { dialogVisible.value = true; isEdit.value = false; admin.value = { username: '', password: '', status: 1 } }
+const handleAdd = () => {
+  dialogVisible.value = true
+  isEdit.value = false
+  admin.value = { email: '', password: '', isActive: true }
+}
 const handleUpdate = (_index: number, row: UmsAdmin) => { dialogVisible.value = true; isEdit.value = true; admin.value = { ...row } }
 const handleStatusChange = async (_index: number, row: UmsAdmin) => {
   try {
-    await adminUpdateStatusByIdAPI(row.id!, { status: row.status! })
+    await adminUpdateStatusByIdAPI(row.id!, { status: row.isActive ? 1 : 0 })
     ElMessage.success('状态修改成功')
   } catch (err: any) {
     ElMessage.error(err?.message || '状态修改失败')
@@ -111,7 +115,7 @@ const handleSelectRole = async (_index: number, row: UmsAdmin) => {
 }
 const handleAllocDialogConfirm = async () => {
   try {
-    await adminRoleUpdateAPI({ adminId: allocAdminId.value!, roleIds: allocRoleIds.value.join(',') })
+    await adminRoleUpdateAPI({ adminId: allocAdminId.value!, roleIds: allocRoleIds.value })
     ElMessage.success('分配成功！')
     allocDialogVisible.value = false
   } catch (err: any) {
@@ -140,24 +144,21 @@ const handleAllocDialogConfirm = async () => {
     <el-card class="operate-container" shadow="never">
       <el-icon class="el-icon-middle"><Tickets /></el-icon>
       <span>数据列表</span>
-      <el-button class="btn-add" @click="handleAdd()">添加</el-button>
+      <el-button v-permission="'system:user'" class="btn-add" @click="handleAdd()">添加</el-button>
     </el-card>
     <div class="table-container">
       <el-table ref="adminTable" :data="list" style="width: 100%;" v-loading="listLoading" border>
         <el-table-column label="编号" width="100" align="center"><template #default="scope">{{ scope.row.id }}</template></el-table-column>
-        <el-table-column label="帐号" align="center"><template #default="scope">{{ scope.row.username }}</template></el-table-column>
-        <el-table-column label="姓名" align="center"><template #default="scope">{{ scope.row.nickName }}</template></el-table-column>
         <el-table-column label="邮箱" align="center"><template #default="scope">{{ scope.row.email }}</template></el-table-column>
         <el-table-column label="添加时间" width="160" align="center"><template #default="scope">{{ formatDateTime(scope.row.createdAt) }}</template></el-table-column>
-        <el-table-column label="最后登录" width="160" align="center"><template #default="scope">{{ formatDateTime(scope.row.loginTime) }}</template></el-table-column>
         <el-table-column label="是否启用" width="140" align="center">
-          <template #default="scope"><el-switch @change="handleStatusChange(scope.$index, scope.row)" :active-value="1" :inactive-value="0" v-model="scope.row.status" /></template>
+          <template #default="scope"><el-switch v-model="scope.row.isActive" v-permission="'system:user'" @change="handleStatusChange(scope.$index, scope.row)" /></template>
         </el-table-column>
         <el-table-column label="操作" width="180" align="center">
           <template #default="scope">
-            <el-button size="small" type="primary" link @click="handleSelectRole(scope.$index, scope.row)">分配角色</el-button>
-            <el-button size="small" type="primary" link @click="handleUpdate(scope.$index, scope.row)">编辑</el-button>
-            <el-button size="small" type="primary" link @click="handleDelete(scope.$index, scope.row)">删除</el-button>
+            <el-button v-permission="'system:user'" size="small" type="primary" link @click="handleSelectRole(scope.$index, scope.row)">分配角色</el-button>
+            <el-button v-permission="'system:user'" size="small" type="primary" link @click="handleUpdate(scope.$index, scope.row)">编辑</el-button>
+            <el-button v-permission="'system:user'" size="small" type="danger" link @click="handleDelete(scope.$index, scope.row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -168,15 +169,12 @@ const handleAllocDialogConfirm = async () => {
         :page-size="listQuery.pageSize" :page-sizes="[5, 10, 15]" :total="total" />
     </div>
 
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑用户' : '添加用户'" width="40%">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑用户' : '添加用户'" width="40%" :close-on-click-modal="false">
       <el-form :model="admin" label-width="150px">
-        <el-form-item label="帐号："><el-input v-model="admin.username" style="width: 250px" /></el-form-item>
-        <el-form-item label="姓名："><el-input v-model="admin.nickName" style="width: 250px" /></el-form-item>
         <el-form-item label="邮箱："><el-input v-model="admin.email" style="width: 250px" /></el-form-item>
         <el-form-item label="密码：" v-if="!isEdit"><el-input v-model="admin.password" type="password" style="width: 250px" /></el-form-item>
-        <el-form-item label="备注："><el-input v-model="admin.note" type="textarea" :rows="5" style="width: 250px" /></el-form-item>
         <el-form-item label="是否启用：">
-          <el-radio-group v-model="admin.status"><el-radio :label="1">是</el-radio><el-radio :label="0">否</el-radio></el-radio-group>
+          <el-switch v-model="admin.isActive" />
         </el-form-item>
       </el-form>
       <template #footer>

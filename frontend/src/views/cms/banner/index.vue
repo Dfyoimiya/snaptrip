@@ -148,8 +148,8 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="广告位置">
           <el-select v-model="search.type" placeholder="全部位置" clearable style="width: 120px">
-            <el-option label="PC端" :value="0" />
-            <el-option label="APP端" :value="1" />
+            <el-option label="电脑端" :value="0" />
+            <el-option label="移动应用端" :value="1" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -195,8 +195,8 @@ onMounted(() => {
         <el-table-column label="广告名称" prop="name" min-width="160" show-overflow-tooltip />
         <el-table-column label="广告位置" width="90" align="center">
           <template #default="{ row }">
-            <el-tag v-if="row.type === 0" type="primary" size="small">PC端</el-tag>
-            <el-tag v-else type="success" size="small">APP端</el-tag>
+            <el-tag v-if="row.type === 0" type="primary" size="small">电脑端</el-tag>
+            <el-tag v-else type="success" size="small">移动应用端</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="投放时间" width="200" align="center">
@@ -240,8 +240,8 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="广告位置">
           <el-radio-group v-model="form.type">
-            <el-radio :label="0">PC端</el-radio>
-            <el-radio :label="1">APP端</el-radio>
+            <el-radio :label="0">电脑端</el-radio>
+            <el-radio :label="1">移动应用端</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="图片链接" prop="pic">

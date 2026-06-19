@@ -86,7 +86,7 @@ watch(() => route.query.roleId, (newId) => {
             <span style="margin-left: 12px; font-weight: 600">
               分配菜单 — 角色：{{ roleName || roleId }}
             </span>
-            <el-tag type="info" size="small" style="margin-left: 8px">roleId: {{ roleId }}</el-tag>
+            <el-tag type="info" size="small" style="margin-left: 8px">角色编号：{{ roleId }}</el-tag>
           </div>
           <el-button type="primary" :loading="saving" @click="handleSave">
             <el-icon><Check /></el-icon>保存分配

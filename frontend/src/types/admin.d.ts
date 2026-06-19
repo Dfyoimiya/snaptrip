@@ -1,13 +1,10 @@
 /** 管理员 */
 export interface UmsAdmin {
   id?: string
-  username?: string
-  password?: string
-  icon?: string
   email?: string
-  nickName?: string
-  note?: string
+  password?: string
+  isActive?: boolean
   createdAt?: string
-  loginTime?: string
-  status?: number
+  roles?: Array<{ id: string; name: string }>
+  roleIds?: string[]
 }
