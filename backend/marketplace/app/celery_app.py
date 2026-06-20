@@ -37,6 +37,7 @@ celery_app.conf.update(
     task_acks_late=True,
     task_reject_on_worker_lost=True,
     broker_connection_retry_on_startup=True,
+    worker_max_tasks_per_child=200,  # 定期回收 worker 防止 event loop 泄漏
     # 定时任务
     beat_schedule={
         # 协同过滤模型训练: 每 6 小时

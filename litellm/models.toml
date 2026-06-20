@@ -2,6 +2,13 @@
 # 仅用于 Python 端 LiteLLMAdapter 的成本记录 (llm_usage_logs.cost_usd)
 # 权威路由配置在 litellm/config.yaml
 
+[models.distilqwen2.5-r1-7b]
+provider = "litellm"
+api_model = "distilqwen2.5-r1-7b"
+prompt_per_1k = 0.0
+completion_per_1k = 0.0
+max_tokens = 32768
+
 [models.deepseek-v4-pro]
 provider = "litellm"
 api_model = "deepseek-v4-pro"

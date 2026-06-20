@@ -25,11 +25,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.rbac import require_admin_user
 from app.schemas.common import PaginatedResponse, PaginationParams
+from pydantic import BaseModel, Field
+
 from app.schemas.product import (
     CategoryCreate,
     CategoryUpdate,
 )
 from app.services.category_service import CategoryService
+
+
+class ReorderItem(BaseModel):
+    id: UUID
+    sort: int = Field(..., ge=0)
+
+
+class ReorderRequest(BaseModel):
+    items: list[ReorderItem] = Field(..., min_length=1)
 
 router = APIRouter(prefix="/admin/categories", tags=["Admin - 商品分类"])
 
@@ -132,3 +143,16 @@ async def update_sort(
     svc = CategoryService(db)
     result = await svc.toggle_status(category_id, "sort", sort)
     return success(result.model_dump())
+
+
+@router.patch("/batch-sort", summary="批量更新分类排序（拖拽后调用）")
+async def batch_sort(
+    data: ReorderRequest,
+    db: AsyncSession = Depends(get_db),
+    _current_user=Depends(require_admin_user),
+):
+    """拖拽排序后前端传入 [{id, sort}, ...] 列表"""
+    svc = CategoryService(db)
+    items = [{"id": str(item.id), "sort": item.sort} for item in data.items]
+    results = await svc.reorder(items)
+    return success([r.model_dump() for r in results])

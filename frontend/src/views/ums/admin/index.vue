@@ -65,6 +65,7 @@ const handleStatusChange = async (_index: number, row: UmsAdmin) => {
   try {
     await adminUpdateStatusByIdAPI(row.id!, { status: row.isActive ? 1 : 0 })
     ElMessage.success('状态修改成功')
+    fetchData()
   } catch (err: any) {
     ElMessage.error(err?.message || '状态修改失败')
     fetchData()

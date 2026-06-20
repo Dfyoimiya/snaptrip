@@ -103,7 +103,7 @@ const isIndeterminate = computed(() => {
 async function loadFavorites() {
   loading.value = true
   try {
-    const res = await fetchProductCollectionListAPI({ pageNum: 1, pageSize: 200, productStatus: undefined })
+    const res = await fetchProductCollectionListAPI({ pageNum: 1, pageSize: 100, productStatus: undefined })
     allItems.value = ((res as unknown as { items: MemberProductCollection[] }).items || [])
       .map((item: any) => ({
         ...item,

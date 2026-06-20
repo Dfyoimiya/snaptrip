@@ -1,11 +1,10 @@
 <script setup lang="ts">
 /**
  * ============================================
- * 商品详情页 (ProductDetailView)
- * PC 端专属设计：
- * - 左右分栏：左侧主图+放大镜+缩略图，右侧信息+SKU+操作
- * - 底部通栏：详情长图
- * - Composition API + SKU 状态联动
+ * 商品详情页 (ProductDetailView) — 淘宝式布局
+ * 左列：主图+放大镜+缩略图（随页面滚动）
+ * 右列：sticky 面板（独立滚动）— 名称 → 价格 → SKU 色块 → 数量 → 领券购买/收藏
+ * 下方：详情 Tab
  * ============================================
  */
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
@@ -20,6 +19,15 @@ import DOMPurify from 'dompurify'
 import type { PmsSkuStock } from '@/types/product'
 import type { PmsBrand } from '@/types/brand'
 import type { SmsCoupon } from '@/types/coupon'
+
+// ── DOMPurify 配置：给 <img> 加 onerror 兜底 & lazy loading ──
+DOMPurify.addHook('afterSanitizeAttributes', (node) => {
+  if (node.tagName === 'IMG') {
+    // 图片加载失败时显示占位背景
+    node.setAttribute('loading', 'lazy')
+    node.setAttribute('onerror', "this.style.display='block';this.style.background='#f3f4f6';this.style.minWidth='80px';this.style.minHeight='80px';this.style.borderRadius='8px';this.alt='图片加载失败'")
+  }
+})
 
 const route = useRoute()
 const router = useRouter()
@@ -214,10 +222,12 @@ const formatPrice = (price: number) => {
   return price.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-/** Sanitized detail HTML to prevent stored XSS via v-html */
+/** Sanitized detail HTML — with image fallback and malformed-HTML hardening */
 const sanitizedDetailHtml = computed(() => {
-  const raw = mockProduct.value.product.detailMobileHtml
+  let raw = mockProduct.value.product.detailMobileHtml
   if (!raw) return ''
+  // 转义被尖括号包裹的裸 URL（如 <http://...>），防止浏览器解析为非法 tag 名
+  raw = raw.replace(/<(https?:\/\/[^>]+)>/g, (_, url) => `&lt;${url}&gt;`)
   return DOMPurify.sanitize(raw)
 })
 
@@ -294,6 +304,14 @@ const isSpecAvailable = (dimension: string, value: string) => {
       return selectedSpecs.value[dim] === specs[dim]
     })
   })
+}
+
+/** 获取某规格值对应的 SKU 图片（用于图片色块展示，如颜色规格） */
+const getSkuImageForSpec = (dimension: string, value: string): string => {
+  const entry = parsedSkuSpecs.value.find(
+    ({ specs }) => specs[dimension] === value
+  )
+  return entry?.sku.pic || ''
 }
 
 // ============================================================
@@ -470,9 +488,9 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="product-detail-page">
+  <div class="product-detail-page max-w-7xl mx-auto px-4 py-6">
     <!-- 面包屑导航 -->
-    <nav class="flex items-center gap-2 text-sm text-gray-500 mb-4">
+    <nav class="flex items-center gap-2 text-sm text-gray-500 mb-5">
       <button class="hover:text-brand-600 transition-colors" @click="router.push('/')">首页</button>
       <span class="text-gray-300">/</span>
       <button class="hover:text-brand-600 transition-colors" @click="router.push('/category')">{{ mockProduct.product.productCategoryName || '全部分类' }}</button>
@@ -503,25 +521,26 @@ onUnmounted(() => {
 
     <template v-else>
       <!-- ============================================================ -->
-      <!-- 上部：左右分栏 -->
+      <!-- 淘宝式左右分栏：左 54% 图片+详情 | 右 46% 购买面板 sticky -->
       <!-- ============================================================ -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-6">
-        <div class="flex gap-8">
-          <!-- ====== 左侧：图片展示区 ====== -->
-          <div class="w-[460px] flex-shrink-0">
+      <div class="flex gap-5 items-start">
+        <!-- ====== 左侧 54%：图片 + Tab 详情 ====== -->
+        <div class="w-[54%] flex-shrink-0 space-y-5">
+          <!-- 图片卡片 -->
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
             <!-- 主图 + 放大镜 -->
             <div
               ref="mainImageRef"
-              class="relative w-full aspect-square rounded-lg bg-gray-50 overflow-hidden cursor-crosshair mb-4"
+              class="relative w-full aspect-square rounded-lg bg-gray-50 overflow-hidden cursor-crosshair mb-3"
               @mousemove="handleMouseMove"
               @mouseleave="handleMouseLeave"
             >
               <img
                 :src="currentMainImage"
                 :alt="mockProduct.product.name"
-                class="w-full h-full object-cover"
+                class="w-full h-full object-cover select-none"
+                draggable="false"
               />
-
               <!-- 放大镜镜头 -->
               <div
                 v-show="showMagnifier"
@@ -533,34 +552,22 @@ onUnmounted(() => {
                   boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
                 }"
               />
-
-              <!-- 放大预览窗口（右侧弹出） -->
-              <div
-                v-show="showMagnifier"
-                class="absolute left-full top-0 ml-3 w-[400px] h-[400px] rounded-lg overflow-hidden border border-gray-200 shadow-2xl z-30 bg-white"
-              >
-                <img
-                  :src="currentMainImage"
-                  :alt="mockProduct.product.name"
-                  class="w-full h-full object-cover"
-                  :style="{
-                    transform: `scale(${zoomLevel})`,
-                    transformOrigin: `${(magnifierPosition.x / 460) * 100}% ${(magnifierPosition.y / 460) * 100}%`,
-                  }"
-                />
+              <!-- 销量角标 -->
+              <div v-if="mockProduct.product.sale > 0" class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/40 to-transparent pt-8 pb-2 px-3">
+                <span class="text-white text-xs">已售 {{ mockProduct.product.sale }}+</span>
               </div>
             </div>
 
             <!-- 缩略图列表 -->
-            <div v-if="productImages.length > 1" class="flex gap-2">
+            <div v-if="productImages.length > 1" class="flex gap-2 overflow-x-auto pb-1">
               <button
                 v-for="(img, index) in productImages"
                 :key="index"
                 :class="[
-                  'w-[80px] h-[80px] rounded-md overflow-hidden border-2 transition-all flex-shrink-0',
+                  'w-[72px] h-[72px] rounded-md overflow-hidden border-2 transition-all flex-shrink-0',
                   currentImageIndex === index
                     ? 'border-brand-600 ring-1 ring-brand-600'
-                    : 'border-gray-200 hover:border-gray-400',
+                    : 'border-gray-200 hover:border-gray-400 opacity-80 hover:opacity-100',
                 ]"
                 @mouseenter="currentImageIndex = index"
               >
@@ -568,350 +575,274 @@ onUnmounted(() => {
               </button>
             </div>
 
-            <!-- 分享/收藏 -->
-            <div class="flex items-center gap-4 mt-4 text-sm text-gray-500">
-              <button class="flex items-center gap-1 hover:text-brand-600 transition-colors">
+            <!-- 底部分享 -->
+            <div class="flex items-center gap-6 mt-3 pt-3 border-t border-gray-100 text-sm text-gray-400">
+              <button class="flex items-center gap-1.5 hover:text-brand-600 transition-colors">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                 </svg>
                 分享
               </button>
-              <button
-                class="flex items-center gap-1 hover:text-brand-600 transition-colors"
-                :class="{ 'text-brand-600': isFavorited }"
-                :disabled="isFavoriting"
-                @click="handleToggleFavorite"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" :fill="isFavorited ? 'currentColor' : 'none'" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              <span class="text-gray-200">|</span>
+              <button class="flex items-center gap-1.5 hover:text-brand-600 transition-colors" @click="router.push('/')">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                 </svg>
-                {{ isFavoriting ? '...' : (isFavorited ? '已收藏' : '收藏') }}
+                店铺首页
               </button>
             </div>
           </div>
 
-          <!-- ====== 右侧：操作区 ====== -->
-          <div class="flex-1 min-w-0">
-            <!-- 商品标题 -->
-            <h1 class="text-xl font-bold text-gray-900 leading-7 mb-2">
-              {{ mockProduct.product.name }}
-            </h1>
-
-            <!-- 副标题 -->
-            <p v-if="mockProduct.product.subTitle" class="text-sm text-brand-600 mb-4 leading-5">
-              {{ mockProduct.product.subTitle }}
-            </p>
-
-            <!-- 价格区 -->
-            <div class="bg-gray-50 rounded-lg p-4 mb-5">
-              <div class="flex items-baseline gap-3 mb-2">
-                <span class="text-sm text-gray-500">促销价</span>
-                <span class="text-3xl font-bold text-brand-600">
-                  <span class="text-lg">&yen;</span>{{ formatPrice(selectedSku?.promotionPrice || selectedSku?.price || mockProduct.product.price) }}
-                </span>
-                <span v-if="selectedSku?.price" class="text-sm text-gray-400 line-through">
-                  &yen;{{ formatPrice(selectedSku.price) }}
-                </span>
-              </div>
-              <div class="flex items-center gap-6 text-sm text-gray-500">
-                <span>原价 <span class="line-through">&yen;{{ formatPrice(mockProduct.product.originalPrice) }}</span></span>
-                <span>销量 <span class="text-gray-900 font-medium">{{ mockProduct.product.sale }}</span></span>
-                <span>
-                  库存
-                  <span :class="(selectedSku?.stock || 0) > 20 ? 'text-gray-900' : 'text-brand-600'" class="font-medium">
-                    {{ selectedSku?.stock || 0 }}
-                  </span>
-                </span>
-              </div>
-
-              <!-- 优惠信息 -->
-              <div class="mt-3 pt-3 border-t border-gray-200 space-y-2">
-                <div v-for="fr in mockProduct.productFullReductionList" :key="fr.id" class="flex items-center gap-2 text-sm">
-                  <span class="bg-brand-600 text-white text-xs px-2 py-0.5 rounded">满减</span>
-                  <span class="text-gray-600">满{{ fr.fullPrice }}减{{ fr.reducePrice }}</span>
-                </div>
-                <div v-if="selectedSku?.promotionPrice" class="flex items-center gap-2 text-sm">
-                  <span class="bg-orange-500 text-white text-xs px-2 py-0.5 rounded">分期</span>
-                  <span class="text-gray-600">12期免息，月供低至 &yen;{{ Math.round((selectedSku?.promotionPrice || selectedSku?.price || 0) / 12) }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- SKU 规格选择 -->
-            <div v-if="specDimensions.length > 0" class="mb-5 space-y-4">
-              <div v-for="dimension in specDimensions" :key="dimension" class="flex items-start gap-3">
-                <span class="text-sm text-gray-500 w-12 flex-shrink-0 pt-2">{{ dimension }}</span>
-                <div class="flex flex-wrap gap-2">
-                  <button
-                    v-for="value in getSpecValues(dimension)"
-                    :key="value"
-                    :disabled="!isSpecAvailable(dimension, value)"
-                    :class="[
-                      'px-4 py-2 text-sm border rounded-md transition-all',
-                      isSpecSelected(dimension, value)
-                        ? 'border-brand-600 text-brand-600 bg-brand-50 font-medium ring-1 ring-brand-600'
-                        : isSpecAvailable(dimension, value)
-                          ? 'border-gray-200 text-gray-700 hover:border-brand-300 hover:text-brand-600'
-                          : 'border-gray-100 text-gray-300 cursor-not-allowed bg-gray-50',
-                    ]"
-                    @click="selectSpec(dimension, value)"
-                  >
-                    {{ value }}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <!-- 数量选择 -->
-            <div class="flex items-center gap-3 mb-6">
-              <span class="text-sm text-gray-500 w-12 flex-shrink-0">数量</span>
-              <div class="flex items-center border border-gray-200 rounded-md">
-                <button
-                  class="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-brand-600 transition-colors disabled:opacity-30"
-                  :disabled="quantity <= 1"
-                  @click="quantity--"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4" />
-                  </svg>
-                </button>
-                <span class="w-14 h-10 flex items-center justify-center text-sm border-x border-gray-200 font-medium">{{ quantity }}</span>
-                <button
-                  class="w-10 h-10 flex items-center justify-center text-gray-500 hover:text-brand-600 transition-colors disabled:opacity-30"
-                  :disabled="quantity >= (selectedSku?.stock || 99)"
-                  @click="quantity++"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                  </svg>
-                </button>
-              </div>
-              <span class="text-xs text-gray-400">（限购 5 件）</span>
-            </div>
-
-            <!-- 操作按钮 -->
-            <div class="flex items-center gap-4 mb-6">
+          <!-- Tab 卡片 — 商品详情/规格参数/用户评价 -->
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <!-- Tab 头部 -->
+            <div class="flex border-b border-gray-100 bg-gray-50/50">
               <button
-                class="flex-1 h-12 bg-brand-100 text-brand-600 font-bold text-base rounded-lg hover:bg-brand-200 transition-colors flex items-center justify-center gap-2 border border-brand-200"
-                @click="handleAddToCart"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                加入购物车
-              </button>
-              <button
-                :disabled="buying"
-                class="flex-1 h-12 bg-brand-600 text-white font-bold text-base rounded-lg hover:bg-brand-700 transition-colors flex items-center justify-center gap-2 shadow-md shadow-brand-200 disabled:opacity-60"
-                @click="handleBuyNow"
-              >
-                <svg v-if="!buying" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                <svg v-else class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                {{ buying ? '处理中...' : '立即购买' }}
-              </button>
+                v-for="tab in [
+                  { key: 'detail' as const, label: '商品详情' },
+                  ...(mockProduct.productAttributeList.length > 0 ? [{ key: 'params' as const, label: '规格参数' }] : []),
+                  { key: 'reviews' as const, label: '用户评价' },
+                ]"
+                :key="tab.key"
+                :class="[
+                  'px-8 py-3.5 text-sm font-medium transition-colors border-b-2 -mb-px',
+                  activeTab === tab.key
+                    ? 'text-brand-600 border-brand-600 bg-white'
+                    : 'text-gray-500 border-transparent hover:text-gray-700',
+                ]"
+                @click="activeTab = tab.key"
+              >{{ tab.label }}</button>
             </div>
 
-            <!-- 服务承诺 -->
-            <div class="flex items-center gap-4 text-xs text-gray-500 border-t border-gray-100 pt-4">
-              <span class="flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+            <!-- Tab 内容 -->
+            <div class="p-6">
+              <!-- 商品详情 -->
+              <div v-if="activeTab === 'detail'">
+                <!-- 富文本 HTML 渲染 (sanitized to prevent XSS) -->
+                <div v-if="sanitizedDetailHtml" v-html="sanitizedDetailHtml" class="detail-html prose max-w-none" />
+                <div v-else class="flex flex-col items-center justify-center py-16 text-gray-400 text-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mb-3 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p>暂无详情内容</p>
+                </div>
+              </div>
+
+              <!-- 规格参数 -->
+              <div v-if="activeTab === 'params'">
+                <table class="w-full text-sm">
+                  <tbody class="divide-y divide-gray-100">
+                    <tr v-for="attr in mockProduct.productAttributeList" :key="attr.id" class="hover:bg-gray-50">
+                      <td class="py-3 px-4 text-gray-500 w-28 bg-gray-50 font-medium">{{ attr.name }}</td>
+                      <td class="py-3 px-4 text-gray-900">{{ attr.inputList }}</td>
+                    </tr>
+                    <tr v-if="mockProduct.product.productSn" class="hover:bg-gray-50">
+                      <td class="py-3 px-4 text-gray-500 w-28 bg-gray-50 font-medium">商品编号</td>
+                      <td class="py-3 px-4 text-gray-900">{{ mockProduct.product.productSn }}</td>
+                    </tr>
+                    <tr v-if="mockProduct.brand.name || mockProduct.product.brandName" class="hover:bg-gray-50">
+                      <td class="py-3 px-4 text-gray-500 w-28 bg-gray-50 font-medium">品牌</td>
+                      <td class="py-3 px-4 text-gray-900">{{ mockProduct.brand.name || mockProduct.product.brandName }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- 用户评价 -->
+              <div v-if="activeTab === 'reviews'" class="flex flex-col items-center justify-center py-16 text-gray-400 text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mb-3 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
-                正品保障
-              </span>
-              <span class="flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                7天无理由退换
-              </span>
-              <span class="flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                全国联保
-              </span>
-              <span class="flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-                极速发货
-              </span>
+                <p>暂无评价</p>
+                <p class="text-xs mt-1">成为第一个评价的人吧</p>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- ============================================================ -->
-      <!-- 中部：优惠券 + 阶梯价格 -->
-      <!-- ============================================================ -->
-      <div v-if="mockProduct.couponList.length > 0 || mockProduct.productLadderList.length > 0" class="grid grid-cols-3 gap-4 mb-6">
-        <!-- 优惠券 -->
-        <div v-if="mockProduct.couponList.length > 0" class="col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 class="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-brand-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
-            </svg>
-            可领优惠券
-          </h3>
-          <div class="flex gap-3">
-            <div
-              v-for="coupon in mockProduct.couponList"
-              :key="coupon.id"
-              class="flex-1 border border-brand-200 rounded-lg overflow-hidden flex"
-            >
-              <div class="bg-brand-600 text-white px-4 py-3 flex flex-col items-center justify-center flex-shrink-0">
-                <span class="text-lg font-bold">&yen;{{ coupon.amount }}</span>
-                <span class="text-xs opacity-80">满{{ coupon.minAmount }}可用</span>
+        <!-- ====== 右侧 46%：购买面板（sticky，独立滚动） ====== -->
+        <div class="w-[46%] flex-shrink-0 sticky top-6 self-start bg-white rounded-xl shadow-sm border border-gray-100 p-6"
+          style="max-height: calc(100vh - 48px); overflow-y: auto;">
+          <!-- 商品标题 -->
+          <h1 class="text-xl font-bold text-gray-900 leading-7 mb-1">
+            {{ mockProduct.product.name }}
+          </h1>
+
+          <!-- 副标题 -->
+          <p v-if="mockProduct.product.subTitle" class="text-sm text-brand-600 mb-4 leading-5">
+            {{ mockProduct.product.subTitle }}
+          </p>
+
+          <!-- 价格区 — 淘宝红底 -->
+          <div class="bg-gradient-to-r from-red-50 to-pink-50 rounded-xl px-5 py-4 mb-5">
+            <div class="flex items-baseline gap-2 mb-3">
+              <span class="text-3xl font-extrabold text-red-500">
+                <span class="text-lg">&yen;</span>{{ formatPrice(selectedSku?.promotionPrice || selectedSku?.price || mockProduct.product.price) }}
+              </span>
+              <span v-if="mockProduct.product.originalPrice && mockProduct.product.originalPrice > (selectedSku?.price || mockProduct.product.price)" class="text-sm text-gray-400 line-through">
+                &yen;{{ formatPrice(mockProduct.product.originalPrice) }}
+              </span>
+              <span v-if="mockProduct.product.originalPrice && mockProduct.product.originalPrice > (selectedSku?.price || mockProduct.product.price)"
+                class="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">
+                {{ Math.round(((mockProduct.product.originalPrice - (selectedSku?.price || mockProduct.product.price)) / mockProduct.product.originalPrice) * 100) }}%OFF
+              </span>
+            </div>
+            <div class="flex items-center gap-5 text-xs text-gray-500">
+              <span>销量 <span class="text-gray-900 font-semibold ml-0.5">{{ mockProduct.product.sale || 0 }}</span></span>
+              <span class="text-gray-200">|</span>
+              <span>库存 <span :class="(selectedSku?.stock || 0) > 20 ? 'text-gray-900' : 'text-red-500'" class="font-semibold ml-0.5">{{ selectedSku?.stock ?? '--' }}</span> 件</span>
+              <span class="text-gray-200">|</span>
+              <span>浙江杭州 <span class="ml-1 text-gray-400">发货</span></span>
+            </div>
+          </div>
+
+          <!-- 优惠 & 配送 -->
+          <div class="bg-gray-50 rounded-lg px-4 py-3 mb-5 space-y-2 text-sm">
+            <div v-for="fr in mockProduct.productFullReductionList" :key="fr.id" class="flex items-center gap-2">
+              <span class="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0">满减</span>
+              <span class="text-red-600">满{{ fr.fullPrice }}减{{ fr.reducePrice }}</span>
+            </div>
+            <div v-if="mockProduct.couponList.length > 0" class="flex items-center gap-2">
+              <span class="bg-red-500 text-white text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0">领券</span>
+              <span class="text-red-600">领券减{{ mockProduct.couponList[0]?.amount || '' }}元</span>
+              <span class="text-gray-400 flex-1 text-right">共{{ mockProduct.couponList.length }}张 &gt;</span>
+            </div>
+            <!-- 阶梯优惠 -->
+            <div v-for="ladder in mockProduct.productLadderList" :key="ladder.id" class="flex items-center gap-2">
+              <span class="bg-orange-500 text-white text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0">阶梯</span>
+              <span class="text-orange-600">满{{ ladder.count }}件打{{ (ladder.discount * 10).toFixed(1) }}折</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs text-gray-500 pt-1 border-t border-gray-200">
+              <span class="text-green-600">✓</span> 正品保障
+              <span class="text-green-600 ml-2">✓</span> 7天无理由
+              <span class="text-green-600 ml-2">✓</span> 极速退款
+            </div>
+          </div>
+
+          <!-- SKU 规格选择 — 图片色块或文字按钮 -->
+          <div v-if="specDimensions.length > 0" class="mb-5 space-y-4">
+            <div v-for="dimension in specDimensions" :key="dimension">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-sm text-gray-700 font-medium">{{ dimension }}</span>
+                <span class="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{{ selectedSpecs[dimension] || '未选择' }}</span>
               </div>
-              <div class="flex-1 px-3 py-2 flex flex-col justify-center">
-                <span class="text-sm font-medium text-gray-800">{{ coupon.name }}</span>
-                <span class="text-xs text-gray-400 mt-1">{{ (coupon.endTime || '').split('T')[0] }} 到期</span>
-              </div>
-              <div class="flex items-center px-3">
+              <div class="flex flex-wrap gap-2">
                 <button
+                  v-for="value in getSpecValues(dimension)"
+                  :key="value"
+                  :disabled="!isSpecAvailable(dimension, value)"
+                  :title="!isSpecAvailable(dimension, value) ? '已售罄' : value"
                   :class="[
-                    'text-sm px-3 py-1.5 rounded-full transition-colors',
-                    receivedCoupons.has(coupon.id)
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-brand-600 text-white hover:bg-brand-700',
+                    'relative transition-all',
+                    isSpecSelected(dimension, value)
+                      ? 'ring-2 ring-brand-600 ring-offset-1 rounded-lg'
+                      : '',
                   ]"
-                  :disabled="receivedCoupons.has(coupon.id)"
-                  @click="receiveCoupon(coupon.id)"
+                  @click="selectSpec(dimension, value)"
                 >
-                  {{ receivedCoupons.has(coupon.id) ? '已领取' : '领取' }}
+                  <img
+                    v-if="getSkuImageForSpec(dimension, value)"
+                    :src="getSkuImageForSpec(dimension, value)"
+                    :alt="value"
+                    :class="[
+                      'w-12 h-12 object-cover rounded-lg border-2 transition-colors',
+                      isSpecSelected(dimension, value) ? 'border-brand-600' : 'border-gray-200 hover:border-gray-400',
+                      !isSpecAvailable(dimension, value) ? 'opacity-30' : '',
+                    ]"
+                  />
+                  <span
+                    v-else
+                    :class="[
+                      'inline-block px-4 py-2 text-sm rounded-md border transition-all select-none',
+                      isSpecSelected(dimension, value)
+                        ? 'border-brand-600 text-brand-600 bg-brand-50 font-medium shadow-sm'
+                        : isSpecAvailable(dimension, value)
+                          ? 'border-gray-200 text-gray-700 hover:border-brand-300 hover:text-brand-600 cursor-pointer'
+                          : 'border-gray-100 text-gray-300 cursor-not-allowed bg-gray-50 line-through',
+                    ]"
+                  >{{ value }}</span>
                 </button>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- 阶梯价格 -->
-        <div v-if="mockProduct.productLadderList.length > 0" class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 class="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            </svg>
-            阶梯优惠
-          </h3>
-          <div class="space-y-2">
-            <div v-for="ladder in mockProduct.productLadderList" :key="ladder.id" class="flex items-center justify-between text-sm">
-              <span class="text-gray-600">满 {{ ladder.count }} 件</span>
-              <span class="text-brand-600 font-medium">{{ (ladder.discount * 10).toFixed(1) }} 折</span>
-              <span class="text-gray-400">&yen;{{ ladder.price }}/件</span>
+          <!-- 数量选择 -->
+          <div class="flex items-center gap-3 mb-6">
+            <span class="text-sm text-gray-700 font-medium w-10 flex-shrink-0">数量</span>
+            <div class="flex items-center border border-gray-300 rounded-md h-10">
+              <button
+                class="w-9 h-full flex items-center justify-center text-gray-500 hover:text-brand-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                :disabled="quantity <= 1"
+                @click="quantity--"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M20 12H4" />
+                </svg>
+              </button>
+              <input
+                v-model.number="quantity"
+                type="number"
+                min="1"
+                :max="Math.min(selectedSku?.stock || 999, 999)"
+                class="w-16 h-full text-center text-sm font-medium border-x border-gray-300 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                @change="if (quantity < 1) quantity = 1; if (quantity > (selectedSku?.stock || 999)) quantity = selectedSku?.stock || 999"
+              />
+              <button
+                class="w-9 h-full flex items-center justify-center text-gray-500 hover:text-brand-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                :disabled="quantity >= (selectedSku?.stock || 999)"
+                @click="quantity++"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- ============================================================ -->
-      <!-- 下部：Tab 切换 + 详情内容 -->
-      <!-- ============================================================ -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <!-- Tab 头部 -->
-        <div class="flex border-b border-gray-100">
-          <button
-            :class="[
-              'px-8 py-4 text-sm font-medium transition-colors border-b-2',
-              activeTab === 'detail'
-                ? 'text-brand-600 border-brand-600'
-                : 'text-gray-500 border-transparent hover:text-gray-700',
-            ]"
-            @click="activeTab = 'detail'"
-          >
-            商品详情
-          </button>
-          <button
-            v-if="mockProduct.productAttributeList.length > 0"
-            :class="[
-              'px-8 py-4 text-sm font-medium transition-colors border-b-2',
-              activeTab === 'params'
-                ? 'text-brand-600 border-brand-600'
-                : 'text-gray-500 border-transparent hover:text-gray-700',
-            ]"
-            @click="activeTab = 'params'"
-          >
-            规格参数
-          </button>
-          <button
-            :class="[
-              'px-8 py-4 text-sm font-medium transition-colors border-b-2',
-              activeTab === 'reviews'
-                ? 'text-brand-600 border-brand-600'
-                : 'text-gray-500 border-transparent hover:text-gray-700',
-            ]"
-            @click="activeTab = 'reviews'"
-          >
-            用户评价
-          </button>
-        </div>
-
-        <!-- Tab 内容 -->
-        <div class="p-8">
-          <!-- 商品详情 -->
-          <div v-if="activeTab === 'detail'" class="space-y-6">
-            <div class="grid grid-cols-4 gap-4 text-sm mb-8">
-              <div class="bg-gray-50 rounded-lg p-3 text-center">
-                <div class="text-gray-400 mb-1">品牌</div>
-                <div class="text-gray-900 font-medium">{{ mockProduct.brand.name || mockProduct.product.brandName || '-' }}</div>
-              </div>
-              <div class="bg-gray-50 rounded-lg p-3 text-center">
-                <div class="text-gray-400 mb-1">商品编号</div>
-                <div class="text-gray-900 font-medium">{{ mockProduct.product.productSn || '-' }}</div>
-              </div>
-              <div class="bg-gray-50 rounded-lg p-3 text-center">
-                <div class="text-gray-400 mb-1">商品分类</div>
-                <div class="text-gray-900 font-medium">{{ mockProduct.product.productCategoryName || '-' }}</div>
-              </div>
-              <div class="bg-gray-50 rounded-lg p-3 text-center">
-                <div class="text-gray-400 mb-1">售后服务</div>
-                <div class="text-gray-900 font-medium">全国联保一年</div>
-              </div>
-            </div>
-
-            <!-- 描述文字 -->
-            <div v-if="mockProduct.product.description" class="text-sm text-gray-700 leading-relaxed bg-gray-50 rounded-lg p-6">
-              <h3 class="text-lg font-bold text-gray-900 mb-4">产品详情</h3>
-              <p>{{ mockProduct.product.description }}</p>
-            </div>
-
-            <!-- 详情 HTML (sanitized via DOMPurify to prevent XSS) -->
-            <div v-if="sanitizedDetailHtml" v-html="sanitizedDetailHtml" class="prose max-w-none" />
+            <span v-if="(selectedSku?.stock || 0) > 0 && (selectedSku?.stock || 0) <= 20" class="text-xs text-red-400">仅剩 {{ selectedSku?.stock }} 件</span>
           </div>
 
-          <!-- 规格参数 -->
-          <div v-if="activeTab === 'params'" class="max-w-3xl">
-            <table class="w-full text-sm">
-              <tbody class="divide-y divide-gray-100">
-                <tr v-for="attr in mockProduct.productAttributeList" :key="attr.id" class="hover:bg-gray-50">
-                  <td class="py-3 px-4 text-gray-500 w-32 bg-gray-50">{{ attr.name }}</td>
-                  <td class="py-3 px-4 text-gray-900">{{ attr.inputList }}</td>
-                </tr>
-                <tr v-if="mockProduct.product.productSn" class="hover:bg-gray-50">
-                  <td class="py-3 px-4 text-gray-500 w-32 bg-gray-50">商品编号</td>
-                  <td class="py-3 px-4 text-gray-900">{{ mockProduct.product.productSn }}</td>
-                </tr>
-                <tr v-if="mockProduct.brand.name || mockProduct.product.brandName" class="hover:bg-gray-50">
-                  <td class="py-3 px-4 text-gray-500 w-32 bg-gray-50">品牌</td>
-                  <td class="py-3 px-4 text-gray-900">{{ mockProduct.brand.name || mockProduct.product.brandName }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- 操作按钮 — 收藏 + 加入购物车 + 领券购买 -->
+          <div class="flex items-stretch gap-3 mb-5">
+            <!-- 收藏 -->
+            <button
+              :disabled="isFavoriting"
+              class="w-14 flex-shrink-0 flex flex-col items-center justify-center gap-0.5 rounded-lg border border-gray-200 text-gray-500 hover:text-brand-600 hover:border-brand-300 transition-colors disabled:opacity-50"
+              @click="handleToggleFavorite"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" :fill="isFavorited ? 'currentColor' : 'none'" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+              </svg>
+              <span class="text-[10px]">{{ isFavorited ? '已收藏' : '收藏' }}</span>
+            </button>
+
+            <!-- 加入购物车 -->
+            <button
+              class="flex-1 h-12 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold text-base rounded-2xl hover:from-orange-600 hover:to-red-600 transition-all flex items-center justify-center gap-2 shadow-md shadow-red-200 active:scale-[0.98]"
+              @click="handleAddToCart"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+              加入购物车
+            </button>
+
+            <!-- 领券购买 -->
+            <button
+              :disabled="buying"
+              class="flex-1 h-12 bg-gradient-to-r from-red-500 to-pink-500 text-white font-bold text-base rounded-2xl hover:from-red-600 hover:to-pink-600 transition-all flex items-center justify-center gap-2 shadow-md shadow-pink-200 active:scale-[0.98] disabled:opacity-60"
+              @click="handleBuyNow"
+            >
+              <svg v-if="!buying" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
+              </svg>
+              <svg v-else class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              {{ buying ? '处理中...' : '领券购买' }}
+            </button>
           </div>
 
-          <!-- 用户评价 -->
-          <div v-if="activeTab === 'reviews'" class="flex flex-col items-center justify-center py-16 text-gray-400 text-sm">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mb-3 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            <p>暂无评价</p>
-            <p class="text-xs mt-1">成为第一个评价的人吧</p>
-          </div>
+          <p class="text-xs text-gray-400 text-center">支持7天无理由退换 · 48小时内发货 · 全国联保</p>
         </div>
       </div>
     </template>
@@ -919,7 +850,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* 放大镜样式 */
+/* 放大镜 */
 .magnifier-lens {
   background-repeat: no-repeat;
   backdrop-filter: blur(1px);
@@ -940,5 +871,44 @@ onUnmounted(() => {
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* 详情富文本渲染 — 确保图片和排版正常 */
+.detail-html :deep(img) {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 12px 0;
+}
+.detail-html :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+.detail-html :deep(td),
+.detail-html :deep(th) {
+  border: 1px solid #e5e7eb;
+  padding: 8px 12px;
+  text-align: left;
+}
+.detail-html :deep(p) {
+  margin: 8px 0;
+  line-height: 1.8;
+}
+
+/* 右侧面板滚动条 */
+.sticky {
+  scrollbar-width: thin;
+  scrollbar-color: #e5e7eb transparent;
+}
+.sticky::-webkit-scrollbar {
+  width: 4px;
+}
+.sticky::-webkit-scrollbar-thumb {
+  background: #e5e7eb;
+  border-radius: 4px;
+}
+.sticky::-webkit-scrollbar-track {
+  background: transparent;
 }
 </style>

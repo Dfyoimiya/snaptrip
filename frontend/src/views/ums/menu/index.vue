@@ -73,6 +73,7 @@ const handleHiddenChange = async (_index: number, row: UmsMenu) => {
     await menuUpdateHiddenByIdAPI(row.id!, { hidden: row.hidden! })
     const label = row.hidden === 1 ? '隐藏' : '显示'
     ElMessage({ message: `已${label}`, type: 'success' })
+    fetchList()
   } catch (err: any) {
     ElMessage.error(err?.message || '状态更新失败')
     fetchList()

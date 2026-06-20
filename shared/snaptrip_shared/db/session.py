@@ -13,6 +13,7 @@ Date: 2026-05-17
 
 from __future__ import annotations
 
+import sys
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -21,10 +22,20 @@ from sqlalchemy.pool import NullPool
 
 from snaptrip_shared.core.config import settings
 
+# Celery worker processes use asyncio.run() per-task, which creates a new event
+# loop each time.  The normal connection pool holds connections bound to old
+# event loops, causing "Event loop is closed" / "Future attached to different
+# loop" errors on cleanup.  NullPool avoids this by not pooling at all — each
+# session gets a fresh connection that is closed cleanly.
+_celery_worker = (
+    len(sys.argv) > 1
+    and "worker" in sys.argv
+)
+
 _engine_kwargs: dict[str, Any] = {
     "echo": settings.APP_DEBUG,
 }
-if settings.APP_ENV == "test":
+if settings.APP_ENV == "test" or _celery_worker:
     _engine_kwargs["poolclass"] = NullPool
 else:
     _engine_kwargs["pool_size"] = settings.DATABASE_POOL_SIZE

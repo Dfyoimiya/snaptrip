@@ -21,7 +21,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Integer, String, Text
+from sqlalchemy import CheckConstraint, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -63,9 +63,10 @@ class PmsCategory(CommerceBase, AuditMixin):
     )
     level: Mapped[int] = mapped_column(
         Integer,
+        CheckConstraint("level >= 0 AND level <= 2", name="ck_pms_categories_level_range"),
         default=0,
         nullable=False,
-        comment="层级: 0=一级 1=二级 2=三级",
+        comment="层级: 0=一级 1=二级 2=三级 (DB CHECK: 0-2)",
     )
     sort: Mapped[int] = mapped_column(
         Integer,

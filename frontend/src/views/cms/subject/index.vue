@@ -140,16 +140,26 @@ async function handleBatchDelete() {
 
 async function handleToggleRecommend(row: CmsSubject) {
   const newStatus = row.recommendStatus === 1 ? 0 : 1
-  await updateSubjectRecommendStatus(row.id!, newStatus)
-  row.recommendStatus = newStatus
-  ElMessage.success('状态更新成功')
+  try {
+    await updateSubjectRecommendStatus(row.id!, newStatus)
+    ElMessage.success('状态更新成功')
+  } catch (err: any) {
+    ElMessage.error(err?.message || '状态更新失败')
+  } finally {
+    loadList()
+  }
 }
 
 async function handleToggleShow(row: CmsSubject) {
   const newStatus = row.showStatus === 1 ? 0 : 1
-  await updateSubjectShowStatus(row.id!, newStatus)
-  row.showStatus = newStatus
-  ElMessage.success('展示状态更新成功')
+  try {
+    await updateSubjectShowStatus(row.id!, newStatus)
+    ElMessage.success('展示状态更新成功')
+  } catch (err: any) {
+    ElMessage.error(err?.message || '展示状态更新失败')
+  } finally {
+    loadList()
+  }
 }
 
 onMounted(() => {

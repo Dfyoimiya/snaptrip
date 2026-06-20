@@ -24,6 +24,20 @@ litellm_settings:
   # service_callback: []               # 可选：自定义 Webhook
 
 model_list:
+  # ── 本地 Ollama 模型 ──
+  - model_name: distilqwen2.5-r1-7b
+    litellm_params:
+      model: openai/distilqwen2.5-r1-7b       # Ollama OpenAI-compatible endpoint
+      api_base: http://host.docker.internal:11434/v1
+      api_key: ollama                          # Ollama 不需要真实 key
+      rpm: 20
+      tpm: 50000
+    model_info:
+      mode: chat
+      max_tokens: 32768
+      input_cost_per_token: 0.0               # 本地模型无 API 成本
+      output_cost_per_token: 0.0
+
   # ── DeepSeek V4 ──
   - model_name: deepseek-v4-pro
     litellm_params:
@@ -82,11 +96,12 @@ router_settings:
   allowed_fails: 3
   num_retries: 2
   fallbacks:
-    # 主模型故障时降级: Pro → Flash → K2.6
-    - deepseek-v4-pro: ["deepseek-v4-flash", "kimi-k2.6"]
-    - deepseek-v4-flash: ["kimi-k2.6", "kimi-k2.5"]
-    - kimi-k2.6: ["kimi-k2.5", "deepseek-v4-pro"]
-    - kimi-k2.5: ["deepseek-v4-pro", "deepseek-v4-flash"]
+    # 主模型故障时降级: Pro → Flash → K2.6 → Local
+    - deepseek-v4-pro: ["deepseek-v4-flash", "kimi-k2.6", "distilqwen2.5-r1-7b"]
+    - deepseek-v4-flash: ["kimi-k2.6", "kimi-k2.5", "distilqwen2.5-r1-7b"]
+    - kimi-k2.6: ["kimi-k2.5", "deepseek-v4-pro", "distilqwen2.5-r1-7b"]
+    - kimi-k2.5: ["deepseek-v4-pro", "deepseek-v4-flash", "distilqwen2.5-r1-7b"]
+    - distilqwen2.5-r1-7b: ["deepseek-v4-pro", "kimi-k2.6"]
   optional_pre_call_checks:
     - enforce_model_rate_limits
     - enforce_virtual_key_rate_limits

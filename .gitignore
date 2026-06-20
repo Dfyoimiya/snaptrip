@@ -72,3 +72,6 @@ htmlcov/
 
 /refer/
 celerybeat-schedule
+
+# Local models (Ollama / GGUF)
+local_models/

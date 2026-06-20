@@ -39,7 +39,40 @@ class CategoryService:
     async def create(self, data: CategoryCreate) -> CategoryResponse:
         from app.models.product.category import PmsCategory
 
-        category = PmsCategory(**data.model_dump())
+        # Auto-compute level from parent chain; ignore caller-supplied level.
+        level = 0
+        if data.parent_id:
+            parent = await self.db.get(PmsCategory, data.parent_id)
+            if not parent:
+                from app.core.exceptions import CommerceException
+
+                raise CommerceException(
+                    code="PARENT_NOT_FOUND",
+                    message=f"父分类不存在: {data.parent_id}",
+                    status_code=400,
+                )
+            level = parent.level + 1
+            if level > 2:
+                from app.core.exceptions import CommerceException
+
+                raise CommerceException(
+                    code="CATEGORY_LEVEL_EXCEEDED",
+                    message=f"分类层级不能超过2级 (父分类为{parent.level}级，子分类将为{level}级)",
+                    status_code=400,
+                )
+
+        # Auto-compute sort = max sibling sort + 1, so new category always at the end.
+        max_sort_result = await self.db.execute(
+            select(func.coalesce(func.max(PmsCategory.sort), -1)).where(
+                PmsCategory.parent_id == data.parent_id
+            )
+        )
+        next_sort = (max_sort_result.scalar() or -1) + 1
+
+        category_data = data.model_dump()
+        category_data["level"] = level
+        category_data["sort"] = next_sort
+        category = PmsCategory(**category_data)
         self.db.add(category)
         await self.db.flush()
         await self.db.refresh(category)
@@ -55,6 +88,40 @@ class CategoryService:
             from app.core.exceptions import CommerceException
 
             raise CommerceException(code="NO_FIELDS", message="没有提供需要更新的字段", status_code=400)
+
+        # If parent_id is being changed, validate new parent and recompute level
+        if "parent_id" in values:
+            new_parent_id = values["parent_id"]
+            if new_parent_id is not None:
+                if new_parent_id == category_id:
+                    from app.core.exceptions import CommerceException
+
+                    raise CommerceException(
+                        code="CATEGORY_SELF_PARENT",
+                        message="分类不能将自己设为父分类",
+                        status_code=400,
+                    )
+                parent = await self.db.get(PmsCategory, new_parent_id)
+                if not parent:
+                    from app.core.exceptions import CommerceException
+
+                    raise CommerceException(
+                        code="PARENT_NOT_FOUND",
+                        message=f"父分类不存在: {new_parent_id}",
+                        status_code=400,
+                    )
+                new_level = parent.level + 1
+                if new_level > 2:
+                    from app.core.exceptions import CommerceException
+
+                    raise CommerceException(
+                        code="CATEGORY_LEVEL_EXCEEDED",
+                        message=f"分类层级不能超过2级 (父分类为{parent.level}级，子分类将为{new_level}级)",
+                        status_code=400,
+                    )
+                values["level"] = new_level
+            else:
+                values["level"] = 0
 
         stmt = update(PmsCategory).where(PmsCategory.id == category_id).values(**values).returning(PmsCategory)
         result = await self.db.execute(stmt)
@@ -249,3 +316,29 @@ class CategoryService:
 
             raise ProductNotFoundError(str(category_id))
         return CategoryResponse.model_validate(category)
+
+    # ── 批量排序 ──
+
+    async def reorder(self, items: list[dict]) -> list[CategoryResponse]:
+        """批量更新分类排序值。
+
+        拖拽排序后前端传入 [{id, sort}, ...] 列表，一次性更新所有变更项。
+        """
+        from app.models.product.category import PmsCategory
+
+        results: list[CategoryResponse] = []
+        for item in items:
+            cat_id = UUID(item["id"])
+            new_sort = item["sort"]
+            stmt = (
+                update(PmsCategory)
+                .where(PmsCategory.id == cat_id)
+                .values(sort=new_sort)
+                .returning(PmsCategory)
+            )
+            result = await self.db.execute(stmt)
+            category = result.scalar_one_or_none()
+            if category:
+                results.append(CategoryResponse.model_validate(category))
+        await self.db.flush()
+        return results

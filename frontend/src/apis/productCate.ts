@@ -70,3 +70,12 @@ export function productCategoryUpdateShowStatusAPI(id: string, showStatus: numbe
     params: { field: 'show_status', status: showStatus },
   })
 }
+
+/** 批量更新排序（拖拽后调用） —— PATCH /admin/categories/batch-sort */
+export function productCategoryBatchSortAPI(data: { items: { id: string; sort: number }[] }) {
+  return request<CommonResult<{ id: string; sort: number }[]>>({
+    url: '/admin/categories/batch-sort',
+    method: 'patch',
+    data,
+  })
+}

@@ -37,7 +37,7 @@ class CategoryCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=64, description="分类名称")
     type: str | None = Field(None, pattern=_CATEGORY_TYPE_PATTERN, description="分类类型: PRODUCT/COMBO")
     parent_id: UUID | None = Field(None, description="父分类ID，NULL=顶级分类")
-    level: int = Field(default=0, ge=0, le=3, description="层级")
+    level: int = Field(default=0, ge=0, le=2, description="层级: 0=一级 1=二级 2=三级，最高2级")
     sort: int = Field(default=0, ge=0, description="排序值")
     nav_status: int = Field(default=1, ge=0, le=1, description="导航栏显示")
     show_status: int = Field(default=1, ge=0, le=1, description="显示状态")
@@ -52,7 +52,7 @@ class CategoryUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=64)
     type: str | None = Field(None, pattern=_CATEGORY_TYPE_PATTERN)
     parent_id: UUID | None = None
-    level: int | None = Field(None, ge=0, le=3)
+    level: int | None = Field(None, ge=0, le=2, description="层级: 0=一级 1=二级 2=三级，最高2级")
     sort: int | None = Field(None, ge=0)
     nav_status: int | None = Field(None, ge=0, le=1)
     show_status: int | None = Field(None, ge=0, le=1)
