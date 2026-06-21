@@ -202,6 +202,80 @@ class LangChainAdapter(LLMPort):
         )
         return ai_msg
 
+    async def chat_stream(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        model_alias: str = "",
+        timeout_s: float = 30.0,
+        temperature: float = 0.7,
+        max_tokens: int = 1024,
+        reasoning_effort: str = "",
+        enable_thinking: bool | None = None,
+    ):
+        """流式 chat —— 异步生成器，逐 token yield 文本内容。
+
+        与 chat() 使用相同的降级链和重试逻辑，但不收集完整 AIMessage，
+        而是 yield 每个文本 chunk，适合 SSE 流式输出。
+        """
+        import asyncio
+
+        model = model_alias or settings.LLM_DEFAULT_MODEL
+        if enable_thinking is None:
+            enable_thinking = getattr(settings, "LLM_ENABLE_THINKING", True)
+        if not reasoning_effort:
+            reasoning_effort = getattr(settings, "LLM_REASONING_EFFORT", "high")
+
+        # 构建降级链
+        chain_names = [model]
+        fallback_str = getattr(settings, "LLM_FALLBACK_MODELS", "")
+        for name in fallback_str.split(","):
+            name = name.strip()
+            if name and name not in chain_names:
+                chain_names.append(name)
+        for fb in ("deepseek-v4-flash",):
+            if fb not in chain_names:
+                chain_names.append(fb)
+
+        last_error: Exception | None = None
+        for model_name in chain_names:
+            try:
+                kwargs: dict[str, Any] = {
+                    "model": model_name,
+                    "messages": messages,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "timeout": timeout_s,
+                    "stream": True,
+                    "stream_options": {"include_usage": True},
+                }
+                if enable_thinking:
+                    kwargs["extra_body"] = {"thinking": {"type": "enabled"}}
+                if reasoning_effort:
+                    kwargs["reasoning_effort"] = reasoning_effort
+
+                stream = await self._client.chat.completions.create(**kwargs)
+                collected = ""
+                async for chunk in stream:
+                    if chunk.choices:
+                        delta = chunk.choices[0].delta
+                        if delta and delta.content:
+                            collected += delta.content
+                            yield delta.content
+                return  # 成功，结束生成器
+
+            except Exception as e:
+                last_error = e
+                logger.warning(
+                    "chat_stream: model=%s failed (%s), trying next in chain",
+                    model_name, e,
+                )
+                await asyncio.sleep(0.5)
+                continue
+
+        # 所有模型都失败
+        raise last_error or RuntimeError("chat_stream: all models in chain failed")
+
     async def chat_json(
         self,
         *,

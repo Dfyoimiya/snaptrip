@@ -38,6 +38,7 @@ class BaseSpecialist:
     max_retries: int = 3
     retry_base_delay: float = 1.0  # seconds, doubles each retry: 1s, 2s, 4s
     max_tokens: int = 2048
+    model_alias: str = ""  # override LLM model for this specialist (empty = use default)
 
     # ── Template method ─────────────────────────────────────────────────────
 
@@ -147,6 +148,7 @@ class BaseSpecialist:
                 return await adapter.chat(
                     messages=messages,
                     tools=self.tools,
+                    model_alias=self.model_alias,
                     temperature=self.temperature,
                     max_tokens=self.max_tokens,
                 )

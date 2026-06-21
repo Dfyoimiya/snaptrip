@@ -205,7 +205,7 @@ function handleGoHome() { emit('navigate', '/') }
 </script>
 
 <template>
-  <div class="sticky top-0 z-40 bg-white/70 backdrop-blur-2xl border-b border-white/30">
+  <div class="border-b border-white/30">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center py-5 gap-8">
         <!-- Logo —— flex-1 占位确保搜索框居中 -->

@@ -12,6 +12,8 @@ Date: 2026-06-17
 
 from __future__ import annotations
 
+import asyncio
+import json
 import uuid
 
 from agent.services.agent import AgentService
@@ -19,6 +21,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from langchain_core.messages import HumanMessage
 from pydantic import BaseModel, Field
 from snaptrip_shared.core.response import APIServiceError, success
+from sse_starlette.sse import EventSourceResponse
 
 from app.schemas.shopping_guide import (
     ShoppingGuideRequest,
@@ -117,11 +120,19 @@ def _parse_llm_reply(raw: str) -> tuple[str, list[dict], list[str]]:
 
     Returns (reply, products, follow_up_questions).
     If the response is not valid JSON, returns the raw text as reply.
+    Handles markdown code fences that some models wrap around JSON output.
     """
     import json
+    import re
+
+    cleaned = raw.strip()
+    # Strip markdown code fences if present
+    fence_match = re.match(r"```(?:json)?\s*\n?(.*)\n?```", cleaned, re.DOTALL)
+    if fence_match:
+        cleaned = fence_match.group(1).strip()
 
     try:
-        data = json.loads(raw)
+        data = json.loads(cleaned)
         if isinstance(data, dict):
             answer = data.get("answer", raw)
             products = data.get("products", [])
@@ -247,6 +258,132 @@ async def shopping_guide_chat(
             message=f"Shopping guide agent error: {str(e)}",
             status_code=500,
         ) from e
+
+
+@router.post("/chat/stream", summary="导购 Agent 流式对话 (SSE)")
+async def shopping_guide_chat_stream(
+    req: ShoppingGuideRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+):
+    """AI 导购流式对话端点 —— 通过 Server-Sent Events 逐字输出。
+
+    SSE 事件类型:
+      - token:   {"type": "token", "content": "..."}
+      - done:    {"type": "done", "session_id": "...", "products": [...], "follow_up_questions": [...]}
+      - error:   {"type": "error", "message": "..."}
+    """
+    user_id = str(current_user.id)
+    session_svc = _get_session_service(request)
+    agent_svc = await _get_agent_service(request)
+
+    auth_header = request.headers.get("Authorization", "")
+    auth_token = auth_header.replace("Bearer ", "") if auth_header else ""
+
+    # ── Session resolution ──
+    session_id = req.session_id
+    is_new_session = False
+    if not session_id:
+        session_id = await session_svc.create_session(user_id)
+        is_new_session = True
+    else:
+        existing = await session_svc.get_session(session_id)
+        if not existing or existing.get("user_id") != user_id:
+            session_id = await session_svc.create_session(user_id)
+            is_new_session = True
+
+    cross_context = ""
+    if is_new_session or not req.session_id:
+        cross_context = await session_svc.build_cross_session_context(user_id)
+
+    # Persist user message
+    await session_svc.append_message(session_id, "user", req.message)
+    await session_svc.touch_session(session_id)
+
+    # ── Shared state for streaming ──
+    token_queue: asyncio.Queue = asyncio.Queue()
+    final_result: dict = {}
+
+    async def stream_callback(token: str):
+        """Push token to the SSE queue."""
+        await token_queue.put({"type": "token", "content": token})
+
+    async def run_agent():
+        """Run the graph in background, pushing tokens via callback."""
+        nonlocal final_result
+        try:
+            initial_state = await _build_shopping_state(
+                req,
+                user_id=user_id,
+                auth_token=auth_token,
+                cross_session_context=cross_context,
+            )
+            # Inject streaming callback into working_memory
+            initial_state.setdefault("working_memory", {})["_stream_callback"] = stream_callback
+
+            plan_id = initial_state["plan_id"]
+            result = await agent_svc.invoke(initial_state, plan_id)
+
+            # Extract reply
+            messages = result.get("messages", [])
+            reply = ""
+            for msg in reversed(messages):
+                if hasattr(msg, "type") and msg.type == "ai":
+                    content = getattr(msg, "content", "")
+                    if content:
+                        reply = str(content)
+                        break
+                elif isinstance(msg, dict) and msg.get("role") == "assistant":
+                    content = msg.get("content", "")
+                    if content:
+                        reply = str(content)
+                        break
+
+            if not reply:
+                reply = "我找到了相关商品信息。您可以点击商品链接查看详情。如需进一步帮助，请随时告诉我您的需求。"
+
+            # Persist assistant reply
+            await session_svc.append_message(session_id, "assistant", reply)
+            await session_svc.touch_session(session_id)
+
+            # Parse structured reply
+            clean_reply, products, follow_ups = _parse_llm_reply(reply)
+
+            # Generate summary
+            all_msgs = await session_svc.get_messages(session_id)
+            await session_svc.generate_and_save_summary(session_id, user_id, all_msgs)
+
+            final_result = {
+                "session_id": session_id,
+                "products": products,
+                "follow_up_questions": follow_ups,
+            }
+        except Exception as e:
+            await token_queue.put({"type": "error", "message": str(e)})
+        finally:
+            await token_queue.put(None)  # sentinel
+
+    async def event_generator():
+        task = asyncio.create_task(run_agent())
+
+        while True:
+            item = await token_queue.get()
+            if item is None:  # sentinel — graph complete
+                break
+            yield {"data": json.dumps(item, ensure_ascii=False)}
+
+        await task  # ensure any exception propagates
+
+        # Send final done event with products & follow-ups
+        done_data = {
+            "type": "done",
+            "session_id": final_result.get("session_id", session_id),
+            "products": final_result.get("products", []),
+            "follow_up_questions": final_result.get("follow_up_questions", []),
+        }
+        yield {"data": json.dumps(done_data, ensure_ascii=False)}
+
+    return EventSourceResponse(event_generator())
 
 
 # ── Sessions ─────────────────────────────────────────────────────────────────

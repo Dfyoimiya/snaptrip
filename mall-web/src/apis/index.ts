@@ -24,3 +24,5 @@ export * from './coupon'
 export * from './memberProductCollection'
 // 客服 Chat API
 export * from './cs'
+// 导购 Chat API
+export * from './shoppingGuide'

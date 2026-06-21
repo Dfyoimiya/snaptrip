@@ -1,5 +1,5 @@
 # LiteLLM Proxy 网关配置
-# 供应商: DeepSeek + Kimi (Moonshot)
+# 供应商: DeepSeek + Qwen (DashScope) + Kimi (Moonshot)
 # 模式: 数据库支持的虚拟密钥 + 消费追踪 + 速率限制
 
 general_settings:
@@ -24,20 +24,6 @@ litellm_settings:
   # service_callback: []               # 可选：自定义 Webhook
 
 model_list:
-  # ── 本地 Ollama 模型 ──
-  - model_name: distilqwen2.5-r1-7b
-    litellm_params:
-      model: openai/distilqwen2.5-r1-7b       # Ollama OpenAI-compatible endpoint
-      api_base: http://host.docker.internal:11434/v1
-      api_key: ollama                          # Ollama 不需要真实 key
-      rpm: 20
-      tpm: 50000
-    model_info:
-      mode: chat
-      max_tokens: 32768
-      input_cost_per_token: 0.0               # 本地模型无 API 成本
-      output_cost_per_token: 0.0
-
   # ── DeepSeek V4 ──
   - model_name: deepseek-v4-pro
     litellm_params:
@@ -60,14 +46,70 @@ model_list:
     model_info:
       mode: chat
       max_tokens: 8192                     
-      input_cost_per_token: 0.00000014     
-      output_cost_per_token: 0.00000028    
+      input_cost_per_token: 0.00000014
+      output_cost_per_token: 0.00000028
+
+  # ── Qwen 3.6 (DashScope) ──
+  - model_name: qwen3.6-flash
+    litellm_params:
+      model: openai/qwen3.6-flash
+      api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api_key: os.environ/QWEN_API_KEY
+      rpm: 500
+      tpm: 500000
+    model_info:
+      mode: chat
+      max_tokens: 131072
+      input_cost_per_token: 0.00000014     # 约 ¥1.0/M input
+      output_cost_per_token: 0.00000057    # 约 ¥4.0/M output
+
+  - model_name: qwen3.6-plus
+    litellm_params:
+      model: openai/qwen3.6-plus
+      api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api_key: os.environ/QWEN_API_KEY
+      rpm: 200
+      tpm: 300000
+    model_info:
+      mode: chat
+      max_tokens: 131072
+      input_cost_per_token: 0.00000057     # 约 ¥4.0/M input
+      output_cost_per_token: 0.00000171    # 约 ¥12.0/M output
+
+  # ── 嵌入模型 (DashScope) ──
+  - model_name: text-embedding-v4
+    litellm_params:
+      model: openai/text-embedding-v4
+      api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api_key: os.environ/QWEN_API_KEY
+      rpm: 500
+      tpm: 500000
+      encoding_format: float
+    model_info:
+      mode: embedding
+      max_tokens: 8192
+      input_cost_per_token: 0.00000004     # ¥0.3/M input
+      output_cost_per_token: 0.0
+
+  - model_name: text-embedding-v3
+    litellm_params:
+      model: openai/text-embedding-v3
+      api_base: https://dashscope.aliyuncs.com/compatible-mode/v1
+      api_key: os.environ/QWEN_API_KEY
+      rpm: 500
+      tpm: 500000
+      encoding_format: float
+    model_info:
+      mode: embedding
+      max_tokens: 8192
+      input_cost_per_token: 0.00000004     # ¥0.3/M input
+      output_cost_per_token: 0.0
 
   # ── Kimi / Moonshot ──
   - model_name: kimi-k2.6
     litellm_params:
-      model: openai/kimi-k2.6              
-      api_base: https://api.moonshot.cn/v1  
+      model: openai/kimi-k2.6
+      api_base: https://api.moonshot.cn/v1
       api_key: os.environ/KIMI_API_KEY
       rpm: 100
       tpm: 300000
@@ -96,12 +138,13 @@ router_settings:
   allowed_fails: 3
   num_retries: 2
   fallbacks:
-    # 主模型故障时降级: Pro → Flash → K2.6 → Local
-    - deepseek-v4-pro: ["deepseek-v4-flash", "kimi-k2.6", "distilqwen2.5-r1-7b"]
-    - deepseek-v4-flash: ["kimi-k2.6", "kimi-k2.5", "distilqwen2.5-r1-7b"]
-    - kimi-k2.6: ["kimi-k2.5", "deepseek-v4-pro", "distilqwen2.5-r1-7b"]
-    - kimi-k2.5: ["deepseek-v4-pro", "deepseek-v4-flash", "distilqwen2.5-r1-7b"]
-    - distilqwen2.5-r1-7b: ["deepseek-v4-pro", "kimi-k2.6"]
+    # 主模型故障时降级: Pro → Flash → Qwen-Plus → K2.6 → ...
+    - deepseek-v4-pro: ["deepseek-v4-flash", "qwen3.6-plus", "kimi-k2.6"]
+    - deepseek-v4-flash: ["qwen3.6-flash", "kimi-k2.6", "kimi-k2.5"]
+    - qwen3.6-plus: ["qwen3.6-flash", "deepseek-v4-pro", "kimi-k2.6"]
+    - qwen3.6-flash: ["deepseek-v4-flash", "kimi-k2.6", "kimi-k2.5"]
+    - kimi-k2.6: ["kimi-k2.5", "qwen3.6-plus", "deepseek-v4-pro"]
+    - kimi-k2.5: ["deepseek-v4-pro", "qwen3.6-flash", "deepseek-v4-flash"]
   optional_pre_call_checks:
     - enforce_model_rate_limits
     - enforce_virtual_key_rate_limits

@@ -22,9 +22,11 @@ from app.api.portal.order import router as order_router
 from app.api.portal.product import router as product_router
 from app.api.portal.recommendation import router as recommendation_router
 from app.api.portal.search_suggest import router as search_suggest_router
+from app.api.portal.shopping_guide import router as shopping_guide_router
 
 portal_router = APIRouter()
 
+portal_router.include_router(shopping_guide_router)
 portal_router.include_router(cs_router)
 portal_router.include_router(recommendation_router)
 portal_router.include_router(search_suggest_router)

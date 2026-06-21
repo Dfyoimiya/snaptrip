@@ -7,6 +7,7 @@
 
 import { createRouter, createWebHistory } from 'vue-router'
 import { useMemberStore } from '@/stores/member'
+import { useTabStore } from '@/stores/tabs'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -70,6 +71,12 @@ const router = createRouter({
       name: 'hot',
       component: () => import('@/views/HotProductView.vue'),
       meta: { title: '人气推荐' },
+    },
+    {
+      path: '/shopping-guide',
+      name: 'shopping-guide',
+      component: () => import('@/views/ShoppingGuideView.vue'),
+      meta: { title: '帮我挑' },
     },
     {
       path: '/coupons',
@@ -197,6 +204,7 @@ const router = createRouter({
 // 路由守卫
 router.beforeEach((to, _from) => {
   const memberStore = useMemberStore()
+  const tabStore = useTabStore()
 
   // 设置页面标题
   if (to.meta.title) {
@@ -212,6 +220,9 @@ router.beforeEach((to, _from) => {
   if (to.meta.guestOnly && memberStore.isLoggedIn) {
     return '/'
   }
+
+  // 自动打开/切换到对应页签
+  tabStore.openTab(to.path, to.meta.title as string, to.query as Record<string, string>)
 })
 
 export default router

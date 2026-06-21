@@ -4,9 +4,10 @@
  * 全局布局组件 (Global Layout)
  * PC 端电商网页通用布局：
  * 1. 顶部通栏导航条
- * 2. Logo + 搜索框 + 购物车
- * 3. 主体内容区 (max-w-7xl 居中)
- * 4. 页脚
+ * 2. Logo + 搜索框 + 页签栏 (吸顶模块)
+ * 3. 主导航菜单
+ * 4. 主体内容区
+ * 5. 页脚
  * ============================================
  */
 import { computed } from 'vue'
@@ -16,6 +17,7 @@ import { useCartStore } from '@/stores/cart'
 import { useChatStore } from '@/stores/chat'
 import TopBar from './TopBar.vue'
 import HeaderSearch from './HeaderSearch.vue'
+import TabBar from './TabBar.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -51,6 +53,7 @@ const navMenus = [
   { label: '品牌专区', path: '/brand' },
   { label: '新品上架', path: '/new' },
   { label: '人气推荐', path: '/hot' },
+  { label: '帮我挑', path: '/shopping-guide' },
 ]
 
 const isMenuActive = (path: string): boolean => {
@@ -73,10 +76,13 @@ const isMenuActive = (path: string): boolean => {
       @logout="handleLogout"
     />
 
-    <!-- 2. Logo + 搜索框 -->
-    <HeaderSearch
-      @navigate="navigateTo"
-    />
+    <!-- 2. Logo + 搜索框 + 页签栏 (同一模块，液态玻璃吸顶) -->
+    <div class="sticky top-0 z-40 bg-white/70 backdrop-blur-2xl">
+      <HeaderSearch
+        @navigate="navigateTo"
+      />
+      <TabBar />
+    </div>
 
     <!-- 3. 主导航栏 -->
     <nav class="mall-nav">

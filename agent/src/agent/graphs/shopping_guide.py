@@ -127,33 +127,63 @@ async def shopping_tool_node(state: PlanState) -> dict:
 # ── Synthesize node ──────────────────────────────────────────────────────────
 
 
-SHOPPING_SYNTHESIZE_PROMPT = """You are a response synthesizer for SnapTrip, an e-commerce platform.
+SHOPPING_SYNTHESIZE_PROMPT = """你是一个回复润色专家，为电商平台 SnapTrip 服务。请始终用中文回复。
 
-Your job is to review the conversation history from the shopping guide and produce a clean,
-well-structured final response for the user.
+你的工作是审核导购对话中的完整历史记录，为用户生成简洁、结构清晰的最终回复。
 
-Guidelines:
-1. Read through ALL messages to understand the full conversation flow.
-2. Extract key product information and present it clearly.
-3. For EVERY product mentioned, include a clickable purchase link:
-   [View {product_name}](/product/{product_id})
-4. Format the response in a user-friendly way:
-   - Use clear sections for different products or categories
-   - Highlight prices, discounts, and key features
-   - If comparing products, use a structured table format
-5. Include a helpful next step or call-to-action when appropriate.
-6. If there were errors or no results, acknowledge this honestly and suggest alternatives.
-7. NEVER add product information that does not appear in the conversation history.
+## 准则
+1. 通读所有消息，理解完整对话流程。
+2. 提取对话中出现的所有商品信息（工具返回结果、之前的回复）。
+3. 润色回复文字：简洁、有条理、易于阅读。
+4. 为每件提到的商品在回复中附带购买链接：
+   [查看 {商品名称}](/product/{商品ID})
+5. 突出价格、折扣和关键特色。
+6. 如果有错误或没有结果，坦诚告知并建议替代方案。
+7. 绝不编造商品信息——仅包含对话中实际出现的商品。
 
-Respond in the user's language. Be enthusiastic but honest."""
+## 输出格式
+必须输出包含以下字段的 JSON 对象：
+
+```json
+{
+  "answer": "润色后的完整导购建议，内嵌商品购买链接。",
+  "products": [
+    {
+      "name": "商品名称",
+      "price": 99.00,
+      "original_price": 129.00,
+      "discount": "7.7折",
+      "link": "/product/abc123",
+      "highlights": ["亮点1", "亮点2"]
+    }
+  ],
+  "follow_up_questions": [
+    "自然的追问 1",
+    "自然的追问 2"
+  ]
+}
+```
+
+重要：
+- 将对话中出现的所有商品放入 products 数组（使用工具返回结果中的准确数据）。
+- 包含 2-3 条上下文相关、自然的追问。
+- answer 字段是润色后的导购建议，内嵌商品链接。
+- 如果没有商品，将 products 设为空数组 []。
+
+只输出 JSON 对象，不要用 markdown 代码围栏，不要多余文字。"""
 
 
 async def shopping_synthesize_node(state: PlanState) -> dict:
     """Synthesize final response from shopping guide results.
 
+    If _stream_callback is set in working_memory, streams tokens via the callback.
+    Otherwise falls back to a single adapter.chat() call.
+
     Returns:
         dict with final AIMessage, phase="done", status="done"
     """
+    from langchain_core.messages import AIMessage as LangAIMessage
+
     t0 = time.monotonic()
 
     harness, _ = _get_harness_and_session()
@@ -164,6 +194,7 @@ async def shopping_synthesize_node(state: PlanState) -> dict:
         return {"phase": "done", "status": "done"}
 
     messages = state.get("messages", [])
+    stream_callback = state.get("working_memory", {}).get("_stream_callback")
 
     # Build conversation for synthesis
     llm_messages: list[dict[str, Any]] = [
@@ -188,11 +219,28 @@ async def shopping_synthesize_node(state: PlanState) -> dict:
             llm_messages.append(msg)
 
     try:
-        response = await adapter.chat(
-            messages=llm_messages,
-            temperature=0.3,
-            max_tokens=2048,
-        )
+        if stream_callback and hasattr(adapter, "chat_stream"):
+            # ── 流式模式 ──
+            collected = ""
+            async for token in adapter.chat_stream(
+                messages=llm_messages,
+                temperature=0.3,
+                max_tokens=2048,
+            ):
+                collected += token
+                try:
+                    await stream_callback(token)
+                except Exception:
+                    pass  # 客户端断开，继续收集但不推送
+
+            response = LangAIMessage(content=collected)
+        else:
+            # ── 非流式模式 ──
+            response = await adapter.chat(
+                messages=llm_messages,
+                temperature=0.3,
+                max_tokens=2048,
+            )
     except Exception:
         logger.exception("shopping_synthesize: LLM call failed")
         elapsed = (time.monotonic() - t0) * 1000

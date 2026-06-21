@@ -21,10 +21,11 @@
 | 推广/营销 | [marketing.md](marketing.md) | 4 | 0 | 2 | 4 |
 | 商家/分类 | [merchant-category.md](merchant-category.md) | 0 | 2 | 5 | 3 |
 | 契约层 | [contracts.md](contracts.md) | 1 | — | — | — |
+| 并发 | [concurrency.md](concurrency.md) | 4 | 4 | 4 | 4 |
 
 ## 总计
 
-- **严重**: 12
-- **高**: 11
-- **中**: 12
-- **低**: 15
+- **严重**: 16
+- **高**: 15
+- **中**: 16
+- **低**: 19

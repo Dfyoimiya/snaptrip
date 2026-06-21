@@ -6,3 +6,5 @@
 
 export { useMemberStore } from './member'
 export { useCartStore } from './cart'
+export { useTabStore } from './tabs'
+export { useShoppingGuideStore } from './shoppingGuide'
