@@ -1,0 +1,121 @@
+@startuml
+skinparam sequenceMessageAlign center
+skinparam participantBackgroundColor #F8F9FA
+skinparam participantBorderColor #8B4513
+skinparam actorStyle awesome
+
+title 对象序列图 - deliverOrder(订单发货)
+
+actor "客服人员" as Service
+participant "OrderListView" as ListView
+participant "DeliveryDialog" as Dialog
+participant "OrderAPI" as API
+participant "OrderService" as OrderService
+participant "OmsOrder" as Order
+participant "DeliveryLog" as DeliveryLog
+participant "OmsOrderOperateHistory" as OperateLog
+
+== 客服发起发货操作 ==
+
+Service -> ListView : 点击发货按钮
+activate ListView
+
+ListView -> Dialog : open(orderData)
+activate Dialog
+Dialog --> ListView : void
+deactivate ListView
+
+Service -> Dialog : 填写物流公司+运单号\n点击确认发货
+activate Dialog
+
+Dialog -> API : deliverOrder(param)
+activate API
+
+API -> OrderService : deliverOrder(param)
+activate OrderService
+
+== Step 1: 校验当前状态 ==
+
+OrderService -> Order : validateStatus()
+activate Order
+note right #FFF3E0
+  **State Change Expert**
+  Order 持有 status 属性
+  校验 status=1 是否可转为 2
+end note
+
+alt 校验通过
+  Order --> OrderService : valid=true
+  deactivate Order
+else 校验失败
+  Order --> OrderService : valid=false
+  deactivate Order
+  OrderService --> API : 返回错误提示
+  API --> Dialog : 返回错误提示
+  Dialog --> Service : 弹窗"当前状态不可发货"
+  deactivate Dialog
+  deactivate API
+  deactivate OrderService
+  end
+
+
+== Step 2: 更新订单状态与物流信息 ==
+
+OrderService -> Order : setDeliveryInfo(company, trackingNo)
+activate Order
+
+Order -> Order : status = 2 (已发货)
+Order -> Order : deliveryCompany = company
+Order -> Order : deliverySn = trackingNo
+Order -> Order : deliveryTime = currentTime
+Order --> OrderService : void
+deactivate Order
+
+== Step 3: 创建物流记录 ==
+
+OrderService -> DeliveryLog : create(orderId, company, trackingNo)
+activate DeliveryLog
+note right #E8F5E9
+  **Creator**
+  OrderService 创建
+  DeliveryLog 实例
+  并关联 Order
+end note
+DeliveryLog --> OrderService : logId
+deactivate DeliveryLog
+
+OrderService -> DeliveryLog : setOrderId(orderId)
+activate DeliveryLog
+DeliveryLog --> OrderService : void
+deactivate DeliveryLog
+
+== Step 4: 记录操作日志 ==
+
+OrderService -> OperateLog : create(orderId, operator, status, note)
+activate OperateLog
+note right #E8F5E9
+  **Creator**
+  OrderService 创建
+  操作日志记录
+end note
+OperateLog --> OrderService : void
+deactivate OperateLog
+
+== Step 5: 返回结果刷新列表 ==
+
+OrderService --> API : 发货成功
+deactivate OrderService
+
+API --> Dialog : 发货成功
+deactivate API
+
+Dialog --> Service : 提示"发货成功"
+deactivate Dialog
+
+Service -> ListView : 刷新列表
+activate ListView
+ListView -> ListView : refresh()
+ListView --> Service : 列表已更新
+deactivate ListView
+
+@enduml

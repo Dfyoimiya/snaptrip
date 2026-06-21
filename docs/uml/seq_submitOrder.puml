@@ -1,0 +1,155 @@
+@startuml
+skinparam sequenceMessageAlign center
+skinparam participantBackgroundColor #F8F9FA
+skinparam participantBorderColor #3A6EA5
+skinparam actorStyle awesome
+
+title 对象序列图 - submitOrder(提交订单)
+
+actor "会员" as Member
+participant "OrderConfirmView" as View
+participant "OrderAPI" as API
+participant "OrderService" as OrderService
+participant "CartService" as CartService
+participant "InventoryService" as InventoryService
+participant "CouponService" as CouponService
+participant "AddressService" as AddressService
+participant "CartItem" as CartItem
+participant "PmsProduct" as Product
+participant "SkuStock" as SkuStock
+participant "OmsOrder" as Order
+participant "OmsOrderItem" as OrderItem
+
+== 前端发起请求 ==
+
+Member -> View : 点击提交订单
+activate View
+
+View -> API : generateOrder(OrderParam)
+activate API
+
+API -> OrderService : generateOrder(param)
+activate OrderService
+
+== 获取购物车数据 ==
+
+OrderService -> CartService : getCheckedCartItems(cartIds)
+activate CartService
+CartService --> OrderService : 返回 CartItem[]
+deactivate CartService
+
+== 逐项创建订单明细 ==
+
+loop for each CartItem in cartItems
+
+  OrderService -> CartItem : getSubTotal()
+  activate CartItem
+  note right #E8F5E9
+    **Information Expert**
+    CartItem 拥有 price & quantity
+    计算小计 = price x quantity
+  end note
+  CartItem --> OrderService : subtotal
+  deactivate CartItem
+
+  OrderService -> Product : getById(productId)
+  activate Product
+  Product --> OrderService : productInfo
+  deactivate Product
+
+  OrderService -> SkuStock : getById(skuId)
+  activate SkuStock
+  SkuStock --> OrderService : skuInfo
+  deactivate SkuStock
+
+  OrderService -> Order : addItem(cartItem)
+  activate Order
+  note right #FFF3E0
+    **Creator**
+    Order(聚合根)创建 OrderItem
+  end note
+  Order -> OrderItem : new(cartItem, productInfo)
+  activate OrderItem
+  OrderItem --> Order : void
+  deactivate OrderItem
+  Order --> OrderService : void
+  deactivate Order
+
+  OrderService -> InventoryService : lockStock(skuId, quantity)
+  activate InventoryService
+  InventoryService -> SkuStock : lock(quantity)
+  SkuStock --> InventoryService : void
+  InventoryService --> OrderService : void
+  deactivate InventoryService
+
+end
+
+== 计算金额 ==
+
+OrderService -> Order : calculateTotalAmount()
+activate Order
+note right #E8F5E9
+  **Information Expert**
+  Order 持有所有 OrderItem
+  可汇总 totalAmount
+end note
+Order --> OrderService : totalAmount
+deactivate Order
+
+== 收货地址 ==
+
+OrderService -> AddressService : getAddress(addressId)
+activate AddressService
+AddressService --> OrderService : MemberReceiveAddress
+deactivate AddressService
+
+OrderService -> Order : setReceiverInfo(address)
+activate Order
+Order --> OrderService : void
+deactivate Order
+
+== 计算运费与优惠 ==
+
+OrderService -> Order : calculateFreight()
+activate Order
+Order --> OrderService : freightAmount
+deactivate Order
+
+alt 使用了优惠券
+  OrderService -> CouponService : applyCoupon(couponId)
+  activate CouponService
+  CouponService --> OrderService : discountAmount
+  deactivate CouponService
+  OrderService -> Order : applyDiscount(discountAmount)
+  activate Order
+  Order --> OrderService : void
+  deactivate Order
+end
+
+OrderService -> Order : calculatePayAmount()
+activate Order
+Order --> OrderService : payAmount
+deactivate Order
+
+== 清理购物车 ==
+
+OrderService -> CartService : removeCheckedCartItems(cartIds)
+activate CartService
+note right #FFEBEE
+  删除已结算的 CartItem 实例
+end note
+CartService --> OrderService : void
+deactivate CartService
+
+== 返回结果 ==
+
+OrderService --> API : GenerateOrderResult
+deactivate OrderService
+
+API --> View : GenerateOrderResult
+deactivate API
+
+View --> Member : 跳转 /pay?orderId=xxx&amount=xxx
+deactivate View
+
+@enduml

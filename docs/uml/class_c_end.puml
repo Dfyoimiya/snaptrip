@@ -1,0 +1,235 @@
+@startuml
+skinparam classFontSize 13
+skinparam classBorderColor #3A6EA5
+skinparam classBackgroundColor #F0F5FF
+skinparam packageBackgroundColor #E8EFF8
+skinparam packageBorderColor #3A6EA5
+
+title C端客户购物系统 — 核心概念类图
+
+' ==================== 会员域 ====================
+
+class Member {
+  - id: number
+  - username: string
+  - nickname: string
+  - phone: string
+  - icon: string
+  - gender: number
+  - integration: number
+  - growth: number
+  - loginCount: number
+  - couponCount: number
+}
+
+class Address {
+  - id: number
+  - memberId: number
+  - name: string
+  - phoneNumber: string
+  - defaultStatus: number
+  - province: string
+  - city: string
+  - region: string
+  - detailAddress: string
+  - postCode: string
+}
+
+class CartItem {
+  - id: string
+  - memberId: string
+  - productId: number
+  - productSkuId: number
+  - productName: string
+  - productPic: string
+  - price: number
+  - quantity: number
+  - productAttr: string
+  - checked: boolean
+}
+
+class Favorite {
+  - id: string
+  - memberId: number
+  - productId: number
+  - productName: string
+  - productPic: string
+  - productPrice: string
+  - createTime: string
+}
+
+class BrowseHistory {
+  - id: string
+  - memberId: number
+  - productId: number
+  - productName: string
+  - productPic: string
+  - productPrice: string
+  - createTime: string
+}
+
+class BrandAttention {
+  - id: string
+  - memberId: number
+  - brandId: number
+  - brandName: string
+  - brandLogo: string
+  - createTime: string
+}
+
+' ==================== 商品域 ====================
+
+class Product {
+  - id: number
+  - brandId: number
+  - productCategoryId: number
+  - name: string
+  - pic: string
+  - price: number
+  - originalPrice: number
+  - stock: number
+  - sale: number
+  - publishStatus: number
+  - subTitle: string
+  - createTime: string
+}
+
+class Category {
+  - id: number
+  - parentId: number
+  - name: string
+  - level: number
+  - icon: string
+  - productCount: number
+  - sort: number
+}
+
+class Brand {
+  - id: number
+  - name: string
+  - firstLetter: string
+  - logo: string
+  - bigPic: string
+  - brandStory: string
+  - showStatus: number
+  - productCount: number
+}
+
+class SkuStock {
+  - id: number
+  - productId: number
+  - skuCode: string
+  - price: number
+  - stock: number
+  - promotionPrice: number
+  - lockStock: number
+  - lowStock: number
+  - pic: string
+  - spData: string
+  - sale: number
+}
+
+' ==================== 订单域 ====================
+
+class Order {
+  - id: number
+  - memberId: number
+  - orderSn: string
+  - status: number
+  - payType: number
+  - totalAmount: number
+  - freightAmount: number
+  - promotionAmount: number
+  - couponAmount: number
+  - payAmount: number
+  - note: string
+  - receiverName: string
+  - receiverPhone: string
+  - receiverProvince: string
+  - receiverCity: string
+  - receiverDetailAddress: string
+  - deliveryCompany: string
+  - deliverySn: string
+  - couponId: number
+  - createTime: string
+}
+
+class OrderItem {
+  - id: number
+  - orderId: number
+  - productId: number
+  - productSkuId: number
+  - productName: string
+  - productPic: string
+  - productPrice: number
+  - productQuantity: number
+  - productAttr: string
+  - realAmount: number
+}
+
+' ==================== 营销域 ====================
+
+class Coupon {
+  - id: number
+  - type: number
+  - name: string
+  - amount: number
+  - minPoint: number
+  - perLimit: number
+  - count: number
+  - platform: number
+  - useType: number
+  - startTime: string
+  - endTime: string
+}
+
+class MemberCoupon {
+  - id: number
+  - couponId: number
+  - memberId: number
+  - couponCode: string
+  - useStatus: number
+  - orderId: number
+  - createTime: string
+  - useTime: string
+}
+
+' ==================== 关系定义 ====================
+
+' 会员 — 子实体（统一聚合）
+Member "1" o-- "0..*" Address
+Member "1" o-- "0..*" CartItem
+Member "1" o-- "0..*" Favorite
+Member "1" o-- "0..*" BrowseHistory
+Member "1" o-- "0..*" BrandAttention
+Member "1" o-- "0..*" MemberCoupon
+
+' 会员 — 订单（业务独立，普通关联）
+Member "1" -- "0..*" Order
+
+' 订单 — 订单明细（组合）
+Order "1" *-- "1..*" OrderItem
+
+' 商品 — SKU库存（组合）
+Product "1" *-- "1..*" SkuStock
+
+' 品牌 — 商品（关联）
+Brand "1" -- "0..*" Product
+
+' 分类 — 商品（关联）
+Category "1" -- "0..*" Product
+
+' 分类自引用
+Category "1" -- "0..*" Category : parent > child
+
+' 引用关系（有向关联）
+CartItem "1" --> "1" Product
+CartItem "1" --> "1" SkuStock
+OrderItem "1" --> "1" Product
+OrderItem "1" --> "1" SkuStock
+Order "0..1" --> "0..1" Coupon : 使用 >
+
+' 优惠券 — 会员优惠券
+Coupon "1" -- "0..*" MemberCoupon
+
+@enduml

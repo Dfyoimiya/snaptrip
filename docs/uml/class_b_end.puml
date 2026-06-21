@@ -1,0 +1,458 @@
+@startuml
+skinparam classFontSize 13
+skinparam classBorderColor #8B4513
+skinparam classBackgroundColor #FFF8F0
+skinparam packageBackgroundColor #FFF0E0
+skinparam packageBorderColor #8B4513
+skinparam defaultTextColor #333333
+skinparam arrowColor #666666
+skinparam arrowThickness 1.5
+
+title B端后台管理系统 — 核心概念类图
+
+' ==================== 组织权限域 ====================
+
+package "组织权限" {
+
+class UmsAdmin {
+  - id: number
+  - username: string
+  - password: string
+  - icon: string
+  - email: string
+  - nickName: string
+  - note: string
+  - status: number
+  - createTime: string
+  - loginTime: string
+}
+
+class UmsRole {
+  - id: number
+  - name: string
+  - description: string
+  - adminCount: number
+  - status: number
+  - sort: number
+  - createTime: string
+}
+
+class UmsMenu {
+  - id: number
+  - parentId: number
+  - name: string
+  - title: string
+  - icon: string
+  - level: number
+  - sort: number
+  - hidden: number
+  - createTime: string
+}
+
+class UmsResource {
+  - id: number
+  - categoryId: number
+  - name: string
+  - url: string
+  - description: string
+  - createTime: string
+}
+
+class UmsResourceCategory {
+  - id: number
+  - name: string
+  - sort: number
+  - createTime: string
+}
+
+}
+
+' ==================== 商品域 ====================
+
+package "商品管理" {
+
+class PmsProduct {
+  - id: number
+  - brandId: number
+  - productCategoryId: number
+  - name: string
+  - pic: string
+  - productSn: string
+  - price: number
+  - originalPrice: number
+  - stock: number
+  - lowStock: number
+  - sale: number
+  - publishStatus: number
+  - newStatus: number
+  - recommandStatus: number
+  - verifyStatus: number
+  - subTitle: string
+  - serviceIds: string
+  - createTime: string
+}
+
+class PmsBrand {
+  - id: number
+  - name: string
+  - firstLetter: string
+  - logo: string
+  - bigPic: string
+  - brandStory: string
+  - sort: number
+  - factoryStatus: number
+  - showStatus: number
+  - productCount: number
+}
+
+class PmsProductCategory {
+  - id: number
+  - parentId: number
+  - name: string
+  - level: number
+  - icon: string
+  - productUnit: string
+  - productCount: number
+  - navStatus: number
+  - showStatus: number
+  - sort: number
+  - description: string
+}
+
+class PmsProductAttributeCategory {
+  - id: number
+  - name: string
+  - attributeCount: number
+  - paramCount: number
+}
+
+class PmsProductAttribute {
+  - id: number
+  - productAttributeCategoryId: number
+  - name: string
+  - type: number
+  - selectType: number
+  - inputType: number
+  - inputList: string
+  - searchType: number
+  - sort: number
+}
+
+class SkuStock {
+  - id: number
+  - productId: number
+  - skuCode: string
+  - price: number
+  - stock: number
+  - lowStock: number
+  - lockStock: number
+  - pic: string
+  - sale: number
+  - spData: string
+}
+
+}
+
+' ==================== 订单域 ====================
+
+package "订单管理" {
+
+class OmsOrder {
+  - id: number
+  - memberId: number
+  - orderSn: string
+  - status: number
+  - payType: number
+  - orderType: number
+  - sourceType: number
+  - totalAmount: number
+  - payAmount: number
+  - freightAmount: number
+  - promotionAmount: number
+  - couponAmount: number
+  - couponId: number
+  - note: string
+  - receiverName: string
+  - receiverPhone: string
+  - receiverProvince: string
+  - receiverCity: string
+  - receiverDetailAddress: string
+  - deliveryCompany: string
+  - deliverySn: string
+  - createTime: string
+  - paymentTime: string
+  - deliveryTime: string
+}
+
+class OmsOrderItem {
+  - id: number
+  - orderId: number
+  - orderSn: string
+  - productId: number
+  - productSkuId: number
+  - productName: string
+  - productPic: string
+  - productPrice: number
+  - productQuantity: number
+  - productAttr: string
+  - realAmount: number
+}
+
+class OmsOrderOperateHistory {
+  - id: number
+  - orderId: number
+  - operateMan: string
+  - orderStatus: number
+  - note: string
+  - createTime: string
+}
+
+class OmsOrderReturnApply {
+  - id: number
+  - orderId: number
+  - productId: number
+  - orderSn: string
+  - memberUsername: string
+  - returnAmount: number
+  - status: number
+  - reason: string
+  - description: string
+  - proofPics: string
+  - handleNote: string
+  - handleMan: string
+  - createTime: string
+}
+
+class OmsOrderReturnReason {
+  - id: number
+  - name: string
+  - sort: number
+  - status: number
+  - createTime: string
+}
+
+class OmsCompanyAddress {
+  - id: number
+  - addressName: string
+  - name: string
+  - phone: string
+  - province: string
+  - city: string
+  - region: string
+  - detailAddress: string
+  - sendStatus: number
+  - receiveStatus: number
+}
+
+}
+
+' ==================== 营销域 ====================
+
+package "营销管理" {
+
+class SmsCoupon {
+  - id: number
+  - type: number
+  - name: string
+  - amount: number
+  - minPoint: number
+  - perLimit: number
+  - count: number
+  - publishCount: number
+  - useCount: number
+  - receiveCount: number
+  - platform: number
+  - useType: number
+  - startTime: string
+  - endTime: string
+  - enableTime: string
+  - createTime: string
+}
+
+class SmsFlashPromotion {
+  - id: number
+  - title: string
+  - startDate: string
+  - endDate: string
+  - status: number
+  - createTime: string
+}
+
+class SmsFlashPromotionSession {
+  - id: number
+  - name: string
+  - startTime: string
+  - endTime: string
+  - status: number
+  - createTime: string
+}
+
+class SmsFlashPromotionProductRelation {
+  - id: number
+  - flashPromotionId: number
+  - flashPromotionSessionId: number
+  - productId: number
+  - flashPromotionPrice: number
+  - flashPromotionCount: number
+  - flashPromotionLimit: number
+  - sort: number
+}
+
+class CouponProductRelation {
+  - couponId: number
+  - productId: number
+  - productName: string
+  - productSn: string
+}
+
+class CouponProductCategoryRelation {
+  - couponId: number
+  - productCategoryId: number
+  - productCategoryName: string
+}
+
+class SmsHomeBrand {
+  - id: number
+  - brandId: number
+  - brandName: string
+  - recommendStatus: number
+  - sort: number
+  - createTime: string
+}
+
+class SmsHomeNewProduct {
+  - id: number
+  - productId: number
+  - productName: string
+  - recommendStatus: number
+  - sort: number
+  - createTime: string
+}
+
+class SmsHomeRecommendProduct {
+  - id: number
+  - productId: number
+  - productName: string
+  - recommendStatus: number
+  - sort: number
+  - createTime: string
+}
+
+}
+
+' ==================== 内容域 ====================
+
+package "内容管理" {
+
+class SmsHomeAdvertise {
+  - id: number
+  - name: string
+  - type: number
+  - pic: string
+  - startTime: string
+  - endTime: string
+  - status: number
+  - sort: number
+  - clickCount: number
+  - url: string
+  - note: string
+  - createTime: string
+}
+
+class CmsSubject {
+  - id: number
+  - categoryId: number
+  - title: string
+  - pic: string
+  - description: string
+  - showStatus: number
+  - recommendStatus: number
+  - productCount: number
+  - collectCount: number
+  - readCount: number
+  - createTime: string
+}
+
+class CmsSubjectCategory {
+  - id: number
+  - name: string
+  - icon: string
+  - subjectCount: number
+  - showStatus: number
+  - sort: number
+  - createTime: string
+}
+
+class SmsHomeRecommendSubject {
+  - id: number
+  - subjectId: number
+  - subjectName: string
+  - recommendStatus: number
+  - sort: number
+  - createTime: string
+}
+
+}
+
+' ==================== 关系定义 ====================
+
+' ── 组织权限域内部 ──
+
+UmsResourceCategory "1" -- "0..*" UmsResource : 包含 >
+UmsMenu "1" -- "0..*" UmsMenu : parent > child
+UmsAdmin "*" -- "*" UmsRole
+UmsRole "*" -- "*" UmsMenu
+UmsRole "*" -- "*" UmsResource
+
+' ── 商品域内部 ──
+
+PmsBrand "1" -- "0..*" PmsProduct : 拥有 >
+PmsProductCategory "1" -- "0..*" PmsProduct : 分类 >
+PmsProductCategory "1" -- "0..*" PmsProductCategory : parent > child
+PmsProductAttributeCategory "1" -- "0..*" PmsProductAttribute : 包含 >
+PmsProduct "1" *-- "1..*" SkuStock
+
+' ── 订单域内部 ──
+
+OmsOrder "1" *-- "1..*" OmsOrderItem
+OmsOrder "1" *-- "0..*" OmsOrderOperateHistory
+OmsOrderReturnApply "0..*" -- "1" OmsOrderReturnReason : 选择原因 >
+OmsOrderReturnApply "*" -- "1" OmsCompanyAddress : 退货至 >
+
+' ════════════════════════════════════
+' 跨域关系
+' ════════════════════════════════════
+
+' 订单 ↔ 商品
+OmsOrderItem "*" --> "1" PmsProduct : 关联商品
+OmsOrderReturnApply "*" --> "1" PmsProduct : 退货商品
+
+' 订单 ↔ 营销
+OmsOrder "0..1" --> "0..1" SmsCoupon : 使用 >
+
+' 订单 ↔ 组织权限
+OmsOrderOperateHistory "*" --> "1" UmsAdmin : 操作人 >
+
+' 营销 ↔ 商品（优惠券指定商品/分类）
+SmsCoupon "1" -- "0..*" CouponProductRelation : 指定商品 >
+SmsCoupon "1" -- "0..*" CouponProductCategoryRelation : 指定分类 >
+CouponProductRelation "*" --> "1" PmsProduct
+CouponProductCategoryRelation "*" --> "1" PmsProductCategory
+
+' 营销 ↔ 商品（秒杀/推荐）
+SmsFlashPromotionProductRelation "*" --> "1" PmsProduct : 关联商品
+SmsHomeNewProduct "*" --> "1" PmsProduct : 推荐商品
+SmsHomeRecommendProduct "*" --> "1" PmsProduct : 推荐商品
+
+' 营销 ↔ 品牌
+SmsHomeBrand "*" --> "1" PmsBrand : 推荐品牌
+
+' 秒杀域内部
+SmsFlashPromotion "1" -- "0..*" SmsFlashPromotionProductRelation
+SmsFlashPromotionSession "1" -- "0..*" SmsFlashPromotionProductRelation
+
+' 内容 ↔ 专题分类
+CmsSubjectCategory "1" -- "0..*" CmsSubject : 包含 >
+SmsHomeRecommendSubject "*" --> "1" CmsSubject : 推荐专题
+
+@enduml

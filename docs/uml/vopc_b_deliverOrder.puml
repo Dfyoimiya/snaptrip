@@ -1,0 +1,90 @@
+@startuml
+skinparam classFontSize 12
+skinparam classBorderColor #8B4513
+skinparam classBackgroundColor #FFF8F0
+
+title 局部设计类图 (VOPC) - B端 deliverOrder
+
+' ==================== 控制 / Service 层 ====================
+
+class OrderController {
+  + deliverOrder(param: OmsOrderDeliveryParam): boolean
+}
+
+class OrderService {
+  + deliverOrder(param: OmsOrderDeliveryParam): boolean
+}
+
+' ==================== 实体层 ====================
+
+class OmsOrder {
+  - id: number
+  - orderSn: string
+  - status: number
+  - memberId: number
+  - memberUsername: string
+  - totalAmount: number
+  - payAmount: number
+  - payType: number
+  - deliveryCompany: string
+  - deliverySn: string
+  - deliveryTime: string
+  - receiverName: string
+  - receiverPhone: string
+  - receiverProvince: string
+  - receiverCity: string
+  - receiverDetailAddress: string
+  - createTime: string
+  - modifyTime: string
+  + validateStatus(): boolean
+  + setDeliveryInfo(company: string, trackingNo: string): void
+}
+
+class DeliveryLog {
+  - id: number
+  - orderId: number
+  - deliveryCompany: string
+  - deliverySn: string
+  - createTime: string
+  - createBy: string
+  + {static} create(orderId: number, company: string, trackingNo: string): DeliveryLog
+  + setOrderId(orderId: number): void
+}
+
+class OmsOrderOperateHistory {
+  - id: number
+  - orderId: number
+  - operateMan: string
+  - orderStatus: number
+  - note: string
+  - createTime: string
+  + {static} create(orderId: number, operator: string, status: number, note: string): OmsOrderOperateHistory
+}
+
+class UmsAdmin {
+  - id: number
+  - username: string
+  - password: string
+  - icon: string
+  - email: string
+  - nickName: string
+  - status: number
+  - createTime: string
+  - loginTime: string
+  + getCurrentAdmin(): UmsAdmin
+}
+
+' ==================== 关系 ====================
+
+OrderController --> OrderService : 委托
+
+OrderService --> OmsOrder : 更新状态+物流信息
+OrderService --> DeliveryLog : 创建
+OrderService --> OmsOrderOperateHistory : 创建
+
+OmsOrder "1" *-- "0..*" OmsOrderOperateHistory
+
+DeliveryLog "*" --> "1" OmsOrder : 关联 >
+OmsOrderOperateHistory "*" --> "1" UmsAdmin : 操作人 >
+
+@enduml

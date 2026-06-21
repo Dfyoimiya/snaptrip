@@ -1,0 +1,148 @@
+@startuml
+skinparam classFontSize 12
+skinparam classBorderColor #3A6EA5
+skinparam classBackgroundColor #F0F5FF
+
+title 局部设计类图 (VOPC) - C端 submitOrder
+
+' ==================== 控制 / Service 层 ====================
+
+class OrderController {
+  + generateOrder(param: OrderParam): GenerateOrderResult
+}
+
+class OrderService {
+  + generateOrder(param: OrderParam): GenerateOrderResult
+}
+
+class CartService {
+  + getCheckedCartItems(cartIds: number[]): CartItem[]
+  + removeCheckedCartItems(cartIds: number[]): void
+}
+
+' ==================== 实体层 ====================
+
+class Member {
+  - id: number
+  - username: string
+  - nickname: string
+  - phone: string
+  - integration: number
+  - growth: number
+}
+
+class CartItem {
+  - id: string
+  - memberId: string
+  - productId: number
+  - productSkuId: number
+  - productName: string
+  - productPic: string
+  - price: number
+  - quantity: number
+  - productAttr: string
+  - checked: boolean
+  + getSubTotal(): number
+}
+
+class Product {
+  - id: number
+  - brandId: number
+  - productCategoryId: number
+  - name: string
+  - price: number
+  - stock: number
+  - sale: number
+  + getById(productId: number): Product
+}
+
+class SkuStock {
+  - id: number
+  - productId: number
+  - skuCode: string
+  - price: number
+  - stock: number
+  - lockStock: number
+  - spData: string
+  + getById(skuId: number): SkuStock
+  + lock(quantity: number): void
+}
+
+class Order {
+  - id: number
+  - memberId: number
+  - orderSn: string
+  - status: number
+  - payType: number
+  - totalAmount: number
+  - freightAmount: number
+  - promotionAmount: number
+  - couponAmount: number
+  - payAmount: number
+  - note: string
+  - receiverName: string
+  - receiverPhone: string
+  - receiverProvince: string
+  - receiverCity: string
+  - receiverDetailAddress: string
+  - deliveryCompany: string
+  - deliverySn: string
+  - couponId: number
+  - createTime: string
+  + addItem(cartItem: CartItem): void
+  + setReceiverInfo(address: MemberReceiveAddress): void
+  + calculateTotalAmount(): number
+  + calculateFreight(): number
+  + calculatePayAmount(): number
+  + applyDiscount(discountAmount: number): void
+}
+
+class OrderItem {
+  - id: number
+  - orderId: number
+  - productId: number
+  - productSkuId: number
+  - productName: string
+  - productPic: string
+  - productPrice: number
+  - productQuantity: number
+  - productAttr: string
+  - realAmount: number
+  + OrderItem(cartItem: CartItem, productInfo: Product)
+}
+
+class MemberReceiveAddress {
+  - id: number
+  - memberId: number
+  - name: string
+  - phoneNumber: string
+  - defaultStatus: number
+  - province: string
+  - city: string
+  - region: string
+  - detailAddress: string
+}
+
+' ==================== 关系 ====================
+
+OrderController --> OrderService : 委托
+OrderService --> CartService : 调用
+OrderService --> Order : 创建/修改
+OrderService --> OrderItem : 创建
+
+CartService --> CartItem : 管理
+
+Member "1" o-- "0..*" CartItem
+Member "1" -- "0..*" Order
+Order "1" *-- "1..*" OrderItem
+
+Product "1" *-- "1..*" SkuStock
+
+CartItem "1" --> "1" Product
+CartItem "1" --> "1" SkuStock
+OrderItem "1" --> "1" Product
+OrderItem "1" --> "1" SkuStock
+
+Order "0..1" --> "0..1" MemberReceiveAddress : 使用 >
+
+@enduml
