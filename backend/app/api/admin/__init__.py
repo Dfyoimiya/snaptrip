@@ -28,6 +28,7 @@ from app.api.admin.product import router as product_router
 from app.api.admin.resource import rcat_router, res_router
 from app.api.admin.return_apply import router as return_apply_router
 from app.api.admin.return_reason import router as return_reason_router
+from app.api.admin.review import router as review_router
 from app.api.admin.role import router as role_router
 from app.api.admin.ums_admin import router as ums_admin_router
 
@@ -58,3 +59,4 @@ admin_router.include_router(ums_admin_router)
 admin_router.include_router(order_setting_router)
 admin_router.include_router(return_apply_router)
 admin_router.include_router(return_reason_router)
+admin_router.include_router(review_router)

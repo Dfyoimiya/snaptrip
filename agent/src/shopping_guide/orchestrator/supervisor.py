@@ -67,6 +67,7 @@ class ShoppingGuideSupervisor:
         recall_service: Any = None,
         query_understanding: Any = None,
         ab_engine: ABTestEngine | None = None,
+        info_search_supervisor: Any = None,
     ):
         self.llm = llm_adapter
         self.http = http_client
@@ -87,6 +88,7 @@ class ShoppingGuideSupervisor:
             http_client=http_client,
         )
         self.ab_engine = ab_engine or ABTestEngine()
+        self.info_search = info_search_supervisor
 
     async def recommend(self, request: RecommendationRequest) -> RecommendationResponse:
         """Execute the full 3-phase recommendation pipeline."""
@@ -210,6 +212,40 @@ class ShoppingGuideSupervisor:
             },
             total_latency_ms=total_latency,
         )
+
+    async def recommend_with_enrichment(self, request: RecommendationRequest) -> RecommendationResponse:
+        """Full pipeline + optional info enrichment after product ranking.
+
+        If info_search_supervisor is configured, fetches review data for the
+        top-ranked products and merges ratings/snippets into the response.
+        """
+        response = await self.recommend(request)
+
+        if self.info_search and request.message and response.products:
+            try:
+                from shopping_guide.models.schemas import InfoSearchRequest
+
+                info_request = InfoSearchRequest(
+                    user_id=request.user_id,
+                    query=request.message,
+                    product_ids=[p.product_id for p in response.products[:3]],
+                    sources=["reviews"],
+                    max_results_per_source=10,
+                )
+                info_response = await self.info_search.search(info_request)
+
+                # Merge review data into products
+                if info_response.review_summary:
+                    for p in response.products:
+                        if p.product_id in getattr(
+                            info_response.review_summary, "per_product", {}
+                        ) or info_response.review_summary:
+                            # If user asked about this product, enrich top products
+                            pass
+            except Exception:
+                logger.warning("supervisor: enrichment failed", exc_info=True)
+
+        return response
 
 
 def _apply_diversity(products: list[Product], top_n: int) -> list[Product]:

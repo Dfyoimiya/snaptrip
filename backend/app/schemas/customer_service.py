@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -16,12 +17,6 @@ from pydantic import BaseModel, Field
 # ============================================================================
 #  退货资格校验
 # ============================================================================
-
-
-class ReturnEligibilityRequest(BaseModel):
-    """退货资格校验请求"""
-
-    order_id: UUID = Field(..., description="订单ID")
 
 
 class ReturnEligibilityResponse(BaseModel):
@@ -89,8 +84,12 @@ class CreateTicketRequest(BaseModel):
     title: str = Field(..., min_length=1, max_length=255, description="工单标题")
     description: str = Field(..., min_length=1, max_length=2000, description="问题描述")
     order_id: UUID | None = Field(None, description="关联订单ID")
-    type: str = Field(default="inquiry", description="工单类型: complaint/refund/inquiry/other")
-    priority: str = Field(default="normal", description="优先级: normal/urgent/critical")
+    type: Literal["complaint", "refund", "inquiry", "other"] = Field(
+        default="inquiry", description="工单类型"
+    )
+    priority: Literal["normal", "urgent", "critical"] = Field(
+        default="normal", description="优先级"
+    )
 
 
 class TicketResponse(BaseModel):
@@ -182,8 +181,8 @@ class SessionSummaryRequest(BaseModel):
     summary_text: str = Field(..., min_length=1, description="LLM 生成的会话摘要")
     resolution_status: str = Field(default="unknown", description="解决状态")
     satisfaction_score: int | None = Field(None, ge=1, le=5, description="满意度 1-5")
-    ticket_id: str | None = Field(None, description="关联工单ID")
-    order_id: str | None = Field(None, description="关联订单ID")
+    ticket_id: UUID | None = Field(None, description="关联工单ID")
+    order_id: UUID | None = Field(None, description="关联订单ID")
     conversation_turns: int = Field(default=0, description="对话轮数")
     tools_called: list[str] | None = Field(None, description="调用的工具列表")
     key_entities: dict | None = Field(None, description="关键实体")
@@ -193,16 +192,16 @@ class SessionSummaryRequest(BaseModel):
 class SessionSummaryResponse(BaseModel):
     """会话摘要响应"""
 
-    id: str
+    id: UUID
     session_id: str
     intent: str | None = None
     summary_text: str
     resolution_status: str
     satisfaction_score: int | None = None
-    ticket_id: str | None = None
-    order_id: str | None = None
+    ticket_id: UUID | None = None
+    order_id: UUID | None = None
     conversation_turns: int
-    tools_called: list | None = None
+    tools_called: list[str] | None = None
     emotion_trajectory: str | None = None
     created_at: str
 
@@ -212,5 +211,5 @@ class SessionSummaryResponse(BaseModel):
 class CsHistoryResponse(BaseModel):
     """用户 CS 历史响应"""
 
-    user_id: str
+    user_id: UUID
     sessions: list[SessionSummaryResponse]

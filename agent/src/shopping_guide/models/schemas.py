@@ -105,3 +105,136 @@ class RecommendationResponse(BaseModel):
     agent_results: dict[str, AgentResult] = Field(default_factory=dict)
     total_latency_ms: float = 0.0
     timestamp: datetime = Field(default_factory=datetime.now)
+
+
+# ============================================================================
+#  Intent Router
+# ============================================================================
+
+
+class GuideIntent(str, Enum):
+    FAQ = "faq"
+    PRODUCT_SEARCH = "product_search"
+    INFO_SEARCH = "info_search"
+
+
+class RoutedRequest(BaseModel):
+    """顶层导购请求，mode="auto" 时由 GuideRouter 自动识别意图并分发。"""
+
+    user_id: str
+    query: str
+    mode: str = "auto"  # "auto" | "faq" | "product_search" | "info_search"
+    intent: GuideIntent | None = None  # auto 时由 router 填充
+    product_ids: list[str] = Field(default_factory=list)
+    context: dict[str, Any] = Field(default_factory=dict)
+
+
+# ============================================================================
+#  Info Search — 请求/响应
+# ============================================================================
+
+
+class InfoSearchRequest(BaseModel):
+    """信息搜索请求。"""
+
+    user_id: str
+    query: str
+    product_ids: list[str] = Field(default_factory=list)
+    sources: list[str] = Field(default_factory=lambda: ["web", "reviews"])
+    max_results_per_source: int = 5
+    context: dict[str, Any] = Field(default_factory=dict)
+
+
+# ── 卡片级输出 ──
+
+
+class HighlightCard(BaseModel):
+    """亮点卡片 — 精简概括，前端文字放大展示。"""
+
+    emoji: str = ""
+    title: str = ""  # ≤8字
+    description: str = ""  # ≤25字
+
+
+class BuyReasonCard(BaseModel):
+    """值不值得买 — 按使用场景分析。"""
+
+    scenario: str = ""  # "通勤/差旅场景"
+    verdict: str = ""  # "很值得" / "谨慎" / "不推荐"
+    reasoning: str = ""  # ≤40字
+
+
+class PitfallCard(BaseModel):
+    """避坑指南卡片。"""
+
+    title: str = ""
+    description: str = ""
+
+
+class ReviewItem(BaseModel):
+    """单条评价。"""
+
+    review_id: str = ""
+    user_name: str = ""  # 匿名则显示 "匿名用户"
+    rating: int = 0
+    content: str = ""
+    created_at: str = ""
+
+
+class ReviewSummary(BaseModel):
+    """用户评价汇总。"""
+
+    average_rating: float = 0.0
+    total_count: int = 0
+    summary_text: str = ""  # LLM 对评价的总结 (≤80字)
+    top_reviews: list[ReviewItem] = Field(default_factory=list)  # 至多4条
+
+
+class InfoSearchResponse(BaseModel):
+    """信息搜索响应 — Canvas 结构化卡片。"""
+
+    request_id: str = ""
+    user_id: str = ""
+    query: str = ""
+    conclusion: str = ""  # 一句话总结
+    highlights: list[HighlightCard] = Field(default_factory=list)  # 2-5条
+    worth_buying: list[BuyReasonCard] = Field(default_factory=list)  # 按场景
+    pitfalls: list[PitfallCard] = Field(default_factory=list)  # 1-3条
+    review_summary: ReviewSummary | None = None
+    sources_used: list[str] = Field(default_factory=list)  # ["web", "reviews"]
+    agent_results: dict[str, AgentResult] = Field(default_factory=dict)
+    total_latency_ms: float = 0.0
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+
+# ============================================================================
+#  搜索中间结果
+# ============================================================================
+
+
+class WebSearchItem(BaseModel):
+    """Web 搜索单条结果。"""
+
+    title: str = ""
+    url: str = ""
+    snippet: str = ""
+    source: str = ""  # "tavily" / "brave"
+    relevance_score: float = 0.0
+    published_date: str | None = None
+
+
+class WebSearchAgentResult(AgentResult):
+    """Web 搜索 Agent 返回结果。"""
+
+    agent_name: str = "web_search"
+    items: list[WebSearchItem] = Field(default_factory=list)
+    total_results: int = 0
+    source_api: str = ""
+
+
+class ReviewSearchAgentResult(AgentResult):
+    """评价搜索 Agent 返回结果。"""
+
+    agent_name: str = "review_search"
+    per_product: dict[str, ReviewSummary] = Field(default_factory=dict)
+    total_scanned: int = 0

@@ -70,7 +70,7 @@ class TicketResponse(BaseModel):
     assigned_agent_id: UUID | None = None
     sla_deadline: datetime | None = None
     first_response_at: datetime | None = None
-    tags: list | None = None
+    tags: list[str] | None = None
     resolved_at: datetime | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

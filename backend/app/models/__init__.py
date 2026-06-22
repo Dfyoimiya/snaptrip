@@ -44,6 +44,7 @@ from app.models.product import (  # noqa: F401
     PmsProductAttributeValue,
     PmsProductCFVector,
     PmsProductEmbedding,
+    PmsProductReview,
     PmsSku,
 )
 from app.models.promotion import (  # noqa: F401
@@ -73,6 +74,7 @@ __all__ = [
     "PmsProductAttributeValue",
     "PmsProductCFVector",
     "PmsProductEmbedding",
+    "PmsProductReview",
     "CmsBanner",
     "CmsHelp",
     "CmsSubject",

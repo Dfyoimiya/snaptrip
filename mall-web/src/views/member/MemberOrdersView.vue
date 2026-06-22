@@ -10,6 +10,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getOrderListAPI, cancelUserOrderAPI, confirmReceiveOrderAPI, payOrderAPI } from '@/apis/order'
 import type { OmsOrderDetail } from '@/types/order'
+import ReviewForm from '@/components/product/ReviewForm.vue'
 
 const router = useRouter()
 
@@ -36,6 +37,24 @@ const statusMap: Record<number, { text: string; color: string; bg: string; borde
 }
 
 const orders = ref<OmsOrderDetail[]>([])
+
+/** 已评价的商品ID集合，用于判断订单是否已全部评价 */
+const reviewedProductIds = ref<Set<string>>(new Set())
+
+/** 评价表单状态 */
+const reviewVisible = ref(false)
+const reviewingOrder = ref<OmsOrderDetail | null>(null)
+
+/** 当前评价的商品信息（取自订单首项） */
+const reviewingProduct = computed(() => {
+  const item = reviewingOrder.value?.items?.[0]
+  if (!item) return { productId: '', productName: '', productPic: '' }
+  return {
+    productId: item.productId,
+    productName: item.productName,
+    productPic: item.productPic,
+  }
+})
 
 async function loadOrders() {
   loading.value = true
@@ -72,11 +91,19 @@ const formatPrice = (p: number | null | undefined) => (p ?? 0).toLocaleString('z
 const getStatusCount = (status: number) => orders.value.filter(o => o.status === status).length
 
 /** 操作按钮 */
-const getActions = (status: number) => {
+const getActions = (order: OmsOrderDetail) => {
+  const status = order.status
   if (status === 0) return [{ label: '立即付款', type: 'primary' }, { label: '取消订单', type: 'danger' }]
   if (status === 1) return [{ label: '催发货', type: 'normal' }]
   if (status === 2) return [{ label: '确认收货', type: 'primary' }]
-  if (status === 3) return [{ label: '评价', type: 'normal' }, { label: '申请售后', type: 'normal' }]
+  if (status === 3) {
+    const items = order.items || []
+    const allReviewed = items.length > 0 && items.every(item => reviewedProductIds.value.has(item.productId))
+    if (allReviewed) {
+      return [{ label: '查看评价', type: 'normal' }, { label: '申请售后', type: 'normal' }]
+    }
+    return [{ label: '评价', type: 'normal' }, { label: '申请售后', type: 'normal' }]
+  }
   return []
 }
 
@@ -101,14 +128,35 @@ const handleAction = async (order: OmsOrderDetail, action: { label: string; type
         if (!confirm('确认已收到商品吗？')) return
         await confirmReceiveOrderAPI(orderId)
         break
+      case '评价':
+        reviewingOrder.value = order
+        reviewVisible.value = true
+        return // 不刷新列表，等待评价提交后再刷新
+      case '查看评价':
+        const item = order.items?.[0]
+        if (item) router.push(`/product/${item.productId}?tab=reviews`)
+        return
       default:
-        // 催发货、评价、申请售后等暂时只刷新列表
+        // 催发货、申请售后等暂时只刷新列表
         break
     }
     await loadOrders()
   } catch (err: any) {
     alert(err?.message || '操作失败')
   }
+}
+
+/** 评价提交后回调：记录已评价商品并刷新订单列表 */
+function onOrderReviewSubmitted() {
+  if (reviewingOrder.value) {
+    const item = reviewingOrder.value.items?.[0]
+    if (item) {
+      const newSet = new Set(reviewedProductIds.value)
+      newSet.add(item.productId)
+      reviewedProductIds.value = newSet
+    }
+  }
+  loadOrders()
 }
 
 onMounted(() => {
@@ -201,7 +249,7 @@ onMounted(() => {
               查看详情
             </button>
             <button
-              v-for="action in getActions(order.status)"
+              v-for="action in getActions(order)"
               :key="action.label"
               :class="[
                 'text-sm px-4 py-1.5 rounded transition-colors',
@@ -228,4 +276,13 @@ onMounted(() => {
       </div>
     </div>
   </div>
+
+  <!-- 评价表单弹窗 -->
+  <ReviewForm
+    :visible="reviewVisible"
+    :product-id="reviewingProduct.productId"
+    :order-id="reviewingOrder?.id || ''"
+    @update:visible="reviewVisible = $event"
+    @submitted="onOrderReviewSubmitted()"
+  />
 </template>

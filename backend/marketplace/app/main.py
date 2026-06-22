@@ -1,13 +1,14 @@
-"""SnapTrip API —— FastAPI 入口（Agent 架构版）。
+"""SnapTrip API —— FastAPI 入口。
 
 应用生命周期:
-- startup: 初始化 MemoryService + RedisEventBus + AgentRuntime
+- startup: 初始化 MemoryService + Redis + 推荐/搜索基础设施
 - shutdown: 清理 Redis 连接池
 
 路由注册:
-- /api/v1/plan/*  —— 计划创建/查询/SSE流
 - /api/v1/auth/*  —— 注册/登录/刷新/登出/个人资料
 - /health          —— 健康检查
+- /api/v1/admin/*  —— Admin 后台路由
+- /api/v1/portal/* —— Portal 前台路由
 
 Author: SnapTrip Team
 Date: 2026-05-13
@@ -19,15 +20,10 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from agent.adapters.persistence.runtime_event import SQLRuntimeEventRepository
-from agent.events.redis_bus import RedisEventBus
-from agent.runtime import AgentRuntime
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from snaptrip_shared.core.config import settings
-
-logger = logging.getLogger(__name__)
 from snaptrip_shared.core.exception_handlers import (
     adapter_exception_handler,
     authentication_handler,
@@ -62,39 +58,29 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 # ── 电商路由 (Commerce) ──
 from app.api.admin import admin_router
 from app.api.portal import portal_router
-from app.services.ab_test import ABTestEngine
-from app.services.autocomplete_service import AutocompleteService
-from app.services.collaborative_filtering_service import CollaborativeFilteringService
-from app.services.feature_service import FeatureService
 from app.services.memory_service import MemoryService
-from app.services.trending_service import TrendingService
-from app.services.vector_search_service import VectorSearchService
-from marketplace.app.api.v1.admin_agent import router as admin_agent_router
 from marketplace.app.api.v1.auth import router as auth_router
-from marketplace.app.api.v1.plan import router as plan_router
 from marketplace.app.api.v1.user import router as user_router
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # ── Memory + Redis ──
     memory = MemoryService()
     await memory.start()
     app.state.memory = memory
     app.state.redis_pool = get_redis_pool()
-    event_bus = RedisEventBus(
-        pool=app.state.redis_pool,
-        repository=SQLRuntimeEventRepository(),
-    )
-    runtime = AgentRuntime(event_bus=event_bus)
 
     try:
-        from agent.graph import build_graph
+        # Recommendation & search infrastructure
+        from app.services.ab_test import ABTestEngine
+        from app.services.autocomplete_service import AutocompleteService
+        from app.services.collaborative_filtering_service import CollaborativeFilteringService
+        from app.services.feature_service import FeatureService
+        from app.services.trending_service import TrendingService
+        from app.services.vector_search_service import VectorSearchService
 
-        app.state.plan_graph = await build_graph(runtime=runtime)
-
-        # ── 推荐 & 搜索基础设施 ──
-        app.state.llm_adapter = runtime.llm_adapter
         app.state.ab_engine = ABTestEngine()
         app.state.feature_service = FeatureService(db_factory=AsyncSessionLocal, memory=memory)
         app.state.trending_service = TrendingService(memory)
@@ -105,12 +91,7 @@ async def lifespan(app: FastAPI):
             memory=memory,
         )
     except Exception:
-        logger.warning(
-            "Agent/LLM initialization failed — continuing without agent graph. "
-            "Set LITELLM_API_KEY and ensure LiteLLM proxy is reachable.",
-            exc_info=True,
-        )
-        app.state.plan_graph = None
+        logger.warning("Recommendation services initialization failed", exc_info=True)
 
     yield
     await app.state.memory.stop()
@@ -146,11 +127,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(plan_router)
 app.include_router(auth_router)
 app.include_router(user_router)
-app.include_router(admin_agent_router, prefix="/api/v1")
-
 # ── 电商路由 —— Admin + Portal 统一前缀 /api/v1 ──
 app.include_router(admin_router, prefix="/api/v1")
 app.include_router(portal_router, prefix="/api/v1")

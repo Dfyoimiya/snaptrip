@@ -1,7 +1,7 @@
 /**
  * ============================================
  * 客服聊天 Store (Pinia)
- * 管理聊天面板状态、消息历史、会话持久化
+ * 管理聊天面板状态、消息历史、工单会话持久化
  * ============================================
  */
 
@@ -17,6 +17,7 @@ export interface ChatMessage {
 
 const STORAGE_KEY = 'snaptrip_cs_chat_messages'
 const SESSION_KEY = 'snaptrip_cs_session_id'
+const TICKET_KEY = 'snaptrip_cs_ticket_id'
 
 function loadMessages(): ChatMessage[] {
   try {
@@ -29,7 +30,7 @@ function loadMessages(): ChatMessage[] {
   return [
     {
       role: 'system',
-      content: '你好！我是 SnapTrip 智能客服。可以帮你查询订单、处理退换货、跟踪物流、解答售后政策、创建工单升级人工等。请问有什么可以帮你的？',
+      content: '你好！我是 SnapTrip 在线客服，请问有什么可以帮你的？',
       timestamp: Date.now(),
     },
   ]
@@ -45,10 +46,20 @@ function loadSessionId(): string {
   return id
 }
 
+function loadTicketId(): string | null {
+  try {
+    const saved = localStorage.getItem(TICKET_KEY)
+    return saved || null
+  } catch {
+    return null
+  }
+}
+
 export const useChatStore = defineStore('chat', () => {
   const isOpen = ref(false)
   const loading = ref(false)
   const sessionId = ref(loadSessionId())
+  const ticketId = ref<string | null>(loadTicketId())
   const messages = ref<ChatMessage[]>(loadMessages())
 
   watch(messages, (val) => {
@@ -71,11 +82,16 @@ export const useChatStore = defineStore('chat', () => {
     messages.value.push(msg)
   }
 
+  function setTicketId(id: string) {
+    ticketId.value = id
+    try { localStorage.setItem(TICKET_KEY, id) } catch { /* ignore */ }
+  }
+
   function clearMessages() {
     messages.value = [
       {
         role: 'system',
-        content: '你好！我是 SnapTrip 智能客服。可以帮你查询订单、处理退换货、跟踪物流、解答售后政策、创建工单升级人工等。请问有什么可以帮你的？',
+        content: '你好！我是 SnapTrip 在线客服，请问有什么可以帮你的？',
         timestamp: Date.now(),
       },
     ]
@@ -86,11 +102,13 @@ export const useChatStore = defineStore('chat', () => {
     isOpen,
     loading,
     sessionId,
+    ticketId,
     messages,
     openChat,
     closeChat,
     toggleChat,
     addMessage,
+    setTicketId,
     clearMessages,
   }
 })

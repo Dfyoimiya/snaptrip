@@ -97,6 +97,12 @@ const router = createRouter({
       meta: { title: '商城公告' },
     },
     {
+      path: '/chat',
+      name: 'chat',
+      component: () => import('@/views/ChatView.vue'),
+      meta: { title: '客服消息', requireAuth: true },
+    },
+    {
       path: '/notice/:id',
       name: 'notice-detail',
       component: () => import('@/views/NoticeDetailView.vue'),

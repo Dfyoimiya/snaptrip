@@ -53,9 +53,9 @@ function persistCompare(items: ProductSummary[]) {
 export const useLayoutStore = defineStore('layout', () => {
   // ── State ──
 
-  // 左侧边栏
-  const leftSidebarExpanded = ref(false)
-  const leftSidebarLocked = ref(false)
+  // 左侧边栏 — 始终展开
+  const leftSidebarExpanded = ref(true)
+  const leftSidebarLocked = ref(true)
 
   // 对比 & 历史
   const compareProducts = ref<ProductSummary[]>(loadCompare())

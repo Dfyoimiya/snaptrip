@@ -17,9 +17,10 @@ import {
   type ShoppingContext,
   type RecommendedProduct,
   type ShoppingGuideSession,
+  type InfoCards,
 } from '@/apis/shoppingGuide'
 
-export type { RecommendedProduct }
+export type { RecommendedProduct, InfoCards }
 
 /** 帮我买搜索模式 */
 export type SearchMode = 'auto' | 'info' | 'product'
@@ -32,6 +33,8 @@ export interface ChatMessage {
   products?: RecommendedProduct[]
   /** AI 建议的追问 */
   followUps?: string[]
+  /** 信息搜索结构化卡片 */
+  infoCards?: InfoCards | null
 }
 
 const STORAGE_KEY = '_snaptrip_shopping_guide'
@@ -138,6 +141,9 @@ export const useShoppingGuideStore = defineStore('shoppingGuide', () => {
             }
             if (payload.followUpQuestions?.length) {
               aiMsg.followUps = payload.followUpQuestions
+            }
+            if (payload.infoCards) {
+              aiMsg.infoCards = payload.infoCards
             }
             saveMessages(messages.value)
           },

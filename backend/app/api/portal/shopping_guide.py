@@ -53,8 +53,8 @@ async def _get_supervisor(request: Request):
     if hasattr(request.app.state, "_sg_supervisor") and request.app.state._sg_supervisor is not None:
         return request.app.state._sg_supervisor
 
-    from agent.utils import get_llm_adapter
     from shared.http_client import MarketplaceClient
+    from shopping_guide.adapters import get_llm_adapter
     from shopping_guide.orchestrator.supervisor import ShoppingGuideSupervisor
 
     from app.services.query_understanding_service import QueryUnderstandingService
@@ -68,14 +68,49 @@ async def _get_supervisor(request: Request):
         memory=request.app.state.memory,
     )
 
+    # Build InfoSearchSupervisor for enrichment
+    info_search = await _get_info_search_supervisor(request, llm_adapter, http_client)
+
     supervisor = ShoppingGuideSupervisor(
         llm_adapter=llm_adapter,
         http_client=http_client,
         recall_service=recall_service,
         query_understanding=query_understanding,
+        info_search_supervisor=info_search,
     )
     request.app.state._sg_supervisor = supervisor
     return supervisor
+
+
+async def _get_info_search_supervisor(
+    request: Request,
+    llm_adapter=None,
+    http_client=None,
+):
+    """Resolve or build the InfoSearchSupervisor lazily."""
+    if hasattr(request.app.state, "_sg_info_search") and request.app.state._sg_info_search is not None:
+        return request.app.state._sg_info_search
+
+    from shopping_guide.orchestrator.info_search_supervisor import InfoSearchSupervisor
+
+    web_client = _get_web_search_client()
+
+    supervisor = InfoSearchSupervisor(
+        llm_adapter=llm_adapter,
+        http_client=http_client,
+        web_search_client=web_client,
+    )
+    request.app.state._sg_info_search = supervisor
+    return supervisor
+
+
+def _get_web_search_client():
+    """Build WebSearchClient from shopping guide settings (no API key → None)."""
+    from shopping_guide.config.settings import get_shopping_guide_settings
+    from shopping_guide.services.web_search_client import create_web_search_client
+
+    settings = get_shopping_guide_settings()
+    return create_web_search_client(settings)
 
 
 def _get_recall_service(request: Request):
@@ -226,6 +261,102 @@ def _extract_follow_ups(products: list[dict]) -> list[str]:
     return qs[:3]
 
 
+# ── Info Search Formatting ──────────────────────────────────────────────────
+
+
+def _format_info_cards(response) -> dict:
+    """Convert InfoSearchResponse to frontend-friendly info card structure."""
+    review_data = None
+    if response.review_summary:
+        review_data = {
+            "average_rating": response.review_summary.average_rating,
+            "total_count": response.review_summary.total_count,
+            "summary_text": response.review_summary.summary_text,
+            "top_reviews": [
+                {
+                    "user_name": r.user_name,
+                    "rating": r.rating,
+                    "content": r.content,
+                    "created_at": r.created_at,
+                }
+                for r in response.review_summary.top_reviews[:4]
+            ],
+        }
+
+    return {
+        "conclusion": response.conclusion,
+        "highlights": [
+            {"emoji": h.emoji, "title": h.title, "description": h.description}
+            for h in response.highlights
+        ],
+        "worth_buying": [
+            {"scenario": w.scenario, "verdict": w.verdict, "reasoning": w.reasoning}
+            for w in response.worth_buying
+        ],
+        "pitfalls": [
+            {"title": p.title, "description": p.description}
+            for p in response.pitfalls
+        ],
+        "review_summary": review_data,
+        "sources_used": response.sources_used,
+        "total_latency_ms": response.total_latency_ms,
+    }
+
+
+def _format_info_reply(response) -> str:
+    """Build a markdown fallback reply from InfoSearchResponse."""
+    lines = []
+
+    if response.conclusion:
+        lines.append(f"**结论**\n{response.conclusion}\n")
+
+    if response.highlights:
+        lines.append("**主要亮点**")
+        for h in response.highlights:
+            emoji = h.emoji or "·"
+            lines.append(f"- {emoji} **{h.title}**：{h.description}")
+        lines.append("")
+
+    if response.worth_buying:
+        lines.append("**值不值得买？**")
+        for i, w in enumerate(response.worth_buying, 1):
+            lines.append(f"{i}. {w.scenario} → **{w.verdict}**")
+            lines.append(f"   {w.reasoning}")
+        lines.append("")
+
+    if response.pitfalls:
+        lines.append("**避坑指南**")
+        for p in response.pitfalls:
+            lines.append(f"- {p.title}：{p.description}")
+        lines.append("")
+
+    if response.review_summary and response.review_summary.top_reviews:
+        rs = response.review_summary
+        lines.append(
+            f"**用户评价** 综合评分 {rs.average_rating}/5（{rs.total_count}条评价）"
+        )
+        if rs.summary_text:
+            lines.append(f"> {rs.summary_text}")
+        lines.append("")
+        for r in rs.top_reviews[:4]:
+            lines.append(f"- [{r.rating}星] {r.content[:100]} ——{r.user_name}")
+
+    return "\n".join(lines) if lines else "抱歉，暂无相关信息。"
+
+
+def _extract_info_follow_ups(response) -> list[str]:
+    """Generate contextual follow-up questions from info search results."""
+    qs = []
+    if response.conclusion:
+        qs.append("还有其他类似的商品推荐吗？")
+    if response.highlights:
+        first_highlight = response.highlights[0].title
+        qs.append(f"「{first_highlight}」方面能详细说说吗？")
+    if response.worth_buying:
+        qs.append("有没有优惠券可以用？")
+    return qs[:3] if qs else ["换个商品问问？", "告诉我你的预算？"]
+
+
 # ── Mode Routing ────────────────────────────────────────────────────────────────
 
 
@@ -295,50 +426,47 @@ async def _execute_info_pipeline(
     user_id: str,
     auth_token: str,
     cross_context: str,
-) -> tuple[str, list[dict], list[str]]:
-    """Execute the info search pipeline (FAQ / web search / reviews).
+) -> tuple[str, list[dict], list[str], dict | None]:
+    """Execute the info search pipeline (web search + review search → structured cards).
 
-    TODO: Integrate web search, review search, FAQ knowledge base.
-    Currently returns a placeholder directing to product recommendation.
+    Returns (reply, products_frontend, follow_ups, info_cards).
     """
-    # For now, fall back to product recommendation with an info-oriented prompt
-    # Future: integrate web search API, review aggregation, FAQ KB
-    from shopping_guide.models.schemas import RecommendationRequest
+    from shopping_guide.models.schemas import InfoSearchRequest
 
-    rec_request = RecommendationRequest(
+    info_supervisor = getattr(supervisor, "info_search", None)
+    if info_supervisor is None:
+        # Fallback to product pipeline if info search not available
+        reply, products, follow_ups = await _execute_product_pipeline(
+            supervisor, req, user_id, auth_token, cross_context
+        )
+        return reply, products, follow_ups, None
+
+    info_request = InfoSearchRequest(
         user_id=user_id,
-        message=req.message,
-        scene="info_search",
-        num_items=3,
+        query=req.message,
+        sources=["web", "reviews"],
+        max_results_per_source=5,
         context={
             "cross_session_context": cross_context,
-            "mode": "info",
+            "current_product_id": req.context.current_product_id if req.context else None,
         },
     )
 
-    response = await supervisor.recommend(rec_request)
+    try:
+        response = await info_supervisor.search(info_request)
+        info_cards = _format_info_cards(response)
 
-    products_raw = [p.model_dump() for p in response.products]
-    if products_raw:
-        reply = _format_reply_text(products_raw, response.marketing_copies, req.message)
-    else:
-        reply = (
-            f"关于「{req.message}」，以下是我的建议：\n\n"
-            "信息搜索功能正在完善中，届时将支持：\n"
-            "• 全网购物攻略和选购建议\n"
-            "• 商品对比评测\n"
-            "• 用户真实评价分析\n"
-            "• 常见购物问题解答\n\n"
-            "目前您可以尝试切换到「商品搜索」模式直接搜索商品。"
-        )
-    products_frontend = [_product_to_frontend_format(p) for p in products_raw]
-    follow_ups = _extract_follow_ups(products_raw) if products_raw else [
-        "换个关键词试试？",
-        "告诉我你的预算？",
-        "你关注哪些品牌？",
-    ]
+        # Build markdown reply as fallback
+        reply = _format_info_reply(response)
 
-    return reply, products_frontend, follow_ups
+        products_frontend = []
+        follow_ups = _extract_info_follow_ups(response)
+
+        return reply, products_frontend, follow_ups, info_cards
+    except Exception as exc:
+        logger.exception("Info search pipeline failed")
+        reply = f"抱歉，信息搜索暂时不可用：{exc}"
+        return reply, [], ["换个关键词试试？"], None
 
 
 # ── Chat ─────────────────────────────────────────────────────────────────────
@@ -349,6 +477,7 @@ class ShoppingChatResponse(BaseModel):
     session_id: str = Field(..., description="会话 ID")
     products: list[dict] = Field(default_factory=list, description="推荐商品列表")
     follow_up_questions: list[str] = Field(default_factory=list, description="建议追问")
+    info_cards: dict | None = Field(None, description="信息搜索结构化卡片（info模式）")
 
 
 @router.post("/chat", summary="导购 Agent 对话")
@@ -403,8 +532,9 @@ async def shopping_guide_chat(
         effective_mode = await _resolve_effective_mode(req)
         logger.info("shopping_guide mode=%s→%s query=%s", req.mode or "auto", effective_mode, req.message[:80])
 
+        info_cards = None
         if effective_mode == "info":
-            reply, products_frontend, follow_ups = await _execute_info_pipeline(
+            reply, products_frontend, follow_ups, info_cards = await _execute_info_pipeline(
                 supervisor, req, user_id, auth_token, cross_context
             )
         else:
@@ -426,6 +556,7 @@ async def shopping_guide_chat(
                 session_id=session_id,
                 products=products_frontend,
                 follow_up_questions=follow_ups,
+                info_cards=info_cards,
             ).model_dump()
         )
 
@@ -492,15 +623,17 @@ async def shopping_guide_chat_stream(
     final_reply: str = ""
     final_products: list[dict] = []
     final_follow_ups: list[str] = []
+    final_info_cards: dict | None = None
 
     async def run_pipeline():
         """Run the appropriate pipeline, then stream the formatted reply."""
-        nonlocal final_reply, final_products, final_follow_ups
+        nonlocal final_reply, final_products, final_follow_ups, final_info_cards
         try:
             if effective_mode == "info":
-                reply, products, follow_ups = await _execute_info_pipeline(
+                reply, products, follow_ups, info_cards = await _execute_info_pipeline(
                     supervisor, req, user_id, auth_token, cross_context
                 )
+                final_info_cards = info_cards
             else:
                 reply, products, follow_ups = await _execute_product_pipeline(
                     supervisor, req, user_id, auth_token, cross_context
@@ -547,6 +680,7 @@ async def shopping_guide_chat_stream(
             "session_id": session_id,
             "products": final_products,
             "follow_up_questions": final_follow_ups,
+            "info_cards": final_info_cards,
         }
         yield {"data": json.dumps(done_data, ensure_ascii=False)}
 

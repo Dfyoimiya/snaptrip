@@ -220,7 +220,7 @@ class ShoppingSessionService:
             return None
 
         try:
-            from agent.utils import get_llm_adapter
+            from shopping_guide.adapters import get_llm_adapter
 
             adapter = get_llm_adapter()
 

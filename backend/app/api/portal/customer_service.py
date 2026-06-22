@@ -14,18 +14,14 @@ Date: 2026-06-17
 
 from __future__ import annotations
 
-import json
+import asyncio
+import logging
 import uuid
-from collections.abc import AsyncGenerator
-from contextlib import suppress
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from agent.services.agent import AgentService
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from langchain_core.messages import HumanMessage
-from pydantic import BaseModel, Field
-from snaptrip_shared.core.response import APIServiceError, success
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from snaptrip_shared.core.response import success
 from snaptrip_shared.db.session import get_db
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,7 +32,7 @@ from app.models.order.cs_message import CsConversationMessage
 from app.models.order.order import OmsOrder
 from app.models.order.return_apply import OmsReturnApply
 from app.models.order.support_ticket import OmsSupportTicket
-from app.models.promotion.coupon import SmsCoupon
+from app.models.promotion.coupon import SmsCoupon, SmsCouponHistory
 from app.schemas.cs_admin import CsMessageListResponse, CsMessageRequest, CsMessageResponse
 from app.schemas.customer_service import (
     CompensationRequest,
@@ -53,7 +49,8 @@ from app.schemas.customer_service import (
     SessionSummaryResponse,
     TicketResponse,
 )
-from marketplace.app.core.security import get_current_user
+from app.utils.redis_pubsub import message_stream, publish_message, publish_ticket_event
+from marketplace.app.core.security import get_current_user, oauth2_scheme
 from marketplace.app.models.users import User
 
 router = APIRouter(prefix="/portal/cs", tags=["Portal - 客服"])
@@ -283,6 +280,52 @@ async def create_support_ticket(
     return success(TicketResponse.model_validate(ticket).model_dump())
 
 
+@router.post("/session/ensure", summary="确保客服会话工单存在")
+async def ensure_cs_session(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """为当前用户查找或创建一个有效的在线咨询工单。
+
+    1. 优先查找状态为 open 或 in_progress 的 inquiry 类型工单
+    2. 如果存在则直接返回，否则创建新工单
+    3. 新工单创建后通过 Redis Pub/Sub 通知 B 端坐席
+    """
+    # 查找已有工单：同一用户下、类型为 inquiry、状态为 open 或 in_progress
+    result = await db.execute(
+        select(OmsSupportTicket)
+        .where(
+            OmsSupportTicket.member_id == current_user.id,
+            OmsSupportTicket.type == "inquiry",
+            OmsSupportTicket.status.in_(["open", "in_progress"]),
+        )
+        .order_by(OmsSupportTicket.created_at.desc())
+        .limit(1)
+    )
+    ticket = result.scalar_one_or_none()
+
+    if ticket is not None:
+        return success(TicketResponse.model_validate(ticket).model_dump())
+
+    # 不存在则创建新工单
+    ticket = OmsSupportTicket(
+        member_id=current_user.id,
+        type="inquiry",
+        status="open",
+        priority="normal",
+        title="在线咨询",
+        description="用户在线客服咨询",
+    )
+    db.add(ticket)
+    await db.commit()
+    await db.refresh(ticket)
+
+    # 通知 B 端有新工单创建 (fire-and-forget)
+    asyncio.create_task(publish_ticket_event("ticket_created", str(ticket.id), ticket.status))
+
+    return success(TicketResponse.model_validate(ticket).model_dump())
+
+
 @router.get("/tickets/{ticket_id}", summary="查询工单状态")
 async def get_ticket(
     ticket_id: uuid.UUID,
@@ -311,25 +354,47 @@ async def issue_compensation_coupon(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """为客服补偿场景发放优惠券"""
+    """为客服补偿场景发放优惠券，同时创建领取记录将券绑定到当前用户。"""
+    # Security: validate that the requested member matches the authenticated user
+    if data.member_id != current_user.id:
+        raise HTTPException(status_code=403, detail="无权为其他用户发放优惠券")
+
     now = datetime.now(UTC)
+    expire_time = now + timedelta(days=30)
+
     coupon = SmsCoupon(
         type=0,  # 全场券
         name=f"客服补偿券 ¥{data.amount}",
         amount=data.amount,
-        min_point=Decimal("0.01"),
-        platform=0,
+        min_amount=Decimal("0.01"),
         publish_count=1,
         use_count=0,
         receive_count=0,
         per_limit=1,
-        enable_time=now,
-        expire_time=now + timedelta(days=30),
+        start_time=now,
+        end_time=expire_time,
         note=f"客服补偿: {data.reason}",
     )
     db.add(coupon)
-    await db.commit()
+    await db.flush()  # flush to get coupon.id without committing
+
+    # Link coupon to user via history record (atomic with coupon creation)
+    history = SmsCouponHistory(
+        coupon_id=coupon.id,
+        user_id=data.member_id,
+        coupon_name=coupon.name,
+        coupon_type=coupon.type,
+        coupon_use_type=coupon.use_type,
+        coupon_amount=coupon.amount,
+        coupon_min_amount=coupon.min_amount,
+        use_status=0,  # 未使用
+        receive_time=now,
+        expire_time=expire_time,
+    )
+    db.add(history)
+    await db.commit()  # single commit — both coupon and history
     await db.refresh(coupon)
+    await db.refresh(history)
 
     return success(
         CompensationResponse(
@@ -447,8 +512,6 @@ async def save_session_summary(
 
     Agent 在会话结束时调用此端点保存长期记忆。
     """
-    import uuid as _uuid
-
     summary = CsSessionSummary(
         session_id=data.session_id,
         user_id=current_user.id,
@@ -456,8 +519,8 @@ async def save_session_summary(
         summary_text=data.summary_text,
         resolution_status=data.resolution_status,
         satisfaction_score=data.satisfaction_score,
-        ticket_id=_uuid.UUID(data.ticket_id) if data.ticket_id else None,
-        order_id=_uuid.UUID(data.order_id) if data.order_id else None,
+        ticket_id=data.ticket_id,
+        order_id=data.order_id,
         conversation_turns=data.conversation_turns,
         tools_called=data.tools_called,
         key_entities=data.key_entities,
@@ -469,14 +532,14 @@ async def save_session_summary(
 
     return success(
         SessionSummaryResponse(
-            id=str(summary.id),
+            id=summary.id,
             session_id=summary.session_id,
             intent=summary.intent,
             summary_text=summary.summary_text,
             resolution_status=summary.resolution_status,
             satisfaction_score=summary.satisfaction_score,
-            ticket_id=str(summary.ticket_id) if summary.ticket_id else None,
-            order_id=str(summary.order_id) if summary.order_id else None,
+            ticket_id=summary.ticket_id,
+            order_id=summary.order_id,
             conversation_turns=summary.conversation_turns,
             tools_called=summary.tools_called,
             emotion_trajectory=summary.emotion_trajectory,
@@ -504,14 +567,14 @@ async def get_cs_history(
 
     sessions = [
         SessionSummaryResponse(
-            id=str(s.id),
+            id=s.id,
             session_id=s.session_id,
             intent=s.intent,
             summary_text=s.summary_text,
             resolution_status=s.resolution_status,
             satisfaction_score=s.satisfaction_score,
-            ticket_id=str(s.ticket_id) if s.ticket_id else None,
-            order_id=str(s.order_id) if s.order_id else None,
+            ticket_id=s.ticket_id,
+            order_id=s.order_id,
             conversation_turns=s.conversation_turns,
             tools_called=s.tools_called,
             emotion_trajectory=s.emotion_trajectory,
@@ -522,7 +585,7 @@ async def get_cs_history(
 
     return success(
         CsHistoryResponse(
-            user_id=str(current_user.id),
+            user_id=current_user.id,
             sessions=sessions,
         ).model_dump()
     )
@@ -542,14 +605,14 @@ async def get_session_summary(
 
     return success(
         SessionSummaryResponse(
-            id=str(s.id),
+            id=s.id,
             session_id=s.session_id,
             intent=s.intent,
             summary_text=s.summary_text,
             resolution_status=s.resolution_status,
             satisfaction_score=s.satisfaction_score,
-            ticket_id=str(s.ticket_id) if s.ticket_id else None,
-            order_id=str(s.order_id) if s.order_id else None,
+            ticket_id=s.ticket_id,
+            order_id=s.order_id,
             conversation_turns=s.conversation_turns,
             tools_called=s.tools_called,
             emotion_trajectory=s.emotion_trajectory,
@@ -624,10 +687,66 @@ async def send_message_portal(
     await db.commit()
     await db.refresh(msg)
 
-    # Publish to Redis for real-time delivery
-    _portal_publish_message(str(ticket_id), msg)
+    # Publish to Redis for real-time delivery (fire-and-forget)
+    asyncio.create_task(
+        publish_message(
+            str(ticket_id),
+            str(msg.id),
+            msg.sender_type,
+            str(msg.sender_id) if msg.sender_id else None,
+            msg.content,
+            msg.content_type,
+            msg.created_at.isoformat() if msg.created_at else "",
+        )
+    )
 
     return success(CsMessageResponse.model_validate(msg).model_dump())
+
+
+# ════════════════════════════════════════════════════════════════════════════
+#  SSE 认证辅助 — EventSource 无法自定义 Header，通过 query param 传 token
+# ════════════════════════════════════════════════════════════════════════════
+
+
+async def get_current_user_sse(
+    token_query: str | None = Query(None, alias="token"),
+    header_token: str | None = Depends(oauth2_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    """SSE 专用认证：优先从 query param ``?token=`` 取 token，其次从 Authorization header。
+
+    EventSource API 不支持自定义请求头，因此 SSE 端点通过 URL 查询参数传递 JWT。
+    """
+    from jose import JWTError, jwt
+    from snaptrip_shared.core.config import settings
+
+    token = header_token or token_query
+    if token is None:
+        _logger = logging.getLogger(__name__)
+        _logger.warning("[get_current_user_sse] No token in header or query param")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="未提供认证令牌",
+        )
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="无效的认证令牌",
+        ) from None
+    user_id_str: str | None = payload.get("sub")
+    if user_id_str is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="令牌格式无效")
+    try:
+        uid = uuid.UUID(user_id_str)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="令牌格式无效") from None
+    result = await db.execute(select(User).where(User.id == uid))
+    user = result.scalar_one_or_none()
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="用户不存在或已禁用")
+    return user
 
 
 @router.get("/chat/{ticket_id}", summary="SSE 订阅工单消息流（用户侧）")
@@ -635,9 +754,13 @@ async def stream_ticket_portal(
     ticket_id: uuid.UUID,
     request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_sse),
 ):
-    """SSE 端点 — 用户端订阅工单实时消息"""
+    """SSE 端点 — 用户端订阅工单实时消息。
+
+    认证方式：优先从 ``?token=`` 查询参数取 JWT（EventSource 限制），
+    其次从 Authorization header 取。
+    """
     # Verify access
     result = await db.execute(select(OmsSupportTicket).where(OmsSupportTicket.id == ticket_id))
     ticket = result.scalar_one_or_none()
@@ -646,183 +769,5 @@ async def stream_ticket_portal(
     if ticket.member_id != current_user.id:
         raise HTTPException(status_code=403, detail="无权查看")
 
-    return EventSourceResponse(_portal_message_stream(ticket_id, request))
+    return EventSourceResponse(message_stream(ticket_id, request))
 
-
-# ═══ Portal CS Agent Chat ═══
-
-
-class CsChatRequest(BaseModel):
-    message: str = Field(..., description="用户消息")
-    session_id: str = Field("default", description="会话标识符")
-
-
-class CsChatResponse(BaseModel):
-    reply: str
-    intent: str = ""
-    data: dict | None = None
-
-
-def _build_cs_state(req: CsChatRequest, user_id: str, auth_token: str = "") -> dict:
-    """Build initial PlanState for portal CS agent chat.
-
-    The auth_token (JWT from browser) is stored in working_memory so
-    tool_node can inject it into the tool execution context.
-    """
-    plan_id = str(uuid.uuid4())[:8]
-    return {
-        "plan_id": plan_id,
-        "user_id": f"user_{user_id}",
-        "session_id": req.session_id or "default",
-        "status": "running",
-        "messages": [HumanMessage(content=req.message)],
-        "intent": "",  # supervisor will classify
-        "current_agent": "",  # supervisor will set
-        "working_memory": {"auth_token": auth_token},
-    }
-
-
-def _get_agent_service(request: Request) -> AgentService:
-    """Resolve AgentService from app state or build fallback."""
-    if not hasattr(request.app.state, "_agent_service") or request.app.state._agent_service is None:
-        if hasattr(request.app.state, "plan_graph") and request.app.state.plan_graph is not None:
-            request.app.state._agent_service = AgentService(request.app.state.plan_graph)
-        else:
-            import asyncio
-
-            from agent.graph import build_graph as _build
-
-            request.app.state._agent_service = AgentService(asyncio.run(_build()))
-    return request.app.state._agent_service
-
-
-@router.post("/chat", summary="Portal AI 客服对话")
-async def portal_cs_chat(
-    req: CsChatRequest,
-    request: Request,
-    current_user: User = Depends(get_current_user),
-):
-    """Portal customer service AI chat endpoint.
-
-    Routes through the LangGraph agent pipeline. The supervisor classifies
-    the intent (cs_after_sales/cs_complaint/cs_inquiry) and routes to the
-    customer_service specialist node which has 14 tools for order queries,
-    returns/refunds, logistics, complaints, tickets, compensation, etc.
-    """
-    try:
-        service = _get_agent_service(request)
-
-        # Extract JWT from incoming request for passthrough to tools
-        auth_header = request.headers.get("Authorization", "")
-        auth_token = auth_header.replace("Bearer ", "") if auth_header else ""
-
-        initial_state = _build_cs_state(req, user_id=str(current_user.id), auth_token=auth_token)
-        plan_id = initial_state["plan_id"]
-
-        result = await service.invoke(initial_state, plan_id)
-
-        # Extract the final synthesized message
-        messages = result.get("messages", [])
-        reply = ""
-        intent = result.get("intent", "")
-
-        for msg in reversed(messages):
-            if hasattr(msg, "type") and msg.type == "ai":
-                content = getattr(msg, "content", "")
-                if content:
-                    reply = str(content)
-                    break
-            elif isinstance(msg, dict) and msg.get("role") == "assistant":
-                content = msg.get("content", "")
-                if content:
-                    reply = str(content)
-                    break
-
-        if not reply:
-            reply = "处理完成。如需进一步帮助，请随时联系在线客服。"
-
-        data = {
-            "phase": result.get("phase", ""),
-            "status": result.get("status", "done"),
-            "current_agent": result.get("current_agent", ""),
-        }
-
-        return success(CsChatResponse(reply=reply, intent=intent, data=data).model_dump())
-
-    except APIServiceError:
-        raise
-    except Exception as e:
-        raise APIServiceError(
-            code=5001,
-            message=f"Portal CS agent error: {str(e)}",
-            status_code=500,
-        ) from e
-
-
-# ════════════════════════════════════════════════════════════════════════════
-#  Redis Pub/Sub 辅助 (Portal)
-# ════════════════════════════════════════════════════════════════════════════
-
-
-def _get_redis():
-    try:
-        import redis.asyncio as aioredis
-        from snaptrip_shared.core.config import settings
-
-        return aioredis.from_url(settings.effective_redis_url)
-    except Exception:
-        return None
-
-
-def _portal_publish_message(ticket_id: str, msg: CsConversationMessage) -> None:
-    """Publish chat message to Redis (best-effort)."""
-    try:
-        import asyncio
-
-        async def _pub():
-            redis = _get_redis()
-            if redis:
-                payload = json.dumps(
-                    {
-                        "id": str(msg.id),
-                        "ticket_id": ticket_id,
-                        "sender_type": msg.sender_type,
-                        "sender_id": str(msg.sender_id) if msg.sender_id else None,
-                        "content": msg.content,
-                        "content_type": msg.content_type,
-                        "created_at": msg.created_at.isoformat() if msg.created_at else "",
-                    }
-                )
-                await redis.publish(f"ticket:{ticket_id}:messages", payload)
-                await redis.close()
-
-        asyncio.create_task(_pub())
-    except Exception:
-        pass
-
-
-async def _portal_message_stream(
-    ticket_id: uuid.UUID,
-    request: Request,
-) -> AsyncGenerator[dict, None]:
-    redis = _get_redis()
-    if not redis:
-        yield {"event": "error", "data": json.dumps({"message": "Redis unavailable"})}
-        return
-
-    channel = f"ticket:{ticket_id}:messages"
-    pubsub = redis.pubsub()
-    try:
-        await pubsub.subscribe(channel)
-        yield {"event": "connected", "data": json.dumps({"ticket_id": str(ticket_id)})}
-        async for message in pubsub.listen():
-            if message["type"] != "message":
-                continue
-            yield {"event": "new_message", "data": message["data"]}
-            if await request.is_disconnected():
-                break
-    finally:
-        with suppress(Exception):
-            await pubsub.unsubscribe(channel)
-            await pubsub.close()
-            await redis.close()

@@ -3,11 +3,15 @@ from shopping_guide.agents.user_profile_agent import UserProfileAgent
 from shopping_guide.agents.product_rec_agent import ProductRecAgent
 from shopping_guide.agents.inventory_agent import InventoryAgent
 from shopping_guide.agents.marketing_copy_agent import MarketingCopyAgent
+from shopping_guide.agents.web_search_agent import WebSearchAgent
+from shopping_guide.agents.review_search_agent import ReviewSearchAgent
 
 __all__ = [
     "BaseAgent",
     "InventoryAgent",
     "MarketingCopyAgent",
     "ProductRecAgent",
+    "ReviewSearchAgent",
     "UserProfileAgent",
+    "WebSearchAgent",
 ]

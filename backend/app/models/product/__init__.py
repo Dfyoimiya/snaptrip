@@ -10,12 +10,14 @@ from app.models.product.category import PmsCategory  # noqa: F401
 from app.models.product.cf_vector import PmsProductCFVector  # noqa: F401
 from app.models.product.embedding import PmsProductEmbedding  # noqa: F401
 from app.models.product.product import PmsProduct  # noqa: F401
+from app.models.product.review import PmsProductReview  # noqa: F401
 from app.models.product.sku import PmsSku  # noqa: F401
 
 __all__ = [
     "PmsCategory",
     "PmsBrand",
     "PmsProduct",
+    "PmsProductReview",
     "PmsSku",
     "PmsProductAttribute",
     "PmsProductAttributeValue",

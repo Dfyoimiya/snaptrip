@@ -13,6 +13,8 @@ import { addCartAPI } from '@/apis/cart'
 import { getProductDetailAPI } from '@/apis/product'
 import { createProductCollectionAPI, deleteProductCollectionAPI, fetchProductCollectionListAPI } from '@/apis/memberProductCollection'
 import { trackView } from '@/utils/tracker'
+import { listReviewsAPI, type ReviewItem } from '@/apis/review'
+import ReviewForm from '@/components/product/ReviewForm.vue'
 import { useCartStore } from '@/stores/cart'
 import { useMemberStore } from '@/stores/member'
 import DOMPurify from 'dompurify'
@@ -192,6 +194,44 @@ async function loadProduct() {
   }
 }
 
+/** 加载评价列表 */
+async function loadReviews(reset = false) {
+  const productId = route.params.id as string
+  if (!productId || productId === 'undefined') return
+
+  if (reset) {
+    reviewPage.value = 1
+    reviewError.value = ''
+  }
+
+  const currentPage = reset ? 1 : reviewPage.value + 1
+
+  reviewLoading.value = true
+  try {
+    const result = await listReviewsAPI({
+      product_id: productId,
+      page: currentPage,
+      page_size: reviewPageSize,
+    })
+    if (reset) {
+      reviews.value = result.items || []
+    } else {
+      reviews.value.push(...(result.items || []))
+    }
+    reviewTotal.value = result.total || 0
+    reviewPage.value = currentPage
+  } catch (err: any) {
+    reviewError.value = err?.message || '评价加载失败, 请稍后重试'
+  } finally {
+    reviewLoading.value = false
+  }
+}
+
+/** 加载更多评价 */
+function loadMoreReviews() {
+  loadReviews(false)
+}
+
 // ============================================================
 // 状态管理
 // ============================================================
@@ -206,8 +246,39 @@ const selectedSku = ref<PmsSkuStock | null>(null)
 const quantity = ref(1)
 /** 当前主图索引 */
 const currentImageIndex = ref(0)
-/** 详情 Tab 选中 */
-const activeTab = ref<'detail' | 'params' | 'reviews'>('detail')
+/** 详情 Tab 选中 — 支持 ?tab=reviews 直接定位到评价 */
+const activeTab = ref<'detail' | 'params' | 'reviews'>(
+  (route.query.tab as 'detail' | 'params' | 'reviews') === 'reviews' ? 'reviews' : 'detail'
+)
+
+// ── 评价相关状态 ──
+const reviews = ref<ReviewItem[]>([])
+const reviewLoading = ref(false)
+const reviewError = ref('')
+const reviewTotal = ref(0)
+const reviewPage = ref(1)
+const reviewPageSize = 10
+
+/** 评价概览 */
+const reviewAvgRating = computed(() => {
+  if (reviews.value.length === 0) return 0
+  const sum = reviews.value.reduce((acc, r) => acc + r.rating, 0)
+  return Math.round((sum / reviews.value.length) * 10) / 10
+})
+
+/** 评价表单弹窗 */
+const reviewFormVisible = ref(false)
+const showReviewForm = () => {
+  if (!memberStore.isLoggedIn) {
+    router.push(`/login?redirect=/product/${route.params.id as string}`)
+    return
+  }
+  reviewFormVisible.value = true
+}
+const onReviewSubmitted = () => {
+  reviewFormVisible.value = false
+  loadReviews(true)
+}
 
 /** 计算当前显示的主图 */
 const currentMainImage = computed(() => {
@@ -276,6 +347,13 @@ const initSelectedSpecs = () => {
 watch(parsedSkuSpecs, (val) => {
   if (val.length > 0 && Object.keys(selectedSpecs.value).length === 0) {
     initSelectedSpecs()
+  }
+})
+
+/** 切换到评价 tab 时加载评价数据 */
+watch(activeTab, (tab) => {
+  if (tab === 'reviews' && reviews.value.length === 0 && !reviewLoading.value) {
+    loadReviews(true)
   }
 })
 
@@ -479,6 +557,7 @@ const receiveCoupon = (couponId: string) => {
 onMounted(() => {
   loadProduct().then(() => {
     checkFavoriteStatus()
+    loadReviews(true)
   })
 })
 
@@ -611,7 +690,7 @@ onUnmounted(() => {
                     : 'text-gray-500 border-transparent hover:text-gray-700',
                 ]"
                 @click="activeTab = tab.key"
-              >{{ tab.label }}</button>
+              >{{ tab.key === 'reviews' && reviewTotal > 0 ? `${tab.label} (${reviewTotal})` : tab.label }}</button>
             </div>
 
             <!-- Tab 内容 -->
@@ -649,12 +728,102 @@ onUnmounted(() => {
               </div>
 
               <!-- 用户评价 -->
-              <div v-if="activeTab === 'reviews'" class="flex flex-col items-center justify-center py-16 text-gray-400 text-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mb-3 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-                <p>暂无评价</p>
-                <p class="text-xs mt-1">成为第一个评价的人吧</p>
+              <div v-if="activeTab === 'reviews'">
+                <!-- 评价头部：写评价按钮 -->
+                <div class="flex items-center justify-between mb-4">
+                  <span class="text-sm text-gray-500">
+                    {{ reviews.length > 0 ? `共 ${reviewTotal} 条` : '' }}
+                  </span>
+                  <button
+                    v-if="memberStore.isLoggedIn"
+                    class="px-4 py-1.5 text-xs font-medium text-brand-600 border border-brand-600 rounded-full hover:bg-brand-50 transition-colors"
+                    @click="showReviewForm"
+                  >
+                    写评价
+                  </button>
+                </div>
+
+                <!-- 加载中 -->
+                <div v-if="reviewLoading && reviews.length === 0" class="flex flex-col items-center justify-center py-16 text-gray-400 text-sm">
+                  <div class="w-8 h-8 border-2 border-brand-600 border-t-transparent rounded-full animate-spin mb-3" />
+                  <p>加载中...</p>
+                </div>
+
+                <!-- 加载失败 -->
+                <div v-else-if="reviewError && reviews.length === 0" class="flex flex-col items-center justify-center py-16 text-gray-400 text-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <p class="text-red-500">{{ reviewError }}</p>
+                  <button class="mt-3 text-sm text-brand-600 hover:text-brand-700 font-medium" @click="loadReviews(true)">点击重试</button>
+                </div>
+
+                <!-- 空状态 -->
+                <div v-else-if="!reviewLoading && reviews.length === 0" class="flex flex-col items-center justify-center py-16 text-gray-400 text-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mb-3 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  <p>暂无评价</p>
+                  <p class="text-xs mt-1">成为第一个评价的人吧</p>
+                </div>
+
+                <!-- 评价列表 -->
+                <div v-else class="space-y-4">
+                  <div v-for="review in reviews" :key="review.id" class="border-b border-gray-100 pb-4 last:border-b-0 last:pb-0">
+                    <div class="flex items-start gap-3">
+                      <!-- 头像 -->
+                      <div class="w-9 h-9 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 text-sm font-medium flex-shrink-0">
+                        {{ review.isAnonymous ? '匿' : '用' }}
+                      </div>
+                      <div class="flex-1 min-w-0">
+                        <!-- 顶行：用户名 + 评分 + 时间 -->
+                        <div class="flex items-center gap-3 mb-1.5">
+                          <span class="text-sm font-medium text-gray-900">
+                            {{ review.isAnonymous ? '匿名用户' : '用户' }}
+                          </span>
+                          <!-- 星级 -->
+                          <div class="flex items-center gap-0.5">
+                            <svg v-for="i in 5" :key="i" xmlns="http://www.w3.org/2000/svg"
+                              :class="['w-3.5 h-3.5', i <= review.rating ? 'text-amber-400' : 'text-gray-200']"
+                              viewBox="0 0 20 20" fill="currentColor">
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                          </div>
+                          <span class="text-xs text-gray-400 ml-auto">
+                            {{ new Date(review.createdAt).toLocaleDateString('zh-CN') }}
+                          </span>
+                        </div>
+                        <!-- 评价内容 -->
+                        <p v-if="review.content" class="text-sm text-gray-700 leading-relaxed">{{ review.content }}</p>
+                        <!-- 评价图片 -->
+                        <div v-if="review.images" class="flex gap-2 mt-2">
+                          <img
+                            v-for="(img, idx) in review.images.split(',').filter(Boolean)"
+                            :key="idx"
+                            :src="img"
+                            class="w-16 h-16 object-cover rounded-lg border border-gray-100 cursor-pointer hover:opacity-80 transition-opacity"
+                          />
+                        </div>
+                        <!-- 商家回复 -->
+                        <div v-if="review.reply" class="mt-2 bg-gray-50 rounded-lg px-3 py-2 text-sm">
+                          <span class="text-gray-500 font-medium">商家回复：</span>
+                          <span class="text-gray-600">{{ review.reply }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 加载更多 -->
+                  <div v-if="reviews.length < reviewTotal" class="text-center pt-2">
+                    <button
+                      class="text-sm text-brand-600 hover:text-brand-700 font-medium disabled:text-gray-300"
+                      :disabled="reviewLoading"
+                      @click="loadMoreReviews"
+                    >
+                      {{ reviewLoading ? '加载中...' : '加载更多评价' }}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -694,6 +863,19 @@ onUnmounted(() => {
               <span class="text-gray-200">|</span>
               <span>浙江杭州 <span class="ml-1 text-gray-400">发货</span></span>
             </div>
+          </div>
+
+          <!-- 评分概览 -->
+          <div v-if="reviewTotal > 0" class="flex items-center gap-3 px-5 py-3 mb-5 bg-gray-50 rounded-xl text-sm">
+            <span class="text-xl font-bold text-amber-500">{{ reviewAvgRating || '-' }}</span>
+            <div class="flex items-center gap-0.5">
+              <svg v-for="i in 5" :key="i" xmlns="http://www.w3.org/2000/svg"
+                :class="['w-4 h-4', i <= Math.round(reviewAvgRating) ? 'text-amber-400' : 'text-gray-200']"
+                viewBox="0 0 20 20" fill="currentColor">
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+            </div>
+            <span class="text-gray-500 text-xs">{{ reviewTotal }} 条评价</span>
           </div>
 
           <!-- 优惠 & 配送 -->
@@ -847,6 +1029,14 @@ onUnmounted(() => {
       </div>
     </template>
   </div>
+
+  <!-- 评价表单弹窗 -->
+  <ReviewForm
+    :product-id="productId"
+    :visible="reviewFormVisible"
+    @update:visible="reviewFormVisible = $event"
+    @submitted="onReviewSubmitted"
+  />
 </template>
 
 <style scoped>

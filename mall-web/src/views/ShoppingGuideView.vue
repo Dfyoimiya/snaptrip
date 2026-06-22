@@ -20,6 +20,7 @@ import type { RecommendedProduct, ShoppingContext } from '@/apis/shoppingGuide'
 import type { PmsProduct } from '@/types/product'
 import { renderMarkdown } from '@/composables/useMarkdown'
 import ProductCard from '@/components/product/ProductCard.vue'
+import InfoCardsPanel from '@/components/product/InfoCardsPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -246,6 +247,8 @@ const latestAssistantMessage = computed(() => {
   return null
 })
 
+const latestInfoCards = computed(() => latestAssistantMessage.value?.infoCards ?? null)
+
 const autoShowProducts = computed(() => canvasProducts.value.length > 0)
 
 function goProductDetail(id: string) {
@@ -464,6 +467,7 @@ function goProductDetail(id: string) {
             />
           </div>
         </div>
+        <InfoCardsPanel v-else-if="latestInfoCards" :cards="latestInfoCards" />
         <div v-else-if="latestAssistantMessage" class="sg-info-scroll">
           <div class="sg-info-header">AI 智能回答</div>
           <div class="sg-info-body" v-html="renderMarkdown(latestAssistantMessage.content)" />
@@ -481,7 +485,8 @@ function goProductDetail(id: string) {
 
       <!-- 信息搜索模式 -->
       <template v-else-if="store.searchMode === 'info'">
-        <div v-if="latestAssistantMessage" class="sg-info-scroll">
+        <InfoCardsPanel v-if="latestInfoCards" :cards="latestInfoCards" />
+        <div v-else-if="latestAssistantMessage" class="sg-info-scroll">
           <div class="sg-info-header">信息搜索结果</div>
           <div class="sg-info-body" v-html="renderMarkdown(latestAssistantMessage.content)" />
         </div>

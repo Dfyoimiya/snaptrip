@@ -14,9 +14,8 @@ Date: 2026-06-17
 
 from __future__ import annotations
 
-import json
-from collections.abc import AsyncGenerator
-from contextlib import suppress
+import asyncio
+import logging
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
@@ -47,6 +46,14 @@ from app.schemas.cs_admin import (
     TicketResponse,
     TicketUpdateRequest,
 )
+from app.utils.redis_pubsub import (
+    message_stream,
+    notification_stream,
+    publish_message,
+    publish_ticket_event,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/cs", tags=["Admin - 客服管理"])
 
@@ -165,7 +172,8 @@ async def update_ticket(
     await db.refresh(ticket)
 
     # Notify via Redis if available
-    _publish_ticket_event("ticket_updated", str(ticket_id), ticket.status)
+    asyncio.create_task(publish_ticket_event("ticket_updated", str(ticket_id), ticket.status))
+    logger.info("Ticket updated: %s status=%s by=%s", ticket_id, ticket.status, current_user.id)
 
     return success(TicketResponse.model_validate(ticket).model_dump())
 
@@ -198,10 +206,8 @@ async def assign_ticket(
         ticket.status = "open"
 
     ticket.updated_by = current_user.id
-    await db.commit()
-    await db.refresh(ticket)
 
-    # Create notification for assigned agent
+    # Create notification for assigned agent (if applicable)
     if agent_id:
         notif = CsNotification(
             recipient_id=agent_id,
@@ -210,9 +216,12 @@ async def assign_ticket(
             title=f"工单已指派: {ticket.title}",
         )
         db.add(notif)
-        await db.commit()
 
-    _publish_ticket_event("ticket_assigned", str(ticket_id), ticket.status)
+    await db.commit()  # single commit — both ticket update and notification
+    await db.refresh(ticket)
+    logger.info("Ticket assigned: %s to=%s by=%s", ticket_id, agent_id, current_user.id)
+
+    asyncio.create_task(publish_ticket_event("ticket_assigned", str(ticket_id), ticket.status))
 
     return success(TicketResponse.model_validate(ticket).model_dump())
 
@@ -248,7 +257,8 @@ async def resolve_ticket(
     await db.commit()
     await db.refresh(ticket)
 
-    _publish_ticket_event("ticket_resolved", str(ticket_id), "resolved")
+    asyncio.create_task(publish_ticket_event("ticket_resolved", str(ticket_id), "resolved"))
+    logger.info("Ticket resolved: %s by=%s", ticket_id, current_user.id)
 
     return success(TicketResponse.model_validate(ticket).model_dump())
 
@@ -318,7 +328,15 @@ async def send_message(
     await db.refresh(msg)
 
     # Publish to Redis for real-time delivery
-    _publish_message(str(ticket_id), msg)
+    asyncio.create_task(publish_message(
+        ticket_id=str(ticket_id),
+        sender_type=msg.sender_type,
+        sender_id=str(msg.sender_id) if msg.sender_id else None,
+        content=msg.content,
+        content_type=msg.content_type,
+        created_at=msg.created_at.isoformat() if msg.created_at else "",
+        msg_id=str(msg.id),
+    ))
 
     return success(CsMessageResponse.model_validate(msg).model_dump())
 
@@ -331,7 +349,7 @@ async def stream_ticket_messages(
     _u=Depends(require_admin_user),
 ):
     """SSE 端点 — 坐席端订阅工单实时消息"""
-    return EventSourceResponse(_message_stream(ticket_id, request, db))
+    return EventSourceResponse(message_stream(ticket_id, request))
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -469,6 +487,7 @@ async def mark_read(
     notif.is_read = True
     notif.read_at = datetime.now(UTC)
     await db.commit()
+    logger.info("Notification marked read: %s by=%s", notification_id, current_user.id)
 
     return success(NotificationResponse.model_validate(notif).model_dump())
 
@@ -486,6 +505,7 @@ async def mark_all_read(
         {"uid": current_user.id},
     )
     await db.commit()
+    logger.info("All notifications marked read for user: %s", current_user.id)
     return success({"message": "ok"})
 
 
@@ -495,7 +515,7 @@ async def stream_notifications(
     current_user=Depends(require_admin_user),
 ):
     """SSE 端点 — 坐席端订阅实时通知"""
-    return EventSourceResponse(_notification_stream(current_user.id, request))
+    return EventSourceResponse(notification_stream(current_user.id, request))
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -573,124 +593,3 @@ async def get_stats(
             online_agents=online_agents,
         ).model_dump()
     )
-
-
-# ════════════════════════════════════════════════════════════════════════════
-#  Redis Pub/Sub 辅助函数
-# ════════════════════════════════════════════════════════════════════════════
-
-
-def _get_redis():
-    """Lazy import redis client from shared config."""
-    try:
-        import redis.asyncio as aioredis
-        from snaptrip_shared.core.config import settings
-
-        return aioredis.from_url(settings.effective_redis_url)
-    except Exception:
-        return None
-
-
-def _publish_ticket_event(event: str, ticket_id: str, status: str) -> None:
-    """Publish ticket event to Redis (best-effort)."""
-    try:
-        import asyncio
-
-        async def _pub():
-            redis = _get_redis()
-            if redis:
-                await redis.publish(
-                    "cs:ticket:new",
-                    json.dumps({"event": event, "ticket_id": ticket_id, "status": status}),
-                )
-                await redis.close()
-
-        asyncio.create_task(_pub())
-    except Exception:
-        pass
-
-
-def _publish_message(ticket_id: str, msg: CsConversationMessage) -> None:
-    """Publish chat message to Redis Pub/Sub (best-effort)."""
-    try:
-        import asyncio
-
-        async def _pub():
-            redis = _get_redis()
-            if redis:
-                payload = json.dumps(
-                    {
-                        "id": str(msg.id),
-                        "ticket_id": ticket_id,
-                        "sender_type": msg.sender_type,
-                        "sender_id": str(msg.sender_id) if msg.sender_id else None,
-                        "content": msg.content,
-                        "content_type": msg.content_type,
-                        "created_at": msg.created_at.isoformat() if msg.created_at else "",
-                    }
-                )
-                await redis.publish(f"ticket:{ticket_id}:messages", payload)
-                await redis.close()
-
-        asyncio.create_task(_pub())
-    except Exception:
-        pass
-
-
-async def _message_stream(
-    ticket_id: UUID,
-    request: Request,
-    db: AsyncSession,
-) -> AsyncGenerator[dict, None]:
-    """SSE generator — streams chat messages for a ticket via Redis Pub/Sub."""
-    redis = _get_redis()
-    if not redis:
-        yield {"event": "error", "data": json.dumps({"message": "Redis unavailable"})}
-        return
-
-    channel = f"ticket:{ticket_id}:messages"
-    pubsub = redis.pubsub()
-    try:
-        await pubsub.subscribe(channel)
-        # Send initial connection event
-        yield {"event": "connected", "data": json.dumps({"ticket_id": str(ticket_id)})}
-        async for message in pubsub.listen():
-            if message["type"] != "message":
-                continue
-            yield {"event": "new_message", "data": message["data"]}
-            # Check if client disconnected
-            if await request.is_disconnected():
-                break
-    finally:
-        with suppress(Exception):
-            await pubsub.unsubscribe(channel)
-            await pubsub.close()
-            await redis.close()
-
-
-async def _notification_stream(
-    recipient_id: UUID,
-    request: Request,
-) -> AsyncGenerator[dict, None]:
-    """SSE generator — streams notifications for an admin agent via Redis Pub/Sub."""
-    redis = _get_redis()
-    if not redis:
-        yield {"event": "error", "data": json.dumps({"message": "Redis unavailable"})}
-        return
-
-    channel = f"cs:agent:{recipient_id}:notify"
-    pubsub = redis.pubsub()
-    try:
-        await pubsub.subscribe(channel)
-        yield {"event": "connected", "data": json.dumps({"recipient": str(recipient_id)})}
-        async for message in pubsub.listen():
-            if message["type"] != "message":
-                continue
-            yield {"event": "notification", "data": message["data"]}
-            if await request.is_disconnected():
-                break
-    finally:
-        with suppress(Exception):
-            await pubsub.unsubscribe(channel)
-            await pubsub.close()
-            await redis.close()

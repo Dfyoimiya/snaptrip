@@ -19,8 +19,9 @@ const cartStore = useCartStore()
 const memberStore = useMemberStore()
 const layoutStore = useLayoutStore()
 
-const expanded = computed(() => layoutStore.leftSidebarExpanded || layoutStore.leftSidebarLocked)
-const locked = computed(() => layoutStore.leftSidebarLocked)
+// ── 侧边栏始终展开 ──
+const expanded = computed(() => true)
+const locked = computed(() => true)
 
 interface NavGroup {
   title?: string
@@ -48,7 +49,7 @@ const coreGroup: NavGroup = {
   items: [
     { path: '/', label: '首页' },
     { path: '/shopping-guide', label: '帮我挑' },
-    { path: '/notice', label: '消息' },
+    { path: '/chat', label: '消息' },
     { path: '/cart', label: '购物车', badge: () => cartBadge.value },
     { path: '/member/orders', label: '订单' },
   ],
@@ -106,31 +107,11 @@ function handleCompareClick() {
     layoutStore.startCompare()
   }
 }
-
-// ── hover / lock ──
-function onMouseEnter() {
-  layoutStore.leftSidebarExpanded = true
-}
-function onMouseLeave() {
-  if (!layoutStore.leftSidebarLocked) {
-    layoutStore.leftSidebarExpanded = false
-  }
-}
-function toggleLock() {
-  if (layoutStore.leftSidebarLocked) {
-    layoutStore.unlockLeftSidebar()
-  } else {
-    layoutStore.lockLeftSidebar()
-  }
-}
 </script>
 
 <template>
   <aside
-    class="left-sidebar"
-    :class="{ expanded: expanded, locked: locked }"
-    @mouseenter="onMouseEnter"
-    @mouseleave="onMouseLeave"
+    class="left-sidebar expanded locked"
   >
     <!-- Logo -->
     <router-link to="/" class="logo-area" title="首页">
@@ -217,10 +198,6 @@ function toggleLock() {
         <span class="nav-label">退出</span>
       </button>
 
-      <!-- 锁定按钮 -->
-      <button class="nav-item lock-toggle" @click="toggleLock" :title="locked ? '取消固定' : '固定侧边栏'">
-        <span class="nav-label lock-label">{{ locked ? '已固定' : '固定' }}</span>
-      </button>
     </div>
   </aside>
 </template>

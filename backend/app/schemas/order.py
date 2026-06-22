@@ -199,8 +199,8 @@ class OrderListQuery(BaseModel):
 class OrderDeliveryRequest(BaseModel):
     """发货请求"""
 
-    delivery_company: str = Field(..., min_length=1, max_length=64)
-    delivery_sn: str = Field(..., min_length=1, max_length=64)
+    delivery_company: str = Field(..., min_length=1, max_length=64, validation_alias="deliveryCompany")
+    delivery_sn: str = Field(..., min_length=1, max_length=64, validation_alias="deliverySn")
 
 
 class OrderPriceModifyRequest(BaseModel):

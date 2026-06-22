@@ -148,22 +148,9 @@ def strip_none_values(o: Any) -> Any:
 # ── Infrastructure utilities ───────────────────────────────────────────────
 
 
-def get_event_bus():
-    """Get the Runtime event_bus (may be None)."""
-    from agent.graph import _runtime
-
-    if _runtime:
-        return _runtime.event_bus
-    return None
-
-
 def get_llm_adapter() -> LLMPort:
-    """Resolve the LLM adapter from runtime or settings."""
-    from agent.graph import _runtime
-
-    if _runtime and _runtime.llm_adapter:
-        return _runtime.llm_adapter
-
+    """Resolve the LLM adapter, creating a new LangChainAdapter if not cached."""
     from agent.adapters.langchain_adapter import LangChainAdapter
 
+    # Always create a new adapter since _runtime is gone
     return LangChainAdapter()

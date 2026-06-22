@@ -26,8 +26,10 @@ const emit = defineEmits<{
 /** 快捷入口菜单 */
 const quickLinks = [
   { label: '我的订单', path: '/member/orders', requireAuth: true },
-  { label: '会员中心', path: '/member', requireAuth: true },
+  { label: '浏览记录', path: '/member/history', requireAuth: true },
+  { label: '领券中心', path: '/coupons', requireAuth: false },
   { label: '我的收藏', path: '/member/favorites', requireAuth: true },
+  { label: '会员中心', path: '/member', requireAuth: true },
   { label: '帮助中心', path: '/help', requireAuth: false },
 ]
 

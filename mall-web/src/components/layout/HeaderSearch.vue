@@ -574,7 +574,7 @@ function handleGoHome() { emit('navigate', '/') }
    ================================================================ */
 .inline-search-fixed {
   position: fixed;
-  top: 12px;
+  top: 48px;
   left: 220px;
   right: 19px;
   z-index: 50;

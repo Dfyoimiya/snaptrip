@@ -38,11 +38,55 @@ export interface RecommendedProduct {
   saleCount?: number | null
 }
 
+export interface HighlightCard {
+  emoji: string
+  title: string
+  description: string
+}
+
+export interface BuyReasonCard {
+  scenario: string
+  verdict: string
+  reasoning: string
+}
+
+export interface PitfallCard {
+  title: string
+  description: string
+}
+
+export interface ReviewItem {
+  review_id: string
+  user_name: string
+  rating: number
+  content: string
+  created_at: string
+}
+
+export interface ReviewSummary {
+  average_rating: number
+  total_count: number
+  summary_text: string
+  top_reviews: ReviewItem[]
+}
+
+/** 信息搜索结构化卡片 — 后端 InfoSearchResponse 的蛇形命名 */
+export interface InfoCards {
+  conclusion: string
+  highlights: HighlightCard[]
+  worth_buying: BuyReasonCard[]
+  pitfalls: PitfallCard[]
+  review_summary: ReviewSummary | null
+  sources_used: string[]
+  total_latency_ms?: number
+}
+
 export interface ShoppingGuideChatResponse {
   reply: string
   sessionId: string
   products: RecommendedProduct[]
   followUpQuestions: string[]
+  info_cards?: InfoCards | null
 }
 
 export interface ShoppingGuideSession {
@@ -82,7 +126,12 @@ export const deleteSessionAPI = (sessionId: string) =>
 
 export interface StreamCallbacks {
   onToken: (token: string) => void
-  onDone: (payload: { sessionId: string; products: RecommendedProduct[]; followUpQuestions: string[] }) => void
+  onDone: (payload: {
+    sessionId: string
+    products: RecommendedProduct[]
+    followUpQuestions: string[]
+    infoCards?: InfoCards | null
+  }) => void
   onError: (error: string) => void
 }
 
@@ -151,6 +200,7 @@ export async function shoppingGuideChatStreamAPI(
                 sessionId: event.session_id,
                 products: event.products || [],
                 followUpQuestions: event.follow_up_questions || [],
+                infoCards: event.info_cards || null,
               })
               break
             case 'error':
