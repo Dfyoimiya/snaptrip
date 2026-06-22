@@ -14,7 +14,7 @@ const userStore = useUserStore()
 
 const sidebar = computed(() => appStore.sidebar)
 const device = computed(() => appStore.device)
-const isCollapse = computed(() => device.value === 'desktop' && !sidebar.value.opened)
+const isMobileDevice = computed(() => device.value === 'mobile')
 const displayName = computed(
   () => userStore.userInfo.nickname || userStore.userInfo.username || '管理员',
 )
@@ -49,16 +49,18 @@ async function handleAccountCommand(command: string): Promise<void> {
 <template>
   <aside
     class="sidebar-wrapper"
-    :class="{ collapsed: isCollapse }"
+    :class="{
+      'sidebar-open': sidebar.opened,
+      'no-animation': sidebar.withoutAnimation,
+    }"
   >
-    <template v-if="!isCollapse">
     <div class="brand-row">
       <router-link to="/home" class="brand-link">
         <span class="brand-mark">S</span>
         <span class="brand-name">SnapTrip</span>
       </router-link>
       <button
-        v-if="device === 'mobile'"
+        v-if="isMobileDevice"
         class="close-button"
         type="button"
         aria-label="关闭侧边栏"
@@ -160,33 +162,41 @@ async function handleAccountCommand(command: string): Promise<void> {
         </template>
       </el-dropdown>
     </div>
-    </template>
   </aside>
 </template>
 
 <style lang="scss" scoped>
 .sidebar-wrapper {
-  position: relative;
-  z-index: 200;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  bottom: 12px;
+  z-index: 50;
   display: flex;
-  width: 100%;
-  height: 100%;
+  width: 184px;
+  height: calc(100vh - 24px);
   flex-direction: column;
   overflow: hidden;
-  border-right: 1px solid var(--admin-border);
   color: var(--admin-text-secondary);
-  background: var(--admin-surface);
-  box-shadow: 2px 0 12px rgba(15, 23, 42, .035);
-  transition: width .22s ease;
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  box-shadow: var(--glass-shadow);
+
+  &.no-animation {
+    transition: none !important;
+  }
 }
 
 .brand-row {
   display: flex;
-  height: 56px;
+  height: 48px;
   flex-shrink: 0;
   align-items: center;
   justify-content: space-between;
-  padding: 0 12px;
+  padding: 0 10px;
   border-bottom: 1px solid var(--admin-border);
 }
 
@@ -194,7 +204,7 @@ async function handleAccountCommand(command: string): Promise<void> {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   color: var(--admin-text);
   text-decoration: none;
 }
@@ -209,15 +219,15 @@ async function handleAccountCommand(command: string): Promise<void> {
 }
 
 .brand-mark {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
   box-shadow: 0 6px 16px rgba(64, 158, 255, .24);
 }
 
 .brand-name {
   white-space: nowrap;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 750;
   letter-spacing: -.3px;
 }
@@ -238,15 +248,15 @@ async function handleAccountCommand(command: string): Promise<void> {
   &:hover { color: #409eff; background: var(--admin-hover); }
 }
 
-.workspace-row { padding: 10px 8px 6px; }
+.workspace-row { padding: 8px 6px 4px; }
 .workspace-trigger {
   display: flex;
   width: 100%;
-  height: 48px;
+  height: 44px;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   cursor: pointer;
-  padding: 6px 8px;
+  padding: 4px 6px;
   border: 0;
   border-radius: 9px;
   color: var(--admin-text);
@@ -257,8 +267,8 @@ async function handleAccountCommand(command: string): Promise<void> {
   &:hover { background: var(--admin-hover); }
 }
 .workspace-avatar {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 7px;
   font-size: 10px;
 }
@@ -269,13 +279,13 @@ async function handleAccountCommand(command: string): Promise<void> {
   flex-direction: column;
   line-height: 1.25;
 
-  strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; }
-  small { overflow: hidden; margin-top: 3px; color: #9ca3af; white-space: nowrap; text-overflow: ellipsis; font-size: 11px; }
+  strong { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; }
+  small { overflow: hidden; margin-top: 2px; color: #9ca3af; white-space: nowrap; text-overflow: ellipsis; font-size: 10px; }
 }
-.workspace-chevron, .account-chevron { flex-shrink: 0; color: #b4bac4; font-size: 12px; }
+.workspace-chevron, .account-chevron { flex-shrink: 0; color: #b4bac4; font-size: 11px; }
 
 .menu-caption {
-  padding: 10px 16px 6px;
+  padding: 8px 14px 4px;
   color: #b0b6c0;
   font-size: 10px;
   font-weight: 700;
@@ -286,7 +296,7 @@ async function handleAccountCommand(command: string): Promise<void> {
 .sidebar-scroll {
   flex: 1;
   overflow: hidden;
-  padding: 0 8px;
+  padding: 0 6px;
 
   :deep(.el-scrollbar__wrap) { overflow-x: hidden !important; }
   :deep(.el-menu) {
@@ -298,18 +308,18 @@ async function handleAccountCommand(command: string): Promise<void> {
 
 .sidebar-bottom {
   flex-shrink: 0;
-  padding: 8px;
+  padding: 6px;
   border-top: 1px solid var(--admin-border);
 }
 
 .bottom-link, .account-trigger {
   display: flex;
   width: 100%;
-  height: 40px;
+  height: 38px;
   align-items: center;
-  gap: 11px;
+  gap: 9px;
   cursor: pointer;
-  padding: 0 10px;
+  padding: 0 8px;
   border: 0;
   border-radius: 8px;
   color: #667085;
@@ -318,9 +328,10 @@ async function handleAccountCommand(command: string): Promise<void> {
   transition: .18s ease;
 
   &:hover { color: #409eff; background: var(--admin-hover); }
-  .el-icon { flex-shrink: 0; font-size: 17px; }
+  .el-icon { flex-shrink: 0; font-size: 16px; }
 }
-.account-trigger { height: 48px; margin-top: 4px; text-align: left; }
+.account-trigger { height: 44px; margin-top: 2px; text-align: left; }
+
 :global(.sidebar-workspace-dropdown),
 :global(.sidebar-account-dropdown) {
   min-width: 210px;
@@ -378,5 +389,98 @@ async function handleAccountCommand(command: string): Promise<void> {
   color: #909399;
   font-size: 11px;
   line-height: 16px;
+}
+
+/* ========== Mobile: drawer overlay ========== */
+@media (max-width: 991px) {
+  .sidebar-wrapper {
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 240px;
+    height: 100vh;
+    border-radius: 0;
+    border: none;
+    border-right: 1px solid var(--admin-border);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    box-shadow: 12px 0 32px rgba(15, 23, 42, 0.18);
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    z-index: 999;
+    pointer-events: none;
+
+    &.sidebar-open {
+      transform: translateX(0);
+      pointer-events: auto;
+    }
+
+    &.no-animation {
+      transition: none !important;
+    }
+
+    .brand-row {
+      height: 56px;
+      padding: 0 12px;
+    }
+
+    .brand-mark {
+      width: 32px;
+      height: 32px;
+    }
+
+    .brand-name {
+      font-size: 16px;
+    }
+
+    .workspace-row { padding: 10px 8px 6px; }
+    .workspace-trigger {
+      height: 48px;
+      padding: 6px 8px;
+      gap: 10px;
+    }
+    .workspace-avatar {
+      width: 30px;
+      height: 30px;
+    }
+    .workspace-copy strong { font-size: 13px; }
+    .workspace-copy small { font-size: 11px; }
+
+    .menu-caption {
+      padding: 10px 16px 6px;
+    }
+
+    .sidebar-scroll {
+      padding: 0 8px;
+    }
+
+    .sidebar-bottom {
+      padding: 8px;
+    }
+
+    .bottom-link, .account-trigger {
+      height: 40px;
+      padding: 0 10px;
+      gap: 11px;
+
+      .el-icon { font-size: 17px; }
+    }
+    .account-trigger { height: 48px; margin-top: 4px; }
+  }
+}
+
+/* ========== Dark mode ========== */
+html.dark {
+  .sidebar-wrapper {
+    background: var(--glass-bg);
+  }
+
+  .workspace-chevron, .account-chevron {
+    color: #6b7280;
+  }
+
+  .workspace-copy small, .account-copy small {
+    color: #6b7280;
+  }
 }
 </style>

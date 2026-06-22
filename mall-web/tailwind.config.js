@@ -22,6 +22,22 @@ export default {
         'text-sub': '#888888',
         'text-muted': '#bbbbbb',
         'border-subtle': '#f5f5f5',
+        tb: {
+          bg: '#f5f5f5',
+          card: '#ffffff',
+          hover: '#f7f7f7',
+          text: '#333333',
+          sub: '#999999',
+          muted: '#bbbbbb',
+          border: '#e5e5e5',
+          divider: '#eeeeee',
+          orange: '#ff5000',
+          orangeLight: '#fff3ed',
+        },
+      },
+      boxShadow: {
+        'tb-card': '0 2px 12px rgba(0, 0, 0, 0.04)',
+        'tb-float': '0 4px 20px rgba(0, 0, 0, 0.08)',
       },
       borderRadius: {
         'product-img': '12px',

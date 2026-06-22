@@ -364,18 +364,25 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
 
 <style lang="scss" scoped>
 .navbar-vben {
-  background: var(--admin-surface);
-  border-bottom: 1px solid var(--admin-border);
+  display: flex;
+  flex-direction: column;
 }
 
-/* 顶部工具栏 */
+/* 顶部工具栏 — 浮动玻璃 */
 .navbar-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: 48px;
-  padding: 0 16px;
+  margin: 12px 16px 0 16px;
+  padding: 0 12px;
   gap: 12px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 
 .top-left {
@@ -488,14 +495,18 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
 
 }
 
-/* Tab 标签栏 */
+/* Tab 标签栏 — 浮动玻璃 */
 .tab-bar {
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 6px 12px 0;
-  background: var(--admin-bg);
-  border-top: 1px solid var(--admin-border);
+  margin: 8px 16px 0 16px;
+  padding: 4px;
+  background: var(--glass-bg-light);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: 10px;
   overflow-x: auto;
   position: relative;
 
@@ -504,28 +515,27 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
     align-items: center;
     gap: 8px;
     padding: 7px 14px;
-    background: var(--admin-surface);
-    border-radius: 8px 8px 0 0;
+    background: transparent;
+    border-radius: 8px;
     cursor: pointer;
     font-size: 13px;
     color: var(--admin-text-secondary);
     border: 1px solid transparent;
-    border-bottom: none;
     transition: all 0.2s;
     white-space: nowrap;
     user-select: none;
 
     &:hover {
       color: #165dff;
+      background: rgba(0, 0, 0, 0.04);
     }
 
     &.active {
-      background: var(--admin-bg);
+      background: var(--admin-surface);
       color: #165dff;
       font-weight: 500;
       border-color: var(--admin-border);
-      border-bottom: 1px solid var(--admin-bg);
-      margin-bottom: -1px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
     }
 
     .tab-close {
@@ -623,6 +633,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
 
 @media (max-width: 900px) {
   .navbar-top {
+    margin: 8px 8px 0 8px;
     padding: 0 10px;
   }
 
@@ -646,6 +657,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
       }
     }
   }
+
+  .tab-bar {
+    margin: 6px 8px 0 8px;
+  }
 }
 
 @media (max-width: 640px) {
@@ -663,8 +678,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
   }
 
   .tab-bar {
-    padding-left: 8px;
-    padding-right: 8px;
+    padding: 4px;
   }
 }
 
@@ -783,10 +797,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
   font-size: 11px;
 }
 
+/* ========== Dark mode ========== */
 :global(.dark) {
-  .navbar-vben {
-    border-color: var(--admin-border);
-    background: var(--admin-surface);
+  .navbar-top {
+    border-color: rgba(255, 255, 255, 0.06);
   }
 
   .top-left .breadcrumb :deep(.el-breadcrumb__inner),
@@ -812,18 +826,21 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
   }
 
   .tab-bar {
-    border-color: var(--admin-border);
-    background: var(--admin-bg);
+    border-color: rgba(255, 255, 255, 0.06);
   }
 
   .tab-bar .tab-item {
     color: var(--admin-text-secondary);
-    background: var(--admin-surface);
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
 
     &.active {
       border-color: var(--admin-border);
       color: #79bbff;
-      background: var(--admin-bg);
+      background: var(--admin-surface);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
     }
   }
 

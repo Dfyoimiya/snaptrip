@@ -19,8 +19,6 @@ const sidebar = computed(() => appStore.sidebar)
 const device = computed(() => appStore.device)
 
 const classObj = computed(() => ({
-  hideSidebar: !sidebar.value.opened,
-  withoutAnimation: sidebar.value.withoutAnimation,
   mobile: device.value === 'mobile',
 }))
 
@@ -64,23 +62,14 @@ useResizeHandler()
   position: relative;
   height: 100vh;
   width: 100%;
-  display: flex;
-
-  .sidebar-container {
-    width: 240px;
-    min-width: 240px;
-    max-width: 240px;
-    height: 100%;
-    transition: width 0.25s ease, min-width 0.25s ease, max-width 0.25s ease;
-    flex-shrink: 0;
-  }
 
   .main-container {
-    flex: 1;
+    margin-left: 208px; /* 184px sidebar + 12px gap + 12px left */
     display: flex;
     flex-direction: column;
     min-width: 0;
-    background-color: var(--admin-bg);
+    min-height: 100vh;
+    background-color: var(--admin-page-bg);
     overflow: hidden;
 
     .fixed-header {
@@ -89,35 +78,10 @@ useResizeHandler()
     }
   }
 
-  // 收起
-  &.hideSidebar {
-    .sidebar-container {
-      width: 0;
-      min-width: 0;
-      max-width: 0;
-      border: 0;
-      box-shadow: none;
-    }
-  }
-
-  // 移动端
+  // 移动端：取消左边距，sidebar 作为抽屉
   &.mobile {
-    .sidebar-container {
-      position: fixed;
-      top: 0;
-      left: 0;
-      z-index: 999;
-      height: 100%;
-      width: 240px;
-      min-width: 240px;
-      max-width: 240px;
-      transition: transform 0.25s ease;
-      box-shadow: 12px 0 32px rgba(15, 23, 42, 0.18);
-    }
-
-    &.hideSidebar .sidebar-container {
-      transform: translateX(-100%);
-      pointer-events: none;
+    .main-container {
+      margin-left: 0;
     }
   }
 

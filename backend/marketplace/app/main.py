@@ -90,28 +90,16 @@ async def lifespan(app: FastAPI):
 
     try:
         from agent.graph import build_graph
-        from agent.nodes.recommendation.supervisor import RecommendationSupervisor
 
         app.state.plan_graph = await build_graph(runtime=runtime)
 
-        # ── 推荐系统 ──
-        ab_engine = ABTestEngine()
-        feature_svc = FeatureService(db_factory=AsyncSessionLocal, memory=memory)
-        trending_svc = TrendingService(memory)
-        vector_svc = VectorSearchService(db_factory=AsyncSessionLocal, memory=memory)
-        autocomplete_svc = AutocompleteService(memory)
-        app.state.recommendation_supervisor = RecommendationSupervisor(
-            llm_adapter=runtime.llm_adapter,
-            db_factory=AsyncSessionLocal,
-            feature_service=feature_svc,
-            es_client=None,
-            ab_engine=ab_engine,
-        )
-        app.state.ab_engine = ab_engine
-        app.state.feature_service = feature_svc
-        app.state.trending_service = trending_svc
-        app.state.vector_search_service = vector_svc
-        app.state.autocomplete_service = autocomplete_svc
+        # ── 推荐 & 搜索基础设施 ──
+        app.state.llm_adapter = runtime.llm_adapter
+        app.state.ab_engine = ABTestEngine()
+        app.state.feature_service = FeatureService(db_factory=AsyncSessionLocal, memory=memory)
+        app.state.trending_service = TrendingService(memory)
+        app.state.vector_search_service = VectorSearchService(db_factory=AsyncSessionLocal, memory=memory)
+        app.state.autocomplete_service = AutocompleteService(memory)
         app.state.cf_service = CollaborativeFilteringService(
             db_factory=AsyncSessionLocal,
             memory=memory,

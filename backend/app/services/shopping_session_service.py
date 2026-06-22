@@ -220,16 +220,9 @@ class ShoppingSessionService:
             return None
 
         try:
-            from agent.graph import _runtime
+            from agent.utils import get_llm_adapter
 
-            adapter = _runtime.llm_adapter if _runtime else None
-            if not adapter:
-                # Try the shopping guide runtime
-                from agent.graphs.shopping_guide import (
-                    _shopping_runtime as _sr,
-                )
-
-                adapter = _sr.llm_adapter if _sr else None
+            adapter = get_llm_adapter()
 
             if not adapter:
                 logger.debug("No LLM adapter available for summary generation")

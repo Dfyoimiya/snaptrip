@@ -18,6 +18,7 @@ export interface ShoppingGuideChatRequest {
   message: string
   session_id?: string | null
   context?: ShoppingContext | null
+  mode?: 'auto' | 'info' | 'product'
 }
 
 export interface RecommendedProduct {
@@ -27,6 +28,14 @@ export interface RecommendedProduct {
   discount: string
   link: string
   highlights: string[]
+  /** 商品图片 URL（可选，用于 ProductCard 展示） */
+  imageUrl?: string | null
+  /** 商品 ID（可选，优先使用；否则从 link 提取） */
+  productId?: string | null
+  /** 品牌名称 */
+  brandName?: string | null
+  /** 销量 */
+  saleCount?: number | null
 }
 
 export interface ShoppingGuideChatResponse {

@@ -38,8 +38,15 @@ class HybridSearchService:
       - pgvector (语义相似度)
       - CF (协同过滤, 用户级个性化)
 
+    Query Understanding 统一层:
+      - 意图分类 → 实体抽取 → 查询改写 → 查询扩展 → 向量化
+      - 替代旧的 SearchIntentAgent
+
     用法:
-        svc = HybridSearchService(es_client, vector_service, cf_service, db, intent_agent)
+        svc = HybridSearchService(
+            es_client, vector_service, cf_service, db,
+            query_understanding=query_understanding_svc,
+        )
         result = await svc.search(keyword="手机", min_price=1000, max_price=5000)
     """
 
@@ -49,14 +56,16 @@ class HybridSearchService:
         vector_service=None,
         cf_service=None,
         db: AsyncSession | None = None,
-        intent_agent=None,
+        intent_agent=None,  # deprecated, use query_understanding
+        query_understanding=None,
         personalization_service=None,
     ) -> None:
         self._es = es_client
         self._vector = vector_service
         self._cf = cf_service
         self._db = db
-        self._intent_agent = intent_agent
+        self._intent_agent = intent_agent  # backward compat
+        self._query_understanding = query_understanding
         self._personalization = personalization_service
 
     async def search(
@@ -70,8 +79,14 @@ class HybridSearchService:
         page: int = 1,
         page_size: int = 20,
         user_id: UUID | str | None = None,
+        user_segment: str | None = None,
+        diversity_top_n: int = 0,
     ) -> dict[str, Any]:
         """混合搜索入口。
+
+        Args:
+            user_segment: 用户分群 (new_user/active/high_value/price_sensitive/churn_risk)
+            diversity_top_n: 对 top-N 应用类目多样性重排 (0=不启用)
 
         Returns:
             {"items": [...], "total": int, "page": int, "page_size": int,
@@ -89,10 +104,37 @@ class HybridSearchService:
                 page_size=page_size,
             )
 
-        # 1. 意图分类
+        # 1. Query Understanding (意图 + 实体 + 改写 + 向量化)
         intent = "navigational"
-        weights = {"bm25": 0.60, "vector": 0.15, "price": 0.10, "category": 0.15}
-        if self._intent_agent:
+        weights = {"bm25": 0.35, "vector": 0.10, "cf": 0.10, "price": 0.05, "category": 0.15, "brand": 0.25}
+        rewritten_keyword = keyword
+        pre_embedding: list[float] | None = None
+        extracted_entities: dict = {}
+
+        if self._query_understanding:
+            try:
+                qu_result = await self._query_understanding.understand(
+                    keyword,
+                    with_embedding=True,
+                    with_expansion=False,
+                )
+                intent = qu_result.intent
+                weights = dict(qu_result.weights)
+                extracted_entities = qu_result.entities.__dict__ if qu_result.entities else {}
+                if qu_result.rewritten_query and qu_result.rewritten_query != keyword:
+                    rewritten_keyword = qu_result.rewritten_query
+                    logger.debug("hybrid_search: query rewritten: %s → %s", keyword, rewritten_keyword)
+                pre_embedding = qu_result.embedding
+                logger.debug(
+                    "hybrid_search: query_understanding intent=%s entities=%s confidence=%.2f",
+                    intent,
+                    {k: v for k, v in extracted_entities.items() if v},
+                    qu_result.confidence,
+                )
+            except Exception as exc:
+                logger.debug("hybrid_search: query_understanding failed: %s", exc)
+        elif self._intent_agent:
+            # Fallback: old SearchIntentAgent (deprecated)
             try:
                 result = await self._intent_agent.run(query=keyword)
                 if result.success and result.data:
@@ -101,9 +143,28 @@ class HybridSearchService:
             except Exception as exc:
                 logger.debug("hybrid_search: intent classification failed: %s", exc)
 
+        # 1.5 分群感知权重调整
+        if user_segment:
+            from app.services.fusion_weight_service import apply_segment_weights
+
+            weights = apply_segment_weights(weights, user_segment)
+
+        # Apply extracted entity hints (only if not explicitly provided)
+        # Brand name → used as fusion boost (not hard filter, to tolerate LLM extraction errors)
+        extracted_brand: str | None = None
+        if extracted_entities:
+            if min_price is None and extracted_entities.get("price_min"):
+                min_price = _safe_float(extracted_entities["price_min"])
+            if max_price is None and extracted_entities.get("price_max"):
+                max_price = _safe_float(extracted_entities["price_max"])
+            extracted_brand = extracted_entities.get("brand") or None
+
         # 2. 并发召回 (ES + vector + CF)
-        es_future = self._es_recall(keyword, category_id, brand_id, min_price, max_price, sort_by, page, page_size * 3)
-        vec_future = self._vector_recall(keyword, category_id, page_size * 3)
+        # Use rewritten query for ES, pre-computed embedding for vector
+        es_future = self._es_recall(
+            rewritten_keyword, category_id, brand_id, min_price, max_price, sort_by, page, page_size * 3
+        )
+        vec_future = self._vector_recall(keyword, category_id, page_size * 3, embedding=pre_embedding)
         cf_future = self._cf_recall(user_id, page_size * 2)
 
         es_results, vec_results, cf_results = await asyncio.gather(
@@ -131,8 +192,13 @@ class HybridSearchService:
                 # 将 CF 独有结果视为 vector 源加入融合 (由 _cf_norm 驱动)
                 vec_results = list(vec_results) + cf_filled
 
-        # 4. 分数融合
-        fused = self._fuse_scores(es_results, vec_results, cf_results, weights)
+        # 4. 分数融合 (5 权重: bm25 + vector + cf + price + category)
+        fused = self._fuse_scores(
+            es_results, vec_results, cf_results, weights,
+            category_id=category_id,
+            user_avg_price=None,  # populated by personalization layer if available
+            extracted_brand=extracted_brand,
+        )
 
         # 4. 个性化 boost
         if self._personalization and user_id:
@@ -176,8 +242,24 @@ class HybridSearchService:
                 "method": "db_fallback",
             }
 
-        # 8. 排序 + 分页
+        # 8. 排序 + 多样性重排 + 分页
         fused = self._apply_sort(fused, sort_by)
+
+        # 多样性重排 (仅对首页 top-N 生效)
+        if diversity_top_n > 0 and page == 1 and len(fused) > diversity_top_n:
+            try:
+                from app.services.diversity_service import DiversityService
+
+                fused = DiversityService.apply_category_spread(
+                    fused,
+                    top_n=max(diversity_top_n, page_size * 2),
+                    min_categories=3,
+                    max_per_category=2,
+                )
+                logger.debug("hybrid_search: diversity applied, top_n=%d", diversity_top_n)
+            except Exception as exc:
+                logger.debug("hybrid_search: diversity re-rank failed: %s", exc)
+
         total = len(fused)
         start = (page - 1) * page_size
         items = fused[start : start + page_size]
@@ -238,11 +320,13 @@ class HybridSearchService:
         keyword: str,
         category_id: str | None,
         limit: int,
+        embedding: list[float] | None = None,
     ) -> list[dict]:
         if not self._vector:
             return []
         try:
-            embedding = await self._get_query_embedding(keyword)
+            if embedding is None:
+                embedding = await self._get_query_embedding(keyword)
             if not embedding:
                 return []
             results = await self._vector.search_by_text_embedding(
@@ -357,14 +441,29 @@ class HybridSearchService:
         vec_results: list[dict],
         cf_results: list[dict],
         weights: dict[str, float],
+        category_id: str | None = None,
+        user_avg_price: float | None = None,
+        extracted_brand: str | None = None,
     ) -> list[dict]:
-        """三路分数归一化 + 加权融合。
+        """三路分数归一化 + 六权重加权融合。
 
         final_score = ES_norm × w_bm25 + vector_norm × w_vec + CF_norm × w_cf
+                    + price_fit × w_price + category_match × w_category
+                    + brand_match × w_brand
+
+        price_fit:  1 - |price - user_avg_price| / max(user_avg_price, price)
+                    (falls back to batch-internal price normalization)
+        category_match: 1.0 if product matches requested category_id, else 0.3
+        brand_match: 1.0 if product brand matches extracted brand (substring),
+                     0.5 if no brand extracted (neutral),
+                     0.1 if brand extracted but doesn't match (penalty)
         """
         w_bm25 = weights.get("bm25", 0.50)
         w_vec = weights.get("vector", 0.12)
         w_cf = weights.get("cf", 0.15)
+        w_price = weights.get("price", 0.05)
+        w_category = weights.get("category", 0.10)
+        w_brand = weights.get("brand", 0.00)
 
         # 归一化 ES 分数
         es_scores = [r.get("score", 0.0) or 0.0 for r in es_results]
@@ -416,6 +515,9 @@ class HybridSearchService:
                 "_es_norm": r.get("_norm_score", 0),
                 "_vec_norm": 0.0,
                 "_cf_norm": 0.0,
+                "_price_fit": 0.0,
+                "_category_match": 0.0,
+                "_brand_match": 0.0,
             }
 
         for r in vec_results:
@@ -440,6 +542,9 @@ class HybridSearchService:
                     "_es_norm": 0.0,
                     "_vec_norm": r.get("_norm_score", 0),
                     "_cf_norm": 0.0,
+                    "_price_fit": 0.0,
+                    "_category_match": 0.0,
+                    "_brand_match": 0.0,
                 }
 
         # CF 结果 (标记来源但不重复计 vector_norm)
@@ -465,11 +570,73 @@ class HybridSearchService:
                     "_es_norm": 0.0,
                     "_vec_norm": 0.0,
                     "_cf_norm": r.get("_norm_score", 0),
+                    "_price_fit": 0.0,
+                    "_category_match": 0.0,
+                    "_brand_match": 0.0,
                 }
 
-        # 计算最终分数 (三路加权)
+        # ── Compute price_fit & category_match for all merged items ──
+        all_prices = [
+            item.get("price", 0)
+            for item in merged.values()
+            if item.get("price", 0) > 0
+        ]
+        if all_prices:
+            if user_avg_price and user_avg_price > 0:
+                # User-aware price fit: closer to user's average spend → higher score
+                for item in merged.values():
+                    p = item.get("price", 0) or 0
+                    item["_price_fit"] = max(
+                        0.0,
+                        1.0
+                        - abs(p - user_avg_price)
+                        / max(user_avg_price, p, 1.0),
+                    )
+            else:
+                # Batch-internal price normalization: mid-range prices get higher scores
+                median_price = sorted(all_prices)[len(all_prices) // 2]
+                max_price = max(all_prices)
+                for item in merged.values():
+                    p = item.get("price", 0) or 0
+                    item["_price_fit"] = max(
+                        0.0,
+                        1.0
+                        - abs(p - median_price)
+                        / max(max_price, 1.0),
+                    )
+
+        if category_id:
+            for item in merged.values():
+                item["_category_match"] = (
+                    1.0
+                    if str(item.get("category_id", "")) == str(category_id)
+                    else 0.3
+                )
+
+        # Brand match: boost products matching the extracted brand entity
+        if extracted_brand:
+            eb = extracted_brand.lower()
+            for item in merged.values():
+                product_brand = (item.get("brand_name", "") or "").lower()
+                # Case-insensitive substring match (handles "小米" vs "小米（MI）")
+                if eb in product_brand or product_brand in eb:
+                    item["_brand_match"] = 1.0
+                else:
+                    item["_brand_match"] = 0.1  # strong penalty for non-matching brand
+        else:
+            for item in merged.values():
+                item["_brand_match"] = 0.5  # neutral: no brand extracted
+
+        # 计算最终分数 (六路加权)
         for item in merged.values():
-            item["score"] = item["_es_norm"] * w_bm25 + item["_vec_norm"] * w_vec + item["_cf_norm"] * w_cf
+            item["score"] = (
+                item["_es_norm"] * w_bm25
+                + item["_vec_norm"] * w_vec
+                + item["_cf_norm"] * w_cf
+                + item["_price_fit"] * w_price
+                + item["_category_match"] * w_category
+                + item["_brand_match"] * w_brand
+            )
 
         result = sorted(merged.values(), key=lambda x: x.get("score", 0), reverse=True)
         return result
@@ -656,6 +823,14 @@ class HybridSearchService:
 
 _local_embedding_model = None
 _LOCAL_MODEL_NAME = "all-MiniLM-L6-v2"
+
+
+def _safe_float(v: Any) -> float | None:
+    """Convert to float, returning None on failure (unlike _to_float which returns 0)."""
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
 
 
 def _get_local_embedding_model():

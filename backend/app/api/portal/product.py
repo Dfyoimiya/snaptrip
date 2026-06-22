@@ -40,32 +40,34 @@ def _resolve_user_id(request: Request) -> UUID | None:
 
 
 def _get_hybrid_search(request: Request):
-    """懒初始化 HybridSearchService。"""
-    from agent.nodes.recommendation.search_intent import SearchIntentAgent
+    """初始化 HybridSearchService (含 QueryUnderstandingService)。"""
     from snaptrip_shared.db.session import AsyncSessionLocal
 
     from app.search.client import get_search_client
     from app.services.hybrid_search_service import HybridSearchService
+    from app.services.query_understanding_service import QueryUnderstandingService
     from app.services.search_personalization_service import SearchPersonalizationService
 
     es = get_search_client()
     vector = request.app.state.vector_search_service
     memory = request.app.state.memory
-    # LLM adapter 从 recommendation_supervisor 获取 (可能为 None)
-    supervisor = getattr(request.app.state, "recommendation_supervisor", None)
-    llm = getattr(supervisor, "_llm", None) if supervisor else None
+    # LLM adapter from app state (may be None if LLM init failed)
+    llm = getattr(request.app.state, "llm_adapter", None)
 
     personalization = SearchPersonalizationService(
         db_factory=AsyncSessionLocal,
         memory=memory,
     )
-    intent_agent = SearchIntentAgent(llm_adapter=llm)
+    query_understanding = QueryUnderstandingService(
+        llm_adapter=llm,
+        memory=memory,
+    )
     cf = request.app.state.cf_service if hasattr(request.app.state, "cf_service") else None
     return HybridSearchService(
         es_client=es,
         vector_service=vector,
         cf_service=cf,
-        intent_agent=intent_agent,
+        query_understanding=query_understanding,
         personalization_service=personalization,
     )
 

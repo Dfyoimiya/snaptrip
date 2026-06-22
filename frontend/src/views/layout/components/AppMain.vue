@@ -20,10 +20,11 @@ const routerKey = computed(() => route.path)
 
 <style lang="scss" scoped>
 .app-main {
-  padding: 12px;
+  flex: 1;
+  padding: 16px;
   overflow-x: hidden;
-  background-color: var(--admin-bg);
-  min-height: calc(100vh - 96px);
+  overflow-y: auto;
+  background-color: var(--admin-page-bg);
 }
 
 /* 页面切换动画 */

@@ -121,8 +121,7 @@ async def generate_ai_suggestions(
     """
     from app.services.suggestion_service import SuggestionService
 
-    supervisor = getattr(request.app.state, "recommendation_supervisor", None)
-    llm = getattr(supervisor, "_llm", None) if supervisor else None
+    llm = getattr(request.app.state, "llm_adapter", None)
 
     svc = SuggestionService(
         memory=memory,

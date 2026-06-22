@@ -79,6 +79,12 @@ const router = createRouter({
       meta: { title: '帮我挑' },
     },
     {
+      path: '/discover',
+      name: 'discover',
+      component: () => import('@/views/DiscoveryView.vue'),
+      meta: { title: '发现好物' },
+    },
+    {
       path: '/coupons',
       name: 'coupon-center',
       component: () => import('@/views/CouponCenterView.vue'),

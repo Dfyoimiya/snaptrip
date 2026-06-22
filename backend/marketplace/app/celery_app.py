@@ -20,7 +20,14 @@ celery_app = Celery(
     "snaptrip",
     broker=settings.effective_redis_url,
     backend=settings.effective_redis_url,
-    include=["agent.tasks.plan_tasks", "app.tasks.cf_tasks", "app.tasks.coupon_tasks", "app.tasks.sla_tasks"],
+    include=[
+        "agent.tasks.plan_tasks",
+        "app.tasks.cf_tasks",
+        "app.tasks.coupon_tasks",
+        "app.tasks.embedding_tasks",
+        "app.tasks.index_tasks",
+        "app.tasks.sla_tasks",
+    ],
 )
 
 celery_app.conf.update(
@@ -62,6 +69,18 @@ celery_app.conf.update(
         "auto_expire_coupons": {
             "task": "auto_expire_coupons",
             "schedule": 60.0,
+            "options": {"queue": "agent"},
+        },
+        # ES 商品全量同步: 每天 03:00
+        "sync_all_products_to_es": {
+            "task": "sync_all_products_to_es",
+            "schedule": 24 * 60 * 60,  # 24 hours
+            "options": {"queue": "agent"},
+        },
+        # 商品 Embedding 增量生成: 每小时
+        "generate_incremental_embeddings": {
+            "task": "generate_incremental_embeddings",
+            "schedule": 60 * 60,  # 1 hour
             "options": {"queue": "agent"},
         },
     },

@@ -9,9 +9,7 @@
  */
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
-import { useRouter } from 'vue-router'
 import {
-  shoppingGuideChatAPI,
   shoppingGuideChatStreamAPI,
   listSessionsAPI,
   getSessionAPI,
@@ -22,6 +20,9 @@ import {
 } from '@/apis/shoppingGuide'
 
 export type { RecommendedProduct }
+
+/** 帮我买搜索模式 */
+export type SearchMode = 'auto' | 'info' | 'product'
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
@@ -59,34 +60,18 @@ export const useShoppingGuideStore = defineStore('shoppingGuide', () => {
   const messages = ref<ChatMessage[]>(loadMessages())
   const sessions = ref<ShoppingGuideSession[]>([])
   const sessionsLoading = ref(false)
+  const recommendedProducts = ref<RecommendedProduct[]>([])
+  const isSplitMode = ref(false)
 
-  // 在 setup 阶段捕获 router 实例，避免后续调用 useRoute() 的 inject() 问题
-  const router = useRouter()
+  // ── 帮我买布局状态 ──
+  const searchMode = ref<SearchMode>('auto')
 
   // ── Getters ──
   const hasMessages = computed(() => messages.value.length > 0)
+  const currentSearchMode = computed(() => searchMode.value)
   const lastAssistantMsg = computed(() =>
     [...messages.value].reverse().find(m => m.role === 'assistant'),
   )
-
-  // ── 构建上下文 (通过 router.currentRoute 获取当前路由，避免 useRoute 注入问题) ──
-  function _buildContext(): ShoppingContext | null {
-    try {
-      const route = router.currentRoute.value
-      const ctx: ShoppingContext = {}
-      if (route.params.id && String(route.path).startsWith('/product/')) {
-        ctx.current_product_id = route.params.id as string
-      }
-      if (String(route.path).startsWith('/category')) {
-        ctx.current_category = (route.query.cat as string) || null
-      }
-      if (route.path === '/search' && route.query.keyword) {
-        ctx.search_query = route.query.keyword as string
-      }
-      if (Object.values(ctx).some(v => v)) return ctx
-    } catch { /* route unavailable */ }
-    return null
-  }
 
   // ── Actions ──
 
@@ -110,7 +95,7 @@ export const useShoppingGuideStore = defineStore('shoppingGuide', () => {
     else openChat()
   }
 
-  async function sendMessage(text: string) {
+  async function sendMessage(text: string, context?: ShoppingContext | null) {
     if (!text.trim() || loading.value) return
 
     // 添加用户消息
@@ -137,7 +122,8 @@ export const useShoppingGuideStore = defineStore('shoppingGuide', () => {
         {
           message: text.trim(),
           session_id: sessionId.value,
-          context: _buildContext(),
+          context: context || null,
+          mode: searchMode.value,
         },
         {
           onToken(token: string) {
@@ -148,6 +134,7 @@ export const useShoppingGuideStore = defineStore('shoppingGuide', () => {
             sessionId.value = payload.sessionId
             if (payload.products?.length) {
               aiMsg.products = payload.products
+              recommendedProducts.value = payload.products
             }
             if (payload.followUpQuestions?.length) {
               aiMsg.followUps = payload.followUpQuestions
@@ -170,20 +157,28 @@ export const useShoppingGuideStore = defineStore('shoppingGuide', () => {
     }
   }
 
-  async function sendFollowUp(question: string) {
-    await sendMessage(question)
+  async function sendFollowUp(question: string, context?: ShoppingContext | null) {
+    await sendMessage(question, context)
   }
 
   function clearMessages() {
     messages.value = []
     sessionId.value = null
+    recommendedProducts.value = []
+    isSplitMode.value = false
     saveMessages([])
   }
 
   async function newSession() {
     sessionId.value = null
     messages.value = []
+    recommendedProducts.value = []
+    isSplitMode.value = false
     saveMessages([])
+  }
+
+  function setSearchMode(mode: SearchMode) {
+    searchMode.value = mode
   }
 
   async function loadSessions() {
@@ -216,12 +211,22 @@ export const useShoppingGuideStore = defineStore('shoppingGuide', () => {
     }
   }
 
+  function toggleSplitMode() {
+    isSplitMode.value = !isSplitMode.value
+  }
+
+  function setRecommendedProducts(products: RecommendedProduct[]) {
+    recommendedProducts.value = products
+  }
+
   async function removeSession(id: string) {
     try {
       await deleteSessionAPI(id)
       if (sessionId.value === id) {
         sessionId.value = null
         messages.value = []
+        recommendedProducts.value = []
+        isSplitMode.value = false
         saveMessages([])
       }
       sessions.value = sessions.value.filter(s => s.id !== id)
@@ -247,5 +252,12 @@ export const useShoppingGuideStore = defineStore('shoppingGuide', () => {
     loadSessions,
     loadSession,
     removeSession,
+    recommendedProducts,
+    isSplitMode,
+    toggleSplitMode,
+    setRecommendedProducts,
+    searchMode,
+    currentSearchMode,
+    setSearchMode,
   }
 })

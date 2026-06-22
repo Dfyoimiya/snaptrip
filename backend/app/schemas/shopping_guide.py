@@ -25,6 +25,13 @@ class ShoppingGuideRequest(BaseModel):
     message: str = Field(..., description="User's message to the shopping guide")
     session_id: str | None = Field(None, description="Session ID for conversation continuity. None = new session")
     context: ShoppingContext | None = Field(None, description="Frontend context about what the user is viewing")
+    mode: str = Field(
+        "auto",
+        description=(
+            "Search mode: auto (intent classification → route), "
+            "info (FAQ/web search/reviews), product (agent product recommendation)"
+        ),
+    )
 
 
 class ShoppingGuideSession(BaseModel):

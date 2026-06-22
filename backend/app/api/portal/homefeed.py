@@ -21,6 +21,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from snaptrip_shared.core.response import success
 from snaptrip_shared.db.session import AsyncSessionLocal
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.product.product import PmsProduct
 from app.schemas.homefeed import (
@@ -209,41 +210,19 @@ async def _build_guess_you_like(
                 seen.add(pid)
                 deduped.append(c)
 
-        # Agent pipeline rerank (if available)
-        products = deduped[:total_budget]
-        marketing_copies: dict[str, str] = {}
-        try:
-            supervisor = request.app.state.recommendation_supervisor
-            from agent.schemas.recommendation import RecommendationRequest, RecommendationScene
+        # Simple scoring: vector similarity (from vec results) + recency boost
+        # No longer calls old RecommendationSupervisor — eliminates cascade
+        for c in deduped:
+            base_score = c.get("score", 0.5)
+            source = c.get("_source", "")
+            if source == "recent_view":
+                base_score += 0.15  # recency boost
+            elif source == "vector":
+                base_score += 0.10  # personalization boost
+            c["score"] = min(base_score, 1.0)
 
-            req = RecommendationRequest(
-                user_id=str(user_id) if user_id else None,
-                session_id=session_id or None,
-                scene=RecommendationScene.HOMEPAGE,
-                num_items=limit,
-            )
-            # 预置 candidates 到 supervisor
-            resp = await supervisor.recommend(req)
-            if resp.products:
-                products = [
-                    {
-                        "product_id": p.product_id,
-                        "name": p.name,
-                        "price": p.price,
-                        "image_url": p.image_url,
-                        "brand_name": p.brand_name,
-                        "category_id": p.category_id,
-                        "sale_count": p.sale_count,
-                        "stock": p.stock,
-                        "score": p.score,
-                        "_source": "agent_rerank",
-                    }
-                    for p in resp.products
-                ]
-                for copy_item in resp.copies:
-                    marketing_copies[copy_item.get("product_id", "")] = copy_item.get("copy", "")
-        except Exception as exc:
-            logger.debug("guess_you_like: agent rerank failed: %s", exc)
+        products = sorted(deduped, key=lambda x: x.get("score", 0), reverse=True)[:total_budget]
+        marketing_copies: dict[str, str] = {}
 
         feed_products = [
             FeedProduct(

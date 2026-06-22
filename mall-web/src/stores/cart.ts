@@ -7,7 +7,6 @@
 
 import { ref, computed, watch } from 'vue'
 import { defineStore } from 'pinia'
-import { useRouter } from 'vue-router'
 import type { CartItem } from '@/types/cart'
 import {
   getCartListAPI,
@@ -21,7 +20,6 @@ import { useMemberStore } from '@/stores/member'
 
 export const useCartStore = defineStore('cart', () => {
   const memberStore = useMemberStore()
-  const router = useRouter()
 
   const cartList = ref<CartItem[]>([])
   const loading = ref(false)
@@ -29,7 +27,8 @@ export const useCartStore = defineStore('cart', () => {
   /** 未登录时跳转登录页，返回 false 表示已拦截 */
   const requireAuth = (): boolean => {
     if (!memberStore.isLoggedIn) {
-      router.push({ path: '/login', query: { redirect: router.currentRoute.value.fullPath } })
+      const redirect = encodeURIComponent(window.location.pathname + window.location.search)
+      window.location.href = `/login?redirect=${redirect}`
       return false
     }
     return true

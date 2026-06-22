@@ -152,7 +152,9 @@ class LangChainAdapter(LLMPort):
         model = model_alias or settings.LLM_DEFAULT_MODEL
         if enable_thinking is None:
             enable_thinking = getattr(settings, "LLM_ENABLE_THINKING", True)
-        if not reasoning_effort:
+        if not enable_thinking:
+            reasoning_effort = "none"  # Explicitly disable reasoning
+        elif not reasoning_effort:
             reasoning_effort = getattr(settings, "LLM_REASONING_EFFORT", "high")
 
         t0 = time.monotonic()
@@ -223,7 +225,9 @@ class LangChainAdapter(LLMPort):
         model = model_alias or settings.LLM_DEFAULT_MODEL
         if enable_thinking is None:
             enable_thinking = getattr(settings, "LLM_ENABLE_THINKING", True)
-        if not reasoning_effort:
+        if not enable_thinking:
+            reasoning_effort = "none"  # Explicitly disable reasoning
+        elif not reasoning_effort:
             reasoning_effort = getattr(settings, "LLM_REASONING_EFFORT", "high")
 
         # 构建降级链
@@ -291,6 +295,10 @@ class LangChainAdapter(LLMPort):
         model = model_alias or settings.LLM_DEFAULT_MODEL
         if enable_thinking is None:
             enable_thinking = getattr(settings, "LLM_ENABLE_THINKING", True)
+        if not enable_thinking:
+            reasoning_effort = "none"  # Explicitly disable reasoning
+        elif not reasoning_effort:
+            reasoning_effort = getattr(settings, "LLM_REASONING_EFFORT", "high")
 
         kwargs: dict[str, Any] = {
             "model": model,
@@ -440,6 +448,10 @@ class LangChainAdapter(LLMPort):
                         kwargs["tools"] = tools
                     if enable_thinking:
                         kwargs["extra_body"] = {"thinking": {"type": "enabled"}}
+                    else:
+                        # 显式关闭思考模式 — 否则 qwen3.6-plus 等模型默认生成
+                        # reasoning tokens，导致响应延迟从 ~1s 膨胀到 ~35s
+                        kwargs["extra_body"] = {"enable_thinking": False}
                     if reasoning_effort:
                         kwargs["reasoning_effort"] = reasoning_effort
 

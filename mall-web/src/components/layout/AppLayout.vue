@@ -1,217 +1,100 @@
 <script setup lang="ts">
 /**
  * ============================================
- * 全局布局组件 (Global Layout)
- * PC 端电商网页通用布局：
- * 1. 顶部通栏导航条
- * 2. Logo + 搜索框 + 页签栏 (吸顶模块)
- * 3. 主导航菜单
- * 4. 主体内容区
- * 5. 页脚
+ * 全局布局 — 三层架构
+ *
+ * 底层：灰白底色 (#f5f5f5)，商品/文字直接平铺
+ * 中层：RouterView 子页面内容，自然滚动
+ * 顶层：LeftSidebar / HeaderSearch / TabBar
+ *      各组件独立 fixed 定位 + 液态玻璃风格
  * ============================================
  */
 import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useMemberStore } from '@/stores/member'
-import { useCartStore } from '@/stores/cart'
-import { useChatStore } from '@/stores/chat'
-import TopBar from './TopBar.vue'
-import HeaderSearch from './HeaderSearch.vue'
+import { useRouter } from 'vue-router'
+import { useLayoutStore } from '@/stores/layout'
 import TabBar from './TabBar.vue'
+import HeaderSearch from './HeaderSearch.vue'
+import LeftSidebar from './LeftSidebar.vue'
+import ProductCompare from '@/components/product/ProductCompare.vue'
 
 const router = useRouter()
-const route = useRoute()
-const memberStore = useMemberStore()
-const chatStore = useChatStore()
-const cartStore = useCartStore()
+const layoutStore = useLayoutStore()
 
-/** 是否已登录 */
-const isLoggedIn = computed(() => memberStore.isLoggedIn)
-/** 购物车商品数量 */
-const cartCount = computed(() => cartStore.totalCount)
+const contentPaddingLeft = computed(() => {
+  const w = layoutStore.leftSidebarExpanded || layoutStore.leftSidebarLocked ? 200 : 64
+  return `${w + 12 + 20}px`
+})
 
-/**
- * 导航到页面
- */
-const navigateTo = (path: string) => {
+function navigateTo(path: string) {
   router.push(path)
-}
-
-/**
- * 退出登录
- */
-const handleLogout = () => {
-  cartStore.clearCart()
-  memberStore.memberLogout()
-  router.push('/')
-}
-
-/** 主导航菜单 */
-const navMenus = [
-  { label: '首页', path: '/' },
-  { label: '全部商品', path: '/category' },
-  { label: '品牌专区', path: '/brand' },
-  { label: '新品上架', path: '/new' },
-  { label: '人气推荐', path: '/hot' },
-  { label: '帮我挑', path: '/shopping-guide' },
-]
-
-const isMenuActive = (path: string): boolean => {
-  if (path === '/') return route.path === '/'
-  if (path === '/category') {
-    return route.path === '/category' || route.path === '/search' || route.path.startsWith('/product/')
-  }
-  return route.path === path || route.path.startsWith(`${path}/`)
 }
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col mall-shell">
-    <!-- 1. 顶部通栏导航条 -->
-    <TopBar
-      :is-logged-in="isLoggedIn"
-      :display-name="memberStore.displayName"
-      :cart-count="cartCount"
-      @navigate="navigateTo"
-      @logout="handleLogout"
-    />
+  <div class="app-layout">
+    <!-- ═══ 顶层：悬浮组件，fixed 定位 ═══ -->
+    <LeftSidebar />
+    <HeaderSearch mode="inline" @navigate="navigateTo" />
+    <TabBar />
 
-    <!-- 2. Logo + 搜索框 + 页签栏 (同一模块，液态玻璃吸顶) -->
-    <div class="sticky top-0 z-40 bg-white/70 backdrop-blur-2xl">
-      <HeaderSearch
-        @navigate="navigateTo"
-      />
-      <TabBar />
-    </div>
-
-    <!-- 3. 主导航栏 -->
-    <nav class="mall-nav">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="flex items-center gap-2 h-12 overflow-x-auto">
-          <button
-            class="category-trigger"
-            :class="{ active: isMenuActive('/category') }"
-            @click="navigateTo('/category')"
-          >
-            <span>☰</span> 全部分类
-          </button>
-          <button
-            v-for="menu in navMenus"
-            :key="menu.path"
-            class="nav-menu-item"
-            :class="{ active: isMenuActive(menu.path) }"
-            :aria-current="isMenuActive(menu.path) ? 'page' : undefined"
-            @click="navigateTo(menu.path)"
-          >
-            {{ menu.label }}
-          </button>
-        </div>
-      </div>
-    </nav>
-
-    <!-- 4. 主体内容区 -->
-    <main class="flex-1">
-      <div class="max-w-[1240px] mx-auto px-4 sm:px-6 lg:px-8 py-5">
-        <slot />
-      </div>
+    <!-- ═══ 中层：子页面内容 ═══ -->
+    <main class="main-content" :style="{ paddingLeft: contentPaddingLeft }">
+      <slot />
     </main>
 
-    <!-- 5. 页脚 -->
-    <footer class="bg-white border-t border-gray-100 mt-auto">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-8">
-          <!-- 关于我们 -->
-          <div>
-            <h3 class="text-sm font-semibold text-gray-900 tracking-wider uppercase mb-4">关于我们</h3>
-            <ul class="space-y-2">
-              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/about')">公司简介</button></li>
-              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/contact')">联系我们</button></li>
-              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/join')">加入我们</button></li>
-            </ul>
-          </div>
-          <!-- 购物指南 -->
-          <div>
-            <h3 class="text-sm font-semibold text-gray-900 tracking-wider uppercase mb-4">购物指南</h3>
-            <ul class="space-y-2">
-              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/help')">购物流程</button></li>
-              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/help')">支付方式</button></li>
-              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/help')">配送说明</button></li>
-            </ul>
-          </div>
-          <!-- 售后服务 -->
-          <div>
-            <h3 class="text-sm font-semibold text-gray-900 tracking-wider uppercase mb-4">售后服务</h3>
-            <ul class="space-y-2">
-              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/help')">退换货政策</button></li>
-              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/help')">退款说明</button></li>
-              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/help')">取消订单</button></li>
-            </ul>
-          </div>
-          <!-- 客户服务 -->
-          <div>
-            <h3 class="text-sm font-semibold text-gray-900 tracking-wider uppercase mb-4">客户服务</h3>
-            <ul class="space-y-2">
-              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/help')">常见问题</button></li>
-              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="chatStore.openChat()">在线客服</button></li>
-              <li><button class="text-sm text-gray-500 hover:text-brand-600 transition-colors" @click="navigateTo('/help')">投诉建议</button></li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- 底部版权 -->
-        <div class="mt-8 pt-8 border-t border-gray-200">
-          <p class="text-center text-xs text-gray-400">
-            &copy; 2026 SnapTrip. 智能推荐驱动的品质商城
-          </p>
+    <!-- ═══ 商品对比浮层 ═══ -->
+    <Teleport to="body">
+      <div v-if="layoutStore.isComparing" class="compare-overlay" @click.self="layoutStore.endCompare()">
+        <div class="compare-modal">
+          <ProductCompare
+            :products="layoutStore.compareProducts"
+            @close="layoutStore.endCompare()"
+          />
         </div>
       </div>
-    </footer>
+    </Teleport>
   </div>
 </template>
 
 <style scoped>
-.mall-shell {
-  background: #ffffff;
+/* ═══════════════════════════════════════════
+   底层：灰白纸
+   ═══════════════════════════════════════════ */
+.app-layout {
+  min-height: 100vh;
+  background: #f5f5f5;
 }
 
-.mall-nav {
-  background: #ffffff;
-  border-bottom: 1px solid #f5f5f5;
-  position: sticky;
-  top: 0;
-  z-index: 30;
+/* ═══════════════════════════════════════════
+   中层：内容区
+   padding 避让顶层 fixed 组件
+   ═══════════════════════════════════════════ */
+.main-content {
+  padding: 106px 19px 0 96px;
+  transition: padding-left 0.2s ease;
 }
 
-.category-trigger {
-  align-self: stretch;
+/* ═══════════════════════════════════════════
+   对比浮层
+   ═══════════════════════════════════════════ */
+.compare-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 24px;
-  color: #333;
-  background: transparent;
-  font-size: 14px;
-  font-weight: 700;
-  white-space: nowrap;
-  transition: color 0.2s;
+  justify-content: center;
+  padding: 40px;
 }
 
-.category-trigger:hover,
-.category-trigger.active {
-  color: #ff5000;
-}
-
-.nav-menu-item {
-  padding: 8px 18px;
-  color: #333;
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-  transition: color 0.2s;
-}
-
-.nav-menu-item:hover,
-.nav-menu-item.active {
-  color: #ff5000;
+.compare-modal {
+  width: 100%;
+  max-width: 960px;
+  max-height: 85vh;
+  overflow-y: auto;
+  border-radius: 16px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.2);
 }
 </style>
