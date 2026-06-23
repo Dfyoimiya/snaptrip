@@ -3,8 +3,7 @@
  * ============================================
  * 左侧浮动导航栏 (LeftSidebar) — 玻璃拟态风格
  *
- * hover 展开 / 点击锁定，折叠态仅显示图标。
- * 毛玻璃半透效果，position: fixed 浮动于页面之上。
+ * 与 B 端统一的玻璃拟态卡片结构，保留商城橙色品牌语义。
  * ============================================
  */
 import { computed } from 'vue'
@@ -19,10 +18,6 @@ const cartStore = useCartStore()
 const memberStore = useMemberStore()
 const layoutStore = useLayoutStore()
 
-// ── 侧边栏始终展开 ──
-const expanded = computed(() => true)
-const locked = computed(() => true)
-
 interface NavGroup {
   title?: string
   items: NavItem[]
@@ -31,6 +26,7 @@ interface NavGroup {
 interface NavItem {
   path: string
   label: string
+  iconPath: string
   badge?: () => string | null
 }
 
@@ -47,31 +43,29 @@ const compareCount = computed(() => {
 
 const coreGroup: NavGroup = {
   items: [
-    { path: '/', label: '首页' },
-    { path: '/shopping-guide', label: '帮我挑' },
-    { path: '/chat', label: '消息' },
-    { path: '/cart', label: '购物车', badge: () => cartBadge.value },
-    { path: '/member/orders', label: '订单' },
+    { path: '/', label: '首页', iconPath: 'M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1V10.5Z' },
+    { path: '/shopping-guide', label: '帮我挑', iconPath: 'M9.5 4.5a6 6 0 1 1-1.68 11.76L4 20l1.24-4.34A6 6 0 0 1 9.5 4.5Zm7.5 1a4.5 4.5 0 0 1 2.9 7.94L21 17l-3.23-1.08' },
+    { path: '/chat', label: '消息', iconPath: 'M4 5h16v12H8l-4 4V5Zm4 4h8M8 13h5' },
+    { path: '/cart', label: '购物车', iconPath: 'M3 4h2l2.4 10.2a2 2 0 0 0 1.95 1.54H18a2 2 0 0 0 1.94-1.52L21 8H6m4 12h.01M18 20h.01', badge: () => cartBadge.value },
+    { path: '/member/orders', label: '订单', iconPath: 'M6 3h12v18l-3-2-3 2-3-2-3 2V3Zm3 5h6m-6 4h6' },
   ],
 }
 
 const contentGroup: NavGroup = {
   title: '频道',
   items: [
-    { path: '/discover', label: '逛一逛' },
-    { path: '/category', label: '采购宝' },
-    { path: '/hot', label: '人气推荐' },
-    { path: '/new', label: '新品上架' },
-    { path: '/brand', label: '品牌专区' },
-    { path: '/shopping-guide', label: '直播' },
-    { path: '/member/favorites', label: '收藏' },
+    { path: '/discover', label: '逛一逛', iconPath: 'M12 3 9.5 9.5 3 12l6.5 2.5L12 21l2.5-6.5L21 12l-6.5-2.5L12 3Z' },
+    { path: '/category', label: '采购宝', iconPath: 'M4 4h6v6H4V4Zm10 0h6v6h-6V4ZM4 14h6v6H4v-6Zm10 0h6v6h-6v-6Z' },
+    { path: '/hot', label: '人气推荐', iconPath: 'M13 3s1 4-2 6c-2.5 1.7-3 4-1 6 0-2 1-3 2-4 0 3 3 4 2 7 3-1 5-3.5 5-6.5C19 7 15 5 13 3ZM8 8c-2 2-3 4-3 6.5A6.5 6.5 0 0 0 11.5 21' },
+    { path: '/new', label: '新品上架', iconPath: 'M12 3v18M3 12h18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4' },
+    { path: '/brand', label: '品牌专区', iconPath: 'M4 7h16l-1 14H5L4 7Zm4 0V5a4 4 0 0 1 8 0v2' },
+    { path: '/member/favorites', label: '收藏', iconPath: 'M12 20.5 4.7 13.7A5 5 0 0 1 12 6.9a5 5 0 0 1 7.3 6.8L12 20.5Z' },
   ],
 }
 
 const bottomGroup: NavGroup = {
   items: [
-    { path: '/member/settings', label: '外观' },
-    { path: '/help', label: '帮助' },
+    { path: '/help', label: '帮助中心', iconPath: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Zm-3-13a3 3 0 1 1 4.4 2.65c-.9.45-1.4 1.05-1.4 2.35m0 4h.01' },
   ],
 }
 
@@ -96,91 +90,143 @@ function navigate(path: string) {
   router.push(path)
 }
 
-function handleLogout() {
-  cartStore.clearCart()
-  memberStore.memberLogout()
-  router.push('/')
-}
-
 function handleCompareClick() {
   if (layoutStore.compareProducts.length >= 2) {
     layoutStore.startCompare()
   }
 }
+
+function handleAccountClick() {
+  router.push(memberStore.isLoggedIn ? '/member' : '/login')
+}
 </script>
 
 <template>
-  <aside
-    class="left-sidebar expanded locked"
-  >
-    <!-- Logo -->
-    <router-link to="/" class="logo-area" title="首页">
-      <div class="logo-icon-box">
-        <svg
-          class="logo-icon-svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+  <aside class="left-sidebar">
+    <div class="brand-row">
+      <router-link to="/" class="brand-link" title="首页">
+        <span class="brand-mark">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M16 11V7a4 4 0 0 0-8 0v4M5 9h14l1 12H4L5 9Z" />
+          </svg>
+        </span>
+        <span class="brand-name">SnapTrip</span>
+      </router-link>
+    </div>
+
+    <div class="workspace-row">
+      <button class="workspace-trigger" type="button" @click="navigate('/discover')">
+        <span class="workspace-avatar">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z" />
+          </svg>
+        </span>
+        <span class="workspace-copy">
+          <strong>SnapTrip 商城</strong>
+          <small>发现你的品质好物</small>
+        </span>
+        <svg class="workspace-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="m9 18 6-6-6-6" />
         </svg>
-      </div>
-      <div v-show="expanded" class="logo-text-group">
-        <span class="logo-text">MALL</span>
-        <span class="logo-sub">正品好货</span>
-      </div>
-    </router-link>
+      </button>
+    </div>
+
+    <div class="menu-caption">快捷入口</div>
 
     <!-- 可滚动中间区域 -->
     <div class="scrollable-area">
-      <!-- 核心导航 -->
       <nav class="nav-section">
         <button
           v-for="item in coreGroup.items"
           :key="item.path + item.label"
           class="nav-item"
           :class="{ active: isActive(item.path) }"
-          @click="navigate(item.path)"
           :title="item.label"
+          @click="navigate(item.path)"
         >
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path :d="item.iconPath" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
           <span class="nav-label">{{ item.label }}</span>
-          <span v-if="item.badge?.()" class="nav-badge" :class="{ collapsed: !expanded }">{{ item.badge() }}</span>
+          <span v-if="item.badge?.()" class="nav-badge">{{ item.badge() }}</span>
         </button>
       </nav>
 
-      <!-- 分隔线 -->
-      <div class="nav-divider" />
+      <div class="menu-caption inner-caption">{{ contentGroup.title }}</div>
 
-      <!-- 内容频道 -->
-      <div class="nav-section with-title">
-        <div v-show="expanded" class="section-title">{{ contentGroup.title }}</div>
+      <nav class="nav-section">
         <button
           v-for="item in contentGroup.items"
           :key="item.path + item.label"
           class="nav-item"
           :class="{ active: isActive(item.path) }"
-          @click="navigate(item.path)"
           :title="item.label"
+          @click="navigate(item.path)"
         >
+          <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path :d="item.iconPath" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
           <span class="nav-label">{{ item.label }}</span>
         </button>
-      </div>
+      </nav>
     </div>
 
-    <!-- 底部工具 -->
     <div class="bottom-section">
-      <!-- 商品对比入口 -->
       <button
         v-if="layoutStore.compareProducts.length > 0"
         class="nav-item compare-entry"
+        type="button"
         @click="handleCompareClick"
-        title="商品对比"
       >
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M8 4 4 8l4 4M4 8h12m0 4 4 4-4 4m4-4H8" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
         <span class="nav-label">商品对比</span>
-        <span class="nav-badge compare-badge" :class="{ collapsed: !expanded }">{{ compareCount }}</span>
+        <span class="nav-badge compare-badge">{{ compareCount }}</span>
+      </button>
+
+      <button
+        class="nav-item theme-toggle"
+        type="button"
+        :title="layoutStore.theme === 'light' ? '切换到黑暗模式' : '切换到光亮模式'"
+        :aria-label="layoutStore.theme === 'light' ? '切换到黑暗模式' : '切换到光亮模式'"
+        @click="layoutStore.toggleTheme"
+      >
+        <svg
+          class="nav-icon"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <template v-if="layoutStore.theme === 'light'">
+            <path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9Z" />
+          </template>
+          <template v-else>
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
+          </template>
+        </svg>
+        <span class="nav-label">
+          {{ layoutStore.theme === 'light' ? '黑暗模式' : '光亮模式' }}
+        </span>
+        <span class="theme-status">{{ layoutStore.theme === 'light' ? '暗' : '亮' }}</span>
       </button>
 
       <button
@@ -191,105 +237,185 @@ function handleCompareClick() {
         @click="navigate(item.path)"
         :title="item.label"
       >
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path :d="item.iconPath" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
         <span class="nav-label">{{ item.label }}</span>
       </button>
 
-      <button v-if="memberStore.isLoggedIn" class="nav-item logout-item" @click="handleLogout" title="退出">
-        <span class="nav-label">退出</span>
+      <button class="account-trigger" type="button" @click="handleAccountClick">
+        <span class="account-avatar">{{ memberStore.isLoggedIn ? '我' : '客' }}</span>
+        <span class="account-copy">
+          <strong>{{ memberStore.isLoggedIn ? '个人中心' : '登录账户' }}</strong>
+          <small>{{ memberStore.isLoggedIn ? '查看订单与权益' : '登录后享受完整服务' }}</small>
+        </span>
+        <svg class="account-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="m9 18 6-6-6-6" />
+        </svg>
       </button>
-
     </div>
   </aside>
 </template>
 
 <style scoped>
-/* ============================================
-   玻璃拟态浮动侧边栏
-   ============================================ */
 .left-sidebar {
   position: fixed;
-  top: 12px;
+  top: 48px;
   left: 12px;
   bottom: 12px;
-  width: 64px;
-  height: calc(100vh - 24px);
+  z-index: 50;
   display: flex;
+  width: 184px;
+  height: calc(100vh - 60px);
   flex-direction: column;
-  align-items: stretch;
-  background: rgba(255, 255, 255, 0.65);
+  overflow: hidden;
+  color: var(--mall-text-secondary);
+  background: var(--mall-glass-bg);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  border: 1px solid var(--mall-glass-border);
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
-  z-index: 50;
-  overflow: hidden;
-  transition: width 0.2s ease;
+  box-shadow: var(--mall-glass-shadow);
+  transition: color 0.2s ease, background-color 0.2s ease;
 }
 
-.left-sidebar.expanded {
-  width: 200px;
-}
-
-/* ============================================
-   Logo
-   ============================================ */
-.logo-area {
+.brand-row {
   display: flex;
-  flex-direction: column;
+  height: 48px;
+  flex-shrink: 0;
   align-items: center;
-  gap: 4px;
-  padding: 14px 0 12px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--mall-border);
+}
+
+.brand-link {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  color: var(--mall-text);
   text-decoration: none;
-  flex-shrink: 0;
 }
 
-.logo-icon-box {
-  width: 36px;
-  height: 36px;
-  background: linear-gradient(135deg, #ff5000, #ff7900);
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.brand-mark,
+.workspace-avatar {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
   color: #fff;
-  flex-shrink: 0;
+  background: linear-gradient(135deg, #ff5000, #ff7900);
 }
 
-.logo-icon-svg {
-  width: 20px;
-  height: 20px;
+.brand-mark {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  box-shadow: 0 6px 16px rgba(255, 80, 0, 0.24);
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
 }
 
-.logo-text-group {
+.brand-name {
+  white-space: nowrap;
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: -0.3px;
+}
+
+.workspace-row {
+  padding: 8px 6px 4px;
+}
+
+.workspace-trigger,
+.account-trigger {
   display: flex;
-  flex-direction: column;
+  width: 100%;
   align-items: center;
-  gap: 1px;
+  gap: 8px;
+  cursor: pointer;
+  border: 0;
+  color: var(--mall-text);
+  background: transparent;
+  text-align: left;
+  transition: background 0.18s ease;
+
+  &:hover {
+    background: var(--mall-hover);
+  }
 }
 
-.logo-text {
-  font-size: 13px;
+.workspace-trigger {
+  height: 44px;
+  padding: 4px 6px;
+  border-radius: 9px;
+}
+
+.workspace-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.workspace-copy,
+.account-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  line-height: 1.25;
+
+  strong {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  small {
+    overflow: hidden;
+    margin-top: 2px;
+    color: var(--mall-text-muted);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: 10px;
+  }
+}
+
+.workspace-chevron,
+.account-chevron {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  color: var(--mall-text-muted);
+}
+
+.menu-caption {
+  padding: 8px 14px 4px;
+  color: var(--mall-text-muted);
+  font-size: 10px;
   font-weight: 700;
-  color: #1f1f1f;
-  letter-spacing: 0.05em;
+  letter-spacing: 1.2px;
 }
 
-.logo-sub {
-  font-size: 9px;
-  color: #999;
-  letter-spacing: 0.08em;
+.inner-caption {
+  padding-top: 12px;
 }
 
-/* ============================================
-   可滚动中间区域
-   ============================================ */
 .scrollable-area {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 4px 8px 4px;
+  padding: 0 6px 6px;
   scrollbar-width: none;
 }
 
@@ -297,87 +423,58 @@ function handleCompareClick() {
   display: none;
 }
 
-/* ============================================
-   分隔线
-   ============================================ */
-.nav-divider {
-  height: 1px;
-  margin: 8px 4px;
-  background: rgba(0, 0, 0, 0.06);
-}
-
-/* ============================================
-   导航区块
-   ============================================ */
 .nav-section {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.nav-section.with-title {
-  padding-top: 0;
-}
-
-.section-title {
-  font-size: 10px;
-  color: #999;
-  padding: 0 6px 8px;
-  text-align: center;
-  letter-spacing: 0.05em;
-}
-
-/* ============================================
-   导航项
-   ============================================ */
 .nav-item {
+  position: relative;
   display: flex;
+  width: 100%;
+  height: 36px;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 8px;
-  border-radius: 8px;
-  font-size: 12px;
-  color: #555;
-  background: transparent;
-  border: none;
+  gap: 9px;
   cursor: pointer;
-  text-align: center;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--mall-text-secondary);
+  background: transparent;
+  white-space: nowrap;
+  text-align: left;
   transition: background-color 0.15s, color 0.15s;
   user-select: none;
-  position: relative;
-  white-space: nowrap;
-}
-
-.left-sidebar.expanded .nav-item {
-  justify-content: flex-start;
-  text-align: left;
 }
 
 .nav-item:hover {
-  background-color: rgba(0, 0, 0, 0.04);
-  color: #1f1f1f;
+  color: var(--mall-text);
+  background: var(--mall-hover);
 }
 
 .nav-item.active {
-  background-color: rgba(255, 80, 0, 0.1);
   color: #ff5000;
-  font-weight: 600;
+  background: rgba(255, 80, 0, 0.1);
+  font-weight: 650;
+}
+
+.nav-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .nav-label {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .nav-badge {
-  position: absolute;
-  top: 4px;
-  right: 2px;
   min-width: 14px;
   height: 14px;
   padding: 0 3px;
@@ -392,41 +489,15 @@ function handleCompareClick() {
   line-height: 1;
 }
 
-/* 折叠态角标缩小为圆点 */
-.nav-badge.collapsed {
-  min-width: 7px;
-  width: 7px;
-  height: 7px;
-  padding: 0;
-  top: 6px;
-  right: 6px;
-  border-radius: 50%;
-  font-size: 0;
-}
-
-/* ============================================
-   底部工具区
-   ============================================ */
 .bottom-section {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  padding: 8px 8px 12px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 6px;
+  border-top: 1px solid var(--mall-border);
 }
 
-/* ============================================
-   退出按钮
-   ============================================ */
-.logout-item:hover {
-  background-color: rgba(220, 38, 38, 0.08);
-  color: #dc2626;
-}
-
-/* ============================================
-   对比入口
-   ============================================ */
 .compare-entry {
   color: #7c3aed;
 }
@@ -440,20 +511,46 @@ function handleCompareClick() {
   background: #7c3aed;
 }
 
-/* ============================================
-   锁定按钮
-   ============================================ */
-.lock-toggle {
-  margin-top: 4px;
-  font-size: 11px;
-  color: #aaa;
+.theme-toggle {
+  margin-top: 1px;
 }
 
-.lock-toggle:hover {
-  color: #888;
-}
-
-.lock-label {
+.theme-status {
+  display: grid;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--mall-text-muted);
+  background: var(--mall-hover);
   font-size: 10px;
+  font-weight: 700;
+}
+
+.account-trigger {
+  height: 44px;
+  margin-top: 3px;
+  padding: 0 7px;
+  border-radius: 9px;
+}
+
+.account-avatar {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(135deg, #ff7900, #ff5000);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+@media (max-width: 1023px) {
+  .left-sidebar {
+    display: none;
+  }
 }
 </style>

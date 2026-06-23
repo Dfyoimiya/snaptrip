@@ -1,0 +1,94 @@
+# Replace the two example domains before enabling this file.
+# Certbot will add the TLS listen/certificate directives after the HTTP config works.
+
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ""      close;
+}
+
+upstream snaptrip_api {
+    server 127.0.0.1:8080;
+    keepalive 32;
+}
+
+upstream snaptrip_mall {
+    server 127.0.0.1:5175;
+    keepalive 8;
+}
+
+upstream snaptrip_admin {
+    server 127.0.0.1:5174;
+    keepalive 8;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __SITE_DOMAIN__;
+
+    client_max_body_size 20m;
+
+    location = /health {
+        proxy_pass http://snaptrip_api/health;
+        include /etc/nginx/proxy_params;
+    }
+
+    location /api/ {
+        proxy_pass http://snaptrip_api;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://snaptrip_mall;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+    }
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name __ADMIN_DOMAIN__;
+
+    client_max_body_size 20m;
+
+    location = /health {
+        proxy_pass http://snaptrip_api/health;
+        include /etc/nginx/proxy_params;
+    }
+
+    location /api/ {
+        proxy_pass http://snaptrip_api;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_set_header Connection "";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://snaptrip_admin;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+    }
+}

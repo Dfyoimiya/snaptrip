@@ -9,6 +9,38 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --mall-page-bg: #f5f5f5;
+  --mall-surface: #ffffff;
+  --mall-surface-soft: #fafafa;
+  --mall-border: #e8eaed;
+  --mall-hover: #f2f4f7;
+  --mall-text: #1f2937;
+  --mall-text-secondary: #667085;
+  --mall-text-muted: #98a2b3;
+  --mall-glass-bg: rgba(255, 255, 255, 0.68);
+  --mall-glass-bg-light: rgba(255, 255, 255, 0.54);
+  --mall-glass-border: rgba(255, 255, 255, 0.62);
+  --mall-glass-shadow: 0 8px 32px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.04);
+  --mall-glass-shadow-soft: 0 2px 12px rgba(15, 23, 42, 0.05);
+}
+
+html.dark {
+  --mall-page-bg: #111827;
+  --mall-surface: #1b2432;
+  --mall-surface-soft: #202b3b;
+  --mall-border: #303b4d;
+  --mall-hover: #263244;
+  --mall-text: #f3f4f6;
+  --mall-text-secondary: #c5cbd5;
+  --mall-text-muted: #8f9aaa;
+  --mall-glass-bg: rgba(27, 36, 50, 0.78);
+  --mall-glass-bg-light: rgba(27, 36, 50, 0.68);
+  --mall-glass-border: rgba(255, 255, 255, 0.08);
+  --mall-glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.28), 0 2px 8px rgba(0, 0, 0, 0.18);
+  --mall-glass-shadow-soft: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
 /* 自定义基础样式 */
 @layer base {
   html {
@@ -20,13 +52,14 @@
   }
 
   body {
-    color: #1f1f1f;
-    background-color: #f5f5f5;
+    color: var(--mall-text);
+    background-color: var(--mall-page-bg);
+    transition: color 0.2s ease, background-color 0.2s ease;
   }
 
   @media (max-width: 1023px) {
     body {
-      background-color: #ffffff;
+      background-color: var(--mall-page-bg);
     }
   }
 
@@ -53,6 +86,46 @@
   ::-webkit-scrollbar-thumb:hover {
     background: #9ca3af;
   }
+}
+
+/* 暗色模式兼容现有 Tailwind 页面，逐步迁移为语义变量时仍保持一致观感 */
+html.dark .bg-white,
+html.dark .bg-white\/95,
+html.dark .bg-white\/90,
+html.dark .bg-white\/80 {
+  background-color: var(--mall-surface) !important;
+}
+
+html.dark .bg-gray-50,
+html.dark .bg-gray-100,
+html.dark .bg-tb-bg,
+html.dark .bg-tb-hover {
+  background-color: var(--mall-surface-soft) !important;
+}
+
+html.dark .text-gray-900,
+html.dark .text-gray-800,
+html.dark .text-gray-700,
+html.dark .text-gray-600,
+html.dark .text-tb-text {
+  color: var(--mall-text) !important;
+}
+
+html.dark .text-gray-500,
+html.dark .text-gray-400,
+html.dark .text-gray-300,
+html.dark .text-tb-sub,
+html.dark .text-tb-muted {
+  color: var(--mall-text-secondary) !important;
+}
+
+html.dark .border-gray-50,
+html.dark .border-gray-100,
+html.dark .border-gray-200,
+html.dark .border-gray-300,
+html.dark .border-tb-border,
+html.dark .border-tb-divider {
+  border-color: var(--mall-border) !important;
 }
 
 /* 工具类 */

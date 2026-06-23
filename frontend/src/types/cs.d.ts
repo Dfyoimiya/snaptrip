@@ -70,6 +70,7 @@ export interface CsNotification {
   ticketId?: string
   title?: string
   body?: string
+  actionUrl?: string
   isRead?: boolean
   readAt?: string
   createdAt?: string

@@ -59,7 +59,7 @@ const handleLogout = () => {
 </script>
 
 <template>
-  <div class="bg-white text-gray-500">
+  <div class="top-bar">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-9 text-xs">
         <!-- 左侧：欢迎语 -->
@@ -134,3 +134,12 @@ const handleLogout = () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.top-bar {
+  color: var(--mall-text-secondary);
+  background: var(--mall-surface);
+  border-bottom: 1px solid var(--mall-border);
+  transition: color 0.2s ease, background-color 0.2s ease;
+}
+</style>

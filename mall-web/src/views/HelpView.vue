@@ -46,7 +46,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="help-page max-w-4xl mx-auto">
+  <div class="help-page w-full">
     <!-- 页面标题 -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 px-6 py-4 mb-5">
       <div class="flex items-center gap-3">
@@ -77,14 +77,14 @@ onMounted(async () => {
       </button>
     </div>
 
-    <div class="flex gap-5">
+    <div class="help-content">
       <!-- 左侧列表 -->
-      <div class="flex-1 min-w-0">
-        <div v-if="loading" class="bg-white rounded-xl shadow-sm border border-gray-100 p-20 text-center text-gray-400">
+      <div class="help-list flex-1 min-w-0">
+        <div v-if="loading" class="help-panel bg-white rounded-xl shadow-sm border border-gray-100 text-center text-gray-400">
           加载中...
         </div>
 
-        <div v-else-if="filteredHelps.length" class="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-50">
+        <div v-else-if="filteredHelps.length" class="help-panel help-panel--list bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-50">
           <div
             v-for="help in filteredHelps"
             :key="help.id"
@@ -99,20 +99,20 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div v-else class="bg-white rounded-xl shadow-sm border border-gray-100 p-20 text-center text-gray-400">
+        <div v-else class="help-panel bg-white rounded-xl shadow-sm border border-gray-100 text-center text-gray-400">
           暂无帮助内容
         </div>
       </div>
 
       <!-- 右侧详情 -->
-      <div class="w-96 flex-shrink-0">
-        <div v-if="selectedHelp" class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sticky top-6">
+      <div class="help-detail w-96 flex-shrink-0">
+        <div v-if="selectedHelp" class="help-panel bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h2 class="text-lg font-bold text-gray-900 mb-4">{{ selectedHelp.title }}</h2>
           <div class="prose prose-sm max-w-none text-gray-700 leading-relaxed whitespace-pre-line">
             {{ selectedHelp.content || '暂无详细内容' }}
           </div>
         </div>
-        <div v-else class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center text-gray-400">
+        <div v-else class="help-panel bg-white rounded-xl shadow-sm border border-gray-100 p-6 text-center text-gray-400">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto mb-2 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
           </svg>
@@ -133,3 +133,35 @@ onMounted(async () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.help-page {
+  display: flex;
+  min-height: calc(100vh - 128px);
+  flex-direction: column;
+}
+
+.help-content {
+  display: flex;
+  flex: 1;
+  gap: 20px;
+}
+
+.help-list,
+.help-detail {
+  display: flex;
+}
+
+.help-panel {
+  display: flex;
+  width: 100%;
+  min-height: 260px;
+  flex: 1;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.help-panel--list {
+  justify-content: flex-start;
+}
+</style>

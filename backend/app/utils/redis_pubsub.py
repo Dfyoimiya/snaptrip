@@ -111,6 +111,23 @@ async def publish_ticket_event(event: str, ticket_id: str, status: str) -> None:
             await redis.close()
 
 
+async def publish_admin_notification(recipient_id: str, payload: dict) -> None:
+    """向指定管理员的通知 SSE 频道发布业务通知。"""
+    redis = get_redis()
+    if not redis:
+        return
+    try:
+        await redis.publish(
+            f"cs:agent:{recipient_id}:notify",
+            json.dumps(payload, default=str),
+        )
+    except Exception:
+        logger.warning("Failed to publish admin notification", exc_info=True)
+    finally:
+        with suppress(Exception):
+            await redis.close()
+
+
 async def message_stream(
     ticket_id: uuid.UUID,
     request: Request,
@@ -193,6 +210,7 @@ __all__ = [
     "get_redis",
     "message_stream",
     "notification_stream",
+    "publish_admin_notification",
     "publish_message",
     "publish_ticket_event",
 ]

@@ -575,15 +575,15 @@ function handleGoHome() { emit('navigate', '/') }
 .inline-search-fixed {
   position: fixed;
   top: 48px;
-  left: 220px;
+  left: 208px;
   right: 19px;
   z-index: 50;
   padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--mall-glass-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--mall-glass-border);
   border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--mall-glass-shadow-soft);
 }
 </style>

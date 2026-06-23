@@ -10,7 +10,7 @@
  * ============================================
  */
 import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useLayoutStore } from '@/stores/layout'
 import { useMemberStore } from '@/stores/member'
 import { useCartStore } from '@/stores/cart'
@@ -21,14 +21,15 @@ import LeftSidebar from './LeftSidebar.vue'
 import ProductCompare from '@/components/product/ProductCompare.vue'
 
 const router = useRouter()
+const route = useRoute()
 const layoutStore = useLayoutStore()
 const memberStore = useMemberStore()
 const cartStore = useCartStore()
 
-const userName = computed(() => {
-  const info = memberStore.userInfo
-  return (info as any)?.nickname || (info as any)?.username || '用户'
-})
+layoutStore.applyTheme()
+
+const userName = computed(() => memberStore.displayName || '用户')
+const fillMain = computed(() => route.meta.fillMain === true)
 
 function navigateTo(path: string) {
   router.push(path)
@@ -58,8 +59,10 @@ function handleLogout() {
     <TabBar />
 
     <!-- ═══ 中层：子页面内容 ═══ -->
-    <main class="main-content">
-      <slot />
+    <main class="main-content" :class="{ 'main-content--fill': fillMain }">
+      <div class="route-content">
+        <slot />
+      </div>
     </main>
 
     <!-- ═══ 商品对比浮层 ═══ -->
@@ -82,7 +85,9 @@ function handleLogout() {
    ═══════════════════════════════════════════ */
 .app-layout {
   min-height: 100vh;
-  background: #f5f5f5;
+  color: var(--mall-text);
+  background: var(--mall-page-bg);
+  transition: color 0.2s ease, background-color 0.2s ease;
 }
 
 /* ═══════════════════════════════════════════
@@ -99,10 +104,28 @@ function handleLogout() {
 
 /* ═══════════════════════════════════════════
    中层：内容区
-   侧边栏 200px + 左侧偏移 12px + 间距 20px = 232px
+   侧边栏 184px + 左侧偏移 12px + 间距 12px = 208px
    ═══════════════════════════════════════════ */
 .main-content {
-  padding: 116px 19px 0 232px;
+  padding: 116px 19px 0 208px;
+}
+
+.route-content {
+  width: 100%;
+}
+
+.main-content--fill {
+  min-height: calc(100vh - 12px);
+}
+
+.main-content--fill .route-content {
+  min-height: calc(100vh - 128px);
+}
+
+@media (max-width: 1023px) {
+  .main-content {
+    padding-left: 19px;
+  }
 }
 
 /* ═══════════════════════════════════════════

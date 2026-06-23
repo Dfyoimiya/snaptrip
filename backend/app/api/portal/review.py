@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.order.order import OmsOrder, OmsOrderItem
 from app.models.product.review import PmsProductReview
+from app.schemas.admin_notification import AdminNotificationCreate
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.review import (
     ReviewCreate,
@@ -25,6 +26,7 @@ from app.schemas.review import (
     ReviewStatsResponse,
     ReviewUpdate,
 )
+from app.services.admin_notification_service import AdminNotificationService
 from app.services.review_service import ReviewService
 from marketplace.app.core.security import get_current_user, oauth2_scheme
 from marketplace.app.models.users import User
@@ -63,6 +65,17 @@ async def create_review(
     if existing:
         raise APIServiceError(code=40001, message="您已评价过该商品")
     result = await svc.create(current_user.id, data)
+    content_preview = (data.content or "").strip()
+    if len(content_preview) > 40:
+        content_preview = f"{content_preview[:40]}…"
+    await AdminNotificationService(db).notify_admins(
+        AdminNotificationCreate(
+            type="review_created",
+            title="新评价待审核",
+            body=f"{data.rating} 星评价：{content_preview or '用户未填写文字评价'}",
+            action_url="/pms/product",
+        )
+    )
     return success(result.id, message="评价成功")
 
 

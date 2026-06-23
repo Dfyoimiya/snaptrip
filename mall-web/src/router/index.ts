@@ -142,7 +142,7 @@ const router = createRouter({
       path: '/help',
       name: 'help',
       component: () => import('@/views/HelpView.vue'),
-      meta: { title: '帮助中心' },
+      meta: { title: '帮助中心', fillMain: true },
     },
     // ===== 会员中心嵌套路由 =====
     {
@@ -154,19 +154,19 @@ const router = createRouter({
           path: '',
           name: 'member-home',
           component: () => import('@/views/member/MemberHomeView.vue'),
-          meta: { title: '个人中心' },
+          meta: { title: '个人中心', fullMain: true, fillMain: true },
         },
         {
           path: 'orders',
           name: 'member-orders',
           component: () => import('@/views/member/MemberOrdersView.vue'),
-          meta: { title: '我的订单' },
+          meta: { title: '我的订单', fillMain: true },
         },
         {
           path: 'favorites',
           name: 'member-favorites',
           component: () => import('@/views/member/MemberFavoritesView.vue'),
-          meta: { title: '我的收藏' },
+          meta: { title: '我的收藏', fullMain: true, fillMain: true },
         },
         {
           path: 'address',
@@ -184,7 +184,7 @@ const router = createRouter({
           path: 'history',
           name: 'member-history',
           component: () => import('@/views/member/MemberHistoryView.vue'),
-          meta: { title: '浏览足迹' },
+          meta: { title: '浏览足迹', fullMain: true, fillMain: true },
         },
         {
           path: 'brands',

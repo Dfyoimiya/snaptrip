@@ -125,7 +125,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="space-y-5">
+  <div class="member-home-page">
     <!-- ====== 用户资产概览卡片 ====== -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <div class="flex items-center gap-5">
@@ -211,13 +211,13 @@ onMounted(async () => {
     </div>
 
     <!-- ====== 最近订单 ====== -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="recent-orders-card bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
         <h3 class="text-base font-bold text-gray-900">最近订单</h3>
       </div>
-      <div v-if="dashboardLoading" class="flex justify-center py-20 text-gray-400">加载中...</div>
+      <div v-if="dashboardLoading" class="recent-orders-body flex justify-center text-gray-400">加载中...</div>
 
-      <div v-else class="divide-y divide-gray-50">
+      <div v-else class="recent-orders-body divide-y divide-gray-50">
         <div
           v-for="order in displayOrders"
           :key="order.id"
@@ -258,3 +258,23 @@ onMounted(async () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.member-home-page {
+  display: flex;
+  min-height: calc(100vh - 128px);
+  flex-direction: column;
+  gap: 20px;
+}
+
+.recent-orders-card {
+  display: flex;
+  flex: 1;
+  min-height: 300px;
+  flex-direction: column;
+}
+
+.recent-orders-body {
+  flex: 1;
+}
+</style>

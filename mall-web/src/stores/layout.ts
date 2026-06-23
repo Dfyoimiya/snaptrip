@@ -19,8 +19,11 @@ import type { ProductSummary } from '@/types'
 
 const HISTORY_KEY = 'snaptrip_browse_history'
 const COMPARE_KEY = 'snaptrip_compare_products'
+const THEME_KEY = 'snaptrip_theme'
 const MAX_HISTORY = 50
 const MAX_COMPARE = 5
+
+export type ThemeType = 'light' | 'dark'
 
 function loadHistory(): ProductSummary[] {
   try {
@@ -56,6 +59,9 @@ export const useLayoutStore = defineStore('layout', () => {
   // 左侧边栏 — 始终展开
   const leftSidebarExpanded = ref(true)
   const leftSidebarLocked = ref(true)
+  const theme = ref<ThemeType>(
+    localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light',
+  )
 
   // 对比 & 历史
   const compareProducts = ref<ProductSummary[]>(loadCompare())
@@ -100,6 +106,19 @@ export const useLayoutStore = defineStore('layout', () => {
   function unlockLeftSidebar() {
     leftSidebarLocked.value = false
     leftSidebarExpanded.value = false
+  }
+
+  /** 将当前主题同步到根节点 */
+  function applyTheme() {
+    document.documentElement.classList.toggle('dark', theme.value === 'dark')
+    document.documentElement.style.colorScheme = theme.value
+  }
+
+  /** 切换并持久化亮色/暗色主题 */
+  function toggleTheme() {
+    theme.value = theme.value === 'light' ? 'dark' : 'light'
+    localStorage.setItem(THEME_KEY, theme.value)
+    applyTheme()
   }
 
   // ── Actions: 浏览足迹 ──
@@ -165,6 +184,7 @@ export const useLayoutStore = defineStore('layout', () => {
     // state
     leftSidebarExpanded,
     leftSidebarLocked,
+    theme,
     compareProducts,
     browseHistory,
     isComparing,
@@ -176,6 +196,8 @@ export const useLayoutStore = defineStore('layout', () => {
     toggleLeftSidebar,
     lockLeftSidebar,
     unlockLeftSidebar,
+    applyTheme,
+    toggleTheme,
     // actions: history
     addToHistory,
     clearHistory,

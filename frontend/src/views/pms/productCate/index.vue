@@ -201,9 +201,9 @@ async function handleSaveCate() {
         class="sortable-table"
         style="width: 100%"
       >
-        <el-table-column label="" width="40" align="center" class-name="drag-col">
+        <el-table-column label="" width="64" align="center" class-name="drag-col">
           <template #default>
-            <el-icon class="drag-handle" :size="20" style="cursor: grab; color: #909399;">
+            <el-icon class="drag-handle" :size="20">
               <Rank />
             </el-icon>
           </template>
@@ -322,5 +322,48 @@ async function handleSaveCate() {
 .sortable-drag {
   background: #fff !important;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+}
+
+// 拖拽列不使用 Element Plus 默认的文本省略规则，避免图标被显示成 "..."
+.sortable-table {
+  th.drag-col,
+  td.drag-col {
+    padding: 0;
+
+    .cell {
+      display: flex;
+      width: 100%;
+      height: 100%;
+      min-height: 48px;
+      align-items: center;
+      justify-content: center;
+      overflow: visible;
+      padding: 0;
+      text-overflow: clip;
+      white-space: normal;
+    }
+  }
+
+  .drag-handle {
+    display: inline-flex;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    align-items: center;
+    justify-content: center;
+    cursor: grab;
+    border-radius: 6px;
+    color: #909399;
+    transition: color 0.15s ease, background-color 0.15s ease;
+
+    &:hover {
+      color: var(--el-color-primary);
+      background: var(--el-color-primary-light-9);
+    }
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
 }
 </style>

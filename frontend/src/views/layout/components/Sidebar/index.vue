@@ -184,6 +184,18 @@ async function handleAccountCommand(command: string): Promise<void> {
   border: 1px solid var(--glass-border);
   border-radius: 16px;
   box-shadow: var(--glass-shadow);
+  transform: translateX(calc(-100% - 12px));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 0.25s ease,
+    opacity 0.2s ease;
+
+  &.sidebar-open {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
+  }
 
   &.no-animation {
     transition: none !important;
@@ -406,6 +418,7 @@ async function handleAccountCommand(command: string): Promise<void> {
     -webkit-backdrop-filter: blur(24px);
     box-shadow: 12px 0 32px rgba(15, 23, 42, 0.18);
     transform: translateX(-100%);
+    opacity: 1;
     transition: transform 0.25s ease;
     z-index: 999;
     pointer-events: none;

@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy import Boolean, DateTime, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -28,16 +28,18 @@ class CsNotification(CommerceBase, AuditMixin):
       - sla_breach: SLA 已超时
       - ticket_closed: 工单已关闭
       - ticket_assigned: 工单已指派给你
+      - order_created: 用户提交新订单
+      - return_requested: 用户提交退货申请
+      - review_created: 用户提交新评价
     """
 
     __tablename__ = "cs_notifications"
 
     recipient_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        comment="接收通知的管理员 ID",
+        comment="接收通知的管理员 ID（数据库层保留 users.id 外键）",
     )
     type: Mapped[str] = mapped_column(
         String(32),
@@ -60,6 +62,11 @@ class CsNotification(CommerceBase, AuditMixin):
         Text,
         nullable=True,
         comment="通知正文",
+    )
+    action_url: Mapped[str | None] = mapped_column(
+        String(512),
+        nullable=True,
+        comment="B端点击通知后的站内跳转地址",
     )
     is_read: Mapped[bool] = mapped_column(
         Boolean,

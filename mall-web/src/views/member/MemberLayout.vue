@@ -15,6 +15,8 @@ const router = useRouter()
 const memberStore = useMemberStore()
 
 const couponCount = ref(0)
+const useFullMain = computed(() => route.meta.fullMain === true)
+const fillMain = computed(() => route.meta.fillMain === true)
 
 const memberLevel = computed(() => {
   const pts = memberStore.integration
@@ -87,9 +89,15 @@ const avatarLetter = computed(() => {
 </script>
 
 <template>
-  <div class="flex gap-5 min-h-[600px]">
+  <div
+    class="member-layout min-h-[600px]"
+    :class="{
+      'member-layout--full': useFullMain,
+      'member-layout--fill': fillMain,
+    }"
+  >
     <!-- ====== 左侧侧边栏 ====== -->
-    <aside class="w-[220px] flex-shrink-0">
+    <aside v-if="!useFullMain" class="w-[220px] flex-shrink-0">
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden sticky top-4">
         <!-- 用户信息摘要 -->
         <div class="p-5 border-b border-gray-100 bg-gradient-to-br from-brand-50 to-white">
@@ -145,8 +153,32 @@ const avatarLetter = computed(() => {
     </aside>
 
     <!-- ====== 右侧内容面板 ====== -->
-    <main class="flex-1 min-w-0">
+    <main class="member-main flex-1 min-w-0">
       <RouterView />
     </main>
   </div>
 </template>
+
+<style scoped>
+.member-layout {
+  display: flex;
+  width: 100%;
+  gap: 20px;
+}
+
+.member-layout--full {
+  display: block;
+}
+
+.member-layout--fill {
+  min-height: 100%;
+}
+
+.member-main {
+  width: 100%;
+}
+
+.member-layout--fill .member-main {
+  min-height: 100%;
+}
+</style>

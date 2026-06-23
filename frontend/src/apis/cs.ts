@@ -113,7 +113,7 @@ export function updateAgentStatusAPI(status: string, currentTicketId?: string) {
 
 /** GET /admin/cs/notifications — 通知列表 */
 export function getNotificationsAPI(isRead?: boolean, limit = 50) {
-  return request<CommonResult<{ items: CsNotification[]; unread_count: number; total: number }>>({
+  return request<CommonResult<{ items: CsNotification[]; unreadCount: number; total: number }>>({
     url: '/admin/cs/notifications',
     method: 'get',
     params: { is_read: isRead, limit },

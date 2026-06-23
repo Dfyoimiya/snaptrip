@@ -19,6 +19,7 @@ const device = computed(() => appStore.device)
 
 const classObj = computed(() => ({
   mobile: device.value === 'mobile',
+  'sidebar-collapsed': device.value === 'desktop' && !sidebar.value.opened,
 }))
 
 // 路由变化时自动添加 Tab
@@ -69,10 +70,17 @@ useResizeHandler()
     min-height: 100vh;
     background-color: var(--admin-page-bg);
     overflow: hidden;
+    transition: margin-left 0.25s ease;
 
     .fixed-header {
       flex-shrink: 0;
       z-index: 100;
+    }
+  }
+
+  &.sidebar-collapsed {
+    .main-container {
+      margin-left: 0;
     }
   }
 

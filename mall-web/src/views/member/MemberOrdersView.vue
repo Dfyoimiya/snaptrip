@@ -165,7 +165,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden min-h-[500px]">
+  <div class="member-fill-card bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
     <!-- 标题 -->
     <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
       <h2 class="text-lg font-bold text-gray-900">我的订单</h2>
@@ -191,10 +191,10 @@ onMounted(() => {
     </div>
 
     <!-- 加载中 -->
-    <div v-if="loading" class="flex justify-center py-20 text-gray-400">加载中...</div>
+    <div v-if="loading" class="member-fill-state flex justify-center text-gray-400">加载中...</div>
 
     <!-- 订单列表 -->
-    <div v-else class="divide-y divide-gray-50">
+    <div v-else class="member-fill-body divide-y divide-gray-50">
       <div
         v-for="order in orders"
         :key="order.id"
@@ -268,7 +268,7 @@ onMounted(() => {
       </div>
 
       <!-- 空状态 -->
-      <div v-if="orders.length === 0" class="flex flex-col items-center justify-center py-20 text-gray-400">
+      <div v-if="orders.length === 0" class="member-fill-state flex flex-col items-center justify-center text-gray-400">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
         </svg>
@@ -286,3 +286,24 @@ onMounted(() => {
     @submitted="onOrderReviewSubmitted()"
   />
 </template>
+
+<style scoped>
+.member-fill-card {
+  display: flex;
+  min-height: calc(100vh - 128px);
+  flex-direction: column;
+}
+
+.member-fill-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+}
+
+.member-fill-state {
+  flex: 1;
+  min-height: 360px;
+  align-items: center;
+  justify-content: center;
+}
+</style>

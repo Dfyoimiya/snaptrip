@@ -40,13 +40,18 @@ export const constantRouterMap: RouteRecordExt[] = [
       },
     ],
   },
-  // 兜底路由：避免异步路由加载前 URL 匹配警告
-  {
-    path: '/:pathMatch(.*)*',
-    redirect: '/404',
-    hidden: true,
-  },
 ]
+
+/**
+ * 404 兜底必须在权限路由注册完成后最后添加。
+ * 如果放进初始路由，刷新动态页面时会先匹配兜底并丢失原始地址。
+ */
+export const notFoundRoute: RouteRecordExt = {
+  path: '/:pathMatch(.*)*',
+  name: 'notFoundFallback',
+  redirect: '/404',
+  hidden: true,
+}
 
 // ========== 动态路由（需要权限） ==========
 export const asyncRouterMap: RouteRecordExt[] = [

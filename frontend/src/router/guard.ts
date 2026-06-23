@@ -7,10 +7,13 @@ import { ElMessage } from 'element-plus'
 import { getToken, getRefreshToken, clearAuth } from '@/utils/storage'
 import { isTokenExpired } from '@/utils/jwt'
 import { refreshAccessToken } from '@/utils/tokenRefresh'
+import { notFoundRoute } from '@/router'
 
 NProgress.configure({ showSpinner: false })
 
 const whiteList = ['/login', '/403', '/404']
+const REDIRECT_ROUTE_NAME = 'runtimeRedirect'
+const NOT_FOUND_ROUTE_NAME = 'notFoundFallback'
 
 function getLoginRedirect(fullPath: string): string {
   const blockedPaths = ['/login', '/403', '/404']
@@ -23,6 +26,27 @@ function getLoginRedirect(fullPath: string): string {
 }
 
 export function setupRouterGuard(router: Router) {
+  function registerRuntimeRoutes(permissionStore: ReturnType<typeof usePermissionStore>) {
+    permissionStore.addRouters.forEach((route) => {
+      if (!route.name || !router.hasRoute(route.name)) {
+        router.addRoute(route as any)
+      }
+    })
+
+    if (!router.hasRoute(REDIRECT_ROUTE_NAME)) {
+      router.addRoute({
+        path: '/redirect/:path(.*)',
+        name: REDIRECT_ROUTE_NAME,
+        component: () => import('@/views/layout/components/Redirect.vue'),
+      } as any)
+    }
+
+    // 必须最后注册，确保刷新动态页面时先匹配刚添加的权限路由。
+    if (!router.hasRoute(NOT_FOUND_ROUTE_NAME)) {
+      router.addRoute(notFoundRoute as any)
+    }
+  }
+
   router.beforeEach(async (to, from, next) => {
     NProgress.start()
 
@@ -41,13 +65,7 @@ export function setupRouterGuard(router: Router) {
               await userStore.loadProfileAndAccess()
             }
             permissionStore.generateRoutes(userStore.userInfo.menus)
-            permissionStore.addRouters.forEach((route) => {
-              router.addRoute(route as any)
-            })
-            router.addRoute({
-              path: '/redirect/:path(.*)',
-              component: () => import('@/views/layout/components/Redirect.vue'),
-            } as any)
+            registerRuntimeRoutes(permissionStore)
 
             next({ ...to, replace: true })
           } catch (error) {
@@ -84,13 +102,7 @@ export function setupRouterGuard(router: Router) {
                   await userStore.loadProfileAndAccess()
                 }
                 permissionStore.generateRoutes(userStore.userInfo.menus)
-                permissionStore.addRouters.forEach((route) => {
-                  router.addRoute(route as any)
-                })
-                router.addRoute({
-                  path: '/redirect/:path(.*)',
-                  component: () => import('@/views/layout/components/Redirect.vue'),
-                } as any)
+                registerRuntimeRoutes(permissionStore)
                 next({ ...to, replace: true })
               } catch (error) {
                 console.error('动态路由生成失败:', error)

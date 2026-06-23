@@ -39,7 +39,7 @@ const groupedByDate = computed(() => {
   // 按日期 -> itemId 去重，保留每个产品当天的最新浏览
   const dateItemMap = new Map<string, Map<string, BehaviorItem>>()
   for (const item of filtered) {
-    const dateKey = item.createdAt!.split('T')[0]
+    const dateKey = item.createdAt!.slice(0, 10)
     const itemKey = item.itemId || '__no_id__'
     if (!dateItemMap.has(dateKey)) dateItemMap.set(dateKey, new Map())
     const itemMap = dateItemMap.get(dateKey)!
@@ -172,7 +172,7 @@ onMounted(loadHistory)
 </script>
 
 <template>
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden min-h-[500px]">
+  <div class="member-fill-card bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
     <!-- Header -->
     <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
       <h2 class="text-lg font-bold text-gray-900 flex-shrink-0">浏览足迹</h2>
@@ -223,7 +223,7 @@ onMounted(loadHistory)
     </div>
 
     <!-- 加载中 -->
-    <div v-if="loading" class="flex items-center justify-center py-20 text-gray-400">
+    <div v-if="loading" class="member-fill-state flex items-center justify-center text-gray-400">
       <svg class="animate-spin h-6 w-6 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -232,7 +232,7 @@ onMounted(loadHistory)
     </div>
 
     <!-- 空状态 -->
-    <div v-else-if="allItems.length === 0" class="flex flex-col items-center justify-center py-20 text-gray-400">
+    <div v-else-if="allItems.length === 0" class="member-fill-state flex flex-col items-center justify-center text-gray-400">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mb-4 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
@@ -242,7 +242,7 @@ onMounted(loadHistory)
     </div>
 
     <!-- 搜索无结果 -->
-    <div v-else-if="totalCount === 0" class="flex flex-col items-center justify-center py-20 text-gray-400">
+    <div v-else-if="totalCount === 0" class="member-fill-state flex flex-col items-center justify-center text-gray-400">
       <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-3 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
         <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
       </svg>
@@ -319,6 +319,17 @@ onMounted(loadHistory)
 </template>
 
 <style scoped>
+.member-fill-card {
+  display: flex;
+  min-height: calc(100vh - 128px);
+  flex-direction: column;
+}
+
+.member-fill-state {
+  flex: 1;
+  min-height: 360px;
+}
+
 .line-clamp-2 {
   display: -webkit-box;
   -webkit-line-clamp: 2;

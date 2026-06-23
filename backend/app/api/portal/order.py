@@ -14,8 +14,10 @@ from snaptrip_shared.core.response import success
 from snaptrip_shared.db.session import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.schemas.admin_notification import AdminNotificationCreate
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.order import OrderCreateDirect, OrderCreateFromCart
+from app.services.admin_notification_service import AdminNotificationService
 from app.services.order_service import OrderService
 from marketplace.app.core.security import get_current_user
 from marketplace.app.models.users import User
@@ -35,6 +37,14 @@ async def create_order(
         result = await svc.create_direct(current_user.id, current_user.email, data)
     else:
         result = await svc.create_from_cart(current_user.id, current_user.email, data)
+    await AdminNotificationService(db).notify_admins(
+        AdminNotificationCreate(
+            type="order_created",
+            title="新订单提醒",
+            body=f"用户 {current_user.email} 提交了订单 {result.order_sn}",
+            action_url=f"/oms/orderDetail?id={result.id}",
+        )
+    )
     return success(result.model_dump())
 
 

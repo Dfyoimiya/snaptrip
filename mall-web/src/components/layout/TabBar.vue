@@ -305,16 +305,16 @@ watch(
 .tab-bar-wrapper {
   position: fixed;
   top: 64px;
-  left: 220px;
+  left: 208px;
   right: 19px;
   z-index: 49;
   padding: 2px 8px;
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--mall-glass-bg-light);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  border: 1px solid var(--mall-glass-border);
   border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--mall-glass-shadow-soft);
 }
 
 /* ── 滚动箭头按钮 ── */
@@ -438,7 +438,8 @@ watch(
 .tab-context-menu {
   position: fixed;
   z-index: 9999;
-  background: #fff;
+  color: var(--mall-text);
+  background: var(--mall-surface);
   border-radius: 8px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
   padding: 4px;
@@ -451,18 +452,18 @@ watch(
   text-align: left;
   padding: 6px 12px;
   font-size: 13px;
-  color: #333;
+  color: var(--mall-text);
   border-radius: 4px;
   transition: background 0.1s;
 }
 
 .tab-context-menu button:hover {
-  background: #f5f5f5;
+  background: var(--mall-hover);
 }
 
 .tab-context-menu hr {
   margin: 4px 8px;
   border: none;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--mall-border);
 }
 </style>

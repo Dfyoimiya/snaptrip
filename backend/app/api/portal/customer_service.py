@@ -33,6 +33,7 @@ from app.models.order.order import OmsOrder
 from app.models.order.return_apply import OmsReturnApply
 from app.models.order.support_ticket import OmsSupportTicket
 from app.models.promotion.coupon import SmsCoupon, SmsCouponHistory
+from app.schemas.admin_notification import AdminNotificationCreate
 from app.schemas.cs_admin import CsMessageListResponse, CsMessageRequest, CsMessageResponse
 from app.schemas.customer_service import (
     CompensationRequest,
@@ -49,6 +50,7 @@ from app.schemas.customer_service import (
     SessionSummaryResponse,
     TicketResponse,
 )
+from app.services.admin_notification_service import AdminNotificationService
 from app.utils.redis_pubsub import message_stream, publish_message, publish_ticket_event
 from marketplace.app.core.security import get_current_user, oauth2_scheme
 from marketplace.app.models.users import User
@@ -201,6 +203,14 @@ async def submit_return_request(
     db.add(return_apply)
     await db.commit()
     await db.refresh(return_apply)
+    await AdminNotificationService(db).notify_admins(
+        AdminNotificationCreate(
+            type="return_requested",
+            title="新退货申请",
+            body=f"订单 {return_apply.order_sn} 提交了退货申请：{data.reason}",
+            action_url=f"/oms/returnApplyDetail?id={return_apply.id}",
+        )
+    )
 
     return success(
         ReturnSubmitResponse(
@@ -276,6 +286,15 @@ async def create_support_ticket(
     db.add(ticket)
     await db.commit()
     await db.refresh(ticket)
+    await AdminNotificationService(db).notify_admins(
+        AdminNotificationCreate(
+            type="new_ticket",
+            ticket_id=ticket.id,
+            title="新客服工单",
+            body=f"{current_user.email}：{ticket.title}",
+            action_url=f"/cs/ticket/{ticket.id}",
+        )
+    )
 
     return success(TicketResponse.model_validate(ticket).model_dump())
 
@@ -322,6 +341,15 @@ async def ensure_cs_session(
 
     # 通知 B 端有新工单创建 (fire-and-forget)
     asyncio.create_task(publish_ticket_event("ticket_created", str(ticket.id), ticket.status))
+    await AdminNotificationService(db).notify_admins(
+        AdminNotificationCreate(
+            type="new_ticket",
+            ticket_id=ticket.id,
+            title="新的在线咨询",
+            body=f"用户 {current_user.email} 发起了在线客服咨询",
+            action_url=f"/cs/ticket/{ticket.id}",
+        )
+    )
 
     return success(TicketResponse.model_validate(ticket).model_dump())
 
@@ -699,6 +727,18 @@ async def send_message_portal(
             msg.created_at.isoformat() if msg.created_at else "",
         )
     )
+    content_preview = msg.content.strip()
+    if len(content_preview) > 60:
+        content_preview = f"{content_preview[:60]}…"
+    await AdminNotificationService(db).notify_admins(
+        AdminNotificationCreate(
+            type="new_message",
+            ticket_id=ticket.id,
+            title="客服工单有新消息",
+            body=content_preview or "用户发送了一条新消息",
+            action_url=f"/cs/ticket/{ticket.id}",
+        )
+    )
 
     return success(CsMessageResponse.model_validate(msg).model_dump())
 
@@ -770,4 +810,3 @@ async def stream_ticket_portal(
         raise HTTPException(status_code=403, detail="无权查看")
 
     return EventSourceResponse(message_stream(ticket_id, request))
-

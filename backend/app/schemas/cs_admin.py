@@ -151,6 +151,7 @@ class NotificationResponse(BaseModel):
     ticket_id: UUID | None = None
     title: str
     body: str | None = None
+    action_url: str | None = None
     is_read: bool
     read_at: datetime | None = None
     created_at: datetime

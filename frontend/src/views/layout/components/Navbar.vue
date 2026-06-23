@@ -5,12 +5,19 @@ import {
   Fold, Expand, Search, RefreshRight, FullScreen,
   Bell, Setting, Close, Moon, Sunny, Right,
 } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import {
+  getNotificationsAPI,
+  markAllNotificationsReadAPI,
+  markNotificationReadAPI,
+} from '@/apis/cs'
 import { useAppStore } from '@/stores/app'
 import { usePermissionStore } from '@/stores/permission'
 import { useTabStore } from '@/stores/tab'
 import { HOME_TAB_PATH } from '@/stores/tab'
 import type { TabView } from '@/stores/tab'
 import type { RouteRecordExt } from '@/types'
+import type { CsNotification } from '@/types/cs'
 
 interface SearchRouteItem {
   path: string
@@ -84,12 +91,81 @@ const breadcrumbs = computed(() => {
 })
 
 // 通知
-const notifications = ref([
-  { id: 1, title: '新订单提醒', content: '您有新的待处理订单', time: '5分钟前' },
-  { id: 2, title: '库存预警', content: '商品 "iPhone 15" 库存不足', time: '1小时前' },
-  { id: 3, title: '系统通知', content: '系统将于今晚进行维护', time: '2小时前' },
-])
-const unreadCount = ref(3)
+const notifications = ref<CsNotification[]>([])
+const unreadCount = ref(0)
+let notificationTimer: ReturnType<typeof setInterval> | undefined
+
+async function loadNotifications(): Promise<void> {
+  try {
+    const response = await getNotificationsAPI(undefined, 20)
+    notifications.value = response.data.items
+    unreadCount.value = response.data.unreadCount
+  } catch {
+    // 请求层已统一展示错误，轮询失败时保留当前列表。
+  }
+}
+
+function formatNotificationTime(createdAt?: string): string {
+  if (!createdAt) return ''
+  const timestamp = new Date(createdAt).getTime()
+  if (Number.isNaN(timestamp)) return ''
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000))
+  if (elapsedSeconds < 60) return '刚刚'
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60)
+  if (elapsedMinutes < 60) return `${elapsedMinutes}分钟前`
+  const elapsedHours = Math.floor(elapsedMinutes / 60)
+  if (elapsedHours < 24) return `${elapsedHours}小时前`
+  const elapsedDays = Math.floor(elapsedHours / 24)
+  if (elapsedDays < 7) return `${elapsedDays}天前`
+  return new Date(createdAt).toLocaleString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function resolveNotificationTarget(notification: CsNotification): string {
+  if (notification.actionUrl) return notification.actionUrl
+  if (notification.ticketId) return `/cs/ticket/${notification.ticketId}`
+  if (notification.type === 'order_created') return '/oms/order'
+  if (notification.type === 'review_created') return '/pms/product'
+  return HOME_TAB_PATH
+}
+
+async function handleNotificationClick(notification: CsNotification): Promise<void> {
+  try {
+    if (notification.id && !notification.isRead) {
+      await markNotificationReadAPI(notification.id)
+      notification.isRead = true
+      unreadCount.value = Math.max(0, unreadCount.value - 1)
+    }
+    await router.push(resolveNotificationTarget(notification))
+  } catch {
+    ElMessage.error('消息处理失败，请稍后重试')
+  }
+}
+
+async function handleNotificationCommand(command: CsNotification | 'mark-all'): Promise<void> {
+  if (command === 'mark-all') {
+    await handleMarkAllRead()
+    return
+  }
+  await handleNotificationClick(command)
+}
+
+async function handleMarkAllRead(): Promise<void> {
+  if (unreadCount.value === 0) return
+  try {
+    await markAllNotificationsReadAPI()
+    notifications.value.forEach((notification) => {
+      notification.isRead = true
+    })
+    unreadCount.value = 0
+  } catch {
+    ElMessage.error('标记已读失败，请稍后重试')
+  }
+}
 
 // Tab右键菜单
 const tabMenuVisible = ref(false)
@@ -192,8 +268,15 @@ watch(searchVisible, async (visible) => {
   }
 })
 
-onMounted(() => window.addEventListener('keydown', handleGlobalKeydown))
-onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown))
+onMounted(() => {
+  window.addEventListener('keydown', handleGlobalKeydown)
+  void loadNotifications()
+  notificationTimer = window.setInterval(() => void loadNotifications(), 30_000)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown)
+  if (notificationTimer !== undefined) window.clearInterval(notificationTimer)
+})
 </script>
 
 <template>
@@ -202,7 +285,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
     <div class="navbar-top">
       <!-- 左侧 -->
       <div class="top-left">
-        <div class="hamburger" @click="toggleSidebar">
+        <div
+          class="hamburger"
+          role="button"
+          tabindex="0"
+          :title="sidebar.opened ? '收起侧边栏' : '展开侧边栏'"
+          :aria-label="sidebar.opened ? '收起侧边栏' : '展开侧边栏'"
+          @click="toggleSidebar"
+          @keydown.enter="toggleSidebar"
+          @keydown.space.prevent="toggleSidebar"
+        >
           <el-icon :size="18"><Fold v-if="sidebar.opened" /><Expand v-else /></el-icon>
         </div>
         <el-breadcrumb separator="/" class="breadcrumb">
@@ -249,27 +341,44 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
         </div>
 
         <!-- 通知 -->
-        <el-dropdown trigger="click" :teleported="false">
+        <el-dropdown
+          trigger="click"
+          :teleported="true"
+          popper-class="notification-popper-vben"
+          @visible-change="(visible: boolean) => visible && loadNotifications()"
+          @command="handleNotificationCommand"
+        >
           <div class="tool-btn notification-btn">
             <el-icon :size="16"><Bell /></el-icon>
             <span v-if="unreadCount > 0" class="notification-dot">{{ unreadCount }}</span>
           </div>
           <template #dropdown>
             <el-dropdown-menu class="notification-dropdown-vben">
-              <div class="notif-header">
+              <el-dropdown-item class="notif-header" disabled>
                 <span class="notif-title">消息通知</span>
                 <el-tag size="small" type="primary">{{ unreadCount }} 未读</el-tag>
-              </div>
-              <el-dropdown-item v-for="n in notifications" :key="n.id">
+              </el-dropdown-item>
+              <el-dropdown-item
+                v-for="n in notifications"
+                :key="n.id"
+                class="notif-row"
+                :class="{ 'is-unread': !n.isRead }"
+                :command="n"
+              >
                 <div class="notif-item">
                   <div class="notif-item-title">{{ n.title }}</div>
-                  <div class="notif-item-desc">{{ n.content }}</div>
-                  <div class="notif-item-time">{{ n.time }}</div>
+                  <div v-if="n.body" class="notif-item-desc">{{ n.body }}</div>
+                  <div class="notif-item-time">{{ formatNotificationTime(n.createdAt) }}</div>
                 </div>
               </el-dropdown-item>
-              <div class="notif-footer">
-                <el-button link type="primary" size="small">查看全部</el-button>
-              </div>
+              <el-dropdown-item v-if="notifications.length === 0" class="notif-empty" disabled>
+                暂无消息
+              </el-dropdown-item>
+              <el-dropdown-item class="notif-footer" command="mark-all">
+                <el-button link type="primary" size="small" :disabled="unreadCount === 0">
+                  全部标为已读
+                </el-button>
+              </el-dropdown-item>
             </el-dropdown-menu>
           </template>
         </el-dropdown>
@@ -365,7 +474,10 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
 <style lang="scss" scoped>
 .navbar-vben {
   display: flex;
+  width: 100%;
+  min-width: 0;
   flex-direction: column;
+  overflow: visible;
 }
 
 /* 顶部工具栏 — 浮动玻璃 */
@@ -498,6 +610,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
 /* Tab 标签栏 — 浮动玻璃 */
 .tab-bar {
   display: flex;
+  width: auto;
+  max-width: calc(100% - 32px);
+  min-width: 0;
   align-items: center;
   gap: 2px;
   margin: 8px 16px 0 16px;
@@ -508,10 +623,16 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
   border: 1px solid rgba(0, 0, 0, 0.04);
   border-radius: 10px;
   overflow-x: auto;
+  overflow-y: hidden;
   position: relative;
+  scrollbar-width: thin;
+  scrollbar-color: var(--admin-border) transparent;
 
   .tab-item {
     display: flex;
+    min-width: 88px;
+    max-width: 168px;
+    flex: 1 1 128px;
     align-items: center;
     gap: 8px;
     padding: 7px 14px;
@@ -524,6 +645,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
     transition: all 0.2s;
     white-space: nowrap;
     user-select: none;
+
+    .tab-title {
+      min-width: 0;
+      flex: 1;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
 
     &:hover {
       color: #165dff;
@@ -580,47 +709,133 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
 
 /* 通知下拉 */
 :global(.notification-dropdown-vben) {
+  display: flex !important;
   width: 320px !important;
+  min-width: 320px !important;
+  box-sizing: border-box;
+  flex-direction: column;
   padding: 0 !important;
+  overflow: hidden;
+}
 
-  .notif-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 16px;
-    border-bottom: 1px solid #e5e6eb;
+:global(.notification-dropdown-vben > .el-dropdown-menu__item) {
+  display: flex !important;
+  width: 100% !important;
+  box-sizing: border-box;
+  line-height: normal;
+  white-space: normal;
+}
 
-    .notif-title {
-      font-weight: 600;
-      font-size: 14px;
-    }
-  }
+:global(.notification-dropdown-vben > .notif-header) {
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px !important;
+  border-bottom: 1px solid var(--admin-border);
+  color: var(--admin-text) !important;
+  background: var(--admin-surface);
+  opacity: 1 !important;
+  cursor: default;
+}
 
-  .notif-item {
-    padding: 8px 0;
-    width: 100%;
+:global(.notification-dropdown-vben .notif-title) {
+  font-size: 14px;
+  font-weight: 600;
+}
 
-    .notif-item-title {
-      font-weight: 500;
-      font-size: 13px;
-      margin-bottom: 4px;
-    }
-    .notif-item-desc {
-      font-size: 12px;
-      color: #86909c;
-      margin-bottom: 4px;
-    }
-    .notif-item-time {
-      font-size: 11px;
-      color: #c9cdd4;
-    }
-  }
+:global(.notification-dropdown-vben > .notif-row) {
+  min-height: 0;
+  flex: 0 0 auto;
+  align-items: stretch;
+  padding: 0 !important;
+  color: var(--admin-text);
+  background: var(--admin-surface);
+}
 
-  .notif-footer {
-    padding: 8px;
-    text-align: center;
-    border-top: 1px solid #e5e6eb;
-  }
+:global(.notification-dropdown-vben > .notif-row.is-unread) {
+  background: rgba(22, 93, 255, 0.06);
+}
+
+:global(.notification-dropdown-vben > .notif-row:hover) {
+  background: var(--admin-hover);
+}
+
+:global(.notification-dropdown-vben .notif-item) {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 12px 16px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+:global(.notification-dropdown-vben .notif-item-title),
+:global(.notification-dropdown-vben .notif-item-desc),
+:global(.notification-dropdown-vben .notif-item-time) {
+  display: block;
+  width: 100%;
+}
+
+:global(.notification-dropdown-vben .notif-item-title) {
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+:global(.notification-dropdown-vben .notif-item-desc) {
+  margin-bottom: 4px;
+  color: #86909c;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+:global(.notification-dropdown-vben .notif-item-time) {
+  color: #c9cdd4;
+  font-size: 11px;
+}
+
+:global(.notification-dropdown-vben > .notif-footer) {
+  flex: 0 0 auto;
+  justify-content: center;
+  padding: 8px 16px !important;
+  border-top: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+}
+
+:global(.notification-dropdown-vben > .notif-empty) {
+  justify-content: center;
+  padding: 28px 16px !important;
+  color: #86909c !important;
+  opacity: 1 !important;
+}
+
+:global(.notification-popper-vben) {
+  z-index: 4000 !important;
+}
+
+:global(.notification-popper-vben .el-popper__arrow::before) {
+  background: var(--admin-surface) !important;
+  border-color: var(--admin-border) !important;
+}
+
+:global(.notification-popper-vben .notification-dropdown-vben) {
+  max-height: min(420px, calc(100vh - 96px));
+  overflow-y: auto;
+}
+
+:global(.notification-popper-vben .notif-header.is-disabled) {
+  color: var(--admin-text) !important;
+  opacity: 1 !important;
+}
+
+:global(.notification-popper-vben .notif-row:not(.is-disabled):hover),
+:global(.notification-popper-vben .notif-row:not(.is-disabled):focus) {
+  color: var(--admin-text) !important;
+  background: var(--admin-hover) !important;
 }
 
 :global(.route-search-dialog) {
@@ -660,6 +875,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleGlobalKeydown)
 
   .tab-bar {
     margin: 6px 8px 0 8px;
+    max-width: calc(100% - 16px);
   }
 }
 
