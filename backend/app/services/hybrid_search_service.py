@@ -130,7 +130,8 @@ class HybridSearchService:
 
         # 1. Query Understanding (意图 + 实体 + 改写 + 向量化)
         intent = "navigational"
-        weights = {"bm25": 0.35, "vector": 0.10, "cf": 0.10, "price": 0.05, "category": 0.15, "brand": 0.25}
+        # 默认权重已对齐 ES + ik_max_word 中文分词精度提升
+        weights = {"bm25": 0.60, "vector": 0.05, "cf": 0.05, "price": 0.05, "category": 0.10, "brand": 0.15}
         rewritten_keyword = keyword
         pre_embedding: list[float] | None = None
         extracted_entities: dict = {}

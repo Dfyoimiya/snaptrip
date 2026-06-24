@@ -52,10 +52,11 @@ _INFORMATIONAL_KEYWORDS = [
 ]
 
 INTENT_WEIGHTS: dict[str, dict[str, float]] = {
+    # BM25 权重已提升：ES + ik_max_word 中文分词后精确度显著提高
     # brand 权重: navigational 最高 (用户搜品牌), transactional 中 (品牌影响购买), informational 低
-    "transactional": {"bm25": 0.20, "vector": 0.20, "cf": 0.15, "price": 0.18, "category": 0.12, "brand": 0.15},
-    "navigational":  {"bm25": 0.35, "vector": 0.10, "cf": 0.10, "price": 0.05, "category": 0.15, "brand": 0.25},
-    "informational": {"bm25": 0.15, "vector": 0.35, "cf": 0.15, "price": 0.05, "category": 0.15, "brand": 0.15},
+    "transactional": {"bm25": 0.35, "vector": 0.15, "cf": 0.10, "price": 0.18, "category": 0.12, "brand": 0.10},
+    "navigational":  {"bm25": 0.60, "vector": 0.05, "cf": 0.05, "price": 0.05, "category": 0.10, "brand": 0.15},
+    "informational": {"bm25": 0.25, "vector": 0.30, "cf": 0.10, "price": 0.05, "category": 0.15, "brand": 0.15},
 }
 
 # ── Entity Extraction ─────────────────────────────────────────────────────────
@@ -274,8 +275,8 @@ class QueryUnderstandingService:
         - Adding relevant category/brand context
         - Adapting language to the search intent
         """
-        # Try LLM rewrite when available and entities were extracted
-        if self._llm and (entities.category or entities.brand or entities.attributes):
+        # Try LLM rewrite when available (放宽条件: 任何非短查询都尝试改写)
+        if self._llm and len(query) >= 2:
             try:
                 rewritten = await self._llm_rewrite(query, entities, intent)
                 if rewritten and rewritten != query:
@@ -363,8 +364,18 @@ class QueryUnderstandingService:
 
 
 def _rewrite_query_rules(query: str, entities: QueryEntities) -> str:
-    """基于实体进行规则改写: 补充缺失的关键词维度。"""
-    parts = [query]
+    """基于实体进行规则改写: 补充缺失的关键词维度。
+
+    同时做基本的查询清洁: 去除标点/多余空格, 保留核心搜索词。
+    当 LLM 不可用时作为降级方案。
+    """
+    import re
+
+    # 1. 基础清洁: 去除标点符号（保留中英文关键词）
+    cleaned = re.sub(r'[，,。！!？?、；;：:（）()【】\[\]《》""''\s]+', ' ', query).strip()
+
+    # 2. 实体补充
+    parts = [cleaned] if cleaned else [query]
     if entities.brand and entities.brand.lower() not in query.lower():
         parts.append(entities.brand)
     if entities.category and entities.category not in query:
@@ -373,7 +384,8 @@ def _rewrite_query_rules(query: str, entities: QueryEntities) -> str:
         for attr in entities.attributes[:2]:
             if attr not in query:
                 parts.append(attr)
-    return " ".join(parts) if len(parts) > 1 else query
+
+    return " ".join(parts) if len(parts) > 1 else cleaned if cleaned else query
 
 
 def _classify_intent_rules(query: str) -> str | None:

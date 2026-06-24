@@ -78,6 +78,14 @@ async def lifespan(app: FastAPI):
     app.state.oss_client = get_oss_client()
 
     try:
+        # LLM adapter (shared across product search, recommendations, search suggest)
+        from shopping_guide.adapters import get_llm_adapter
+
+        app.state.llm_adapter = get_llm_adapter()
+    except Exception:
+        logger.warning("LLM adapter initialization failed, entity extraction disabled", exc_info=True)
+
+    try:
         # Recommendation & search infrastructure
         from app.services.ab_test import ABTestEngine
         from app.services.autocomplete_service import AutocompleteService

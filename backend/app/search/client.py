@@ -152,17 +152,29 @@ class ESSearchClient:
             assert self._client is not None
 
             must_clauses: list[dict[str, Any]] = []
+            should_clauses: list[dict[str, Any]] = []
             filter_clauses: list[dict[str, Any]] = []
 
             if keyword:
+                # ── 构建优化后的搜索查询 ──
+                # must: 广泛召回（多字段 + 模糊匹配）
                 must_clauses.append(
                     {
                         "multi_match": {
                             "query": keyword,
                             "fields": ["name^3", "sub_title^2", "keywords", "brand_name"],
                             "type": "best_fields",
+                            "fuzziness": "AUTO",
                         }
                     }
+                )
+                # should: 短语精准匹配提升（仅加分，不过滤）
+                # ik_max_word 将"手机壳"切为["手机","机壳"], match_phrase 对相邻术语给予 boost
+                should_clauses.append(
+                    {"match_phrase": {"name": {"query": keyword, "slop": 1, "boost": 5}}}
+                )
+                should_clauses.append(
+                    {"match_phrase": {"keywords": {"query": keyword, "slop": 1, "boost": 3}}}
                 )
 
             if category_id:
@@ -195,15 +207,17 @@ class ESSearchClient:
             if not sort_configs:
                 sort_configs.append({"_score": {"order": "desc"}})
 
+            bool_query: dict[str, Any] = {
+                "must": must_clauses,
+                "filter": filter_clauses,
+            }
+            if should_clauses:
+                bool_query["should"] = should_clauses
+
             body: dict[str, Any] = {
                 "from": (page - 1) * page_size,
                 "size": page_size,
-                "query": {
-                    "bool": {
-                        "must": must_clauses,
-                        "filter": filter_clauses,
-                    }
-                },
+                "query": {"bool": bool_query},
                 "sort": sort_configs,
                 "highlight": {"fields": {"name": {}, "sub_title": {}}},
             }
@@ -232,8 +246,13 @@ class ESSearchClient:
             logger.warning("es_search_failed", keyword=keyword, error=str(exc))
             return {"items": [], "total": 0, "page": page, "page_size": page_size}
 
-    async def create_product_index(self) -> bool:
-        """创建商品搜索索引 —— 仅首次部署使用"""
+    async def create_product_index(self, force_recreate: bool = False) -> bool:
+        """创建商品搜索索引 —— 仅首次部署使用。
+
+        Args:
+            force_recreate: 若为 True 且索引已存在，删除后重建（用于 mapping 变更）。
+                            注意：重建后需要重新执行 sync_all_products_to_es。
+        """
         await self._ensure_client()
         if not self._available:
             return False
@@ -242,36 +261,32 @@ class ESSearchClient:
 
             exists = await self._client.indices.exists(index=self._index_products)
             if exists:
-                logger.info("es_index_exists", index=self._index_products)
-                return True
+                if force_recreate:
+                    logger.info("es_index_recreating", index=self._index_products)
+                    await self._client.indices.delete(index=self._index_products)
+                else:
+                    logger.info("es_index_exists", index=self._index_products)
+                    return True
 
             mapping = {
                 "settings": {
                     "number_of_shards": 1,
                     "number_of_replicas": 0,
-                    "analysis": {
-                        "analyzer": {
-                            "ik_smart_analyzer": {
-                                "type": "custom",
-                                "tokenizer": "ik_smart",
-                            }
-                        }
-                    },
                 },
                 "mappings": {
                     "properties": {
                         "id": {"type": "keyword"},
                         "name": {
                             "type": "text",
-                            "analyzer": "ik_smart_analyzer",
+                            "analyzer": "ik_max_word",
                             "fields": {"keyword": {"type": "keyword"}},
                         },
-                        "sub_title": {"type": "text", "analyzer": "ik_smart_analyzer"},
-                        "keywords": {"type": "text", "analyzer": "ik_smart_analyzer"},
+                        "sub_title": {"type": "text", "analyzer": "ik_max_word"},
+                        "keywords": {"type": "text", "analyzer": "ik_max_word"},
                         "category_id": {"type": "keyword"},
                         "category_name": {"type": "keyword"},
                         "brand_id": {"type": "keyword"},
-                        "brand_name": {"type": "text"},
+                        "brand_name": {"type": "text", "analyzer": "ik_max_word"},
                         "price": {"type": "float"},
                         "promotion_price": {"type": "float"},
                         "sale_count": {"type": "integer"},

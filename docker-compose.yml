@@ -285,6 +285,15 @@ services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.15.3
     container_name: snaptrip-elasticsearch
+    # 安装 IK 中文分词插件（首次启动时自动安装）
+    command: >
+      bash -c "
+        if [ ! -d /usr/share/elasticsearch/plugins/analysis-ik ]; then
+          echo '>>> Installing IK Chinese tokenizer plugin...'
+          elasticsearch-plugin install --batch https://get.infini.cloud/elasticsearch/analysis-ik/8.15.3
+        fi
+        exec /bin/tini -- /usr/local/bin/docker-entrypoint.sh
+      "
     environment:
       discovery.type: single-node
       ES_JAVA_OPTS: -Xms256m -Xmx256m
