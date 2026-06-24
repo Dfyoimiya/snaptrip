@@ -16,6 +16,7 @@ from app.api.portal.customer_service import router as cs_router
 from app.api.portal.flash import router as flash_router
 from app.api.portal.home import router as home_router
 from app.api.portal.homefeed import router as homefeed_router
+from app.api.portal.images import router as images_router
 from app.api.portal.member import router as member_router
 from app.api.portal.notice import router as notice_router
 from app.api.portal.order import router as order_router
@@ -27,6 +28,7 @@ from app.api.portal.shopping_guide import router as shopping_guide_router
 
 portal_router = APIRouter()
 
+portal_router.include_router(images_router)
 portal_router.include_router(review_router)
 portal_router.include_router(shopping_guide_router)
 portal_router.include_router(cs_router)

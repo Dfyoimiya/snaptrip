@@ -52,6 +52,32 @@ services:
           memory: 256M
           cpus: "0.5"
 
+  # ===== MinIO 对象存储 =====
+  minio:
+    image: minio/minio:latest
+    container_name: snaptrip-minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}  # ggignore
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+
   # ===== LiteLLM Proxy —— LLM API 网关 =====
   litellm-proxy:
     image: ghcr.io/berriai/litellm:v1.83.10-stable
@@ -114,9 +140,19 @@ services:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       COMMERCE_ES_HOSTS: http://elasticsearch:9200
+      # ── OSS (MinIO) ──
+      COMMERCE_OSS_ENDPOINT: minio:9000
+      COMMERCE_OSS_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      COMMERCE_OSS_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}  # ggignore
+      COMMERCE_OSS_BUCKET: ${OSS_BUCKET:-snaptrip-commerce}
       HF_HOME: /root/.cache/huggingface
       HF_HUB_OFFLINE: "1"
       TRANSFORMERS_OFFLINE: "1"
+      # ── Web Search ──
+      SG_WEB_SEARCH_PROVIDER: ${SG_WEB_SEARCH_PROVIDER:-tavily}
+      SG_WEB_SEARCH_API_KEY: ${SG_WEB_SEARCH_API_KEY:-}
+      SG_WEB_SEARCH_ENGINE: ${SG_WEB_SEARCH_ENGINE:-baidu}
+      SG_WEB_SEARCH_BASE_URL: ${SG_WEB_SEARCH_BASE_URL:-https://serpapi.com/search}
     ports:
       - "127.0.0.1:8080:8000"
     volumes:
@@ -129,6 +165,8 @@ services:
       litellm-proxy:
         condition: service_healthy
       elasticsearch:
+        condition: service_healthy
+      minio:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
@@ -171,9 +209,19 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       AGENT_TIMEOUT: ${AGENT_TIMEOUT:-300}
       COMMERCE_ES_HOSTS: http://elasticsearch:9200
+      # ── OSS (MinIO) ──
+      COMMERCE_OSS_ENDPOINT: minio:9000
+      COMMERCE_OSS_ACCESS_KEY: ${MINIO_ROOT_USER:-minioadmin}
+      COMMERCE_OSS_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minioadmin}  # ggignore
+      COMMERCE_OSS_BUCKET: ${OSS_BUCKET:-snaptrip-commerce}
       HF_HOME: /root/.cache/huggingface
       HF_HUB_OFFLINE: "1"
       TRANSFORMERS_OFFLINE: "1"
+      # ── Web Search ──
+      SG_WEB_SEARCH_PROVIDER: ${SG_WEB_SEARCH_PROVIDER:-tavily}
+      SG_WEB_SEARCH_API_KEY: ${SG_WEB_SEARCH_API_KEY:-}
+      SG_WEB_SEARCH_ENGINE: ${SG_WEB_SEARCH_ENGINE:-baidu}
+      SG_WEB_SEARCH_BASE_URL: ${SG_WEB_SEARCH_BASE_URL:-https://serpapi.com/search}
     volumes:
       - ~/.cache/huggingface:/root/.cache/huggingface:ro
     depends_on:
@@ -184,6 +232,8 @@ services:
       litellm-proxy:
         condition: service_healthy
       elasticsearch:
+        condition: service_healthy
+      minio:
         condition: service_healthy
       marketplace:
         condition: service_healthy
@@ -285,3 +335,4 @@ services:
 volumes:
   postgres_data:
   es_data:
+  minio_data:

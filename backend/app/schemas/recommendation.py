@@ -13,7 +13,9 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
+
+from app.utils.display import format_sale_count
 
 
 class RecommendationScene(str, Enum):
@@ -43,6 +45,10 @@ class RecommendationProduct(BaseModel):
     score: float = 0.0
     marketing_copy: str = ""
 
+    @computed_field
+    @property
+    def sale_count_display(self) -> str:
+        return format_sale_count(self.sale_count)
 
 class AgentResultItem(BaseModel):
     agent_name: str

@@ -15,7 +15,9 @@ from __future__ import annotations
 
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
+
+from app.utils.display import format_sale_count
 
 
 class FeedSectionType(str, Enum):
@@ -43,6 +45,11 @@ class FeedProduct(BaseModel):
     promotion_type: int = 0
     new_status: int = 0
     recommend_status: int = 0
+
+    @computed_field
+    @property
+    def sale_count_display(self) -> str:
+        return format_sale_count(self.sale_count)
 
 
 class SearchDiscoveryItem(BaseModel):

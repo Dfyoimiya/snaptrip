@@ -140,14 +140,14 @@ const refreshProductSkuList = () => {
   if (state.selectProductAttr.length === 1) {
     const attr = state.selectProductAttr[0]
     for (let i = 0; i < attr.values.length; i++) {
-      skuList.push({ spData: JSON.stringify([{ key: attr.name, value: attr.values[i] }]), price: 0, promotionPrice: 0, stock: 0, lowStock: 0, skuCode: '' })
+      skuList.push({ spData: JSON.stringify({ [attr.name]: attr.values[i] }), price: 0, promotionPrice: 0, stock: 0, lowStock: 0, skuCode: '' })
     }
   } else if (state.selectProductAttr.length === 2) {
     const a0 = state.selectProductAttr[0], a1 = state.selectProductAttr[1]
     for (let i = 0; i < a0.values.length; i++) {
-      if (a1.values.length === 0) { skuList.push({ spData: JSON.stringify([{ key: a0.name, value: a0.values[i] }]) }); continue }
+      if (a1.values.length === 0) { skuList.push({ spData: JSON.stringify({ [a0.name]: a0.values[i] }) }); continue }
       for (let j = 0; j < a1.values.length; j++) {
-        skuList.push({ spData: JSON.stringify([{ key: a0.name, value: a0.values[i] }, { key: a1.name, value: a1.values[j] }]), price: 0, promotionPrice: 0, stock: 0, lowStock: 0, skuCode: '' })
+        skuList.push({ spData: JSON.stringify({ [a0.name]: a0.values[i], [a1.name]: a1.values[j] }), price: 0, promotionPrice: 0, stock: 0, lowStock: 0, skuCode: '' })
       }
     }
   } else if (state.selectProductAttr.length === 3) {
@@ -155,7 +155,7 @@ const refreshProductSkuList = () => {
     for (let i = 0; i < a0.values.length; i++) {
       for (let j = 0; j < a1.values.length; j++) {
         for (let k = 0; k < a2.values.length; k++) {
-          skuList.push({ spData: JSON.stringify([{ key: a0.name, value: a0.values[i] }, { key: a1.name, value: a1.values[j] }, { key: a2.name, value: a2.values[k] }]), price: 0, promotionPrice: 0, stock: 0, lowStock: 0, skuCode: '' })
+          skuList.push({ spData: JSON.stringify({ [a0.name]: a0.values[i], [a1.name]: a1.values[j], [a2.name]: a2.values[k] }), price: 0, promotionPrice: 0, stock: 0, lowStock: 0, skuCode: '' })
         }
       }
     }
@@ -204,7 +204,9 @@ const mergeProductAttrPics = () => {
     const skuList = compProductParam.value.skuStockList
     for (let j = 0; j < skuList.length; j++) {
       const spData = JSON.parse(skuList[j].spData)
-      if (spData[0]?.value === state.selectProductAttrPics[i].name) {
+      // spec 统一为扁平对象格式 {"颜色":"红色"}, 取第一个键的值匹配图片
+      const firstValue = Object.values(spData)[0]
+      if (firstValue === state.selectProductAttrPics[i].name) {
         skuList[j].defaultPic = state.selectProductAttrPics[i].pic
       }
     }

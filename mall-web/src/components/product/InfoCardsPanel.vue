@@ -158,6 +158,7 @@ function ratingStars(rating: number) {
 .info-cards-scroll {
   flex: 1;
   overflow-y: auto;
+  min-height: 100px;
   padding: 20px 24px;
   display: flex;
   flex-direction: column;

@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.common import PaginatedResponse, PaginationParams
 from app.schemas.product import PortalProductDetailResponse
 from app.services.product_service import ProductService
+from app.utils.display import format_sale_count
 
 router = APIRouter(prefix="/portal/products", tags=["Portal - 商品浏览"])
 
@@ -117,6 +118,7 @@ async def search(
             "name": item.get("name", ""),
             "price": item.get("price", 0),
             "saleCount": item.get("sale_count", 0),
+            "saleCountDisplay": format_sale_count(item.get("sale_count", 0)),
             "defaultPic": item.get("image_url", item.get("default_pic", "")),
             "brandName": item.get("brand_name", ""),
             "categoryId": item.get("category_id", ""),
@@ -181,6 +183,7 @@ async def by_category(
             "name": item.get("name", ""),
             "price": item.get("price", 0),
             "saleCount": item.get("sale_count", 0),
+            "saleCountDisplay": format_sale_count(item.get("sale_count", 0)),
             "defaultPic": item.get("image_url", item.get("default_pic", "")),
             "brandName": item.get("brand_name", ""),
             "categoryId": item.get("category_id", ""),

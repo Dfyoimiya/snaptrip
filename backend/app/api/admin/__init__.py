@@ -31,6 +31,7 @@ from app.api.admin.return_reason import router as return_reason_router
 from app.api.admin.review import router as review_router
 from app.api.admin.role import router as role_router
 from app.api.admin.ums_admin import router as ums_admin_router
+from app.api.admin.upload import router as upload_router
 
 admin_router = APIRouter()
 
@@ -60,3 +61,4 @@ admin_router.include_router(order_setting_router)
 admin_router.include_router(return_apply_router)
 admin_router.include_router(return_reason_router)
 admin_router.include_router(review_router)
+admin_router.include_router(upload_router)

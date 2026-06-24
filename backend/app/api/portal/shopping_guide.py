@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -27,8 +28,8 @@ from app.schemas.shopping_guide import (
     ShoppingGuideSession,
     ShoppingGuideSessionList,
 )
+from app.utils.display import format_sale_count
 from marketplace.app.core.security import get_current_user
-from marketplace.app.models.users import User
 
 logger = logging.getLogger(__name__)
 
@@ -158,6 +159,7 @@ def _product_to_frontend_format(p: dict) -> dict:
         "productId": str(p.get("product_id", "")),
         "brandName": str(p.get("brand_name", "") or ""),
         "saleCount": int(p.get("sale_count", 0) or 0),
+        "saleCountDisplay": format_sale_count(p.get("sale_count", 0)),
     }
 
 
@@ -182,83 +184,59 @@ def _format_reply_text(products: list[dict], copies: list[dict], user_message: s
     mimicking the original LLM-generated reply format.
     """
     if not products:
-        return (
-            "抱歉，我暂时没有找到符合您需求的商品。\n\n"
-            "建议您：\n"
-            "• 尝试更具体的关键词，如「适合学生的笔记本」\n"
-            "• 告诉我您的预算范围\n"
-            "• 说明您关注的品牌或品类"
-        )
+        return "抱歉，我暂时没有找到符合您需求的商品。试试更具体的关键词？"
 
-    copy_map = {}
-    for c in copies:
-        pid = c.get("product_id", "")
-        copy_map[pid] = c.get("copy", "")
+    total = len(products)
+    names = [p.get("name", "") for p in products[:3]]
+    price_min = min(float(p.get("price", 0) or 0) for p in products)
+    price_max = max(float(p.get("price", 0) or 0) for p in products)
 
-    lines = ["根据您的需求，为您找到以下精选商品：\n"]
+    parts = [f"为你找到{total}件商品"]
+    if names:
+        parts.append("、".join(names[:2]))
+    if price_max > 0:
+        parts.append(f"¥{price_min:.0f}-¥{price_max:.0f}")
 
-    for i, p in enumerate(products, 1):
-        name = p.get("name", "")
-        pid = p.get("product_id", "")
-        price = float(p.get("price", 0) or 0)
-        orig = float(p.get("original_price", 0) or 0)
-        brand = p.get("brand_name", "") or p.get("brand", "") or ""
-        tags = p.get("tags", []) or []
-        sale_count = int(p.get("sale_count", 0) or 0)
-        stock = int(p.get("stock", 0) or 0)
-        copy_text = copy_map.get(pid, p.get("marketing_copy", ""))
-
-        # Price display
-        if orig > price > 0:
-            pct = int((1 - price / orig) * 100)
-            price_line = f"~~¥{orig:.0f}~~ **¥{price:.0f}**（省 {pct}%）"
-        else:
-            price_line = f"**¥{price:.0f}**"
-
-        # Badges
-        badges = []
-        if tags:
-            badges.extend(tags[:2])
-        if sale_count > 100:
-            badges.append(f"已售{sale_count}")
-        badge_str = " · ".join(badges) if badges else ""
-
-        lines.append(f"**{i}. [{name}](/product/{pid})**")
-        lines.append(f"   {price_line}")
-        if brand:
-            lines.append(f"   {brand}" + (f" | {badge_str}" if badge_str else ""))
-        elif badge_str:
-            lines.append(f"   {badge_str}")
-        if copy_text:
-            lines.append(f"   > {copy_text}")
-        if stock > 0 and stock <= 100:
-            lines.append(f"   ⚠️ 库存紧张，仅剩 {stock} 件")
-        lines.append("")
-
-    # Follow-up suggestions
-    first_name = products[0].get("name", "")
-    lines.append("---")
-    lines.append("💡 **您还可以问我：**")
-    lines.append(f"• 「{first_name} 和同价位的其他商品对比一下」" if first_name else "• 「还有更多选择吗？」")
-    lines.append("• 「有没有优惠券可以用？」")
-    lines.append("• 「这几款哪个性价比最高？」")
-
-    return "\n".join(lines)
+    reply = "，".join(parts)
+    if len(reply) > 200:
+        reply = reply[:197] + "..."
+    return reply
 
 
-def _extract_follow_ups(products: list[dict]) -> list[str]:
-    """Generate contextual follow-up questions from products."""
+def _extract_follow_ups(products: list[dict]) -> list[dict]:
+    """Generate structured follow-up prompts from product search results.
+
+    Returns list of FollowUpItem-compatible dicts with text, options, action fields.
+    """
     if not products:
-        return ["换个关键词试试？", "告诉我你的预算？", "你关注哪些品牌？"]
-    first = products[0]
-    name = first.get("name", "")
-    qs = []
+        return [
+            {"text": "换个关键词试试？", "action": "fill"},
+            {"text": "告诉我你的预算？", "action": "fill"},
+        ]
+
+    results: list[dict] = []
+
+    # Collect brand names for brand-preference question
+    brands: list[str] = list(dict.fromkeys(
+        p.get("brand_name", "") for p in products if p.get("brand_name")
+    ))
+    if len(brands) >= 2:
+        results.append({
+            "text": "你更想选哪个品牌的呢？",
+            "options": brands[:8],
+            "action": "send",
+        })
+
+    # Comparison question if multiple products
     if len(products) >= 2:
-        qs.append(f"「{name}」和「{products[1].get('name', '')}」哪个更好？")
-    qs.append(f"「{name}」有没有优惠券？")
-    if len(products) >= 2:
-        qs.append("帮我对比一下这几款商品")
-    return qs[:3]
+        results.append({
+            "text": "帮你对比一下这几款？",
+            "options": [p.get("name", "")[:15] for p in products[:4]],
+            "action": "send",
+        })
+
+    results.append({"text": "有没有优惠券可以用？", "action": "send"})
+    return results[:3]
 
 
 # ── Info Search Formatting ──────────────────────────────────────────────────
@@ -274,6 +252,7 @@ def _format_info_cards(response) -> dict:
             "summary_text": response.review_summary.summary_text,
             "top_reviews": [
                 {
+                    "review_id": r.review_id,
                     "user_name": r.user_name,
                     "rating": r.rating,
                     "content": r.content,
@@ -304,57 +283,52 @@ def _format_info_cards(response) -> dict:
 
 
 def _format_info_reply(response) -> str:
-    """Build a markdown fallback reply from InfoSearchResponse."""
-    lines = []
+    """Build a short chat reply (≤300 chars) — full structured content goes to canvas."""
+    lines: list[str] = []
 
     if response.conclusion:
-        lines.append(f"**结论**\n{response.conclusion}\n")
-
-    if response.highlights:
-        lines.append("**主要亮点**")
-        for h in response.highlights:
-            emoji = h.emoji or "·"
-            lines.append(f"- {emoji} **{h.title}**：{h.description}")
-        lines.append("")
+        lines.append(response.conclusion)
 
     if response.worth_buying:
-        lines.append("**值不值得买？**")
-        for i, w in enumerate(response.worth_buying, 1):
-            lines.append(f"{i}. {w.scenario} → **{w.verdict}**")
-            lines.append(f"   {w.reasoning}")
-        lines.append("")
+        verdicts = " | ".join(f"{w.scenario}：{w.verdict}" for w in response.worth_buying[:4])
+        if verdicts:
+            lines.append(verdicts)
 
     if response.pitfalls:
-        lines.append("**避坑指南**")
-        for p in response.pitfalls:
-            lines.append(f"- {p.title}：{p.description}")
-        lines.append("")
+        pit = "避坑：" + "；".join(p.title for p in response.pitfalls[:3])
+        lines.append(pit)
 
-    if response.review_summary and response.review_summary.top_reviews:
-        rs = response.review_summary
-        lines.append(
-            f"**用户评价** 综合评分 {rs.average_rating}/5（{rs.total_count}条评价）"
-        )
-        if rs.summary_text:
-            lines.append(f"> {rs.summary_text}")
-        lines.append("")
-        for r in rs.top_reviews[:4]:
-            lines.append(f"- [{r.rating}星] {r.content[:100]} ——{r.user_name}")
-
-    return "\n".join(lines) if lines else "抱歉，暂无相关信息。"
+    reply = "\n".join(lines)
+    if len(reply) > 300:
+        reply = reply[:297] + "..."
+    return reply if reply else "抱歉，暂无相关信息。"
 
 
-def _extract_info_follow_ups(response) -> list[str]:
-    """Generate contextual follow-up questions from info search results."""
-    qs = []
+def _extract_info_follow_ups(response) -> list[dict]:
+    """Generate structured follow-up prompts from info search results.
+
+    Returns list of FollowUpItem-compatible dicts with text, options, action fields.
+    """
+    qs: list[dict] = []
+
     if response.conclusion:
-        qs.append("还有其他类似的商品推荐吗？")
-    if response.highlights:
-        first_highlight = response.highlights[0].title
-        qs.append(f"「{first_highlight}」方面能详细说说吗？")
+        qs.append({"text": "还有其他类似的商品推荐吗？", "action": "send"})
+
+    if response.highlights and len(response.highlights) >= 2:
+        titles = [h.title for h in response.highlights[:5]]
+        qs.append({
+            "text": "想深入了解哪个方面？",
+            "options": titles,
+            "action": "send",
+        })
+
     if response.worth_buying:
-        qs.append("有没有优惠券可以用？")
-    return qs[:3] if qs else ["换个商品问问？", "告诉我你的预算？"]
+        qs.append({"text": "有没有优惠券可以用？", "action": "send"})
+
+    return qs[:3] if qs else [
+        {"text": "换个商品问问？", "action": "fill"},
+        {"text": "告诉我你的预算？", "action": "fill"},
+    ]
 
 
 # ── Mode Routing ────────────────────────────────────────────────────────────────
@@ -466,7 +440,7 @@ async def _execute_info_pipeline(
     except Exception as exc:
         logger.exception("Info search pipeline failed")
         reply = f"抱歉，信息搜索暂时不可用：{exc}"
-        return reply, [], ["换个关键词试试？"], None
+        return reply, [], [{"text": "换个关键词试试？", "action": "fill"}], None
 
 
 # ── Chat ─────────────────────────────────────────────────────────────────────
@@ -476,7 +450,7 @@ class ShoppingChatResponse(BaseModel):
     reply: str = Field(..., description="AI 回复内容")
     session_id: str = Field(..., description="会话 ID")
     products: list[dict] = Field(default_factory=list, description="推荐商品列表")
-    follow_up_questions: list[str] = Field(default_factory=list, description="建议追问")
+    follow_up_questions: list[dict] = Field(default_factory=list, description="结构化的建议追问")
     info_cards: dict | None = Field(None, description="信息搜索结构化卡片（info模式）")
 
 
@@ -580,7 +554,8 @@ async def shopping_guide_chat_stream(
     """AI 导购流式对话端点 —— 通过 Server-Sent Events 逐字输出。
 
     SSE 事件类型:
-      - token:   {"type": "token", "content": "..."}
+      - mode:    {"type": "mode", "mode": "info|product"}  — 首个事件，前端据此展开 Canvas
+      - token:   {"type": "token", "content": "..."}       — 逐词流式输出，打字机效果
       - done:    {"type": "done", "session_id": "...", "products": [...], "follow_up_questions": [...]}
       - error:   {"type": "error", "message": "..."}
     """
@@ -622,8 +597,11 @@ async def shopping_guide_chat_stream(
     token_queue: asyncio.Queue = asyncio.Queue()
     final_reply: str = ""
     final_products: list[dict] = []
-    final_follow_ups: list[str] = []
+    final_follow_ups: list[dict] = []
     final_info_cards: dict | None = None
+
+    # Send mode event immediately so frontend can expand canvas
+    await token_queue.put({"type": "mode", "mode": effective_mode})
 
     async def run_pipeline():
         """Run the appropriate pipeline, then stream the formatted reply."""
@@ -643,10 +621,11 @@ async def shopping_guide_chat_stream(
             final_products = products
             final_follow_ups = follow_ups
 
-            # Stream reply line by line for natural reading feel
-            for line in final_reply.split("\n"):
-                await token_queue.put({"type": "token", "content": line + "\n"})
-                await asyncio.sleep(0.05)
+            # Stream word by word for typewriter effect (~30 words/sec)
+            tokens = re.findall(r'\S+|\s+', final_reply)
+            for token in tokens:
+                await token_queue.put({"type": "token", "content": token})
+                await asyncio.sleep(0.025)
 
             # Persist & summarise
             try:

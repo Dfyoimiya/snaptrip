@@ -45,7 +45,7 @@ function toIsoDate(value: unknown): string | null {
 function mapSkuPayload(sku: SkuStock): ProductSkuPayload {
   return {
     sku_code: sku.skuCode?.trim() || `SKU-${Date.now()}`,
-    spec: sku.spec || sku.spData || JSON.stringify({ 规格: '默认' }),
+    spec: sku.spec || sku.spData || '{}',
     price: Math.max(toNumber(sku.price), 0.01),
     promotion_price: toNullableNumber(sku.promotionPrice),
     stock: Math.max(toNumber(sku.stock), 0),

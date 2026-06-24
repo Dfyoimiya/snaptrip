@@ -28,6 +28,7 @@ from app.schemas.cms import (
     SubjectResponse,
     SubjectUpdate,
 )
+from app.utils.display import format_sale_count
 from app.schemas.notice import NoticeCreate, NoticeResponse, NoticeUpdate
 
 
@@ -364,6 +365,7 @@ class StatsService:
                 "price": float(p.price),
                 "defaultPic": p.default_pic or "",
                 "saleCount": p.sale_count or 0,
+                "saleCountDisplay": format_sale_count(p.sale_count or 0),
             }
             for p in new_result.scalars().all()
         ]
@@ -387,6 +389,7 @@ class StatsService:
                 "price": float(p.price),
                 "defaultPic": p.default_pic or "",
                 "saleCount": p.sale_count or 0,
+                "saleCountDisplay": format_sale_count(p.sale_count or 0),
             }
             for p in rec_result.scalars().all()
         ]

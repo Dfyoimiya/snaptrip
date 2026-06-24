@@ -2,13 +2,14 @@
 
 All specialist agents inherit from this base class. Subclasses implement
 `_execute()`, and the base `run()` method wraps it with timing, exponential
-backoff retry via tenacity, and graceful fallback.
+backoff retry via tenacity, graceful fallback, and a hard timeout limit.
 
 Adapted from refer/multi-agent-ecommerce-system/python/agents/base_agent.py
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from abc import ABC, abstractmethod
@@ -25,7 +26,7 @@ class BaseAgent(ABC):
     """Template method base for all agents.
 
     Provides:
-      - run() wrapping _execute() with timing + retry + fallback
+      - run() wrapping _execute() with timing + retry + fallback + hard timeout
       - Exponential backoff: multiplier=0.5, min=0.5s, max=4s
       - Error rate tracking for observability
     """
@@ -42,12 +43,15 @@ class BaseAgent(ABC):
         """Core logic — implemented by each concrete agent subclass."""
 
     async def run(self, **kwargs: Any) -> AgentResult:
-        """Public entry point: wraps _execute with timing, retries, and fallback."""
+        """Public entry point: wraps _execute with timing, retries, and a hard timeout."""
         start = time.perf_counter()
         self._call_count += 1
 
         try:
-            result = await self._retry_execute(**kwargs)
+            result = await asyncio.wait_for(
+                self._retry_execute(**kwargs),
+                timeout=self.timeout,
+            )
             result.latency_ms = (time.perf_counter() - start) * 1000
             logger.info(
                 "agent.success agent=%s latency_ms=%.1f",
@@ -55,6 +59,16 @@ class BaseAgent(ABC):
                 result.latency_ms,
             )
             return result
+        except asyncio.TimeoutError:
+            self._error_count += 1
+            latency_ms = (time.perf_counter() - start) * 1000
+            logger.warning(
+                "agent.timeout agent=%s timeout=%.1fs actual_latency_ms=%.1f",
+                self.name,
+                self.timeout,
+                latency_ms,
+            )
+            return self._fallback(latency_ms, Exception(f"Timeout after {self.timeout}s"))
         except Exception as exc:
             self._error_count += 1
             latency_ms = (time.perf_counter() - start) * 1000

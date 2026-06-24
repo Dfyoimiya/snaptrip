@@ -70,6 +70,13 @@ export interface ReviewSummary {
   top_reviews: ReviewItem[]
 }
 
+/** 追问建议 — 结构化交互式追问卡片 */
+export interface FollowUpItem {
+  text: string            // 引导文案，如"你更想选哪个品牌的呢？"
+  options?: string[]      // 可点击的选项标签
+  action: 'send' | 'fill' // send = 直接发送; fill = 填入输入框
+}
+
 /** 信息搜索结构化卡片 — 后端 InfoSearchResponse 的蛇形命名 */
 export interface InfoCards {
   conclusion: string
@@ -85,7 +92,7 @@ export interface ShoppingGuideChatResponse {
   reply: string
   sessionId: string
   products: RecommendedProduct[]
-  followUpQuestions: string[]
+  followUpQuestions: FollowUpItem[]
   info_cards?: InfoCards | null
 }
 
@@ -125,11 +132,12 @@ export const deleteSessionAPI = (sessionId: string) =>
 // ── 流式 API ──
 
 export interface StreamCallbacks {
+  onMode?: (mode: string) => void
   onToken: (token: string) => void
   onDone: (payload: {
     sessionId: string
     products: RecommendedProduct[]
-    followUpQuestions: string[]
+    followUpQuestions: FollowUpItem[]
     infoCards?: InfoCards | null
   }) => void
   onError: (error: string) => void
@@ -192,6 +200,9 @@ export async function shoppingGuideChatStreamAPI(
         try {
           const event = JSON.parse(jsonStr)
           switch (event.type) {
+            case 'mode':
+              callbacks.onMode?.(event.mode)
+              break
             case 'token':
               callbacks.onToken(event.content)
               break

@@ -72,6 +72,11 @@ async def lifespan(app: FastAPI):
     app.state.memory = memory
     app.state.redis_pool = get_redis_pool()
 
+    # OSS 对象存储客户端 (MinIO)
+    from app.core.oss import get_oss_client
+
+    app.state.oss_client = get_oss_client()
+
     try:
         # Recommendation & search infrastructure
         from app.services.ab_test import ABTestEngine
