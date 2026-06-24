@@ -1,11 +1,12 @@
 /** 商品分类 */
 export interface PmsProductCategory {
   id?: string
-  parentId: string
+  parentId: string | number | null
   name: string
+  type?: 'PRODUCT' | 'COMBO'
   level?: number
   productCount?: number
-  productUnit: string
+  productUnit?: string
   navStatus?: number
   showStatus?: number
   sort?: number

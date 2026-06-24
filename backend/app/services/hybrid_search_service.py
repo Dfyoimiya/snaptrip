@@ -22,7 +22,7 @@ import logging
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.product.product import PmsProduct
@@ -81,6 +81,7 @@ class HybridSearchService:
         user_id: UUID | str | None = None,
         user_segment: str | None = None,
         diversity_top_n: int = 0,
+        match_mode: str = "smart",
     ) -> dict[str, Any]:
         """混合搜索入口。
 
@@ -92,6 +93,29 @@ class HybridSearchService:
             {"items": [...], "total": int, "page": int, "page_size": int,
              "intent": str | None, "method": str}
         """
+        normalized_keyword = keyword.strip() if keyword else None
+
+        # C 端普通商品搜索使用严格包含匹配，确保只返回字段中含关键词的商品。
+        if normalized_keyword and match_mode == "contains" and self._db:
+            db_items, db_total = await self._db_ilike_fallback(
+                keyword=normalized_keyword,
+                category_id=category_id,
+                brand_id=brand_id,
+                min_price=min_price,
+                max_price=max_price,
+                sort_by=sort_by,
+                page=page,
+                page_size=page_size,
+            )
+            return {
+                "items": db_items,
+                "total": db_total,
+                "page": page,
+                "page_size": page_size,
+                "intent": "exact_contains",
+                "method": "db_contains",
+            }
+
         # 无关键词 → 纯分类/价格筛选 (不需要向量检索)
         if not keyword:
             return await self._filter_only(
@@ -763,8 +787,15 @@ class HybridSearchService:
         )
 
         if keyword:
-            base = base.where(PmsProduct.name.ilike(f"%{keyword}%"))
-            count_q = count_q.where(PmsProduct.name.ilike(f"%{keyword}%"))
+            keyword_pattern = f"%{keyword}%"
+            keyword_filter = or_(
+                PmsProduct.name.ilike(keyword_pattern),
+                PmsProduct.sub_title.ilike(keyword_pattern),
+                PmsProduct.keywords.ilike(keyword_pattern),
+                PmsProduct.product_sn.ilike(keyword_pattern),
+            )
+            base = base.where(keyword_filter)
+            count_q = count_q.where(keyword_filter)
         if category_id:
             base = base.where(PmsProduct.category_id == category_id)
             count_q = count_q.where(PmsProduct.category_id == category_id)
@@ -797,7 +828,9 @@ class HybridSearchService:
                 "id": str(p.id),
                 "product_id": str(p.id),
                 "name": p.name or "",
+                "sub_title": p.sub_title or "",
                 "price": float(p.price) if p.price else 0,
+                "original_price": float(p.original_price) if p.original_price else None,
                 "sale_count": p.sale_count or 0,
                 "image_url": p.default_pic or "",
                 "default_pic": p.default_pic or "",

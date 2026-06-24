@@ -16,7 +16,8 @@
  * 自动补全: 150ms debounce
  * ============================================
  */
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { getSearchSuggestAPI, type SuggestSection, type SuggestQuery } from '@/apis/search'
 import { trackSearch } from '@/utils/tracker'
 
@@ -30,6 +31,8 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (e: 'navigate', path: string): void
 }>()
+
+const route = useRoute()
 
 // ── 浮层开关 (overlay 模式) ──
 const isOpen = ref(false)
@@ -52,7 +55,6 @@ function open() {
 /** 关闭搜索浮层 */
 function close() {
   isOpen.value = false
-  keyword.value = ''
   sections.value = []
   activeIndex.value = -1
   showDropdown.value = false
@@ -79,6 +81,14 @@ const showDropdown = ref(false)
 const activeIndex = ref(-1)
 const loading = ref(false)
 
+watch(
+  () => route.query.keyword,
+  (routeKeyword) => {
+    keyword.value = typeof routeKeyword === 'string' ? routeKeyword : ''
+  },
+  { immediate: true },
+)
+
 // ── 搜索历史 (localStorage) ──
 const HISTORY_KEY = '_snaptrip_search_history'
 const MAX_HISTORY = 10
@@ -86,30 +96,52 @@ const MAX_HISTORY = 10
 function loadHistory(): string[] {
   try {
     const raw = localStorage.getItem(HISTORY_KEY)
-    return raw ? JSON.parse(raw) : []
+    if (!raw) return []
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .slice(0, MAX_HISTORY)
   } catch {
     return []
   }
 }
 
+const searchHistory = ref<string[]>(loadHistory())
+
 function saveHistory(queries: string[]) {
+  const normalized = [...new Set(queries.map((query) => query.trim()).filter(Boolean))]
+    .slice(0, MAX_HISTORY)
+  searchHistory.value = normalized
   try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(queries.slice(0, MAX_HISTORY)))
+    if (normalized.length === 0) {
+      localStorage.removeItem(HISTORY_KEY)
+    } else {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(normalized))
+    }
   } catch { /* quota exceeded — silently ignore */ }
 }
 
 function addToHistory(query: string) {
-  const history = loadHistory().filter(q => q !== query)
-  history.unshift(query)
-  saveHistory(history)
+  saveHistory([query, ...searchHistory.value.filter((item) => item !== query)])
 }
 
 function removeFromHistory(query: string) {
-  saveHistory(loadHistory().filter(q => q !== query))
+  saveHistory(searchHistory.value.filter((item) => item !== query))
+  activeIndex.value = -1
 }
 
 function clearHistory() {
   saveHistory([])
+  activeIndex.value = -1
+}
+
+function syncHistory(event: StorageEvent) {
+  if (event.key === HISTORY_KEY) {
+    searchHistory.value = loadHistory()
+  }
 }
 
 // ── API 建议 ──
@@ -158,9 +190,10 @@ const flatItems = computed<FlatItem[]>(() => {
   const items: FlatItem[] = []
 
   // 搜索历史 (本地)
-  const history = loadHistory()
-  for (const q of history) {
-    items.push({ query: q, type: 'history', sectionIdx: -1 })
+  if (!keyword.value.trim()) {
+    for (const query of searchHistory.value) {
+      items.push({ query, type: 'history', sectionIdx: -1 })
+    }
   }
 
   // API sections
@@ -176,7 +209,7 @@ const flatItems = computed<FlatItem[]>(() => {
 
 /** 计算 section 中某个 item 在 flatItems 中的全局索引 */
 function getGlobalIndex(section: SuggestSection, itemIdx: number): number {
-  const historyLen = keyword.value.trim() ? 0 : loadHistory().length
+  const historyLen = keyword.value.trim() ? 0 : searchHistory.value.length
   let offset = historyLen
   for (const s of sections.value) {
     if (s.section_type === section.section_type) break
@@ -190,13 +223,13 @@ function getGlobalIndex(section: SuggestSection, itemIdx: number): number {
 function doSearch(query: string) {
   const kw = (query || keyword.value).trim()
   if (!kw) return
+  keyword.value = kw
   addToHistory(kw)
   trackSearch(kw)
   showDropdown.value = false
   activeIndex.value = -1
-  keyword.value = ''
   sections.value = []
-  if (isOpen.value) close()
+  if (isOpen.value) isOpen.value = false
   emit('navigate', `/search?keyword=${encodeURIComponent(kw)}`)
 }
 
@@ -247,10 +280,12 @@ function onWindowClick(e: MouseEvent) {
 
 onMounted(() => {
   window.addEventListener('click', onWindowClick)
+  window.addEventListener('storage', syncHistory)
 })
 
 onUnmounted(() => {
   window.removeEventListener('click', onWindowClick)
+  window.removeEventListener('storage', syncHistory)
   if (debounceTimer) clearTimeout(debounceTimer)
 })
 
@@ -315,37 +350,33 @@ function handleGoHome() { emit('navigate', '/') }
             >
               <div class="border-t border-gray-100">
               <!-- 搜索历史 -->
-              <div v-if="!keyword.trim() && loadHistory().length" class="px-4 py-3 border-b border-gray-100">
+              <div v-if="!keyword.trim() && searchHistory.length" class="px-4 py-3 border-b border-gray-100">
                 <div class="flex items-center justify-between mb-2">
                   <span class="text-xs text-gray-500 font-medium">搜索历史</span>
-                  <button class="text-xs text-gray-400 hover:text-brand-600" @click="clearHistory">清除</button>
+                  <button class="text-xs text-gray-400 hover:text-brand-600" @pointerdown.prevent.stop="clearHistory">清除</button>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                  <button
-                    v-for="(q, idx) in loadHistory().slice(0, 8)"
-                    :key="idx"
+                  <div
+                    v-for="(q, idx) in searchHistory.slice(0, 8)"
+                    :key="q"
                     :class="[
-                      'inline-flex items-center gap-1 px-3 py-1 text-sm rounded-full transition-colors',
+                      'inline-flex items-center overflow-hidden text-sm rounded-full transition-colors',
                       activeIndex === idx
                         ? 'bg-brand-600 text-white'
                         : 'bg-gray-100 text-gray-600 hover:bg-brand-50 hover:text-brand-600',
                     ]"
-                    @click.stop="doSearch(q)"
                   >
-                    {{ q }}
-                    <svg
-                      v-if="activeIndex === idx"
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-3 w-3"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      @click.stop="removeFromHistory(q)"
+                    <button class="py-1 pl-3 pr-1" @pointerdown.prevent.stop="doSearch(q)">{{ q }}</button>
+                    <button
+                      class="py-1 pl-1 pr-2 opacity-60 hover:opacity-100"
+                      :aria-label="`删除搜索历史：${q}`"
+                      @pointerdown.prevent.stop="removeFromHistory(q)"
                     >
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -404,7 +435,7 @@ function handleGoHome() { emit('navigate', '/') }
 
               <!-- 无结果 -->
               <div
-                v-if="!loadHistory().length && !sections.length && !loading"
+                v-if="!searchHistory.length && !sections.length && !loading"
                 class="px-4 py-8 text-center text-sm text-gray-400"
               >
                 输入关键词搜索商品
@@ -418,74 +449,72 @@ function handleGoHome() { emit('navigate', '/') }
   </Teleport>
 
   <!-- =============================================================== -->
-  <!-- Inline 模式：内联搜索条，fixed 定位 + 液态玻璃                     -->
+  <!-- Inline 模式：页面顶部搜索条，随页面自然滚动                         -->
   <!-- =============================================================== -->
   <div v-if="mode === 'inline'" class="inline-search-fixed">
-        <!-- 搜索区 -->
-        <div class="w-full max-w-[560px] mx-auto header-search-wrapper">
-          <div
-            class="border-2 border-brand-600 rounded-[12px] overflow-hidden bg-white/80 transition-shadow duration-300"
-            :class="{ 'shadow-xl': showDropdown }"
+    <div class="header-search-wrapper" :class="{ 'is-expanded': showDropdown }">
+      <div class="taobao-search-shell">
+        <div class="taobao-search-main">
+          <svg class="search-leading-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2" />
+            <path d="m15.5 15.5 4 4" fill="none" stroke="currentColor" stroke-linecap="round" stroke-width="2" />
+          </svg>
+          <input
+            v-model="keyword"
+            type="search"
+            placeholder="搜索宝贝、品牌、好物"
+            class="taobao-search-input"
+            @input="onInput"
+            @keydown="handleKeydown"
+            @focus="handleFocus"
+          />
+          <button
+            v-if="keyword"
+            type="button"
+            class="search-clear"
+            aria-label="清空搜索内容"
+            @click="keyword = ''; onInput()"
           >
-            <div class="flex items-center h-11">
-              <input
-                v-model="keyword"
-                type="text"
-                placeholder="搜索商品、品牌..."
-                class="flex-1 h-full pl-5 pr-3 text-sm border-none outline-none bg-transparent text-gray-700 placeholder-gray-400"
-                @input="onInput"
-                @keydown="handleKeydown"
-                @focus="handleFocus"
-              />
-              <div v-if="loading" class="mr-2">
-                <div class="w-4 h-4 border-2 border-brand-600 border-t-transparent rounded-full animate-spin" />
-              </div>
-              <button
-                class="h-[36px] px-6 mr-[2.2px] bg-brand-600 text-white text-sm font-medium rounded-[8px] hover:bg-brand-700 transition-colors flex-shrink-0"
-                @click="doSearch(keyword)"
-              >
-                搜索
-              </button>
-            </div>
+            ×
+          </button>
+          <div v-if="loading" class="search-loading" aria-label="正在加载搜索建议">
+            <span />
+          </div>
+          <button type="button" class="taobao-search-button" @click="doSearch(keyword)">
+            搜索
+          </button>
+        </div>
 
-            <!-- 下拉面板 -->
-            <div
-              class="overflow-hidden transition-[max-height] duration-300 ease-linear"
-              :style="{ maxHeight: showDropdown ? '600px' : '0px' }"
-            >
-              <div class="border-t border-gray-100">
+        <div class="search-suggestion-panel" :class="{ open: showDropdown }">
+          <div class="suggestion-content">
               <!-- 搜索历史 -->
-              <div v-if="!keyword.trim() && loadHistory().length" class="px-4 py-3 border-b border-gray-100">
+              <div v-if="!keyword.trim() && searchHistory.length" class="px-4 py-3 border-b border-gray-100">
                 <div class="flex items-center justify-between mb-2">
                   <span class="text-xs text-gray-500 font-medium">搜索历史</span>
-                  <button class="text-xs text-gray-400 hover:text-brand-600" @click="clearHistory">清除</button>
+                  <button class="text-xs text-gray-400 hover:text-brand-600" @pointerdown.prevent.stop="clearHistory">清除</button>
                 </div>
                 <div class="flex flex-wrap gap-2">
-                  <button
-                    v-for="(q, idx) in loadHistory().slice(0, 8)"
-                    :key="idx"
+                  <div
+                    v-for="(q, idx) in searchHistory.slice(0, 8)"
+                    :key="q"
                     :class="[
-                      'inline-flex items-center gap-1 px-3 py-1 text-sm rounded-full transition-colors',
+                      'inline-flex items-center overflow-hidden text-sm rounded-full transition-colors',
                       activeIndex === idx
                         ? 'bg-brand-600 text-white'
                         : 'bg-gray-100 text-gray-600 hover:bg-brand-50 hover:text-brand-600',
                     ]"
-                    @click.stop="doSearch(q)"
                   >
-                    {{ q }}
-                    <svg
-                      v-if="activeIndex === idx"
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-3 w-3"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      stroke-width="2"
-                      @click.stop="removeFromHistory(q)"
+                    <button class="py-1 pl-3 pr-1" @pointerdown.prevent.stop="doSearch(q)">{{ q }}</button>
+                    <button
+                      class="py-1 pl-1 pr-2 opacity-60 hover:opacity-100"
+                      :aria-label="`删除搜索历史：${q}`"
+                      @pointerdown.prevent.stop="removeFromHistory(q)"
                     >
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -544,15 +573,15 @@ function handleGoHome() { emit('navigate', '/') }
 
               <!-- 无结果 -->
               <div
-                v-if="!loadHistory().length && !sections.length && !loading"
+                v-if="!searchHistory.length && !sections.length && !loading"
                 class="px-4 py-8 text-center text-sm text-gray-400"
               >
                 输入关键词搜索商品
               </div>
-            </div>
-          </div>
           </div>
         </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -570,20 +599,177 @@ function handleGoHome() { emit('navigate', '/') }
 }
 
 /* ================================================================
-   Inline 模式：fixed 玻璃搜索条
+   Inline 模式：页面顶部搜索条
    ================================================================ */
 .inline-search-fixed {
-  position: fixed;
-  top: 48px;
-  left: 208px;
-  right: 19px;
+  position: relative;
   z-index: 50;
-  padding: 8px 16px;
-  background: var(--mall-glass-bg);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--mall-glass-border);
-  border-radius: 12px;
-  box-shadow: var(--mall-glass-shadow-soft);
+  padding: 52px 19px 12px 208px;
+}
+
+.header-search-wrapper {
+  width: min(720px, calc(100% - 32px));
+  margin: 0 auto;
+  border-radius: 24px;
+  transition: filter 0.2s ease;
+}
+
+.header-search-wrapper.is-expanded {
+  filter: drop-shadow(0 14px 24px rgba(255, 80, 0, 0.12));
+}
+
+.taobao-search-shell {
+  overflow: hidden;
+  border: 2px solid #ff5000;
+  border-radius: 24px;
+  background: #fff;
+  box-shadow: 0 4px 14px rgba(255, 80, 0, 0.08);
+  transition: box-shadow 0.2s ease;
+}
+
+.header-search-wrapper.is-expanded .taobao-search-shell {
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+}
+
+.taobao-search-main {
+  display: flex;
+  height: 46px;
+  align-items: center;
+  padding-left: 4px;
+}
+
+.search-leading-icon {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  margin-left: 14px;
+  color: #999;
+}
+
+.taobao-search-input {
+  min-width: 0;
+  height: 100%;
+  flex: 1;
+  padding: 0 10px;
+  border: 0;
+  outline: 0;
+  color: #222;
+  background: transparent;
+  font-size: 14px;
+}
+
+.taobao-search-input::placeholder {
+  color: #aaa;
+}
+
+.taobao-search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search-clear {
+  display: flex;
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #aaa;
+  font-size: 19px;
+  line-height: 1;
+}
+
+.search-clear:hover {
+  color: #666;
+  background: #f5f5f5;
+}
+
+.search-loading {
+  width: 28px;
+  flex: 0 0 auto;
+}
+
+.search-loading span {
+  display: block;
+  width: 15px;
+  height: 15px;
+  margin: auto;
+  border: 2px solid #ffb28f;
+  border-top-color: #ff5000;
+  border-radius: 50%;
+  animation: search-spin 0.75s linear infinite;
+}
+
+.taobao-search-button {
+  height: 38px;
+  min-width: 82px;
+  flex: 0 0 auto;
+  margin-right: 3px;
+  border-radius: 19px;
+  color: #fff;
+  background: linear-gradient(90deg, #ff8a00 0%, #ff5000 62%, #ff3d00 100%);
+  box-shadow: 0 3px 8px rgba(255, 80, 0, 0.22);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.taobao-search-button:hover {
+  filter: brightness(1.04);
+}
+
+.taobao-search-button:active {
+  transform: scale(0.98);
+}
+
+.search-suggestion-panel {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.25s ease, opacity 0.18s ease;
+}
+
+.search-suggestion-panel.open {
+  max-height: 560px;
+  opacity: 1;
+}
+
+.suggestion-content {
+  max-height: 500px;
+  overflow-y: auto;
+  border-top: 1px solid #f1f1f1;
+  background: #fff;
+}
+
+@keyframes search-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 1023px) {
+  .inline-search-fixed {
+    padding-left: 19px;
+  }
+}
+
+@media (max-width: 640px) {
+  .inline-search-fixed {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .header-search-wrapper {
+    width: 100%;
+  }
+
+  .search-leading-icon {
+    margin-left: 14px;
+  }
+
+  .taobao-search-button {
+    min-width: 68px;
+  }
 }
 </style>

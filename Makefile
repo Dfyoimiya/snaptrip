@@ -1,4 +1,4 @@
-.PHONY: help init dev up down build logs backend-dev backend-shell frontend-dev frontend-shell test test-backend test-unit test-integration lint lint-frontend format migrate migrate-up migrate-down test-up migrate-test test-down clean
+.PHONY: help init dev up down build logs backend-dev backend-shell frontend-dev frontend-shell test test-backend test-unit test-integration lint lint-frontend format migrate migrate-up migrate-down test-up migrate-test test-down material-scan material-import clean
 
 help: ## 显示帮助信息
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
@@ -113,6 +113,16 @@ seed: migrate-up ## 填充开发数据（用户、菜单、商品等）
 
 dev-init: migrate-up seed ## 完整初始化开发数据库（迁移 + 种子数据）
 	@echo "==> 开发数据库初始化完成!"
+
+# ===== 素材商品 =====
+
+material-scan: ## 扫描素材商品并生成 backend/material_catalog_report.json（不写数据库）
+	docker compose run --rm -T -v "$(CURDIR):/workspace" -w /workspace/backend marketplace \
+		python scripts/import_material_catalog.py
+
+material-import: ## 导入素材商品并直接上架，重复执行会更新而不会重复创建
+	docker compose run --rm -T -v "$(CURDIR):/workspace" -w /workspace/backend marketplace \
+		python scripts/import_material_catalog.py --commit
 
 # ===== 清理 =====
 

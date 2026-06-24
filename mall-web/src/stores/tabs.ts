@@ -29,7 +29,6 @@ function defaultTitle(path: string): string {
     '/': '首页',
     '/search': '搜索',
     '/category': '全部商品',
-    '/brand': '品牌专区',
     '/new': '新品上架',
     '/hot': '人气推荐',
     '/coupons': '优惠券',
@@ -47,7 +46,6 @@ function defaultTitle(path: string): string {
   if (path.startsWith('/product/')) return '商品详情'
   if (path.startsWith('/order/')) return '订单详情'
   if (path.startsWith('/notice/')) return '公告详情'
-  if (path.startsWith('/brand/')) return '品牌详情'
   return '新页签'
 }
 
@@ -56,7 +54,6 @@ function defaultIcon(path: string): string {
     '/': '🏠',
     '/search': '🔍',
     '/category': '📂',
-    '/brand': '🏷️',
     '/new': '✨',
     '/hot': '🔥',
     '/coupons': '🎫',

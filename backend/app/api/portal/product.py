@@ -9,6 +9,7 @@ Date: 2026-05-26
 
 from __future__ import annotations
 
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -81,6 +82,7 @@ async def search(
     min_price: float | None = Query(None, ge=0, description="最低价格"),
     max_price: float | None = Query(None, ge=0, description="最高价格"),
     sort_by: str = Query("default", description="排序: default/sales/new/price_asc/price_desc"),
+    match_mode: Literal["contains", "smart"] = Query("smart", description="匹配模式: contains/smart"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     db: AsyncSession = Depends(get_db),
@@ -106,6 +108,7 @@ async def search(
         page=page,
         page_size=page_size,
         user_id=user_id,
+        match_mode=match_mode,
     )
 
     items = result["items"]
@@ -115,7 +118,9 @@ async def search(
         {
             "id": item.get("id", item.get("product_id", "")),
             "name": item.get("name", ""),
+            "subTitle": item.get("sub_title", ""),
             "price": item.get("price", 0),
+            "originalPrice": item.get("original_price"),
             "saleCount": item.get("sale_count", 0),
             "defaultPic": item.get("image_url", item.get("default_pic", "")),
             "brandName": item.get("brand_name", ""),

@@ -49,18 +49,6 @@ const router = createRouter({
       meta: { title: '商品详情' },
     },
     {
-      path: '/brand',
-      name: 'brand',
-      component: () => import('@/views/BrandView.vue'),
-      meta: { title: '品牌专区' },
-    },
-    {
-      path: '/brand/:id',
-      name: 'brand-detail',
-      component: () => import('@/views/BrandDetailView.vue'),
-      meta: { title: '品牌详情' },
-    },
-    {
       path: '/new',
       name: 'new',
       component: () => import('@/views/NewProductView.vue'),
@@ -112,7 +100,7 @@ const router = createRouter({
       path: '/cart',
       name: 'cart',
       component: () => import('@/views/CartView.vue'),
-      meta: { title: '购物车' },
+      meta: { title: '购物车', requireAuth: true },
     },
     {
       path: '/order-confirm',

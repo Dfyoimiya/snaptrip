@@ -7,7 +7,6 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getCategoryTreeAPI } from '@/apis/product'
-import { getBrandRecommendListAPI } from '@/apis/brand'
 
 const router = useRouter()
 
@@ -20,24 +19,21 @@ interface CategoryNode {
 
 const categories = ref<CategoryNode[]>([])
 const activeTab = ref(0)
-const brandList = ref<{ id: string; name: string }[]>([])
 const loading = ref(false)
 
 const currentCategory = computed(() => categories.value[activeTab.value])
 
-const goSearch = (catId: string, catName: string) => {
-  router.push({ path: '/search', query: { categoryId: catId, keyword: catName } })
+const goKeywordSearch = (keyword: string) => {
+  const value = keyword.trim()
+  if (!value) return
+  router.push({ path: '/search', query: { keyword: value } })
 }
 
 onMounted(async () => {
   loading.value = true
   try {
-    const [tree, brands] = await Promise.all([
-      getCategoryTreeAPI(),
-      getBrandRecommendListAPI({ page: 1, page_size: 10 }).catch(() => null),
-    ])
+    const tree = await getCategoryTreeAPI()
     categories.value = (tree as CategoryNode[]) || []
-    brandList.value = brands?.items || []
   } catch {
     // empty
   } finally {
@@ -48,21 +44,6 @@ onMounted(async () => {
 
 <template>
   <div class="category-page space-y-5">
-    <!-- 热门品牌 -->
-    <div v-if="brandList.length" class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-      <h2 class="text-base font-bold text-gray-900 mb-3">热门品牌</h2>
-      <div class="flex flex-wrap gap-2">
-        <button
-          v-for="brand in brandList"
-          :key="brand.id"
-          class="px-4 py-2 bg-gray-50 rounded-lg text-sm text-gray-700 hover:bg-brand-50 hover:text-brand-600 transition-colors"
-          @click="router.push(`/brand/${brand.id}`)"
-        >
-          {{ brand.name }}
-        </button>
-      </div>
-    </div>
-
     <!-- 分类加载中 -->
     <div v-if="loading" class="bg-white rounded-xl shadow-sm border border-gray-100 p-20 text-center text-gray-400">
       加载中...
@@ -94,14 +75,24 @@ onMounted(async () => {
         <div v-if="currentCategory?.children?.length" class="space-y-4">
           <div v-for="(child, idx) in currentCategory.children" :key="idx" class="flex items-start gap-4">
             <div class="w-24 flex-shrink-0 pt-2">
-              <span class="text-sm font-bold text-gray-800">{{ child.name }}</span>
+              <button
+                v-if="!child.children?.length"
+                type="button"
+                class="rounded-md bg-gray-50 px-3 py-1.5 text-left text-sm font-bold text-gray-700 transition-colors hover:bg-brand-50 hover:text-brand-600"
+                :title="`搜索 ${child.name}`"
+                @click="goKeywordSearch(child.name)"
+              >
+                {{ child.name }}
+              </button>
+              <span v-else class="text-sm font-bold text-gray-800">{{ child.name }}</span>
             </div>
             <div class="flex-1 flex flex-wrap gap-2">
               <button
                 v-for="item in child.children || []"
                 :key="item.id"
                 class="px-3 py-1.5 text-sm text-gray-600 bg-gray-50 rounded-md hover:bg-brand-50 hover:text-brand-600 transition-colors"
-                @click="goSearch(item.id, item.name)"
+                :title="`搜索 ${item.name}`"
+                @click="goKeywordSearch(item.name)"
               >
                 {{ item.name }}
               </button>

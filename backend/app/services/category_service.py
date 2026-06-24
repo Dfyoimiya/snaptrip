@@ -89,39 +89,16 @@ class CategoryService:
 
             raise CommerceException(code="NO_FIELDS", message="没有提供需要更新的字段", status_code=400)
 
+        category = await self.db.get(PmsCategory, category_id)
+        if not category:
+            from app.core.exceptions import ProductNotFoundError
+
+            raise ProductNotFoundError(str(category_id))
+
         # If parent_id is being changed, validate new parent and recompute level
         if "parent_id" in values:
             new_parent_id = values["parent_id"]
-            if new_parent_id is not None:
-                if new_parent_id == category_id:
-                    from app.core.exceptions import CommerceException
-
-                    raise CommerceException(
-                        code="CATEGORY_SELF_PARENT",
-                        message="分类不能将自己设为父分类",
-                        status_code=400,
-                    )
-                parent = await self.db.get(PmsCategory, new_parent_id)
-                if not parent:
-                    from app.core.exceptions import CommerceException
-
-                    raise CommerceException(
-                        code="PARENT_NOT_FOUND",
-                        message=f"父分类不存在: {new_parent_id}",
-                        status_code=400,
-                    )
-                new_level = parent.level + 1
-                if new_level > 2:
-                    from app.core.exceptions import CommerceException
-
-                    raise CommerceException(
-                        code="CATEGORY_LEVEL_EXCEEDED",
-                        message=f"分类层级不能超过2级 (父分类为{parent.level}级，子分类将为{new_level}级)",
-                        status_code=400,
-                    )
-                values["level"] = new_level
-            else:
-                values["level"] = 0
+            values["level"] = await self._validate_move(category_id, new_parent_id)
 
         stmt = update(PmsCategory).where(PmsCategory.id == category_id).values(**values).returning(PmsCategory)
         result = await self.db.execute(stmt)
@@ -131,7 +108,135 @@ class CategoryService:
 
             raise ProductNotFoundError(str(category_id))
 
+        if "level" in values:
+            await self._refresh_descendant_levels(category_id)
+            await self.db.refresh(category)
+
         return CategoryResponse.model_validate(category)
+
+    async def move(self, category_id: UUID, parent_id: UUID | None) -> CategoryResponse:
+        """移动分类到新的父分类下，并刷新自身和所有子孙分类层级。"""
+
+        from app.models.product.category import PmsCategory
+
+        category = await self.db.get(PmsCategory, category_id)
+        if not category:
+            from app.core.exceptions import ProductNotFoundError
+
+            raise ProductNotFoundError(str(category_id))
+
+        new_level = await self._validate_move(category_id, parent_id)
+        max_sort_result = await self.db.execute(
+            select(func.coalesce(func.max(PmsCategory.sort), -1)).where(
+                PmsCategory.parent_id == parent_id
+            )
+        )
+        next_sort = (max_sort_result.scalar() or -1) + 1
+        category.parent_id = parent_id
+        category.level = new_level
+        category.sort = next_sort
+        await self.db.flush()
+        await self._refresh_descendant_levels(category_id)
+        await self.db.refresh(category)
+        return CategoryResponse.model_validate(category)
+
+    async def _validate_move(self, category_id: UUID, parent_id: UUID | None) -> int:
+        """校验分类移动是否合法，并返回移动后的 level。"""
+
+        from app.core.exceptions import CommerceException
+        from app.models.product.category import PmsCategory
+
+        if parent_id is None:
+            new_level = 0
+        else:
+            if parent_id == category_id:
+                raise CommerceException(
+                    code="CATEGORY_SELF_PARENT",
+                    message="分类不能将自己设为父分类",
+                    status_code=400,
+                )
+            parent = await self.db.get(PmsCategory, parent_id)
+            if not parent:
+                raise CommerceException(
+                    code="PARENT_NOT_FOUND",
+                    message=f"父分类不存在: {parent_id}",
+                    status_code=400,
+                )
+            descendant_ids = await self._descendant_ids(category_id)
+            if parent_id in descendant_ids:
+                raise CommerceException(
+                    code="CATEGORY_CYCLE",
+                    message="不能将分类移动到自己的子分类下",
+                    status_code=400,
+                )
+            new_level = parent.level + 1
+
+        max_depth = await self._subtree_depth(category_id)
+        if new_level + max_depth > 2:
+            raise CommerceException(
+                code="CATEGORY_LEVEL_EXCEEDED",
+                message="分类层级不能超过三级，移动后子分类层级会超出限制",
+                status_code=400,
+            )
+        return new_level
+
+    async def _descendant_ids(self, category_id: UUID) -> set[UUID]:
+        from app.models.product.category import PmsCategory
+
+        result = await self.db.execute(select(PmsCategory.id, PmsCategory.parent_id))
+        rows = result.all()
+        children_map: dict[UUID | None, list[UUID]] = {}
+        for cat_id, parent_id in rows:
+            children_map.setdefault(parent_id, []).append(cat_id)
+
+        descendants: set[UUID] = set()
+
+        def walk(parent: UUID) -> None:
+            for child_id in children_map.get(parent, []):
+                descendants.add(child_id)
+                walk(child_id)
+
+        walk(category_id)
+        return descendants
+
+    async def _subtree_depth(self, category_id: UUID) -> int:
+        from app.models.product.category import PmsCategory
+
+        result = await self.db.execute(select(PmsCategory.id, PmsCategory.parent_id))
+        rows = result.all()
+        children_map: dict[UUID | None, list[UUID]] = {}
+        for cat_id, parent_id in rows:
+            children_map.setdefault(parent_id, []).append(cat_id)
+
+        def depth(parent: UUID) -> int:
+            child_depths = [1 + depth(child_id) for child_id in children_map.get(parent, [])]
+            return max(child_depths, default=0)
+
+        return depth(category_id)
+
+    async def _refresh_descendant_levels(self, category_id: UUID) -> None:
+        from app.models.product.category import PmsCategory
+
+        result = await self.db.execute(select(PmsCategory.id, PmsCategory.parent_id, PmsCategory.level))
+        rows = result.all()
+        children_map: dict[UUID | None, list[UUID]] = {}
+        level_map: dict[UUID, int] = {}
+        for cat_id, parent_id, level in rows:
+            children_map.setdefault(parent_id, []).append(cat_id)
+            level_map[cat_id] = level
+
+        async def walk(parent: UUID, parent_level: int) -> None:
+            for child_id in children_map.get(parent, []):
+                child_level = parent_level + 1
+                if level_map.get(child_id) != child_level:
+                    await self.db.execute(
+                        update(PmsCategory)
+                        .where(PmsCategory.id == child_id)
+                        .values(level=child_level)
+                    )
+                await walk(child_id, child_level)
+
+        await walk(category_id, level_map[category_id])
 
     # ── 删除 ──
 
@@ -258,7 +363,13 @@ class CategoryService:
             .limit(page_size)
         )
         categories = result.scalars().all()
-        return [CategoryResponse.model_validate(c) for c in categories], total
+        product_counts = await self._product_count_map()
+        items = []
+        for category in categories:
+            item = CategoryResponse.model_validate(category)
+            item.product_count = product_counts.get(category.id, 0)
+            items.append(item)
+        return items, total
 
     # ── 查询: 树形结构 ──
 
@@ -277,6 +388,7 @@ class CategoryService:
 
         result = await self.db.execute(stmt)
         all_categories = result.scalars().all()
+        product_counts = await self._product_count_map()
 
         # Build parent_id -> children map
         children_map: dict[UUID | None, list[PmsCategory]] = {}
@@ -297,16 +409,35 @@ class CategoryService:
                 sort=cat.sort,
                 nav_status=cat.nav_status,
                 show_status=cat.show_status,
+                product_count=product_counts.get(cat.id, 0),
                 icon=cat.icon,
                 children=[_build_node(child) for child in children_map.get(cat.id, [])],
             )
 
         return [_build_node(root) for root in children_map.get(None, [])]
 
+    async def _product_count_map(self) -> dict[UUID, int]:
+        from app.models.product.product import PmsProduct
+
+        result = await self.db.execute(
+            select(PmsProduct.category_id, func.count(PmsProduct.id))
+            .where(PmsProduct.category_id.is_not(None), PmsProduct.is_deleted.is_(False))
+            .group_by(PmsProduct.category_id)
+        )
+        return {category_id: count for category_id, count in result.all() if category_id is not None}
+
     # ── 状态切换 ──
 
     async def toggle_status(self, category_id: UUID, field: str, status: int) -> CategoryResponse:
+        from app.core.exceptions import CommerceException
         from app.models.product.category import PmsCategory
+
+        if field not in {"nav_status", "show_status", "sort"}:
+            raise CommerceException(
+                code="INVALID_CATEGORY_FIELD",
+                message="不支持更新该分类字段",
+                status_code=400,
+            )
 
         stmt = update(PmsCategory).where(PmsCategory.id == category_id).values(**{field: status}).returning(PmsCategory)
         result = await self.db.execute(stmt)

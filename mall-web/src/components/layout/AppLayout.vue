@@ -5,8 +5,8 @@
  *
  * 底层：灰白底色 (#f5f5f5)，商品/文字直接平铺
  * 中层：RouterView 子页面内容，自然滚动
- * 顶层：TopBar / LeftSidebar / HeaderSearch / TabBar
- *      各组件独立 fixed 定位 + 液态玻璃风格
+ * 顶层：TopBar / LeftSidebar
+ *      TopBar 和侧边栏固定，搜索框随页面自然滚动
  * ============================================
  */
 import { computed } from 'vue'
@@ -15,7 +15,6 @@ import { useLayoutStore } from '@/stores/layout'
 import { useMemberStore } from '@/stores/member'
 import { useCartStore } from '@/stores/cart'
 import TopBar from './TopBar.vue'
-import TabBar from './TabBar.vue'
 import HeaderSearch from './HeaderSearch.vue'
 import LeftSidebar from './LeftSidebar.vue'
 import ProductCompare from '@/components/product/ProductCompare.vue'
@@ -55,8 +54,8 @@ function handleLogout() {
       />
     </div>
     <LeftSidebar />
+    <!-- 搜索框位于页面顶部，向下滚动时自然离开视口，回到顶部时显示 -->
     <HeaderSearch mode="inline" @navigate="navigateTo" />
-    <TabBar />
 
     <!-- ═══ 中层：子页面内容 ═══ -->
     <main class="main-content" :class="{ 'main-content--fill': fillMain }">
@@ -107,7 +106,7 @@ function handleLogout() {
    侧边栏 184px + 左侧偏移 12px + 间距 12px = 208px
    ═══════════════════════════════════════════ */
 .main-content {
-  padding: 116px 19px 0 208px;
+  padding: 16px 19px 0 208px;
 }
 
 .route-content {

@@ -42,6 +42,11 @@ class ReorderItem(BaseModel):
 class ReorderRequest(BaseModel):
     items: list[ReorderItem] = Field(..., min_length=1)
 
+
+class MoveCategoryRequest(BaseModel):
+    parent_id: UUID | None = Field(None, description="新的父分类ID，null 表示移动为一级分类")
+
+
 router = APIRouter(prefix="/admin/categories", tags=["Admin - 商品分类"])
 
 
@@ -142,6 +147,18 @@ async def update_sort(
 ):
     svc = CategoryService(db)
     result = await svc.toggle_status(category_id, "sort", sort)
+    return success(result.model_dump())
+
+
+@router.patch("/{category_id}/move", summary="移动分类到新的父分类下")
+async def move_category(
+    category_id: UUID,
+    data: MoveCategoryRequest,
+    db: AsyncSession = Depends(get_db),
+    _current_user=Depends(require_admin_user),
+):
+    svc = CategoryService(db)
+    result = await svc.move(category_id, data.parent_id)
     return success(result.model_dump())
 
 

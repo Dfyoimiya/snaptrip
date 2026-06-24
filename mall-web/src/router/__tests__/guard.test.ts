@@ -96,6 +96,15 @@ describe('Router Guard Logic', () => {
       expect(homeRoute).toBeDefined()
       expect(homeRoute!.meta.requireAuth).toBeFalsy()
     })
+
+    it('cart route should require authentication', async () => {
+      const routerModule = await import('@/router/index')
+      const router = routerModule.default
+
+      const cartRoute = router.getRoutes().find((route: any) => route.name === 'cart')
+      expect(cartRoute).toBeDefined()
+      expect(cartRoute!.meta.requireAuth).toBe(true)
+    })
   })
 
   describe('route count and structure', () => {

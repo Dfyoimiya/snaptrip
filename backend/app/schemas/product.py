@@ -72,6 +72,7 @@ class CategoryResponse(BaseModel):
     sort: int
     nav_status: int
     show_status: int
+    product_count: int = 0
     icon: str | None = None
     keywords: str | None = None
     description: str | None = None
@@ -93,6 +94,7 @@ class CategoryTreeResponse(BaseModel):
     sort: int
     nav_status: int
     show_status: int
+    product_count: int = 0
     icon: str | None = None
     children: list[CategoryTreeResponse] = Field(default_factory=list)
 

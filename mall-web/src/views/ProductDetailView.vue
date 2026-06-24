@@ -550,6 +550,16 @@ const receiveCoupon = (couponId: string) => {
   setTimeout(() => toast.remove(), 2000)
 }
 
+/** 返回上一个打开页面；无历史来源时回到商品分类页 */
+function goBack() {
+  const historyState = window.history.state as { back?: string | null } | null
+  if (historyState?.back) {
+    router.back()
+    return
+  }
+  router.push('/category')
+}
+
 // ============================================================
 // 生命周期
 // ============================================================
@@ -568,16 +578,35 @@ onUnmounted(() => {
 
 <template>
   <div class="product-detail-page max-w-7xl mx-auto px-4 py-6">
-    <!-- 面包屑导航 -->
-    <nav class="flex items-center gap-2 text-sm text-gray-500 mb-5">
-      <button class="hover:text-brand-600 transition-colors" @click="router.push('/')">首页</button>
-      <span class="text-gray-300">/</span>
-      <button class="hover:text-brand-600 transition-colors" @click="router.push('/category')">{{ mockProduct.product.productCategoryName || '全部分类' }}</button>
-      <span class="text-gray-300">/</span>
-      <button v-if="mockProduct.brand.id" class="hover:text-brand-600 transition-colors" @click="router.push(`/brand/${mockProduct.brand.id}`)">{{ mockProduct.product.brandName }}</button>
-      <span v-if="mockProduct.brand.id" class="text-gray-300">/</span>
-      <span class="text-gray-700 truncate max-w-md">{{ mockProduct.product.name || '商品详情' }}</span>
-    </nav>
+    <div class="flex items-center gap-3 mb-5">
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-600 shadow-sm transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-600"
+        @click="goBack"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        返回
+      </button>
+
+      <!-- 面包屑导航 -->
+      <nav class="flex min-w-0 flex-1 items-center gap-2 text-sm text-gray-500">
+        <button class="hover:text-brand-600 transition-colors" @click="router.push('/')">首页</button>
+        <span class="text-gray-300">/</span>
+        <button class="hover:text-brand-600 transition-colors" @click="router.push('/category')">{{ mockProduct.product.productCategoryName || '全部分类' }}</button>
+        <span class="text-gray-300">/</span>
+        <button
+          v-if="mockProduct.brand.id"
+          class="hover:text-brand-600 transition-colors"
+          @click="router.push(`/brand/${mockProduct.brand.id}`)"
+        >
+          {{ mockProduct.product.brandName }}
+        </button>
+        <span v-if="mockProduct.brand.id" class="text-gray-300">/</span>
+        <span class="text-gray-700 truncate max-w-md">{{ mockProduct.product.name || '商品详情' }}</span>
+      </nav>
+    </div>
 
     <!-- 加载中 -->
     <div v-if="loading" class="flex items-center justify-center py-32">

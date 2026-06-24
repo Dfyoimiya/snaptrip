@@ -53,6 +53,20 @@ function deepConvertKeys(obj: unknown): unknown {
   return obj
 }
 
+interface ApiError extends Error {
+  code?: string | number
+  status?: number
+  details?: unknown
+}
+
+function createApiError(message: string, code?: string | number, status?: number, details?: unknown): ApiError {
+  const error = new Error(message) as ApiError
+  error.code = code
+  error.status = status
+  error.details = details
+  return error
+}
+
 // ── 请求拦截器 ──────────────────────────────────────────────────────────
 
 request.interceptors.request.use(
@@ -103,7 +117,7 @@ request.interceptors.response.use(
     const res = response.data
     if (res.code !== 0) {
       ElMessage.error(res.message || '请求失败')
-      return Promise.reject(new Error(res.message || '请求失败'))
+      return Promise.reject(createApiError(res.message || '请求失败', res.code, response.status, res.details))
     }
     // 深度转换 snake_case → camelCase
     if (res.data) {
@@ -182,14 +196,10 @@ request.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    // 非 401 错误
-    ElMessage.error(
-      error.response?.data?.message
-      || error.response?.data?.detail
-      || error.message
-      || '网络错误',
-    )
-    return Promise.reject(error)
+    const data = error.response?.data
+    const message = data?.message || data?.detail || error.message || '网络错误'
+    ElMessage.error(message)
+    return Promise.reject(createApiError(message, data?.code, error.response?.status, data?.details))
   },
 )
 

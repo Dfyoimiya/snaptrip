@@ -2,6 +2,25 @@ import type { CommonResult, CommonPage } from '@/types/common'
 import type { PmsProductCategory } from '@/types/productCate'
 import request from '@/utils/request'
 
+function normalizeParentId(parentId: string | number | null | undefined) {
+  if (parentId === 0 || parentId === '0' || parentId === '') return null
+  return parentId ?? null
+}
+
+function toCategoryPayload(data: PmsProductCategory) {
+  return {
+    name: data.name,
+    type: data.type || 'PRODUCT',
+    parent_id: normalizeParentId(data.parentId),
+    sort: data.sort,
+    nav_status: data.navStatus,
+    show_status: data.showStatus,
+    icon: data.icon || null,
+    keywords: data.keywords || null,
+    description: data.description || null,
+  }
+}
+
 /** 分页子分类 —— GET /admin/categories?parent_id=... */
 export function getProductCategoryListAPI(parentId: string, params: { pageNum: number; pageSize: number }) {
   return request<CommonResult<CommonPage<PmsProductCategory>>>({
@@ -24,7 +43,7 @@ export function createProductCategoryAPI(data: PmsProductCategory) {
   return request<CommonResult<number>>({
     url: '/admin/categories',
     method: 'post',
-    data,
+    data: toCategoryPayload(data),
   })
 }
 
@@ -33,7 +52,7 @@ export function updateProductCategoryAPI(id: string, data: PmsProductCategory) {
   return request<CommonResult<number>>({
     url: '/admin/categories/' + id,
     method: 'put',
-    data,
+    data: toCategoryPayload(data),
   })
 }
 
@@ -46,10 +65,11 @@ export function getProductCategoryAPI(id: string) {
 }
 
 /** 删除分类 —— DELETE /admin/categories/{id} */
-export function productCategoryDeleteByIdAPI(id: string) {
+export function productCategoryDeleteByIdAPI(id: string, force = false) {
   return request<CommonResult<number>>({
     url: '/admin/categories/' + id,
     method: 'delete',
+    params: { force },
   })
 }
 
@@ -77,5 +97,14 @@ export function productCategoryBatchSortAPI(data: { items: { id: string; sort: n
     url: '/admin/categories/batch-sort',
     method: 'patch',
     data,
+  })
+}
+
+/** 移动分类到新的父分类下 —— PATCH /admin/categories/{id}/move */
+export function productCategoryMoveAPI(id: string, parentId: string | number | null) {
+  return request<CommonResult<PmsProductCategory>>({
+    url: '/admin/categories/' + id + '/move',
+    method: 'patch',
+    data: { parent_id: normalizeParentId(parentId) },
   })
 }

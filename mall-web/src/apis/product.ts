@@ -34,6 +34,7 @@ export const searchProductListAPI = (params: ProductListParam) => {
     min_price: params.minPrice,
     max_price: params.maxPrice,
     sort_by: _mapSort(params.sort),
+    match_mode: 'contains',
     page: params.page || 1,
     page_size: params.pageSize || 20,
   })
