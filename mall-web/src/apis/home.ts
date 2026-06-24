@@ -127,6 +127,10 @@ export interface HomeFeedResponse {
 }
 
 /** 首页多维度推荐 Feed */
-export const getHomeFeedAPI = (limit: number = 10) => {
-  return get<HomeFeedResponse>('/api/v1/portal/home/feed', { limit })
+export const getHomeFeedAPI = (limit: number = 10, offset: number = 0, excludeIds?: string[]) => {
+  const params: Record<string, string | number> = { limit, offset }
+  if (excludeIds && excludeIds.length > 0) {
+    params.exclude_ids = excludeIds.join(',')
+  }
+  return get<HomeFeedResponse>('/api/v1/portal/home/feed', params)
 }

@@ -19,7 +19,9 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, computed_field, field_validator, model_validator
+
+from app.utils.display import format_sale_count
 
 # ============================================================================
 #  分类 Schema
@@ -171,6 +173,11 @@ class ProductBriefResponse(BaseModel):
     price: Decimal
     sale_count: int
 
+    @computed_field
+    @property
+    def sale_count_display(self) -> str:
+        return format_sale_count(self.sale_count)
+
     model_config = {"from_attributes": True}
 
 
@@ -236,12 +243,30 @@ class SkuCreate(BaseModel):
     """创建 SKU —— 与商品一起创建"""
 
     sku_code: str = Field(..., min_length=1, max_length=64, description="SKU编码")
-    spec: str = Field(..., min_length=1, max_length=255, description="规格JSON")
+    spec: str = Field(..., min_length=1, max_length=255, description="规格JSON, 如 {\"颜色\":\"黑色\",\"尺码\":\"S\"}")
     price: Decimal = Field(..., ge=0.01, max_digits=10, decimal_places=2, description="售价")
     promotion_price: Decimal | None = Field(None, ge=0, max_digits=10, decimal_places=2, description="促销价")
     stock: int = Field(default=0, ge=0, description="库存")
     low_stock: int = Field(default=0, ge=0, description="预警库存")
     pic: str | None = Field(None, max_length=255, description="SKU图片")
+
+    @field_validator("spec")
+    @classmethod
+    def validate_spec_json(cls, v: str) -> str:
+        """确保 spec 是合法 JSON 对象"""
+        import json
+
+        try:
+            parsed = json.loads(v)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"规格数据不是合法JSON: {exc}") from exc
+        if not isinstance(parsed, dict):
+            raise ValueError("规格数据必须是JSON对象 ({\"颜色\":\"红色\"})，不能是数组或其他类型")
+        # 校验每个值都是简单类型
+        for key, val in parsed.items():
+            if not isinstance(val, (str, int, float, bool, type(None))):
+                raise ValueError(f"规格值“{key}”必须是字符串/数字/布尔值")
+        return v
 
 
 class SkuUpdate(BaseModel):
@@ -251,7 +276,29 @@ class SkuUpdate(BaseModel):
     promotion_price: Decimal | None = Field(None, ge=0, max_digits=10, decimal_places=2, description="促销价")
     stock: int | None = Field(None, ge=0, description="库存")
     pic: str | None = Field(None, max_length=255, description="SKU图片")
-    spec: str | None = Field(None, min_length=1, max_length=255, description="规格JSON")
+    spec: str | None = Field(
+        None, min_length=1, max_length=255,
+        description='规格JSON, 如 {"颜色":"黑色","尺码":"S"}',
+    )
+
+    @field_validator("spec")
+    @classmethod
+    def validate_spec_json(cls, v: str | None) -> str | None:
+        """确保 spec 是合法 JSON 对象"""
+        if v is None:
+            return v
+        import json
+
+        try:
+            parsed = json.loads(v)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"规格数据不是合法JSON: {exc}") from exc
+        if not isinstance(parsed, dict):
+            raise ValueError("规格数据必须是JSON对象")
+        for key, val in parsed.items():
+            if not isinstance(val, (str, int, float, bool, type(None))):
+                raise ValueError(f"规格值“{key}”必须是字符串/数字/布尔值")
+        return v
 
 
 class SkuResponse(BaseModel):
@@ -266,6 +313,11 @@ class SkuResponse(BaseModel):
     low_stock: int
     sale_count: int
     pic: str | None = None
+
+    @computed_field
+    @property
+    def sale_count_display(self) -> str:
+        return format_sale_count(self.sale_count)
 
     model_config = {"from_attributes": True}
 
@@ -393,6 +445,11 @@ class ProductResponse(BaseModel):
     created_at: datetime | None = None
     updated_at: datetime | None = None
 
+    @computed_field
+    @property
+    def sale_count_display(self) -> str:
+        return format_sale_count(self.sale_count)
+
     model_config = {"from_attributes": True, "populate_by_name": True}
 
 
@@ -437,6 +494,11 @@ class PortalProductResponse(BaseModel):
     freight_template_id: UUID | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
+
+    @computed_field
+    @property
+    def sale_count_display(self) -> str:
+        return format_sale_count(self.sale_count)
 
     model_config = {"from_attributes": True}
 

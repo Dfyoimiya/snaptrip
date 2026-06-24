@@ -12,7 +12,9 @@ Date: 2026-06-17
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from celery import shared_task
@@ -55,10 +57,8 @@ async def _check_sla() -> dict:
     from snaptrip_shared.db.session import AsyncSessionLocal, async_engine
     from sqlalchemy import select
 
-    try:
+    with contextlib.suppress(RuntimeError):
         await async_engine.dispose()  # 绑定到当前 event loop
-    except RuntimeError:
-        pass  # 旧事件循环已关闭，连接无法清理，安全忽略
 
     from app.models.infra.notification import CsNotification
     from app.models.order.support_ticket import OmsSupportTicket
@@ -83,6 +83,23 @@ async def _check_sla() -> dict:
         )
         tickets = result.scalars().all()
 
+        # Pre-fetch valid user IDs to avoid FK violations on stale recipient references.
+        recipient_ids = {
+            ticket.assigned_agent_id
+            or ticket.created_by  # may be None — filtered below
+            for ticket in tickets
+        }
+        recipient_ids.discard(None)
+
+        valid_user_ids: set[uuid.UUID] = set()
+        if recipient_ids:
+            from marketplace.app.models.users import User
+
+            user_result = await db.execute(
+                select(User.id).where(User.id.in_(list(recipient_ids)))
+            )
+            valid_user_ids = {row[0] for row in user_result.fetchall()}
+
         for ticket in tickets:
             deadline = SLA_DEADLINES.get(ticket.priority, SLA_DEADLINES["normal"])
             elapsed = now - ticket.created_at
@@ -91,17 +108,23 @@ async def _check_sla() -> dict:
             if elapsed > deadline:
                 # SLA breached
                 breached += 1
-                notif = CsNotification(
-                    recipient_id=ticket.assigned_agent_id
-                    if ticket.assigned_agent_id
-                    else ticket.created_by or ticket.id,  # fallback
-                    type="sla_breach",
-                    ticket_id=ticket.id,
-                    title=f"SLA 超时: {ticket.title}",
-                    body=f"工单 {ticket.id} 已超过 {ticket.priority} 级 SLA ({_format_td(deadline)})，"
-                    f"当前耗时 {_format_td(elapsed)}",
-                )
-                db.add(notif)
+                recipient_id = ticket.assigned_agent_id or ticket.created_by
+                if recipient_id and recipient_id in valid_user_ids:
+                    notif = CsNotification(
+                        recipient_id=recipient_id,
+                        type="sla_breach",
+                        ticket_id=ticket.id,
+                        title=f"SLA 超时: {ticket.title}",
+                        body=f"工单 {ticket.id} 已超过 {ticket.priority} 级 SLA ({_format_td(deadline)})，"
+                        f"当前耗时 {_format_td(elapsed)}",
+                    )
+                    db.add(notif)
+                else:
+                    logger.warning(
+                        "sla_breach skipped for ticket %s: recipient %s not found in users",
+                        ticket.id,
+                        recipient_id,
+                    )
 
                 # Publish real-time alert
                 if redis:
@@ -161,10 +184,8 @@ async def _cleanup_agents() -> dict:
     from snaptrip_shared.db.session import AsyncSessionLocal, async_engine
     from sqlalchemy import update
 
-    try:
+    with contextlib.suppress(RuntimeError):
         await async_engine.dispose()  # 绑定到当前 event loop
-    except RuntimeError:
-        pass  # 旧事件循环已关闭，连接无法清理，安全忽略
 
     from app.models.member.cs_agent import CsAgentStatus
 

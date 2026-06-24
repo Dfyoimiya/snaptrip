@@ -7,7 +7,7 @@
  *   - 当前 session_id
  * ============================================
  */
-import { ref, computed } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { defineStore } from 'pinia'
 import {
   shoppingGuideChatStreamAPI,
@@ -18,11 +18,12 @@ import {
   type RecommendedProduct,
   type ShoppingGuideSession,
   type InfoCards,
+  type FollowUpItem,
 } from '@/apis/shoppingGuide'
 
 export type { RecommendedProduct, InfoCards }
 
-/** 帮我买搜索模式 */
+/** 帮我挑搜索模式 */
 export type SearchMode = 'auto' | 'info' | 'product'
 
 export interface ChatMessage {
@@ -32,7 +33,7 @@ export interface ChatMessage {
   /** 导购推荐的关联商品 */
   products?: RecommendedProduct[]
   /** AI 建议的追问 */
-  followUps?: string[]
+  followUps?: FollowUpItem[]
   /** 信息搜索结构化卡片 */
   infoCards?: InfoCards | null
 }
@@ -66,7 +67,10 @@ export const useShoppingGuideStore = defineStore('shoppingGuide', () => {
   const recommendedProducts = ref<RecommendedProduct[]>([])
   const isSplitMode = ref(false)
 
-  // ── 帮我买布局状态 ──
+  // ── 流式模式（首个 SSE 事件，用于前端立即展开 Canvas）──
+  const streamMode = ref<string | null>(null)
+
+  // ── 帮我挑布局状态 ──
   const searchMode = ref<SearchMode>('auto')
 
   // ── Getters ──
@@ -111,11 +115,11 @@ export const useShoppingGuideStore = defineStore('shoppingGuide', () => {
     saveMessages(messages.value)
 
     // 创建占位 AI 消息（流式填充）
-    const aiMsg: ChatMessage = {
+    const aiMsg = reactive<ChatMessage>({
       role: 'assistant',
       content: '',
       timestamp: Date.now(),
-    }
+    })
     messages.value.push(aiMsg)
     saveMessages(messages.value)
 
@@ -129,9 +133,11 @@ export const useShoppingGuideStore = defineStore('shoppingGuide', () => {
           mode: searchMode.value,
         },
         {
+          onMode(mode: string) {
+            streamMode.value = mode
+          },
           onToken(token: string) {
             aiMsg.content += token
-            saveMessages(messages.value)
           },
           onDone(payload) {
             sessionId.value = payload.sessionId
@@ -172,6 +178,7 @@ export const useShoppingGuideStore = defineStore('shoppingGuide', () => {
     sessionId.value = null
     recommendedProducts.value = []
     isSplitMode.value = false
+    streamMode.value = null
     saveMessages([])
   }
 
@@ -180,6 +187,7 @@ export const useShoppingGuideStore = defineStore('shoppingGuide', () => {
     messages.value = []
     recommendedProducts.value = []
     isSplitMode.value = false
+    streamMode.value = null
     saveMessages([])
   }
 
@@ -265,5 +273,6 @@ export const useShoppingGuideStore = defineStore('shoppingGuide', () => {
     searchMode,
     currentSearchMode,
     setSearchMode,
+    streamMode,
   }
 })

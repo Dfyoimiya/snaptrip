@@ -37,10 +37,14 @@ def sync_all_products_to_es() -> dict:
         from sqlalchemy import select
 
         from app.models.product.product import PmsProduct
-        from app.search.client import get_search_client
+        from app.search.client import close_search_client, get_search_client
+
+        # 重建 ES 客户端 —— 旧单例绑定到上一个事件循环，在新 loop 中必须重建
+        await close_search_client()
+        es_client = get_search_client()
 
         # 先创建索引 (如果不存在)
-        await get_search_client().create_product_index()
+        await es_client.create_product_index()
 
         # 全量查询 — 预加载品牌和分类名称用于 ES 文档
         from snaptrip_shared.db.session import AsyncSessionLocal, async_engine
@@ -97,7 +101,7 @@ def sync_all_products_to_es() -> dict:
                 }
             )
 
-        success = await get_search_client().bulk_index_products(docs)
+        success = await es_client.bulk_index_products(docs)
         logger.info("es_full_sync_done", total=len(products), success=success)
         return {"total": len(products), "indexed": success}
 
@@ -120,6 +124,11 @@ def sync_product_to_es_by_id(product_id: str) -> bool:
             pass  # 旧事件循环已关闭，连接无法清理，安全忽略
 
         from app.models.product.product import PmsProduct
+        from app.search.client import close_search_client
+
+        # 重建 ES 客户端 —— 旧单例绑定到上一个事件循环
+        await close_search_client()
+
         from app.services.product_service import sync_product_to_es
 
         async with AsyncSessionLocal() as session:

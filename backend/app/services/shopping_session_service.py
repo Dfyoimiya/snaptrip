@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 
-SESSION_TTL = 1800  # 30 min active session
+SESSION_TTL = 86400 * 7  # 7 day session retention
 SUMMARY_TTL = 86400 * 30  # 30 day summary retention
 PREFERENCES_TTL = 86400 * 60  # 60 day preference retention
 MAX_HISTORY_SESSIONS = 50  # per user

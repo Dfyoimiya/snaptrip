@@ -238,3 +238,21 @@ class ReviewSearchAgentResult(AgentResult):
     agent_name: str = "review_search"
     per_product: dict[str, ReviewSummary] = Field(default_factory=dict)
     total_scanned: int = 0
+
+
+# ============================================================================
+#  追问建议
+# ============================================================================
+
+
+class FollowUpItem(BaseModel):
+    """单个追问建议 — 可为带选项的交互式追问卡片。
+
+    前端渲染为输入框上方的"猜你想问"卡片，支持两种交互模式：
+    - send: 点击选项直接发送消息
+    - fill: 点击选项填入输入框，用户可编辑后发送
+    """
+
+    text: str = ""  # 引导文案，如"你更想选哪个品牌的呢？"
+    options: list[str] = Field(default_factory=list)  # 可点击的选项标签
+    action: str = "send"  # "send"=直接发送 | "fill"=填入输入框

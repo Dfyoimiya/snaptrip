@@ -10,7 +10,9 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
+
+from app.utils.display import format_sale_count
 
 # ============================================================================
 #  轮播图
@@ -153,6 +155,11 @@ class ProductRankItem(BaseModel):
     product_name: str
     sale_count: int = 0
     amount: float = 0.0
+
+    @computed_field
+    @property
+    def sale_count_display(self) -> str:
+        return format_sale_count(self.sale_count)
 
 
 class HomePageAggregation(BaseModel):

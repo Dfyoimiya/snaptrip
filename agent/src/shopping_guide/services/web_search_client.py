@@ -92,6 +92,82 @@ class TavilySearchProvider(WebSearchProvider):
             return []
 
 
+class SerpAPISearchProvider(WebSearchProvider):
+    """SerpAPI — multi-engine search (Baidu, Google, Bing).
+
+    Uses engine=baidu by default for Chinese shopping search quality.
+    API docs: https://serpapi.com/search-api
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        base_url: str = "https://serpapi.com/search",
+        engine: str = "baidu",
+    ):
+        self.api_key = api_key
+        self.base_url = base_url
+        self.engine = engine
+
+    @property
+    def provider_name(self) -> str:
+        return f"serpapi/{self.engine}"
+
+    async def search(self, query: str, max_results: int = 5, **kwargs: Any) -> list[WebSearchItem]:
+        if not self.api_key:
+            logger.warning("SerpAPI key not configured, returning empty results")
+            return []
+
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as client:
+                resp = await client.get(
+                    self.base_url,
+                    params={
+                        "engine": self.engine,
+                        "q": query,
+                        "api_key": self.api_key,
+                        "num": min(max_results * 2, 20),  # fetch more, dedup downstream
+                        **kwargs,
+                    },
+                )
+                resp.raise_for_status()
+                data = resp.json()
+
+                # SerpAPI may return an error field even with HTTP 200
+                if data.get("error"):
+                    logger.warning("SerpAPI returned error: %s", data["error"])
+                    return []
+
+                items: list[WebSearchItem] = []
+                for r in data.get("organic_results", [])[:max_results]:
+                    items.append(
+                        WebSearchItem(
+                            title=r.get("title", ""),
+                            url=r.get("link", ""),
+                            snippet=r.get("snippet", ""),
+                            source=f"serpapi/{self.engine}",
+                            relevance_score=0.0,
+                            published_date=r.get("date"),
+                        )
+                    )
+
+                if not items:
+                    logger.warning(
+                        "SerpAPI returned 0 organic_results for query=%s "
+                        "(status=%s, total_time=%s)",
+                        query[:60],
+                        resp.status_code,
+                        data.get("search_metadata", {}).get("total_time_taken", "?"),
+                    )
+                return items
+        except httpx.TimeoutException:
+            logger.warning("SerpAPI timeout for query=%s (limit=30s)", query[:60])
+            return []
+        except Exception:
+            logger.warning("SerpAPI search failed for query=%s", query[:60], exc_info=True)
+            return []
+
+
 class BraveSearchProvider(WebSearchProvider):
     """Brave Search API provider."""
 
@@ -190,6 +266,10 @@ def create_web_search_client(settings: Any) -> WebSearchClient | None:
         provider = TavilySearchProvider(api_key=api_key, base_url=base_url)
     elif provider_name == "brave":
         provider = BraveSearchProvider(api_key=api_key)
+    elif provider_name == "serpapi":
+        base_url = getattr(settings, "sg_web_search_base_url", "https://serpapi.com/search")
+        engine = getattr(settings, "sg_web_search_engine", "baidu")
+        provider = SerpAPISearchProvider(api_key=api_key, base_url=base_url, engine=engine)
     else:
         logger.warning("Unknown web search provider: %s", provider_name)
         return None
@@ -199,6 +279,7 @@ def create_web_search_client(settings: Any) -> WebSearchClient | None:
 
 __all__ = [
     "BraveSearchProvider",
+    "SerpAPISearchProvider",
     "TavilySearchProvider",
     "WebSearchClient",
     "WebSearchProvider",

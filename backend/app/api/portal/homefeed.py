@@ -90,28 +90,36 @@ async def home_feed(
     vector: VectorSearchService = Depends(_get_vector),
     user_id: UUID | None = Depends(_resolve_user_id),
     limit: int = Query(10, ge=1, le=30),
+    offset: int = Query(0, ge=0, description="分页偏移量，0=首页，>0=加载更多"),
+    exclude_ids: str | None = Query(None, description="排除的商品ID，逗号分隔，用于翻页去重"),
 ):
     """并发聚合 5 个推荐数据源。
 
     每个 section 使用独立的 DB session，允许并发执行。
+    offset>0 时仅返回可翻页 section，跳过浏览历史和搜索发现。
+    exclude_ids 让各 section 跳过已展示商品，重新填充到 limit 数量。
     """
+    # 解析排除 ID 集合
+    excluded: set[str] = set()
+    if exclude_ids:
+        excluded = {x.strip() for x in exclude_ids.split(",") if x.strip()}
+
     session_id = request.headers.get("X-Session-Id", "")
     tasks = []
 
     # Row 1: 猜你喜欢 (最复杂, 涉及多路召回)
-    tasks.append(_build_guess_you_like(request, memory, vector, user_id, session_id, limit))
+    tasks.append(_build_guess_you_like(request, memory, vector, user_id, session_id, limit, offset, excluded))
 
-    # Row 2: 热门推荐 (Redis trending)
-    tasks.append(_build_trending_now(trending, limit))
+    # Row 2: 热门推荐
+    tasks.append(_build_trending_now(trending, limit, offset, excluded))
 
     # Row 3: 新品上市
-    tasks.append(_build_new_arrivals(user_id, limit))
+    tasks.append(_build_new_arrivals(user_id, limit, offset, excluded))
 
-    # Row 4: 浏览历史
-    tasks.append(_build_recently_viewed(memory, user_id, session_id, limit))
-
-    # Row 5: 搜索发现
-    tasks.append(_build_search_discovery(trending, limit=8))
+    if offset == 0 and not excluded:
+        # Row 4 & 5 仅在首次无排除时返回，翻页/去重时跳过
+        tasks.append(_build_recently_viewed(memory, user_id, session_id, limit))
+        tasks.append(_build_search_discovery(trending, limit=8))
 
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -139,6 +147,8 @@ async def _build_guess_you_like(
     user_id: UUID | None,
     session_id: str,
     limit: int,
+    offset: int = 0,
+    excluded: set[str] | None = None,
 ) -> FeedSection:
     """Row 1: 猜你喜欢 — 多路召回融合。
 
@@ -146,8 +156,11 @@ async def _build_guess_you_like(
     无 user_id: 纯热门兜底
     """
     try:
+        if excluded is None:
+            excluded = set()
         candidates: list[dict] = []
-        total_budget = limit * 3
+        reserve = len(excluded)  # 多取 reserve 个以弥补被排除的
+        total_budget = limit * 3 + reserve
 
         if user_id:
             # Vector recall
@@ -183,6 +196,10 @@ async def _build_guess_you_like(
         # Hot recall (fill remaining)
         try:
             hot_limit = total_budget - len(candidates)
+            if offset > 0 and not user_id:
+                # 匿名翻页: 直接用 sale_count 排序 + offset
+                hot_limit = limit
+                candidates.clear()
             if hot_limit > 0:
                 async with AsyncSessionLocal() as session:
                     stmt = (
@@ -193,6 +210,7 @@ async def _build_guess_you_like(
                             PmsProduct.is_deleted.is_(False),
                         )
                         .order_by(PmsProduct.sale_count.desc())
+                        .offset(offset)
                         .limit(hot_limit)
                     )
                     result = await session.execute(stmt)
@@ -201,8 +219,8 @@ async def _build_guess_you_like(
         except Exception as exc:
             logger.debug("guess_you_like: hot recall failed: %s", exc)
 
-        # Dedup
-        seen: set[str] = set()
+        # Dedup + 过滤已排除 ID
+        seen: set[str] = set(excluded)  # 从已排除的 ID 开始
         deduped: list[dict] = []
         for c in candidates:
             pid = c.get("product_id", "")
@@ -221,7 +239,7 @@ async def _build_guess_you_like(
                 base_score += 0.10  # personalization boost
             c["score"] = min(base_score, 1.0)
 
-        products = sorted(deduped, key=lambda x: x.get("score", 0), reverse=True)[:total_budget]
+        products = sorted(deduped, key=lambda x: x.get("score", 0), reverse=True)[:limit]
         marketing_copies: dict[str, str] = {}
 
         feed_products = [
@@ -253,19 +271,52 @@ async def _build_guess_you_like(
     except Exception as exc:
         logger.error("guess_you_like section failed: %s", exc)
         # 降级: 纯热门
-        return await _build_trending_fallback(limit)
+        return await _build_trending_fallback(limit, offset, excluded)
 
 
 async def _build_trending_now(
     trending: TrendingService,
     limit: int,
+    offset: int = 0,
+    excluded: set[str] | None = None,
 ) -> FeedSection:
-    """Row 2: 热门推荐 — Redis trending 滑动窗口。"""
+    """Row 2: 热门推荐 — Redis trending 滑动窗口。
+
+    offset>0 时降级为 DB sale_count 排序以支持翻页。
+    """
     try:
+        if excluded is None:
+            excluded = set()
+        reserve = len(excluded)
+        if offset > 0 or excluded:
+            # 翻页/去重: 直接使用 DB 分页，多取 reserve 以弥补排除
+            async with AsyncSessionLocal() as session:
+                stmt = (
+                    select(PmsProduct)
+                    .where(
+                        PmsProduct.publish_status == 1,
+                        PmsProduct.verify_status == 1,
+                        PmsProduct.is_deleted.is_(False),
+                    )
+                    .order_by(PmsProduct.sale_count.desc())
+                    .offset(offset)
+                    .limit(limit + reserve)
+                )
+                result = await session.execute(stmt)
+                all_products = result.scalars().all()
+            # 过滤已排除 ID
+            products = [p for p in all_products if str(p.id) not in excluded][:limit]
+            return FeedSection(
+                section_type=FeedSectionType.TRENDING_NOW,
+                title="热门推荐",
+                sub_title="更多精选好物" if offset > 0 else "24小时热销排行",
+                products=[_product_to_feed(p, source="db_offset") for p in products],
+            )
+
         trending_products = await trending.get_trending_products(window_hours=24, limit=limit * 2)
         product_ids = [p["product_id"] for p in trending_products if _is_valid_uuid(p["product_id"])]
         if not product_ids:
-            return await _build_trending_fallback(limit)
+            return await _build_trending_fallback(limit, offset, excluded)
 
         # 从 DB 解析完整商品数据
         async with AsyncSessionLocal() as session:
@@ -273,6 +324,8 @@ async def _build_trending_now(
         feed_products = []
         for tp in trending_products:
             pid = tp["product_id"]
+            if pid in excluded:
+                continue
             if pid in id_map:
                 p = id_map[pid]
                 feed_products.append(
@@ -297,15 +350,20 @@ async def _build_trending_now(
         )
     except Exception as exc:
         logger.warning("trending_now section failed: %s", exc)
-        return await _build_trending_fallback(limit)
+        return await _build_trending_fallback(limit, offset, excluded)
 
 
 async def _build_new_arrivals(
     user_id: UUID | None,
     limit: int,
+    offset: int = 0,
+    excluded: set[str] | None = None,
 ) -> FeedSection:
     """Row 3: 新品上市。"""
     try:
+        if excluded is None:
+            excluded = set()
+        reserve = len(excluded)
         async with AsyncSessionLocal() as session:
             stmt = (
                 select(PmsProduct)
@@ -315,15 +373,19 @@ async def _build_new_arrivals(
                     PmsProduct.is_deleted.is_(False),
                 )
                 .order_by(PmsProduct.created_at.desc())
-                .limit(limit)
+                .offset(offset)
+                .limit(limit + reserve)
             )
             result = await session.execute(stmt)
-            products = result.scalars().all()
+            all_products = result.scalars().all()
+
+        # 过滤已排除 ID
+        products = [p for p in all_products if str(p.id) not in excluded][:limit]
 
         return FeedSection(
             section_type=FeedSectionType.NEW_ARRIVALS,
             title="新品上市",
-            sub_title="最新上架，抢先体验",
+            sub_title="最新上架，抢先体验" if offset == 0 else "更多新品",
             products=[
                 FeedProduct(
                     product_id=str(p.id),
@@ -445,8 +507,11 @@ async def _build_search_discovery(
 # ─── Helpers ───
 
 
-async def _build_trending_fallback(limit: int) -> FeedSection:
+async def _build_trending_fallback(limit: int, offset: int = 0, excluded: set[str] | None = None) -> FeedSection:
     """热门推荐降级: 直接查 DB sale_count DESC。"""
+    if excluded is None:
+        excluded = set()
+    reserve = len(excluded)
     async with AsyncSessionLocal() as session:
         stmt = (
             select(PmsProduct)
@@ -456,10 +521,12 @@ async def _build_trending_fallback(limit: int) -> FeedSection:
                 PmsProduct.is_deleted.is_(False),
             )
             .order_by(PmsProduct.sale_count.desc())
-            .limit(limit)
+            .offset(offset)
+            .limit(limit + reserve)
         )
         result = await session.execute(stmt)
-        products = result.scalars().all()
+        all_products = result.scalars().all()
+    products = [p for p in all_products if str(p.id) not in excluded][:limit]
     return FeedSection(
         section_type=FeedSectionType.TRENDING_NOW,
         title="热门推荐",

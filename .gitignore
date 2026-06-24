@@ -75,3 +75,6 @@ celerybeat-schedule
 
 # Local models (Ollama / GGUF)
 local_models/
+
+# Dev data dump archives
+snaptrip_dev_data_*.tar.gz

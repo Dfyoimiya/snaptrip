@@ -306,15 +306,34 @@ const sanitizedDetailHtml = computed(() => {
 // SKU 规格选择逻辑
 // ============================================================
 
+/** 将 spec JSON 统一为扁平对象格式（兼容旧数组格式） */
+function normalizeSpec(spData: string): Record<string, string> {
+  try {
+    const parsed = JSON.parse(spData)
+    // 扁平对象格式: {"颜色":"红色","尺码":"S"}
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, string>
+    }
+    // 旧数组格式: [{"key":"颜色","value":"红色"},{"key":"尺码","value":"S"}]
+    if (Array.isArray(parsed)) {
+      const result: Record<string, string> = {}
+      for (const item of parsed) {
+        if (item.key && item.value !== undefined) {
+          result[String(item.key)] = String(item.value)
+        }
+      }
+      return result
+    }
+    return {}
+  } catch {
+    return {}
+  }
+}
+
 /** 解析 SKU 规格数据 */
 const parsedSkuSpecs = computed(() => {
   return mockProduct.value.skuStockList.map((sku) => {
-    try {
-      const specs = JSON.parse(sku.spData) as Record<string, string>
-      return { sku, specs }
-    } catch {
-      return { sku, specs: {} as Record<string, string> }
-    }
+    return { sku, specs: normalizeSpec(sku.spData) }
   })
 })
 

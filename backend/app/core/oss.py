@@ -9,6 +9,7 @@ Date: 2026-05-26
 from __future__ import annotations
 
 import asyncio
+from datetime import timedelta
 import re
 from typing import Protocol
 
@@ -122,11 +123,27 @@ class MinioOSSClient:
             url = await self._client.presigned_get_object(
                 bucket_name=self._bucket,
                 object_name=object_name,
-                expires=asyncio.timedelta(seconds=expire_seconds),
+                expires=timedelta(seconds=expire_seconds),
             )
             return url
         except Exception as exc:
             logger.warning("oss_presigned_failed", object_name=object_name, error=str(exc))
+            return None
+
+    async def download(self, object_name: str) -> bytes | None:
+        """下载文件内容。"""
+        object_name = self._sanitize_object_name(object_name)
+        await self._ensure_client()
+        assert self._client is not None
+        try:
+            response = await self._client.get_object(
+                bucket_name=self._bucket,
+                object_name=object_name,
+            )
+            data = await response.read()
+            return data
+        except Exception as exc:
+            logger.warning("oss_download_failed", object_name=object_name, error=str(exc))
             return None
 
     async def delete(self, object_name: str) -> bool:

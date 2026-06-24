@@ -52,13 +52,14 @@ class ShoppingGuideSettings(BaseSettings):
     sg_web_search_provider: str = "tavily"  # "tavily" | "brave" | "serpapi" | "none"
     sg_web_search_api_key: str = ""
     sg_web_search_base_url: str = "https://api.tavily.com/search"
+    sg_web_search_engine: str = "baidu"  # serpapi engine: baidu | google | bing
     sg_web_search_max_results: int = 5
     sg_web_search_cache_ttl: int = 3600  # seconds
 
     # ── Search Agent Timeouts ──
-    sg_agent_timeout_web_search: float = 10.0
+    sg_agent_timeout_web_search: float = 15.0
     sg_agent_max_retries_web_search: int = 2
-    sg_agent_timeout_review_search: float = 8.0
+    sg_agent_timeout_review_search: float = 10.0
     sg_agent_max_retries_review_search: int = 2
 
     # ── Review Search ──

@@ -80,15 +80,23 @@ class WebSearchAgent(BaseAgent):
         # 1. Query expansion (optional)
         expanded_queries = await self._expand_query(query, search_context)
 
-        # 2. Execute searches
+        # 2. Execute searches in parallel (was sequential — major latency bottleneck)
         all_items: list[WebSearchItem] = []
         source_api = "none"
 
         if self.search_client:
             source_api = self.search_client.provider_name
-            for eq in expanded_queries:
-                items = await self.search_client.search(eq, max_results=max_results)
-                all_items.extend(items)
+            import asyncio
+            tasks = [
+                self.search_client.search(eq, max_results=max_results)
+                for eq in expanded_queries
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+            for result in results:
+                if isinstance(result, Exception):
+                    logger.warning("web_search: expanded query failed: %s", result)
+                else:
+                    all_items.extend(result)
         else:
             # No web search client configured — graceful degradation
             logger.info("web_search: no search client configured, returning empty")
