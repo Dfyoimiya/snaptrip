@@ -15,7 +15,7 @@ jobs:
     name: Lint (Backend)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v3
       - name: Install deps (workspace)
         run: uv sync --extra dev
@@ -32,7 +32,7 @@ jobs:
     name: Lint (Frontend)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -77,7 +77,7 @@ jobs:
       JWT_SECRET_KEY: ci-test-jwt-secret-key-not-for-prod
       DEEPSEEK_API_KEY: placeholder
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v3
       - name: Install deps (workspace)
         run: uv sync --extra dev
